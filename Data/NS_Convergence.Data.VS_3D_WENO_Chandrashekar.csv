@@ -1,0 +1,24 @@
+,,,
+SSWENO: Roe-dissipation,,,
+Max stable Mach number,,,
+,,,
+ViscousShock: Re=10^6;  ,Chandrashekar,,IsmailRoe
+"Tfinal = 0.30, CFL=0.1,AOA = 37^o",,,
+,,,
+Cube_2D_Testing_016x016x2,3.75,,3.25
+Cube_2D_Testing_NonUniform_032x032x2,,,4
+Cube_2D_Nail_016x016x2_stretch_N_XI_Eta,,,2.75
+,,,
+,,,
+,,,
+Shock Vortex Interaction Re=10^6,,,
+"Tfinal = 0.35, CFL=0.1, AOA = 37^o",,,
+,,,
+Shock_Vortex_Cartesian_Nonuniform_64x32,,,2.25
+Shock_Vortex.3751Hex,,,
+,,,
+Shock Vortex Interaction Re=10^6,,,
+"Tfinal = 0.35, CFL=0.1, AOA = 0",,,
+,,,
+Shock_Vortex_Cartesian_Nonuniform_64x32,,1.25 Blows,2.25
+Shock_Vortex.3751Hex,,,

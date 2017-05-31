@@ -1,0 +1,49 @@
+
+ Start-up file name: SSDCstartup                                                                                                             
+ ===============================================================
+ Reading the start-up file
+ ==========================================================================
+ Polynomial order:            3
+ ===============================================================
+ Over-collocation:            0
+ ===============================================================
+ Master node reads the AFLR3 grid
+ ===============================================================
+ Master node builds connectivity arrays
+   Number of vertices             =          110
+   Number of hexahedrons          =           41
+   Number of boundary faces       =          108
+   Number of vertices per element =            8
+ ==========================================================================
+ Master node calls metis to subdivide the domain
+ ===============================================================
+ Metis is attempting to divide the domain into 4 partitions
+   Returned from metis, 0
+ ===============================================================
+ Master node distributes elements
+ ===============================================================
+ Each process constructs the coordinates of the collocated nodes
+ ===============================================================
+ Each process constructs the metrics
+   Metric error: L_inf      4.0183976224112121E-015
+ ===========================================================
+ Each process finds the partner node of each collocated node
+ ===============================================================
+ Each process finds the WENO partner node of each collocated node
+ ===============================================================
+ Each process initializes PETSc ghost vectors
+ ===============================================================
+ Each process constructs the face-node connectivity
+ ===============================================================
+ Each process constructs the normal vectors
+ ===============================================================
+ Start actual computation
+ ===============================================================
+ P           3
+ L1   error:    4.4396395116866436E-004
+ L2   error:    1.4087875631966272E-003
+ Linf error:    2.4064502231899709E-002
+ CPU time:          3.3761
+
+ Solution files written in solution                                                                                                                
+

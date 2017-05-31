@@ -1,0 +1,6 @@
+sed -i -e 's/#cp   / cp   /g' *Script*
+sed -i -e 's/ diff /#diff /g' *Script*
+./Blaster
+sed -i -e 's/ cp   /#cp   /g' *Script*
+sed -i -e 's/#diff / diff /g' *Script*
+./Blaster

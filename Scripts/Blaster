@@ -1,0 +1,27 @@
+cd ..
+rm Build_Test*
+ln -s ./Scripts/Grids/Build_Test* .
+rm supersonic_vortex_016x004*
+ln -s ./Scripts/Grids/supersonic_vortex_016x004* .
+rm supersonic_vortex_016x004*
+ln -s ./Scripts/Grids/supersonic_vortex_016x004* .
+rm stagnation_cylinder_016x008*
+ln -s ./Scripts/Grids/stagnation_cylinder_016x008* .
+rm shifted_stagnation_cylinder*
+ln -s ./Scripts/Grids/shifted_stagnation_cylinder* .
+cd Scripts
+echo "Euler Supersonic_Vortex_Curved_Elements_GoldenRoe_SSDC"
+./Euler_Script3D_Supersonic_Vortex_Curved_Elements_GoldenRoe_SSDC
+echo "NS_Cylinder_Stagnation_Curved_Elements_GoldenRoe_SSDC"
+./NS_Script3D_Cylinder_Stagnation_Curved_Elements_GoldenRoe_SSDC
+echo "NS_Shifted_Cylinder_Stagnation_Curved_Elements_SSDC"
+./NS_Script3D_Shifted_Cylinder_Curved_Elements_SSDC
+echo "NS Pencil Roe SSDC"
+./NS_Script3D_Convergence_Runner_GoldenRoe  
+echo "NS Pencil RoeLF SSDC"
+./NS_Script3D_Convergence_Runner_GoldenRoeLF
+echo "NS Pencil RoeLF WENO_Element"
+./NS_Script3D_Convergence_Runner_GoldenWENO_Element
+echo "NS Pencil RoeLF WENO_neighbr"
+./NS_Script3D_Convergence_Runner_GoldenWENO_Neighbr
+

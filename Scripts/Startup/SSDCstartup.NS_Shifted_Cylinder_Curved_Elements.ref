@@ -1,0 +1,73 @@
+ &PreProcParameters
+ ndim = 3,
+ npoly = 3, 
+ npoly_DeltaF = 0,
+ casefile = 'shifted_stagnation_cylinder_006x004',
+ grid_format = 'aflr3',
+ viscous = .true.,
+ crossterms = .true.,
+ discretization = 'SSDC',
+ Riemann_Diss  = 'Roe',
+ Entropy_Correction = .false.,
+ WENO_type     = 'Neighbr_WENO',
+ l01 = -0.5,
+ l10 = -0.5,
+ variable_viscosity = .false.,
+ Grid_Topology = 'cylinder',
+ cylinder_x0(1:3) = 2.0,0.0,0.0,
+ cylinder_x1(1:3) = 2.0,0.0,1.0,
+ /
+
+ &GeneralParameters
+ runcasename  = 'ExactSolutionViscousShock',
+ solutionfile = 'ViscousShock',
+ outputfile = 'VS2D.V.4x2.',
+ new = .true.,
+ write_restart = .false.,
+ write_restart_dir = 'test_test',
+ write_restart_common_name = 'restart_p',
+ write_restart_formatted = .true.,
+ write_restart_frequency = 10000,
+ read_restart_dir = 'test_test',
+ read_restart_common_name = 'restart_p',
+ read_restart_time = '1.0000000000000E+02',
+ read_restart_formatted = .true.,
+ /
+
+ &RunParameters
+ timestep    =   .00005000, 
+ timemaximum =  0.10000000,
+ verbose = .false., 
+ variabletimestep = .false., 
+ Dt_by_CFL = .true., 
+ CFL = 0.5,
+ /
+
+ &FlowParameters
+ Re0 = 10,
+ Pr0 = 0.75,
+ Mach0 = 2.5,
+ uniformFreeStreamAOA =  0.0,
+ membranelocation     =  0.5, 
+ referenceWaveSpeed   =  0.25,
+ InitialCondition     = 'ExactSolutionViscousShock',
+ /
+
+ &AerodynamicParameters
+ /
+
+ casefile = 'random_grid_009x009.symmetryPlane',
+ casefile = 'SquareCylinder.65x33x1',
+ casefile = 'SD7003AirfoilSharpTE.V18',
+ casefile = 'cylinder.65x33.new',
+ runcasename  = 'ExactSolutionIsentropicVortex',
+ InitialCondition     = 'ExactSolutionIsentropicVortex',
+ RK_Method = 'IMEX_RK_46',
+ IMEX_element = 'implicit',
+ IMEX_penalty = 'explicit',
+ casefile = 'cube.1x1x1',
+ casefile = 'vs.uns.8x4',
+ casefile = 'vs.uns.4x2',
+ casefile = 'cylinder.49x17'
+ casefile = 'OrthoCube1Blocks',
+ casefile = 'Cube_2D_Extrude_NonUniform_016x016x2',
