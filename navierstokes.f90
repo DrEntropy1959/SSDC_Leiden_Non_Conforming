@@ -737,14 +737,14 @@ contains
     ! variables and the gradients of the entropy variables,
     ! penalized with an LDC/LDG methodology. The use
     ! of entropy variables ensures stability.
-    use nsereferencevariables, only: gm1M2, gm1og, gM2, Re0inv, Pr0
+    use nsereferencevariables, only: Re0inv, Pr0, gm1M2
     
     use controlvariables, only : variable_viscosity
 
     ! Nothing is implicitly defined
     implicit none
     
-    integer, intent(in) :: nq, nd
+    integer,  intent(in) :: nq, nd
     ! contravariant vector
     real(wp), intent(in) :: Jx(3,3)
     ! primitive variables
@@ -769,7 +769,6 @@ contains
 
     continue
 
-    ! Set heat conductivity
     kappa = 1.0_wp
 
     ! Set dynamic viscosity
@@ -1258,6 +1257,8 @@ contains
     return
   end function dUdV
 
+  !============================================================================
+
   pure function dVdU(Vin,neqin)
     ! Checked MHC 08_09_13
     ! this function calculates the jacobian of the
@@ -1294,6 +1295,8 @@ contains
 
     return
   end function dVdU
+
+  !============================================================================
 
   pure function dWdU(Vin,neqin)
     ! Checked 11-1-2013
@@ -1338,11 +1341,13 @@ contains
     return
   end function dWdU
 
+  !============================================================================
+
   function dUdW(Vin,neqin)
     ! this function calculates the jacobian of the
     ! conserved variables with respect to the entropy
     ! variables using the chain rule, du/dw = du/dv*dv/dw.
-    use nsereferencevariables, only: gm1M2, gm1og
+
     implicit none
     ! number of equations
     integer, intent(in) :: neqin
@@ -1358,6 +1363,8 @@ contains
 
     return
   end function dUdW
+
+  !============================================================================
 
   pure function dWdV(Vin,neqin)
     ! Checked MHC 08_09_13
@@ -1397,6 +1404,8 @@ contains
 
     return
   end function dWdV
+
+  !============================================================================
 
   pure function dVdW(Vin,neqin)
     ! Checked MHC 08_09_13
@@ -1439,6 +1448,8 @@ contains
 
     return
   end function dVdW
+
+  !============================================================================
 
   pure subroutine roeavg(VLin,VRin,Vav,nq)
     ! this subroutine calculates the roe average
@@ -1623,9 +1634,11 @@ contains
 
     return
   end subroutine CharacteristicDecomp
+  
+  !============================================================================
 
   subroutine nse_initializesemidiscretization()
-    ! this routine allocates memory for the other variables
+    ! This routine allocates memory for the other variables
     ! in the discretization of space and time.
     use variables
     use referencevariables
@@ -1807,6 +1820,8 @@ contains
 
     return
   end function vorticity
+
+  !============================================================================
 
   subroutine nse_artificialviscosity()
     ! this subroutine is called to update the primitive
@@ -3988,11 +4003,13 @@ contains
     gamI  = 1.0_wp / gamma0
     gm1   = gamma0 - one
     gm1M2 = gm1*Mach0*Mach0
+    gm1M2I= 1.0_wp / gm1M2
 
     gm1og = gm1/gamma0
     gp1og = (gamma0 + one)/gamma0
     gM2   = u0*u0/(Ru/MW0*T0)
     gM2I  = one / gM2
+
 
     ! Where viscous routines are called whether or
     ! not the problem is viscous, we need the viscous

@@ -63,6 +63,6 @@ module nsereferencevariables
   logical :: crossterms = .false.
 
   ! functions of reference variables (often used in nondimensionalization)
-  real(wp) :: gm1, gm1og, gp1og, gm1M2, Msqrtgam, Msqrtgami, gM2, gM2I, gamI, cpT0i
+  real(wp) :: gm1, gm1og, gp1og, gm1M2, Msqrtgam, Msqrtgami, gM2, gM2I, gamI, cpT0i, gm1M2I
 
 end module nsereferencevariables
