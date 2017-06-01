@@ -659,66 +659,7 @@ contains
 
     continue
 
-    ! Initialize normal viscous flux to zero
-    fvl = 0.0_wp
-
-    ! Set heat conductivity
-    kappa = 1.0_wp
-
-    ! Set dynamic viscosity
-    if (variable_viscosity .eqv. .true.) then
-      mu = sutherland_law(vin(5)) + mut
-    else
-      mu = 1.0_wp + mut
-    end if
-
-    ! x1-direction
-    ! momentum
-    fvl(2,1) = mu*vin(5)*( 4.0_wp*(vin(2)*phi(5,1)+phi(2,1)/gm1M2) &
-      - 2.0_wp*( phi(5,2)*vin(3)+phi(5,3)*vin(4) &
-      + (phi(3,2)+phi(4,3))/gm1M2 ) )/3.0_wp
-    fvl(3,1) = mu*vin(5)*(phi(5,1)*vin(3)+phi(5,2)*vin(2) &
-      + (phi(3,1)+phi(2,2))/gm1M2)
-    fvl(4,1) = mu*vin(5)*(phi(5,1)*vin(4)+phi(5,3)*vin(2) &
-      + (phi(4,1)+phi(2,3))/gm1M2)
-    ! energy
-    fvl(5,1) = mu*gm1M2*vin(5)*vin(2)/3.0_wp*( vin(3)*phi(5,2)+vin(4)*phi(5,3) ) &
-      + mu*vin(2)*vin(5)/3.0_wp*( 4.0_wp*phi(2,1)-2.0_wp*(phi(3,2)+phi(4,3)) ) &
-      + mu*vin(5)*( vin(3)*(phi(3,1)+phi(2,2))+vin(4)*(phi(4,1)+phi(2,3)) ) &
-      + ( mu*gm1M2*vin(5)*dot_product(vin(2:4),vin(2:4)) &
-      + mu*gm1M2*vin(5)/3.0_wp*vin(2)*vin(2) + kappa/Pr0*vin(5)*vin(5) )*phi(5,1)
-
-    ! x2-direction
-    ! momentum
-    fvl(2,2) = mu*vin(5)*(phi(5,1)*vin(3)+phi(5,2)*vin(2) &
-      + (phi(3,1)+phi(2,2))/gm1M2)
-    fvl(3,2) = mu*vin(5)*( 4.0_wp*(vin(3)*phi(5,2)+phi(3,2)/gm1M2) &
-      - 2.0_wp*( phi(5,1)*vin(2)+phi(5,3)*vin(4) &
-      + (phi(2,1)+phi(4,3))/gm1M2 ) )/3.0_wp
-    fvl(4,2) = mu*vin(5)*(phi(5,2)*vin(4)+phi(5,3)*vin(3) &
-      + (phi(4,2)+phi(3,3))/gm1M2)
-    ! energy
-    fvl(5,2) = mu*gm1M2*vin(5)*vin(3)/3.0_wp*( vin(2)*phi(5,1)+vin(4)*phi(5,3) ) &
-      + mu*vin(3)*vin(5)/3.0_wp*( 4.0_wp*phi(3,2)-2.0_wp*(phi(2,1)+phi(4,3)) ) &
-      + mu*vin(5)*( vin(2)*(phi(3,1)+phi(2,2))+vin(4)*(phi(4,2)+phi(3,3)) ) &
-      + ( mu*gm1M2*vin(5)*dot_product(vin(2:4),vin(2:4)) &
-      + mu*gm1M2*vin(5)/3.0_wp*vin(3)*vin(3) + kappa/Pr0*vin(5)*vin(5) )*phi(5,2)
-
-    ! x3-direction
-    ! momentum
-    fvl(2,3) = mu*vin(5)*(phi(5,1)*vin(4)+phi(5,3)*vin(2) &
-      + (phi(4,1)+phi(2,3))/gm1M2)
-    fvl(3,3) = mu*vin(5)*(phi(5,2)*vin(4)+phi(5,3)*vin(3) &
-      + (phi(4,2)+phi(3,3))/gm1M2)
-    fvl(4,3) = mu*vin(5)*( 4.0_wp*(vin(4)*phi(5,3)+phi(4,3)/gm1M2) &
-      - 2.0_wp*( phi(5,1)*vin(2)+phi(5,2)*vin(3) &
-      + (phi(2,1)+phi(3,2))/gm1M2 ) )/3.0_wp
-    ! energy
-    fvl(5,3) = mu*gm1M2*vin(5)*vin(4)/3.0_wp*( vin(2)*phi(5,1)+vin(3)*phi(5,2) ) &
-      + mu*vin(4)*vin(5)/3.0_wp*( 4.0_wp*phi(4,3)-2.0_wp*(phi(3,2)+phi(2,1)) ) &
-      + mu*vin(5)*( vin(2)*(phi(4,1)+phi(2,3))+vin(3)*(phi(4,2)+phi(3,3)) ) &
-      + ( mu*gm1M2*vin(5)*dot_product(vin(2:4),vin(2:4)) &
-      + mu*gm1M2*vin(5)/3.0_wp*vin(4)*vin(4) + kappa/Pr0*vin(5)*vin(5) )*phi(5,3)
+    fvl(:,:) = ViscousFlux(vin,phi,nq,mut)
 
     normalviscousflux = 0.0_wp
 
@@ -737,7 +678,7 @@ contains
     ! variables and the gradients of the entropy variables,
     ! penalized with an LDC/LDG methodology. The use
     ! of entropy variables ensures stability.
-    use nsereferencevariables, only: Re0inv, Pr0, gm1M2
+    use nsereferencevariables, only: Re0inv
     
     use controlvariables, only : variable_viscosity
 
@@ -762,14 +703,50 @@ contains
     ! direction index
     integer :: idir, jdir
 
-    ! thermal conductivity (normalized by kappa0)
-    real(wp) :: kappa
+    continue
+
+    fvl(:,:) = ViscousFlux(vin,phi,nq,mut)
+
+    viscousflux3D = 0.0_wp
+
+    do jdir = 1,nd
+      do idir = 1,3
+        viscousflux3D(:,jdir) = viscousflux3D(:,jdir) + Re0inv*fvl(:,idir)*Jx(jdir,idir)
+      end do
+    end do
+
+    return
+  end function viscousflux3D
+
+  !============================================================================
+
+  pure function ViscousFlux(vin,phi,nq,mut)
+
+    use nsereferencevariables, only: gm1M2, Pr0, gm1M2I
+
+    use controlvariables, only : variable_viscosity
+
+    implicit none
+
+    integer,  intent(in) :: nq
+    ! primitive variables
+    real(wp), intent(in) :: vin(nq)
+    ! entropy variable gradients
+    real(wp), intent(in) :: phi(nq,3)
+
+    real(wp), intent(in) :: mut
+
+    real(wp), dimension(nq,3) :: ViscousFlux
+
+    ! thermal conductivity (normalized by kappa0), Kinetic energy and constants
+    real(wp)             :: kappa_Pr0, KE2, t1,t2,t3
+    real(wp)             :: u_phi51,v_phi52,w_phi53
+    real(wp), parameter  :: third = 1.0_wp/3.0_wp
+
     ! dynamic viscosity (normalized by mu0)
     real(wp) :: mu
 
     continue
-
-    kappa = 1.0_wp
 
     ! Set dynamic viscosity
     if (variable_viscosity .eqv. .true.) then
@@ -779,67 +756,52 @@ contains
     end if
 
     ! Initialize viscous flux to zero
-    fvl = 0.0_wp
+    ViscousFlux(:,:) = 0.0_wp
 
-    ! x1-direction
+    u_phi51 = vin(2)*phi(5,1)
+    v_phi52 = vin(3)*phi(5,2)
+    w_phi53 = vin(4)*phi(5,3)
+
+    kappa_Pr0 = 1.0_wp/Pr0
+    KE2       = + vin(2)*vin(2) + vin(3)*vin(3) + vin(4)*vin(4)
+
+    t1 = mu*vin(5)
+    t2 = t1*third
+    t3 = kappa_Pr0*vin(5)*vin(5)
+
     ! momentum
-    fvl(2,1) = mu*vin(5)*( 4.0_wp*(vin(2)*phi(5,1)+phi(2,1)/gm1M2) &
-      - 2.0_wp*( phi(5,2)*vin(3)+phi(5,3)*vin(4) &
-      + (phi(3,2)+phi(4,3))/gm1M2 ) )/3.0_wp
-    fvl(3,1) = mu*vin(5)*(phi(5,1)*vin(3)+phi(5,2)*vin(2) &
-      + (phi(3,1)+phi(2,2))/gm1M2)
-    fvl(4,1) = mu*vin(5)*(phi(5,1)*vin(4)+phi(5,3)*vin(2) &
-      + (phi(4,1)+phi(2,3))/gm1M2)
+    ViscousFlux(2,1) = t2*(4.0_wp*(u_phi51+phi(2,1)*gm1M2I) - 2.0_wp*( v_phi52 + w_phi53 + (phi(3,2)+phi(4,3))*gm1M2I ))
+
+    ViscousFlux(3,2) = t2*(4.0_wp*(v_phi52+phi(3,2)*gm1M2I) - 2.0_wp*( u_phi51 + w_phi53 + (phi(2,1)+phi(4,3))*gm1M2I ))
+
+    ViscousFlux(4,3) = t2*(4.0_wp*(w_phi53+phi(4,3)*gm1M2I) - 2.0_wp*( u_phi51 + v_phi52 + (phi(2,1)+phi(3,2))*gm1M2I ))
+
+    ViscousFlux(2,2) = t1*(phi(5,1)*vin(3)+phi(5,2)*vin(2)+(phi(3,1)+phi(2,2))*gm1M2I)
+    ViscousFlux(2,3) = t1*(phi(5,1)*vin(4)+phi(5,3)*vin(2)+(phi(4,1)+phi(2,3))*gm1M2I)
+    ViscousFlux(3,3) = t1*(phi(5,2)*vin(4)+phi(5,3)*vin(3)+(phi(4,2)+phi(3,3))*gm1M2I)
+
+    ViscousFlux(3,1) = ViscousFlux(2,2)
+    ViscousFlux(4,1) = ViscousFlux(2,3)
+    ViscousFlux(4,2) = ViscousFlux(3,3)
+
     ! energy
-    fvl(5,1) = mu*gm1M2*vin(5)*vin(2)/3.0_wp*( vin(3)*phi(5,2)+vin(4)*phi(5,3) ) &
-      + mu*vin(2)*vin(5)/3.0_wp*( 4.0_wp*phi(2,1)-2.0_wp*(phi(3,2)+phi(4,3)) ) &
-      + mu*vin(5)*( vin(3)*(phi(3,1)+phi(2,2))+vin(4)*(phi(4,1)+phi(2,3)) ) &
-      + ( mu*gm1M2*vin(5)*dot_product(vin(2:4),vin(2:4)) &
-      + mu*gm1M2*vin(5)/3.0_wp*vin(2)*vin(2) + kappa/Pr0*vin(5)*vin(5) )*phi(5,1)
+    ViscousFlux(5,1) = t2*vin(2)*(gm1M2*( v_phi52 + w_phi53 ) &
+      +  4.0_wp*phi(2,1)-2.0_wp*(phi(3,2)+phi(4,3)) ) &
+      + t1*( vin(3)*(phi(3,1)+phi(2,2))+vin(4)*(phi(4,1)+phi(2,3)) ) &
+      + ( t1*gm1M2*(KE2+third*vin(2)*vin(2)) + t3 )*phi(5,1)
 
-    ! x2-direction
-    ! momentum
-    fvl(2,2) = mu*vin(5)*(phi(5,1)*vin(3)+phi(5,2)*vin(2) &
-      + (phi(3,1)+phi(2,2))/gm1M2)
-    fvl(3,2) = mu*vin(5)*( 4.0_wp*(vin(3)*phi(5,2)+phi(3,2)/gm1M2) &
-      - 2.0_wp*( phi(5,1)*vin(2)+phi(5,3)*vin(4) &
-      + (phi(2,1)+phi(4,3))/gm1M2 ) )/3.0_wp
-    fvl(4,2) = mu*vin(5)*(phi(5,2)*vin(4)+phi(5,3)*vin(3) &
-      + (phi(4,2)+phi(3,3))/gm1M2)
-    ! energy
-    fvl(5,2) = mu*gm1M2*vin(5)*vin(3)/3.0_wp*( vin(2)*phi(5,1)+vin(4)*phi(5,3) ) &
-      + mu*vin(3)*vin(5)/3.0_wp*( 4.0_wp*phi(3,2)-2.0_wp*(phi(2,1)+phi(4,3)) ) &
-      + mu*vin(5)*( vin(2)*(phi(3,1)+phi(2,2))+vin(4)*(phi(4,2)+phi(3,3)) ) &
-      + ( mu*gm1M2*vin(5)*dot_product(vin(2:4),vin(2:4)) &
-      + mu*gm1M2*vin(5)/3.0_wp*vin(3)*vin(3) + kappa/Pr0*vin(5)*vin(5) )*phi(5,2)
+    ViscousFlux(5,2) = t2*vin(3)*(gm1M2*( u_phi51 + w_phi53 ) &
+      +  4.0_wp*phi(3,2)-2.0_wp*(phi(2,1)+phi(4,3)) ) &
+      + t1*( vin(2)*(phi(3,1)+phi(2,2))+vin(4)*(phi(4,2)+phi(3,3)) ) &
+      + ( t1*gm1M2*(KE2+third*vin(3)*vin(3)) + t3 )*phi(5,2)
 
-    ! x3-direction
-    ! momentum
-    fvl(2,3) = mu*vin(5)*(phi(5,1)*vin(4)+phi(5,3)*vin(2) &
-      + (phi(4,1)+phi(2,3))/gm1M2)
-    fvl(3,3) = mu*vin(5)*(phi(5,2)*vin(4)+phi(5,3)*vin(3) &
-      + (phi(4,2)+phi(3,3))/gm1M2)
-    fvl(4,3) = mu*vin(5)*( 4.0_wp*(vin(4)*phi(5,3)+phi(4,3)/gm1M2) &
-      - 2.0_wp*( phi(5,1)*vin(2)+phi(5,2)*vin(3) &
-      + (phi(2,1)+phi(3,2))/gm1M2 ) )/3.0_wp
-    ! energy
-    fvl(5,3) = mu*gm1M2*vin(5)*vin(4)/3.0_wp*( vin(2)*phi(5,1)+vin(3)*phi(5,2) ) &
-      + mu*vin(4)*vin(5)/3.0_wp*( 4.0_wp*phi(4,3)-2.0_wp*(phi(3,2)+phi(2,1)) ) &
-      + mu*vin(5)*( vin(2)*(phi(4,1)+phi(2,3))+vin(3)*(phi(4,2)+phi(3,3)) ) &
-      + ( mu*gm1M2*vin(5)*dot_product(vin(2:4),vin(2:4)) &
-      + mu*gm1M2*vin(5)/3.0_wp*vin(4)*vin(4) + kappa/Pr0*vin(5)*vin(5) )*phi(5,3)
+    ViscousFlux(5,3) = t2*vin(4)*(gm1M2*( u_phi51 + v_phi52 ) &
+      + 4.0_wp*phi(4,3)-2.0_wp*(phi(3,2)+phi(2,1)) ) &
+      + t1*( vin(2)*(phi(4,1)+phi(2,3))+vin(3)*(phi(4,2)+phi(3,3)) ) &
+      + ( t1*gm1M2*(KE2+third*vin(4)*vin(4)) + t3 )*phi(5,3)
 
-    viscousflux3D = 0.0_wp
 
-    do jdir = 1,nd
-      do idir = 1,3
-        viscousflux3D(:,jdir) = viscousflux3D(:,jdir) + &
-          Re0inv*fvl(:,idir)*Jx(jdir,idir)
-      end do
-    end do
-
-    return
-  end function viscousflux3D
+  end function ViscousFlux
 
 !===================================================================================================
 
@@ -3147,6 +3109,8 @@ contains
     integer :: i
 
     real(wp), dimension(nequations) :: t1
+    real(wp) :: t9
+
     ! normal vector
 !   real(wp) :: nx(3)
      
@@ -3168,6 +3132,21 @@ contains
             nequations, &
             ndim, &
             mut(inode,ielem))
+
+!       t9 = maxval(abs( &
+!           viscousflux3D( vg(:,inode,ielem), &
+!           phig(:,:,inode,ielem), &
+!           r_x(:,:,inode,ielem), &
+!           nequations, &
+!           ndim, &
+!           mut(inode,ielem)) -  &
+!           viscousflux3D_New( vg(:,inode,ielem), &
+!           phig(:,:,inode,ielem), &
+!           r_x(:,:,inode,ielem), &
+!           nequations, &
+!           ndim, &
+!           mut(inode,ielem)) ) )
+!       if(t9 >= 1.0e-15)write(*,*)t9
       end do
 
       !
@@ -6152,6 +6131,4 @@ contains
 
     end subroutine Calc_Entropy_Viscosity
       
-!============================================================================
-
  end module navierstokes
