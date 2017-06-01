@@ -34,7 +34,7 @@ contains
       & r_x_ghst 
     use referencevariables, only : nequations, nodesperelem, ihelems, nghost, &
       & nghost_elem
-    use navierstokes, only : primitivevariables, entropyvariables
+    use navierstokes, only : conserved_to_primitive, primitive_to_entropy
     use petscvariables, only:  upetsc, ulocpetsc, uelempetsc, uelemlocpetsc, &
       & r_x_petsc,r_x_loc_petsc
     use mpimod, only : UpdateComm1DGhostData, UpdateComm1DElementGhostData, &
@@ -57,8 +57,8 @@ contains
 
         ! Compute primitive and entropy variables of the adjoining elements
         do i = 1, nghost_elem
-          call primitivevariables(uelemghst(:,i),velemghst(:,i),nequations)    
-          call entropyvariables(velemghst(:,i),welemghst(:,i),nequations)    
+          call conserved_to_primitive(uelemghst(:,i),velemghst(:,i),nequations)    
+          call primitive_to_entropy(velemghst(:,i),welemghst(:,i),nequations)    
         enddo
 
         ! Exchange the geometrical data r_x (Jacobian of the transformation)
@@ -1618,7 +1618,7 @@ enddo
     ! Loop over the nodes
     do i_node = 1, nodesperelem
       ! Transform conserved variables to primitive variables
-      call primitivevariables(ug(:,i_node,elem_id),v_i_node(:),nequations)
+      call conserved_to_primitive(ug(:,i_node,elem_id),v_i_node(:),nequations)
 
       ! Contravariant vector at the i_node
       n_div = r_x(dir_div,:,i_node,elem_id)*Jx_r(i_node,elem_id)  
@@ -1731,7 +1731,7 @@ enddo
     use CSRlocalvariables
     use variables, only : ug
     use referencevariables
-    use navierstokes, only : primitivevariables, dwdu, dudv, dvdw
+    use navierstokes, only : conserved_to_primitive, dwdu, dudv, dvdw
 
     ! Nothing is implicitly defined
     implicit none
@@ -1748,7 +1748,7 @@ enddo
     ! Loop over the nodes
     do i_node = 1, nodesperelem
       ! Transform conserved variables to primitive variables
-      call primitivevariables(ug(:,i_node,elem_id),v_i_node(:),nequations)
+      call conserved_to_primitive(ug(:,i_node,elem_id),v_i_node(:),nequations)
 
       ! Jacobi matrix of the i_node
       dwdu_elem(:,:,i_node) = dwdu(v_i_node,nequations)
@@ -1803,7 +1803,7 @@ enddo
     ! Loop over the nodes
     do i_node = 1, nodesperelem
       ! Transform conserved variables to primitive variables
-      call primitivevariables(ug(:,i_node,elem_id),v_i_node(:),nequations)
+      call conserved_to_primitive(ug(:,i_node,elem_id),v_i_node(:),nequations)
 
       ! Contravariant vector at the i_node
       n_div = r_x(dir_div,:,i_node,elem_id)*Jx_r(i_node,elem_id)  
@@ -1841,7 +1841,7 @@ enddo
     ! Load modules
     use CSRlocalvariables
     use variables, only : ug, r_x, Jx_r, grad_w_jacobian
-    use navierstokes, only : primitivevariables
+    use navierstokes, only : conserved_to_primitive
     use referencevariables
 
     ! Nothing is implicitly defined
@@ -1858,7 +1858,7 @@ enddo
     ! Loop over the nodes
     do i_node = 1, nodesperelem
       ! Transform conserved variables to primitive variables
-      call primitivevariables(ug(:,i_node,elem_id),v_i_node(:),nequations)
+      call conserved_to_primitive(ug(:,i_node,elem_id),v_i_node(:),nequations)
 
       ! Contravariant vector at the i_node
       n_div = r_x(dir_div,:,i_node,elem_id)*Jx_r(i_node,elem_id)  
@@ -1883,7 +1883,7 @@ enddo
     ! Load modules
     use CSRlocalvariables
     use variables, only : ug, r_x, Jx_r, grad_w_jacobian
-    use navierstokes, only : primitivevariables
+    use navierstokes, only : conserved_to_primitive
     use referencevariables
 
     ! Nothing is implicitly defined
@@ -1900,7 +1900,7 @@ enddo
     ! Loop over the nodes
     do i_node = 1, nodesperelem
       ! Transform conserved variables to primitive variables
-      call primitivevariables(ug(:,i_node,elem_id),v_i_node(:),nequations)
+      call conserved_to_primitive(ug(:,i_node,elem_id),v_i_node(:),nequations)
 
       ! Contravariant vector at the i_node
       n_div = r_x(dir_div,:,i_node,elem_id)*Jx_r(i_node,elem_id)  
@@ -2441,7 +2441,7 @@ enddo
     use CSRlocalvariables
     use referencevariables
     use nsereferencevariables
-    use navierstokes, only : dWdU, primitivevariables, entropyvariables
+    use navierstokes, only : dWdU, conserved_to_primitive, primitive_to_entropy
     use collocationvariables, only: iagrad,jagrad,dagrad,dmat,pinv,l01
 
     ! Nothing is implicitly defined
@@ -2635,8 +2635,8 @@ enddo
 
           ! Off element contributions
           ! -------------------------
-          call primitivevariables(ughst(:,g_node),v_ghost,nequations)
-          call entropyvariables(v_ghost,w_ghost,nequations)
+          call conserved_to_primitive(ughst(:,g_node),v_ghost,nequations)
+          call primitive_to_entropy(v_ghost,w_ghost,nequations)
 
           ! Compute point-wise gradient
 
@@ -3333,7 +3333,7 @@ enddo
     use referencevariables
     use variables, only : ug, vg
     use collocationvariables, only: pinv
-    use navierstokes, only : primitivevariables
+    use navierstokes, only : conserved_to_primitive
     
     ! Nothing is implicitly defined
     implicit none
@@ -3386,7 +3386,7 @@ enddo
     v_k_node = u_to_v_complex(u_k_node,n_eq)
     w_k_node = v_to_w_complex(v_k_node,n_eq)
 
-    call primitivevariables(u_l,v_l,n_eq)
+    call conserved_to_primitive(u_l,v_l,n_eq)
     
     ! Compute analitically dfn/du
     dfndu = inviscid_flux_jacobian_node(v_l,n_v,n_eq)
@@ -4170,11 +4170,11 @@ enddo
       do comp = 1, nequations
         
         ! compute the boundary state
-        call primitivevariables( ug(:,inode,ielem), &
+        call conserved_to_primitive( ug(:,inode,ielem), &
           vg(:,inode,ielem), &
           nequations ) ! (navierstokes)
 
-        call entropyvariables(vg(:,inode,ielem),wg(:,inode,ielem),nequations)
+        call primitive_to_entropy(vg(:,inode,ielem),wg(:,inode,ielem),nequations)
 
         vstar(:) = vg(:,inode,ielem)
 
@@ -4191,8 +4191,8 @@ enddo
 
         ! ==  Eigen values/vectors
         ! calculate the conserved variables
-        call conservativevariables( vstar, ustar, nequations) ! (navierstokes)
-        call entropyvariables(vstar, wstar, nequations) ! (navierstokes)
+        call primitive_to_conserved( vstar, ustar, nequations) ! (navierstokes)
+        call primitive_to_entropy(vstar, wstar, nequations) ! (navierstokes)
         ! compute the roe average of the solution and boundary states
         call roeavg( vg(:,inode,ielem),&
           vstar, &
@@ -4241,11 +4241,11 @@ enddo
         vg(:,inode,ielem) = 0.0_wp
 
         ! compute the boundary state
-        call primitivevariables( ug(:,inode,ielem), &
+        call conserved_to_primitive( ug(:,inode,ielem), &
           vg(:,inode,ielem), &
           nequations ) ! (navierstokes)
 
-        call entropyvariables(vg(:,inode,ielem),wg(:,inode,ielem),nequations)
+        call primitive_to_entropy(vg(:,inode,ielem),wg(:,inode,ielem),nequations)
 
         vstar = 0.0_wp
         vstar(:) = vg(:,inode,ielem)
@@ -4264,10 +4264,10 @@ enddo
         ! ==  Eigen values/vectors
         ! calculate the conserved variables
         ustar = 0.0_wp
-        call conservativevariables( vstar, ustar, nequations) ! (navierstokes)
+        call primitive_to_conserved( vstar, ustar, nequations) ! (navierstokes)
         
         wstar = 0.0_wp
-        call entropyvariables(vstar, wstar, nequations) ! (navierstokes)
+        call primitive_to_entropy(vstar, wstar, nequations) ! (navierstokes)
         ! compute the roe average of the solution and boundary states
         
         vav = 0.0_wp
@@ -4322,12 +4322,12 @@ enddo
         
         ug(comp,inode,ielem) = u_bk
 
-        call primitivevariables( ug(:,inode,ielem), &
+        call conserved_to_primitive( ug(:,inode,ielem), &
           vg(:,inode,ielem), &
           nequations )
 
 
-        call entropyvariables(vg(:,inode,ielem),wg(:,inode,ielem),nequations)
+        call primitive_to_entropy(vg(:,inode,ielem),wg(:,inode,ielem),nequations)
         
 
       enddo
@@ -4385,11 +4385,11 @@ enddo
         vg(:,inode,ielem) = 0.0_wp
 
         ! compute the boundary state
-        call primitivevariables( ug(:,inode,ielem), &
+        call conserved_to_primitive( ug(:,inode,ielem), &
           vg(:,inode,ielem), &
           nequations ) ! (navierstokes)
 
-        call entropyvariables(vg(:,inode,ielem),wg(:,inode,ielem),nequations)
+        call primitive_to_entropy(vg(:,inode,ielem),wg(:,inode,ielem),nequations)
 
         ! compute the roe average of the solution and boundary states
         vav = 0.0_wp
@@ -4464,12 +4464,12 @@ enddo
         
         ug(comp,inode,ielem) = u_bk
 
-        call primitivevariables( ug(:,inode,ielem), &
+        call conserved_to_primitive( ug(:,inode,ielem), &
           vg(:,inode,ielem), &
           nequations )
 
 
-        call entropyvariables(vg(:,inode,ielem),wg(:,inode,ielem),nequations)
+        call primitive_to_entropy(vg(:,inode,ielem),wg(:,inode,ielem),nequations)
       
 
       enddo

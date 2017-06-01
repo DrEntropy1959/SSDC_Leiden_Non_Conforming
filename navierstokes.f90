@@ -14,17 +14,19 @@ module navierstokes
   private
 
   public dUdV, dVdU, dVdW, dWdV, dWdU, dUdW
-  public primitivevariables
+  public conserved_to_primitive
+  public primitive_to_conserved
+  public primitive_to_entropy
+  public entropy_to_primitive
   public EntropyConsistentFlux
   public CharacteristicDecomp
   public normalflux
-  public conservativevariables
-  public entropyvariables
-  public entropy_to_primitive
   public matrix_hatc_node
   public normalviscousflux
   public roeavg
   public viscousflux3D
+  public isentropicVortexFull
+  public supersonicVortexFull
 ! public viscous_dissipation_2pt
 
 
@@ -44,8 +46,6 @@ module navierstokes
   public compute_vorticity_field_elements
   public compute_specific_entropy_elements
   public nse_reconcilestates
-  public isentropicVortexFull
-  public supersonicVortexFull
   public rhalf
   public compute_explicit_timestep
   public kinetic_energy_element
@@ -152,7 +152,7 @@ contains
     allocate(vg(1:nequations,nodesperelem,iell:ielh))
     vg = 0.0_wp
     
-    ! Entropy variables (see entropyvariables subroutine)
+    ! Entropy variables (see primitive_to_entropy subroutine)
     allocate(wg(1:nequations,nodesperelem,iell:ielh))
     wg = 0.0_wp
     
@@ -211,12 +211,12 @@ contains
             nd = ndim, &
             mut = mut(inode,ielem)) ! (navierstokes)
           ! Calculate conservative variables from primitive variables
-          call conservativevariables( &
+          call primitive_to_conserved( &
             vin = vg(:,inode,ielem), &
             uout = ug(:,inode,ielem), &
             nq = nequations ) ! (navierstokes)
           ! Calculate entropy variables from primitive variables
-          call entropyvariables( &
+          call primitive_to_entropy( &
             vin = vg(:,inode,ielem), &
             wout = wg(:,inode,ielem), &
             nq = nequations ) ! (navierstokes)
@@ -238,12 +238,12 @@ contains
         ! Loop over nodes in each element
         do inode = 1, nodesperelem
           ! Calculate primitive variables from conservative variables
-          call primitivevariables( &
+          call conserved_to_primitive( &
             uin = ug(:,inode,ielem), &
             vout = vg(:,inode,ielem), &
             nq = nequations)
           ! Calculate entropy variables from primitive variables
-          call entropyvariables( &
+          call primitive_to_entropy( &
             vin = vg(:,inode,ielem), &
             wout = wg(:,inode,ielem), &
             nq = nequations )
@@ -345,7 +345,7 @@ contains
   !============================================================================
 
   !============================================================================
-  pure subroutine conservativevariables(vin,uout,nq)
+  pure subroutine primitive_to_conserved(vin,uout,nq)
     ! this routine calculates the conserved variables
     ! (density, momentum, total energy)
     ! from the primitive variables (density, velocity, temperature).
@@ -373,9 +373,9 @@ contains
       + gm1M2*0.5_wp*dot_product(vin(2:4),vin(2:4)) )
 
     return
-  end subroutine conservativevariables
+  end subroutine primitive_to_conserved
 
-  pure subroutine primitivevariables(uin,vout,nq)
+  pure subroutine conserved_to_primitive(uin,vout,nq)
     ! this routine calculates the primitive variables
     ! from the conserved variables
     use nsereferencevariables, only: gm1M2, gm1og
@@ -395,9 +395,9 @@ contains
     vout(5) = ( uin(5)/uin(1) - gm1M2*0.5_wp*dot_product(vout(2:4),vout(2:4)) )/(1.0_wp-gm1og)
 
     return
-  end subroutine primitivevariables
+  end subroutine conserved_to_primitive
 
-  pure function conserved_to_primitive(uin,nq)
+  pure function conserved_to_primitive_F(uin,nq)
 
     use nsereferencevariables, only: gm1og, gm1M2
 
@@ -408,18 +408,18 @@ contains
     real(wp), intent(in) :: uin(nq)
 
     ! output primitive variables
-    real(wp) :: conserved_to_primitive(nq)
+    real(wp) :: conserved_to_primitive_F(nq)
 
     ! density
-    conserved_to_primitive(1) = uin(1)
+    conserved_to_primitive_F(1) = uin(1)
     ! velocity
-    conserved_to_primitive(2:4) = uin(2:4)/uin(1)
+    conserved_to_primitive_F(2:4) = uin(2:4)/uin(1)
     ! temperature
-    conserved_to_primitive(5) = ( uin(5)/uin(1) &
-      - gm1M2*0.5_wp*dot_product(conserved_to_primitive(2:4),conserved_to_primitive(2:4)) )/(1.0_wp-gm1og)
+    conserved_to_primitive_F(5) = ( uin(5)/uin(1) &
+      - gm1M2*0.5_wp*dot_product(conserved_to_primitive_F(2:4),conserved_to_primitive_F(2:4)) )/(1.0_wp-gm1og)
 
     return
-  end function conserved_to_primitive
+  end function conserved_to_primitive_F
 
   pure function conserved_to_entropy(uin,nq)
 
@@ -481,7 +481,7 @@ contains
     return
   end function specificentropy
 
-  pure subroutine entropyvariables(vin,wout,nq)
+  pure subroutine primitive_to_entropy(vin,wout,nq)
     ! this routine calculates the entropy variables corresponding
     ! to the entropy--entropy flux pair (S,F^i) = (-rho*s,-rho*u_i*s)
     ! using the primitive variables.
@@ -503,7 +503,7 @@ contains
     wout(5) = -1.0_wp/vin(5)
 
     return
-  end subroutine entropyvariables
+  end subroutine primitive_to_entropy
 
   pure subroutine KineticEnergyVariables(vin,keout,nq)
     ! this routine calculates the kinetic energy variables corresponding to
@@ -958,8 +958,8 @@ contains
     EntropyConsistentFlux(5) = mdot*vhat(5)
 
 !   !  Check if it satisfies the entropy shuffle   DelW^T f = Delpsi
-!   call entropyvariables(vL,wL,neqin)
-!   call entropyvariables(vR,wR,neqin)
+!   call primitive_to_entropy(vL,wL,neqin)
+!   call primitive_to_entropy(vR,wR,neqin)
 
 !   err = dot_product(wL-wR,EntropyConsistentFlux) - gm1og* (           &
 !                   ((vl(2)-vR(2))*vhat(1) + (vl(1)-vR(1))*vhat(2))*Jx(1) +  &
@@ -1071,22 +1071,22 @@ contains
                                               Entropy_KE_Consistent_Flux(4) * vave(4) )
 
 !   !  Check if it satisfies the entropy shuffle   DelW^T f = Delpsi
-    call entropyvariables(vL,wL,nq)
-    call entropyvariables(vR,wR,nq)
+!   call primitive_to_entropy(vL,wL,nq)
+!   call primitive_to_entropy(vR,wR,nq)
 
-    err = dot_product(wL-wR,Entropy_KE_Consistent_Flux) - gm1og* (           &
-                    ((vl(2)-vR(2))*vave(1) + (vl(1)-vR(1))*vave(2))*Jx(1) +  &
-                    ((vl(3)-vR(3))*vave(1) + (vl(1)-vR(1))*vave(3))*Jx(2) +  &
-                    ((vl(4)-vR(4))*vave(1) + (vl(1)-vR(1))*vave(4))*Jx(3) )
-    if(abs(err) >= 2.0e-05_wp) then
-      write(*,*)'error in Chandreshekar',err
-      write(*,*)'alr, alB',alr,alb
-      write(*,*)'rho in Chandreshekar',vl(1),vr(1)
-      write(*,*)'  u in Chandreshekar',vl(2),vr(2)
-      write(*,*)'  v in Chandreshekar',vl(3),vr(3)
-      write(*,*)'  w in Chandreshekar',vl(4),vr(4)
-      write(*,*)'  T in Chandreshekar',vl(5),vr(5)
-    endif
+!   err = dot_product(wL-wR,Entropy_KE_Consistent_Flux) - gm1og* (           &
+!                   ((vl(2)-vR(2))*vave(1) + (vl(1)-vR(1))*vave(2))*Jx(1) +  &
+!                   ((vl(3)-vR(3))*vave(1) + (vl(1)-vR(1))*vave(3))*Jx(2) +  &
+!                   ((vl(4)-vR(4))*vave(1) + (vl(1)-vR(1))*vave(4))*Jx(3) )
+!   if(abs(err) >= 2.0e-05_wp) then
+!     write(*,*)'error in Chandreshekar',err
+!     write(*,*)'alr, alB',alr,alb
+!     write(*,*)'rho in Chandreshekar',vl(1),vr(1)
+!     write(*,*)'  u in Chandreshekar',vl(2),vr(2)
+!     write(*,*)'  v in Chandreshekar',vl(3),vr(3)
+!     write(*,*)'  w in Chandreshekar',vl(4),vr(4)
+!     write(*,*)'  T in Chandreshekar',vl(5),vr(5)
+!   endif
 
     return
   end function Entropy_KE_Consistent_Flux
@@ -1937,11 +1937,11 @@ contains
       ! loop over every node in element
       do inode = 1,nodesperelem
         ! compute primitive variables
-        call primitivevariables( ug(:,inode,ielem), &
+        call conserved_to_primitive( ug(:,inode,ielem), &
           vg(:,inode,ielem), &
           nequations ) ! (navierstokes)
         ! compute entropy variables
-        call entropyvariables( vg(:,inode,ielem), &
+        call primitive_to_entropy( vg(:,inode,ielem), &
           wg(:,inode,ielem), &
           nequations ) ! (navierstokes)
       end do
@@ -2033,8 +2033,8 @@ contains
               ! outward facing normal of facial node
               nx = facenodenormal(:,jnode,ielem)
 
-              call primitivevariables(ughst(:,gnode),dphi,nequations)
-              call entropyvariables(dphi,wtmp,nequations)
+              call conserved_to_primitive(ughst(:,gnode),dphi,nequations)
+              call primitive_to_entropy(dphi,wtmp,nequations)
 
               ! LDC/LDG penalty value
               l10_ldg_flip_flop = l10*(1.0_wp + ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
@@ -2390,7 +2390,7 @@ contains
         ! Compute the exact solution
         call InitialSubroutine( &
           vex,phig(:,:,inode,ielem),ftmp,ctmp,xg(:,inode,ielem),tin,nequations,ndim,mut(inode,ielem))
-        call conservativevariables(vex,uex,nequations)
+        call primitive_to_conserved(vex,uex,nequations)
         uex = uex - ug(:,inode,ielem)
         ! calculate the local error
         vex = vex - vg(:,inode,ielem)
@@ -3391,7 +3391,7 @@ contains
             nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
 
             ! Compute the boundary state
-            call primitivevariables( ug(:,inode,ielem), vg(:,inode,ielem), nequations ) ! (navierstokes)
+            call conserved_to_primitive( ug(:,inode,ielem), vg(:,inode,ielem), nequations ) ! (navierstokes)
 
             vstar(:) = vg(:,inode,ielem)
             phistar = phig(:,:,inode,ielem)
@@ -3399,8 +3399,8 @@ contains
             call BoundaryCondition(vstar,phistar,fnV,nx,xg(:,inode,ielem),tin, &
               & nequations,ndim,mut(inode,ielem))
 
-            call conservativevariables( vstar, ustar, nequations) 
-            call entropyvariables(vstar, wstar, nequations) 
+            call primitive_to_conserved( vstar, ustar, nequations) 
+            call primitive_to_entropy(vstar, wstar, nequations) 
 
             ! ==  Eigen values/vectors
             call roeavg( vg(:,inode,ielem), vstar, Vav, nequations )         
@@ -3444,9 +3444,9 @@ contains
             ! IP penalty matrix
             matrix_ip = 0.5_wp*(hatc_side_1 + hatc_side_2)*pinv(1)
 
-            call entropyvariables(vg(:,inode,ielem),w_side_1,nequations)
+            call primitive_to_entropy(vg(:,inode,ielem),w_side_1,nequations)
               
-            call entropyvariables(vstar,w_side_2,nequations)
+            call primitive_to_entropy(vstar,w_side_2,nequations)
 
             ! Add the LDG and IP terms to the penalty
             !l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
@@ -3493,8 +3493,8 @@ contains
 
             ! Compute the entropy variables in the ghost node for imposing the
             ! nonpenetration condition
-            call conservativevariables( vstar, ustar, nequations) 
-            call entropyvariables(vstar,wstar,nequations) 
+            call primitive_to_conserved( vstar, ustar, nequations) 
+            call primitive_to_entropy(vstar,wstar,nequations) 
 
             ! Compute the roe average state of the primitive variables
             call roeavg(vg(:,inode,ielem),vstar,vav,nequations)
@@ -3528,7 +3528,7 @@ contains
             prim_ghost_adiabatic(5) = vg(5,inode,ielem)
 
             ! Compute the entropy variables in the ghost node for imposing the no-slip isothermal wall BC
-            call entropyvariables(prim_ghost_adiabatic,entr_ghost_adiabatic,nequations)
+            call primitive_to_entropy(prim_ghost_adiabatic,entr_ghost_adiabatic,nequations)
 
             fstarV = normalviscousflux( vg(:,inode,ielem), phig(:,:,inode,ielem), nx, nequations,mut(inode,ielem)) 
 
@@ -3583,7 +3583,7 @@ contains
             ! IP penalty matrix
             matrix_ip = hatc_side_2!*pinv(1)
 
-            call entropyvariables(vg(:,inode,ielem),w_side_1,nequations)
+            call primitive_to_entropy(vg(:,inode,ielem),w_side_1,nequations)
               
             ! Compute the penalty term
             gsat(:,inode,ielem) = gsat(:,inode,ielem) &
@@ -3620,8 +3620,8 @@ contains
           ustar   = ughst(:,gnode)
           phistar = phighst(:,:,gnode)
           
-          call primitivevariables(ustar, vstar, nequations)
-          call entropyvariables  (vstar, wstar, nequations)
+          call conserved_to_primitive(ustar, vstar, nequations)
+          call primitive_to_entropy  (vstar, wstar, nequations)
 
 ! ==  Eigen values/vectors
           call roeavg( vg(:,inode,ielem), vstar, Vav, nequations )        
@@ -3692,9 +3692,9 @@ contains
           ! IP penalty matrix
           matrix_ip = 0.5_wp*(hatc_side_1 + hatc_side_2)*pinv(1)
 
-          call entropyvariables(vg(:,inode,ielem),w_side_1,nequations)
+          call primitive_to_entropy(vg(:,inode,ielem),w_side_1,nequations)
           
-          call entropyvariables(vstar,w_side_2,nequations)
+          call primitive_to_entropy(vstar,w_side_2,nequations)
 
           ! Add the LDG and IP terms to the penalty
           l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
@@ -3800,9 +3800,9 @@ contains
           ! IP penalty matrix
           matrix_ip = 0.5_wp*(hatc_side_1 + hatc_side_2)*pinv(1)
 
-          call entropyvariables(vg(:,inode,ielem),w_side_1,nequations)
+          call primitive_to_entropy(vg(:,inode,ielem),w_side_1,nequations)
             
-          call entropyvariables(vg(:,knode,kelem),w_side_2,nequations)
+          call primitive_to_entropy(vg(:,knode,kelem),w_side_2,nequations)
 
           ! Add the LDG and IP terms to the penalty
           l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
@@ -4635,7 +4635,7 @@ contains
       do i_node = 1, nodesperelem
 
         ! Calculate primitive variables from conservative variables
-        call primitivevariables( &
+        call conserved_to_primitive( &
           uin = ug(:,i_node,i_elem), &
           vout = vg(:,i_node,i_elem), &
           nq = nequations)
@@ -4677,7 +4677,7 @@ contains
       do i_node = 1, nodesperelem
             
         ! Calculate entropy variables from primitive variables
-        call entropyvariables( &
+        call primitive_to_entropy( &
         vin = vg(:,i_node,i_elem), &
         wout = wg(:,i_node,i_elem), &
         nq = nequations )
@@ -4856,7 +4856,7 @@ contains
           fgF(:,:) = zero
           do i = 1,N_Flux_Pts
 
-            call primitivevariables(ugF(:,i),vgF(:,i),nequations)
+            call conserved_to_primitive(ugF(:,i),vgF(:,i),nequations)
 
             fgF(:,i) = normalflux( vgF(:,i), JnF(:,i), nequations )
 
@@ -5054,7 +5054,7 @@ contains
               ! update gradient using coefficient and entropy variables at appropriate node
               JnS(:) = Jx_r(jnode,ielem)*r_x(jdir,:,jnode,ielem)
               ugS(:) =  ug(:,jnode,ielem)
-              call primitivevariables(ugS(:),vgS(:),nequations)
+              call conserved_to_primitive(ugS(:),vgS(:),nequations)
               divf_S(jdir,inode,ielem) = divf_S(jdir,inode,ielem) + dagrad(jdir,i) * normal_Entropy_flux(vgS(:),JnS(:),nequations)
             end do
           end do
@@ -5093,7 +5093,7 @@ contains
 
     !  Rotate pencil from conserved variables to primitive variables
     do i=1,N_F
-      !call primitivevariables(ugF(:,i),vgF(:,i),N_q)
+      !call conserved_to_primitive(ugF(:,i),vgF(:,i),N_q)
       call entropy_to_primitive(wgF(:,i),vgF(:,i),N_q)
     enddo
 
@@ -5209,8 +5209,8 @@ contains
 
     !  Rotate pencil from conserved variables to primitive variables
     do i=1,N_F
-      call primitivevariables(ugF(:,i),vgF(:,i),N_q)
-      call entropyvariables  (vgF(:,i),wgF(:,i),N_q)
+      call conserved_to_primitive(ugF(:,i),vgF(:,i),N_q)
+      call primitive_to_entropy  (vgF(:,i),wgF(:,i),N_q)
     enddo
 
     !  Form Entropy Fluxes 0:N_F
@@ -5717,8 +5717,8 @@ contains
           uin(1:nq,1)   = uLL(1:nq)
           uin(1:nq,2)   =  uL(1:nq)
           uin(1:nq,3:6) = uint(1:nq,1:4)
-          call primitivevariables(uin(:,3),vL(:),nq)   !  primitives
-          call primitivevariables(uin(:,4),vR(:),nq)   !  primitives
+          call conserved_to_primitive(uin(:,3),vL(:),nq)   !  primitives
+          call conserved_to_primitive(uin(:,4),vR(:),nq)   !  primitives
           call roeavg(vL, vR, Vav, nq)   
 
           nin(:,1)   = nLL(:)
@@ -5731,8 +5731,8 @@ contains
           uin(1:nq,1:4) = uint(1:nq,1:4)
           uin(1:nq,5)   = uR(1:nq)
           uin(1:nq,6)   = uRR(1:nq)
-          call primitivevariables(uin(:,3),vL(:),nq)   !  primitives
-          call primitivevariables(uin(:,4),vR(:),nq)   !  primitives
+          call conserved_to_primitive(uin(:,3),vL(:),nq)   !  primitives
+          call conserved_to_primitive(uin(:,4),vR(:),nq)   !  primitives
           call roeavg(vL, vR, Vav, nq)   
 
           nin(:,1:4) = nxint(:,1:4)
@@ -5744,8 +5744,8 @@ contains
         else
           uin(1:nq,1:4) = uint(1:nq,1:4)
           uin(1:nq,5:6) = zero
-          call primitivevariables(uin(:,i  ),vL(:),nq)   !  primitives
-          call primitivevariables(uin(:,i+1),vR(:),nq)   !  primitives
+          call conserved_to_primitive(uin(:,i  ),vL(:),nq)   !  primitives
+          call conserved_to_primitive(uin(:,i+1),vR(:),nq)   !  primitives
           call roeavg(vL, vR, Vav, nq)   
 
           nin(:,1:4) = nxint(:,1:4)
@@ -5757,7 +5757,7 @@ contains
         
         uhat(:) = 0.0_wp ; metr(:) = 0.0_wp ; cav2(:) = 0.0_wp ;
         do j = 1,6
-          call primitivevariables(uin(:,j),vin(:,j),nq)    ! primitives
+          call conserved_to_primitive(uin(:,j),vin(:,j),nq)    ! primitives
 
           uhat(j)  =  abs(dot_product(vin(2:4,j),nin(:,j)))! normal velocity  |u.n|
           metr(j)  = sqrt(dot_product(nin( : ,j),nin(:,j)))! computational coordinate scaling
@@ -5961,14 +5961,14 @@ contains
 
       end do
 
-      call primitivevariables(uint(:,1),vL(:),nq)   !  primitives
-      call primitivevariables(uint(:,4),vR(:),nq)   !  primitives
+      call conserved_to_primitive(uint(:,1),vL(:),nq)   !  primitives
+      call conserved_to_primitive(uint(:,4),vR(:),nq)   !  primitives
       fbarW(:,  0) = normalflux(vL(:),nxint(:,1),nq)
       fbarW(:,ixd) = normalflux(vR(:),nxint(:,4),nq)
 
       do i=1,ixd
-        call primitivevariables    (uint(:,i),vint(:,i),nq)
-        call entropyvariables      (vint(:,i),wint(:,i),nq)
+        call conserved_to_primitive    (uint(:,i),vint(:,i),nq)
+        call primitive_to_entropy      (vint(:,i),wint(:,i),nq)
 !       call KineticEnergyVariables(vint(:,i),Kint(:,i),nq)
       enddo
 

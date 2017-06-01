@@ -3131,6 +3131,7 @@ contains
             if(t1 >= tol) write(*,*)'dqdw dw - dq', t1
             t1 = maxval(abs(matmul(dWdU(vav,neq),ug_On (:)-ug_Off(:)) - (wg_On (:) - wg_Off(:))))
             if(t1 >= tol) write(*,*)'dWdq dq - dw', t1
+
           endif
 
           return

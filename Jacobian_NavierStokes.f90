@@ -59,7 +59,7 @@ contains
           do i = 1,nequations
             eye(i,i) = 1.0_wp
           enddo
-          call primitivevariables(ug(:,inode,ielem),vin(:),nequations)
+          call conserved_to_primitive(ug(:,inode,ielem),vin(:),nequations)
           t1 = 0.0_wp
           t1 = t1 + abs(eye(:,:) - matmul(dUdV(vin,nequations),dVdU(vin,nequations)))
           t1 = t1 + abs(eye(:,:) - matmul(dWdV(vin,nequations),dVdW(vin,nequations)))
@@ -107,7 +107,7 @@ contains
           j_node = ja_x1(n) - (ielem-iell)*nodesperelem
 
           ! Transform conserved variables to primitive variables
-          call primitivevariables(ug(:,j_node,ielem),vin(:),nequations)
+          call conserved_to_primitive(ug(:,j_node,ielem),vin(:),nequations)
 
           ! Contravariant vector
           n_div = r_x(1,:,j_node,ielem)*Jx_r(j_node,ielem)  
@@ -142,7 +142,7 @@ contains
           j_node = ja_x2(n) - (ielem-iell)*nodesperelem
 
           ! Transform conserved variables to primitive variables
-          call primitivevariables(ug(:,j_node,ielem),vin(:),nequations)
+          call conserved_to_primitive(ug(:,j_node,ielem),vin(:),nequations)
 
           ! Contravariant vector
           n_div = r_x(2,:,j_node,ielem)*Jx_r(j_node,ielem) 
@@ -177,7 +177,7 @@ contains
             j_node = ja_x3(n) - (ielem-iell)*nodesperelem
 
             ! Transform conserved variables to primitive variables
-            call primitivevariables(ug(:,j_node,ielem),vin(:),nequations)
+            call conserved_to_primitive(ug(:,j_node,ielem),vin(:),nequations)
   
             ! Contravariant vector
             n_div = r_x(3,:,j_node,ielem)*Jx_r(j_node,ielem) 
@@ -251,7 +251,7 @@ contains
         ! Loop over every node in element
         do inode = 1,nodesperelem
           ! compute primitive variables
-          call primitivevariables(ug(:,inode,ielem),vin(:),nequations) ! (navierstokes)
+          call conserved_to_primitive(ug(:,inode,ielem),vin(:),nequations) ! (navierstokes)
 
           ! Compute gradient of the velocity components
           !
@@ -300,7 +300,7 @@ contains
             j_node = ja_x1(n) - (ielem-iell)*nodesperelem
 
             ! Transform conserved variables to primitive variables
-            call primitivevariables(ug(:,j_node,ielem),vin(:),nequations)
+            call conserved_to_primitive(ug(:,j_node,ielem),vin(:),nequations)
 
             ! Contravariant vector
             n_div = r_x(1,:,j_node,ielem)*Jx_r(j_node,ielem)  
@@ -328,7 +328,7 @@ contains
             j_node = ja_x2(n) - (ielem-iell)*nodesperelem
 
             ! Transform conserved variables to primitive variables
-            call primitivevariables(ug(:,j_node,ielem),vin(:),nequations)
+            call conserved_to_primitive(ug(:,j_node,ielem),vin(:),nequations)
 
             ! Contravariant vector
             n_div = r_x(2,:,j_node,ielem)*Jx_r(j_node,ielem) 
@@ -359,7 +359,7 @@ contains
               j_node = ja_x3(n) - (ielem-iell)*nodesperelem
 
               ! Transform conserved variables to primitive variables
-              call primitivevariables(ug(:,j_node,ielem),vin(:),nequations)
+              call conserved_to_primitive(ug(:,j_node,ielem),vin(:),nequations)
   
               ! Contravariant vector
               n_div = r_x(3,:,j_node,ielem)*Jx_r(j_node,ielem) 
@@ -436,7 +436,7 @@ contains
               ! Pseudo-loop over the j_node
               ! ===========================
               j_node_help = ja_x1(n_help) - (ielem-iell)*nodesperelem 
-              call primitivevariables(ug(:,j_node_help,ielem),vin(:),nequations) 
+              call conserved_to_primitive(ug(:,j_node_help,ielem),vin(:),nequations) 
               ! First contravariant vectors multiplied by the determinat of the
               ! Jacobi matrix evaluated at the j_node. The determinant of the 
               ! Jacobi matrix has to be added according to the Flux_Divergence in
@@ -451,7 +451,7 @@ contains
               n_grad = r_x(1,:,k_node,ielem)
 
               ! Accumulation of terms
-              call primitivevariables(ug(:,k_node,ielem),vk(:),nequations)
+              call conserved_to_primitive(ug(:,k_node,ielem),vk(:),nequations)
               
               !a_loc = a_loc + matmul(Vis_Jac_Contrib_2_Wvar(vin,n_div,n_grad,nequations),dWdU(vk,nequations)) * a_x1_transpose(k)
               !a_loc = a_loc + Vis_Jac_Contrib_2_Wvar(vin,n_div,n_grad,nequations) * a_x1_transpose(k)
@@ -555,7 +555,7 @@ contains
               write(*,*) 'inode, j_node, k,k_node',inode, j_node,k_node
               
               ! Transform conserved variables to primitive variables
-              call primitivevariables(ug(:,j_node,ielem),vin(:),nequations)
+              call conserved_to_primitive(ug(:,j_node,ielem),vin(:),nequations)
 
               ! Contravariant vectors
               n_div  = r_x(2,:,j_node,ielem)*Jx_r(j_node,ielem)
@@ -597,7 +597,7 @@ contains
                 k_node = ja_x3_transpose(k) - (ielem-iell)*nodesperelem 
 
                 ! Transform conserved variables to primitive variables
-                call primitivevariables(ug(:,k_node,ielem),vin(:),nequations)
+                call conserved_to_primitive(ug(:,k_node,ielem),vin(:),nequations)
 
                 ! Contravariant vectors
                 n_div  = r_x(3,:,j_node,ielem)*Jx_r(j_node,ielem)
@@ -643,7 +643,7 @@ contains
                 k_node = ja_x2_transpose(k) - (ielem-iell)*nodesperelem 
 
                 ! Transform conserved variables to primitive variables
-                call primitivevariables(ug(:,k_node,ielem),vin(:),nequations)
+                call conserved_to_primitive(ug(:,k_node,ielem),vin(:),nequations)
 
                 ! Contravariant vectors
                 n_div  = r_x(1,:,j_node,ielem)*Jx_r(j_node,ielem)
@@ -676,7 +676,7 @@ contains
                 k_node = ja_x1_transpose(k) - (ielem-iell)*nodesperelem 
 
                 ! Transform conserved variables to primitive variables
-                call primitivevariables(ug(:,k_node,ielem),vin(:),nequations)
+                call conserved_to_primitive(ug(:,k_node,ielem),vin(:),nequations)
 
                 ! Contravariant vectors
                 n_div  = r_x(2,:,j_node,ielem)*Jx_r(j_node,ielem)
@@ -715,7 +715,7 @@ contains
                   k_node = ja_x3_transpose(k) - (ielem-iell)*nodesperelem 
 
                   ! Transform conserved variables to primitive variables
-                  call primitivevariables(ug(:,k_node,ielem),vin(:),nequations)
+                  call conserved_to_primitive(ug(:,k_node,ielem),vin(:),nequations)
 
                   ! Contravariant vectors
                   n_div  = r_x(1,:,j_node,ielem)*Jx_r(j_node,ielem)
@@ -749,7 +749,7 @@ contains
                   k_node = ja_x3_transpose(k) - (ielem-iell)*nodesperelem 
 
                   ! Transform conserved variables to primitive variables
-                  call primitivevariables(ug(:,k_node,ielem),vin(:),nequations)
+                  call conserved_to_primitive(ug(:,k_node,ielem),vin(:),nequations)
 
                   ! Contravariant vectors
                   n_div  = r_x(2,:,j_node,ielem)*Jx_r(j_node,ielem)
@@ -783,7 +783,7 @@ contains
                   k_node = ja_x1_transpose(k) - (ielem-iell)*nodesperelem 
 
                   ! Transform conserved variables to primitive variables
-                  call primitivevariables(ug(:,k_node,ielem),vin(:),nequations)
+                  call conserved_to_primitive(ug(:,k_node,ielem),vin(:),nequations)
 
                   ! Contravariant vectors
                   n_div  = r_x(3,:,j_node,ielem)*Jx_r(j_node,ielem)
@@ -817,7 +817,7 @@ contains
                   k_node = ja_x2_transpose(k) - (ielem-iell)*nodesperelem 
 
                   ! Transform conserved variables to primitive variables
-                  call primitivevariables(ug(:,k_node,ielem),vin(:),nequations)
+                  call conserved_to_primitive(ug(:,k_node,ielem),vin(:),nequations)
 
                   ! Contravariant vectors
                   n_div  = r_x(3,:,j_node,ielem)*Jx_r(j_node,ielem)

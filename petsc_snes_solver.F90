@@ -938,7 +938,7 @@ contains
 
       ! Compute dfdu_a_elem times u_elem
       do i_node =1, nodesperelem
-        call primitivevariables(ug(:,i_node,elem_id),v_i_node(:),nequations)
+        call conserved_to_primitive(ug(:,i_node,elem_id),v_i_node(:),nequations)
 
         sol_node = wg(:,i_node,elem_id)
 
