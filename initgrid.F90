@@ -755,8 +755,8 @@ contains
     real(wp), dimension(3)  :: x00,x01
 
     integer,  dimension(6)  :: curved_faces
-    
-   
+
+
     ! nE is simply for convenience of presentation in the coding
     nE = nodesperedge
     ! number of nodes in each element
@@ -859,6 +859,29 @@ contains
           xl(:,nE, 1, :) = curved_connector_cylinder(nE,x00,x01,xl(:,nE, 1, 1),xl(:,nE, 1,nE),xi) ! xi_1 = 1, xi_2 = 0
         end if
 
+        case ('parabola')
+
+        xi(:) = 0.5_wp*(rcollocation(:)+1.0_wp)    ! distance in computational space
+
+        if (ndim > 0) then
+          xl(:, :, 1, 1) = curved_connector_parabola(nE,xl(:, 1, 1, 1),xl(:,nE, 1, 1),xi) ! xi_2 = 0, xi_3 = 0
+        end if
+        if (ndim > 1) then
+          xl(:, :,nE, 1) = curved_connector_parabola(nE,xl(:, 1,nE, 1),xl(:,nE,nE, 1),xi) ! xi_2 = 1, xi_3 = 0
+          xl(:, 1, :, 1) = curved_connector_parabola(nE,xl(:, 1, 1, 1),xl(:, 1,nE, 1),xi) ! xi_1 = 0, xi_3 = 0
+          xl(:,nE, :, 1) = curved_connector_parabola(nE,xl(:,nE, 1, 1),xl(:,nE,nE, 1),xi) ! xi_1 = 1, xi_3 = 0
+        end if
+        if (ndim > 2) then
+          xl(:, :, 1,nE) = curved_connector_parabola(nE,xl(:, 1, 1,nE),xl(:,nE, 1,nE),xi) ! xi_2 = 0, xi_3 = 1
+          xl(:, :,nE,nE) = curved_connector_parabola(nE,xl(:, 1,nE,nE),xl(:,nE,nE,nE),xi) ! xi_2 = 1, xi_3 = 1
+          xl(:, 1, :,nE) = curved_connector_parabola(nE,xl(:, 1, 1,nE),xl(:, 1,nE,nE),xi) ! xi_1 = 0, xi_3 = 1
+          xl(:,nE, :,nE) = curved_connector_parabola(nE,xl(:,nE, 1,nE),xl(:,nE,nE,nE),xi) ! xi_1 = 1, xi_3 = 1
+          xl(:, 1, 1, :) = curved_connector_parabola(nE,xl(:, 1, 1, 1),xl(:, 1, 1,nE),xi) ! xi_1 = 0, xi_2 = 0
+          xl(:, 1,nE, :) = curved_connector_parabola(nE,xl(:, 1,nE, 1),xl(:, 1,nE,nE),xi) ! xi_1 = 0, xi_2 = 1
+          xl(:,nE,nE, :) = curved_connector_parabola(nE,xl(:,nE,nE, 1),xl(:,nE,nE,nE),xi) ! xi_1 = 1, xi_2 = 1
+          xl(:,nE, 1, :) = curved_connector_parabola(nE,xl(:,nE, 1, 1),xl(:,nE, 1,nE),xi) ! xi_1 = 1, xi_2 = 0
+        end if
+
       end select
 
       ! build faces
@@ -895,6 +918,7 @@ contains
       end do
     end do
     deallocate(xl)
+
 
   end subroutine calcnodes
 
@@ -1104,7 +1128,7 @@ contains
   end subroutine facenodesetupWENO
 
   !============================================================================
-  
+
   !============================================================================
   ! calculate_face_node_connectivity - Sets the face-node connectivity for the
   ! collocation points.
@@ -1925,7 +1949,7 @@ contains
         end if ! End if type of face (boundary, off processor or on processor)
       
       end do ! End do loop over faces of the element
-    
+
     end do ! End do loop elements owned by the processor
 
     return
@@ -2281,7 +2305,7 @@ contains
       do inode = 1,nodesperelem
         dx_min_elem(ielem) = dx_min_elem(ielem) + pvol(inode)*Jx_r(inode,ielem)
       end do
-      
+
       dx_min_elem(ielem) = dx_min_elem(ielem)**(0.333333333333333333333333_wp)
 
     end do elloop
@@ -2320,8 +2344,7 @@ contains
     return
   end subroutine calcmetrics
 
-  !============================================================================
-  
+
   !============================================================================
   ! e2e_connectivity_aflr3 - Constructs the element-to-element connectivity
   ! starting from the information read from the AFLR3 grid.
@@ -4378,7 +4401,7 @@ contains
 
     ! Nothing is implicitly defined
     implicit none
-  
+
     integer, intent(in) :: dir
     integer, dimension(2) :: face_pairs
 
@@ -4778,7 +4801,7 @@ contains
         do i = 1,4
             iaBv2Bv(stack(i+0)) = iaBv2Bv(stack(i+0)) + 1
             iaBv2Bv(stack(i+1)) = iaBv2Bv(stack(i+1)) + 1
-  
+
             jaBv2Bv(stack(i+0),iaBv2Bv(stack(i+0))) = stack(i+1)
             jaBv2Bv(stack(i+1),iaBv2Bv(stack(i+1))) = stack(i+0)
         end do
@@ -4789,9 +4812,9 @@ contains
       write(*,*)'connected to vertices'
       do jV = 1,nvertices
          if(iaBv2Bv(jV) == 0) cycle
-  
+
          call remove_duplicates(iaBv2Bv(jV),jaBv2Bv(jV,:),icnt0,wrk_vec0)
-       
+
          iaBv2Bv(jV) = icnt0
          jaBv2Bv(jV,1:icnt0) = wrk_vec0(1:icnt0)
 !        write(*,*)jV,(jaBv2Bv(jV,L),L=1,iaBv2Bv(jV))
@@ -5055,8 +5078,108 @@ contains
 
     endif
 
-        
+
   end function curved_connector_cylinder
+
+!=======================================================================================
+
+  function curved_connector_parabola(nE,x0_vec,x1_vec,xLGL)
+
+    use referencevariables, only: ndim
+
+    implicit none
+    integer,                   intent(in) :: nE
+    real(wp), dimension(ndim), intent(in) :: x0_vec,x1_vec
+    real(wp), dimension(nE),   intent(in) :: xLGL
+
+    real(wp), parameter                   :: tol_r = 1.0e-06_wp
+
+    real(wp), dimension(ndim)             :: xm_vec, dx_vec
+    real(wp)                              :: delta, dydx, dxdy
+
+    real(wp), parameter                   :: amp = 0.1_wp
+
+    real(wp), dimension(ndim,nE)          :: curved_connector_parabola
+
+    real(wp)                              :: aa,bb,cc,de
+    real(wp)                              :: x0,xm,xp,x1
+    real(wp)                              :: y0,ym,yp,y1
+    real(wp)                              :: z0,zm,zp,z1
+
+    integer                               :: i
+
+    !  Eqn for parabola x = - a t^2  ; y = 2*a*t
+
+    !  Four cases can occur
+    !  1)  x0(1) /= x1(1) .and. x0(2) == x1(2) .and. x0(3) == x1(3)   :  Linear
+    !  2)  x0(1) == x1(1) .and. x0(2) /= x1(2) .and. x0(3) == x1(3)   :  Linear
+    !  3)  x0(1) == x1(1) .and. x0(2) == x1(2) .and. x0(3) /= x1(3)   :  Linear
+    !  4)  x0(1) /= x1(1) .and. x0(2) /= x1(2) .and. x0(3) == x1(3)   :
+    !  Parabola
+
+    xm_vec(:) = 0.5_wp * (x0_vec(:) + x1_vec(:))
+
+    x0 = x0_vec(1); y0 = x0_vec(2); z0 = x0_vec(3)
+    x1 = x1_vec(1); y1 = x1_vec(2); z1 = x1_vec(3)
+    xm = xm_vec(1); ym = xm_vec(2); zm = xm_vec(3)
+
+    if( (abs(x1 - x0) >= tol_r) .and.  &
+        (abs(y1 - y0) >= tol_r) .and.  &
+        (abs(z1 - z0) <= tol_r) ) then
+
+      delta   = magnitude(x0_vec(:) - x1_vec(:))
+
+      dydx    = (y1 - y0) / (x1 - x0)
+      dxdy    = 1.0_wp / dydx
+
+      if(abs(dydx) >= abs(dxdy)) then   !  vertical   connectors
+        xp     = xm +  sqrt((amp*delta)**2 / (1.0_wp + dxdy**2))
+        yp     = ym - dxdy * (xp - xm)
+        do i = 1,nE
+          curved_connector_parabola(2,i) =  y0 + (y1 - y0) * xLGL(i)
+          curved_connector_parabola(1,i) =  x0                                  &
+          & + 1.0_wp * (-1.0_wp*x1 + 4.0_wp * xp - 3.0_wp*x0) * xLGL(i)**1  &
+          & + 2.0_wp * (+1.0_wp*x1 - 2.0_wp * xp + 1.0_wp*x0) * xLGL(i)**2
+          curved_connector_parabola(3,i) = zm
+          de = ((y0 - y1)*(y0 - yp)*(y1 - yp))
+          aa = (yp*(-x0 + x1) + y1*(x0 - xp) + y0*(-x1 + xp))/de
+          bb = (yp**2*(x0 - x1) + y0**2*(x1 - xp) + y1**2*(-x0 + xp))/de
+          cc = (yp*(y1*(y1 - yp)*x0 + y0*(-y0 + yp)*x1) + y0*(y0 - y1)*y1*xp)/de
+!         write(*,*)'vert', maxval(abs(curved_connector_parabola(1,:)  &
+!         - ( aa*curved_connector_parabola(2,:)**2 + bb*curved_connector_parabola(2,:) + cc ) ))
+        enddo
+
+      else                              !  horizontal connectors
+        yp  = ym +  sqrt((amp*delta)**2 / (1.0_wp + dydx**2))
+        xp  = xm - dydx * (yp - ym)
+        do i = 1,nE
+          curved_connector_parabola(1,i) =  x0 + (x1 - x0) * xLGL(i)
+          curved_connector_parabola(2,i) =  y0                              &
+          & + 1.0_wp * (-1.0_wp*y1 + 4.0_wp * yp - 3.0_wp*y0) * xLGL(i)**1  &
+          & + 2.0_wp * (+1.0_wp*y1 - 2.0_wp * yp + 1.0_wp*y0) * xLGL(i)**2
+          curved_connector_parabola(3,i) = zm
+          de = ((x0 - x1)*(x0 - xp)*(x1 - xp))
+          aa = (xp*(-y0 + y1) + x1*(y0 - yp) + x0*(-y1 + yp))/de
+          bb = (xp**2*(y0 - y1) + x0**2*(y1 - yp) + x1**2*(-y0 + yp))/de
+          cc = (xp*(x1*(x1 - xp)*y0 + x0*(-x0 + xp)*y1) + x0*(x0 - x1)*x1*yp)/de
+!         write(*,*)'horz', maxval(abs(curved_connector_parabola(2,:)  &
+!         - ( aa*curved_connector_parabola(1,:)**2 + bb*curved_connector_parabola(1,:) + cc ) ))
+        enddo
+      endif
+
+
+
+    else                !     write(*,*)'linear'
+
+      do i = 1,nE
+        dx_vec(:) = x1_vec(:)-x0_vec(:)
+        curved_connector_parabola(:,i) = x0_vec(:) + xLGL(i)*dx_vec(:)
+      enddo
+
+    endif
+
+  end function curved_connector_parabola
+
 
   pure function ortho_projection_to_line3D(x00,x01,x)
 

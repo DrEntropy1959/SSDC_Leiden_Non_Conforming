@@ -25,6 +25,7 @@ module navierstokes
   public normalviscousflux
   public roeavg
   public viscousflux3D
+  public viscousflux
   public isentropicVortexFull
   public supersonicVortexFull
 ! public viscous_dissipation_2pt
@@ -3109,8 +3110,6 @@ contains
     integer :: i
 
     real(wp), dimension(nequations) :: t1
-    real(wp) :: t9
-
     ! normal vector
 !   real(wp) :: nx(3)
      
@@ -3132,21 +3131,6 @@ contains
             nequations, &
             ndim, &
             mut(inode,ielem))
-
-!       t9 = maxval(abs( &
-!           viscousflux3D( vg(:,inode,ielem), &
-!           phig(:,:,inode,ielem), &
-!           r_x(:,:,inode,ielem), &
-!           nequations, &
-!           ndim, &
-!           mut(inode,ielem)) -  &
-!           viscousflux3D_New( vg(:,inode,ielem), &
-!           phig(:,:,inode,ielem), &
-!           r_x(:,:,inode,ielem), &
-!           nequations, &
-!           ndim, &
-!           mut(inode,ielem)) ) )
-!       if(t9 >= 1.0e-15)write(*,*)t9
       end do
 
       !
@@ -3300,13 +3284,13 @@ contains
     ! Lax-Freidrich max Eigenvalue
     real(wp) :: evmax
     ! penalty parameter for interfaces
-    real(wp) :: t1 , t9
+    real(wp) :: t1 
 
     logical,  parameter :: testing         = .false.
 
     real(wp), parameter :: mirror          = -1.0_wp
     real(wp), parameter :: no_slip         = -0.0_wp
-!   real(wp), parameter :: Sfix            =  0.0001_wp
+
 !  Original
 !   real(wp), parameter :: Cevmax          =  4.0_wp
 !  Nail's recent modification
@@ -3327,7 +3311,6 @@ contains
     real(wp) :: UavAbs, switch
 
 
-    real(wp), dimension(nequations)    ::   vg_OnT,  vg_OffT
     real(wp), dimension(nequations)    ::   vg_On,   vg_Off
     real(wp), dimension(nequations)    ::   ug_On,   ug_Off
     real(wp), dimension(nequations,3)  :: phig_On, phig_Off
@@ -3440,10 +3423,8 @@ contains
             ! M = pinv(1) (c_ii_side_1 + c_ii_side_2)/2, in the normal direction
             ! ------------------------------------------------------------------
 
-            ! c_ii_side_1 matrix
+            ! c_ii_side_1 matrix ! c_ii_side_2 matrix
             hatc_side_1 = matrix_hatc_node(vg(:,inode,ielem),nx,nx,nequations)
-
-            ! c_ii_side_2 matrix
             hatc_side_2 = matrix_hatc_node(vstar,nx,nx,nequations)
 
             ! IP penalty matrix
@@ -3542,16 +3523,9 @@ contains
 
             ! Set gradient of the primitive variables in the ghost node
             ! =========================================================
-            ! grad(rho_ghost) = grad(rho_in)
             grad_entr_ghost(1,:) = phig(1,:,inode,ielem) !grad_prim_int(1,:) 
-    
-            ! grad(u_ghost) = grad(u_in)
             grad_entr_ghost(2,:) = phig(2,:,inode,ielem) !grad_prim_int(2,:) 
-    
-            ! grad(v_ghost) = grad(v_in)
             grad_entr_ghost(3,:) = phig(3,:,inode,ielem) !grad_prim_int(3,:) 
-    
-            ! grad(w_ghost) = grad(w_in)
             grad_entr_ghost(4,:) = phig(4,:,inode,ielem) !grad_prim_int(4,:) 
 
             ! Normal component of grad_prim_int(V)
@@ -3851,7 +3825,6 @@ contains
     gp1og = (gamma0 + one)/gamma0
     gM2   = u0*u0/(Ru/MW0*T0)
     gM2I  = one / gM2
-
 
     ! Where viscous routines are called whether or
     ! not the problem is viscous, we need the viscous
@@ -5004,7 +4977,6 @@ contains
                   nx(:) = half*(JnF(:,i) + JnF(:,j))
           SSFlux(:,i,j) = 2.0_wp* qmat_Flux(i,j)*EntropyConsistentFlux(vgF(:,i),vgF(:,j),nx,N_q) 
 !         SSFlux(:,i,j) = 2.0_wp* qmat_Flux(i,j)*diabolical_flux(vgF(:,i), vgF(:,j), wgF(:,i), wgF(:,j),nx,N_q)
-
 !         SSFlux(:,i,j) = 2.0_wp* qmat_Flux(i,j)*Entropy_KE_Consistent_Flux(vgF(:,i),vgF(:,j),nx,N_q) 
         enddo
   
