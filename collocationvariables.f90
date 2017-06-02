@@ -3,9 +3,11 @@ module collocationvariables
   implicit none
 
   ! Penalty Coefficients
-  real(wp)                     :: l00 = +0.001_wp !  IP      Penalty
-  real(wp)                     :: l01 = -0.5_wp   !  Viscous Penalties: -0.5_wp
-  real(wp)                     :: l10 = -0.5_wp   !  LDG     Penalties: -0.5_wp
+  real(wp)                     :: l00  = +0.05_wp  !  IP      Penalty
+  real(wp)                     :: l01  = -0.5_wp   !  Viscous Penalties: -0.5_wp
+  real(wp)                     :: l10  = -0.5_wp   !  LDG     Penalties: -0.5_wp
+  real(wp)                     :: sfix =  0.0001_wp   !  entropy fix
+
   real(wp)                     :: alpha_ldg_flip_flop = 0.0_wp
   
   real(wp), allocatable, dimension(:) :: face_sign

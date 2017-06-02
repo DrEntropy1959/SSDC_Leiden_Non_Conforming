@@ -3266,7 +3266,7 @@ contains
                              & Riemann_Diss_BC
     use collocationvariables, only: iagrad, jagrad, dagrad, gradmat, pinv, &
                                   & pvol, l01, l00, ldg_flip_flop_sign, &
-                                  & alpha_ldg_flip_flop
+                                  & alpha_ldg_flip_flop, Sfix
     use initgrid
 
     ! Nothing is implicitly defined
@@ -3300,13 +3300,13 @@ contains
     ! Lax-Freidrich max Eigenvalue
     real(wp) :: evmax
     ! penalty parameter for interfaces
-    real(wp) :: t1 
+    real(wp) :: t1 , t9
 
     logical,  parameter :: testing         = .false.
 
     real(wp), parameter :: mirror          = -1.0_wp
     real(wp), parameter :: no_slip         = -0.0_wp
-    real(wp), parameter :: Sfix            =  0.0001_wp
+!   real(wp), parameter :: Sfix            =  0.0001_wp
 !  Original
 !   real(wp), parameter :: Cevmax          =  4.0_wp
 !  Nail's recent modification
@@ -3327,6 +3327,11 @@ contains
     real(wp) :: UavAbs, switch
 
 
+    real(wp), dimension(nequations)    ::   vg_OnT,  vg_OffT
+    real(wp), dimension(nequations)    ::   vg_On,   vg_Off
+    real(wp), dimension(nequations)    ::   ug_On,   ug_Off
+    real(wp), dimension(nequations,3)  :: phig_On, phig_Off
+    real(wp), dimension(nequations)    :: SAT_Pen
     real(wp), dimension(nequations)    :: f_viscous_normal_ghost
 
     real(wp), dimension(nequations)    :: prim_ghost_adiabatic
@@ -3617,90 +3622,22 @@ contains
           ! Outward facing normal of facial node
           nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
 
-          ustar   = ughst(:,gnode)
-          phistar = phighst(:,:,gnode)
-          
-          call conserved_to_primitive(ustar, vstar, nequations)
-          call primitive_to_entropy  (vstar, wstar, nequations)
+          ug_On(:)  = ug(:,inode,ielem)
+          ug_Off(:) = ughst(:,gnode)
+          call conserved_to_primitive(ug_On (:), vg_On (:), nequations)
+          call conserved_to_primitive(ug_Off(:), vg_Off(:), nequations)
 
-! ==  Eigen values/vectors
-          call roeavg( vg(:,inode,ielem), vstar, Vav, nequations )        
+          phig_On (:,:) = phig(:,:,inode,ielem)
+          phig_Off(:,:) = phighst(:,:,gnode)
 
-          call CharacteristicDecomp( vav, nequations, sinv, smat, ev, nx ) 
+          SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
+                                        & vg_On,vg_Off,              &
+                                        & phig_On,phig_Off,          &
+                                        & nx,Jx_r(inode,ielem),      &
+                                        & pinv(1), mut(inode,ielem))
 
-          evmax = Cevmax*maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax*evmax)
-! ==  Eigen values/vectors
+          gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
 
-! ==  Fluxes
-          fn = normalflux( vg(:,inode,ielem), nx, nequations )                       ! (Euler Flux)
-
-          fstar = EntropyConsistentFlux(vg(:,inode,ielem), vstar, nx, nequations )   ! (Entropy Flux)
-!         fstar  = diabolical_flux(vg(:,inode,ielem), vstar,  &
-!                                  wg(:,inode,ielem), wstar, nx, nequations )   ! (Entropy Flux)
-!         fstar = Entropy_KE_Consistent_Flux(vg(:,inode,ielem), vstar, nx, nequations )   ! (Entropy Flux)
-            
-          ! Entropy consistent flux + upwinding
-          ! ===================================
-
-          select case(Riemann_Diss)
-            case('LocalLaxF')
-              fLLF  = half * ( normalflux( vg(:,inode,ielem), nx, nequations )    &
-                           +   normalflux( vstar            , nx, nequations )    &
-                           +   LocalLaxF_factor*evmax*(ug(:,inode,ielem)- ustar)  )
-              fstar = fLLF
-            case('Roe')
-
-              fstar = fstar &
-                & + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wstar(:)) )
-
-            case('RoeLF')
-
-              UavAbs = 0.5_wp*(ug(1,inode,ielem)+ustar(1)) ; switch = 0.0_wp
-              if(UavAbs <= 1.0e-7_wp)then
-                  switch = 1.0_wp
-              else
-                  switch = 1.0_wp/deltaU * abs((ug(1,inode,ielem)-ustar(1))/UavAbs)
-              endif
-              if(switch.gt.1.0_wp)switch = 1.0_wp
-
-              fstar = fstar &   !  fstar is entropy stable Roe-Ismail flux
-                & + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wstar(:)) )
-
-              fLLF  = half * ( normalflux( vg(:,inode,ielem), nx, nequations )    &
-                           +   normalflux( vstar            , nx, nequations )    &
-                           +   LocalLaxF_factor*evmax*(ug(:,inode,ielem)- ustar)  )
-
-              fstar = switch*fLLF + (1.0_wp-switch) * fstar
-
-          end select
-
-          fstarV = normalviscousflux( vg(:,inode,ielem), phig(:,:,inode,ielem), nx, nequations,mut(inode,ielem))  &
-            &    - normalviscousflux( vstar(:)         , phistar(:,:)         , nx, nequations,mut(inode,ielem))
-! ==  Fluxes
-
-          ! Compute the IP penalty contribution, i.e. M (u-v), where M, in the
-          ! case without flip-flop is a positive matrix defined as:
-          ! M = pinv(1) (c_ii_side_1 + c_ii_side_2)/2, i: normal direction
-          ! ------------------------------------------------------------------
-
-          ! c_ii_side_1 matrix
-          hatc_side_1 = matrix_hatc_node(vg(:,inode,ielem),nx,nx,nequations)
-
-          ! c_ii_side_2 matrix
-          hatc_side_2 = matrix_hatc_node(vstar,nx,nx,nequations)
-
-          ! IP penalty matrix
-          matrix_ip = 0.5_wp*(hatc_side_1 + hatc_side_2)*pinv(1)
-
-          call primitive_to_entropy(vg(:,inode,ielem),w_side_1,nequations)
-          
-          call primitive_to_entropy(vstar,w_side_2,nequations)
-
-          ! Add the LDG and IP terms to the penalty
-          l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
-          gsat(:,inode,ielem) = gsat(:,inode,ielem) + &
-            & pinv(1) * ( (fn - fstar) + l01_ldg_flip_flop*fstarV ) - &
-            & pinv(1) * l00*matmul(matrix_ip,w_side_1 - w_side_2)
         end do
       
       else
@@ -3722,93 +3659,19 @@ contains
           ! Outward facing normal of facial node
           nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
           
-          
-! ==  Eigen values/vectors
-          call roeavg( vg(:,inode,ielem), vg(:,knode,kelem), Vav, nequations )   
+          vg_On(:)  = vg(:,inode,ielem)
+          vg_Off(:) = vg(:,knode,kelem)
 
-          call CharacteristicDecomp( vav, nequations, sinv, smat, ev, nx )      
+          phig_On (:,:) = phig(:,:,inode,ielem)
+          phig_Off(:,:) = phig(:,:,knode,kelem)
 
-          evmax = Cevmax*maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax*evmax)
-! ==  Eigen values/vectors
+          SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
+                                        & vg_On,vg_Off,              &
+                                        & phig_On,phig_Off,          &
+                                        & nx,Jx_r(inode,ielem),      &
+                                        & pinv(1), mut(inode,ielem))
 
-          if( testing ) then     !  This conditional test the condition dF = A dU  for Roe flux
-            tmpr(:) = (+ normalflux( vg(:,inode,ielem), nx, nequations )                    &
-                       - normalflux( vg(:,knode,kelem), nx, nequations )  )                 &
-                       - matmul(smat,ev*matmul(sinv,(ug(:,inode,ielem) - ug(:,knode,kelem))))
-            t1 = sqrt(dot_product(tmpr,tmpr)/nequations)
-            if(t1 >= 1.0e-15_wp) write(*,*)'Roe_unit error',t1
-          endif
-
-! ==  Fluxes
-          fn = normalflux( vg(:,inode,ielem), nx, nequations )                                  ! (Euler Flux)
-
-          fstar = EntropyConsistentFlux(vg(:,inode,ielem), vg(:,knode,kelem), nx, nequations )   ! (Entropy Flux)
-!         fstar = diabolical_flux(vg(:,inode,ielem), vg(:,knode,kelem),  &
-!                                  wg(:,inode,ielem), wg(:,knode,kelem), nx, nequations )   ! (Entropy Flux)
-!         fstar = Entropy_KE_Consistent_Flux(vg(:,inode,ielem), vg(:,knode,kelem), nx, nequations ) ! (Entropy Flux)
-
-          ! Entropy consistent flux + upwinding
-
-          select case(Riemann_Diss)
-            case('LocalLaxF')
-              fLLF  = half * ( normalflux( vg(:,inode,ielem), nx, nequations )    &
-                           +   normalflux( vg(:,knode,kelem), nx, nequations )    &
-                           +   LocalLaxF_factor*evmax*(ug(:,inode,ielem)-ug(:,knode,kelem)) )
-              fstar = fLLF
-            case('Roe')
-
-              fstar = fstar &
-                & + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wg(:,knode,kelem)) )
-
-            case('RoeLF')
-
-              UavAbs = 0.5_wp*(ug(1,inode,ielem)+ug(1,knode,kelem)) ; switch = 0.0_wp
-              if(UavAbs <= 1.0e-7_wp)then
-                switch = 1.0_wp
-              else
-                switch = 1.0_wp/deltaU * abs((ug(1,inode,ielem)-ug(1,knode,kelem))/UavAbs)
-              endif
-              if(switch.gt.1.0_wp)switch = 1.0_wp
-
-              fstar = fstar &    !  fstar is entropy stable Roe-Ismail flux
-                 & + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wg(:,knode,kelem)) )
-
-              fLLF  = half * ( normalflux( vg(:,inode,ielem), nx, nequations )    &
-                           +   normalflux( vg(:,knode,kelem), nx, nequations )    &
-                           +   LocalLaxF_factor*evmax*(ug(:,inode,ielem)- ug(:,knode,kelem))  )
-
-              fstar = switch*fLLF + (1.0_wp-switch) * fstar
-
-          end select
-
-          fstarV = normalviscousflux( vg(:,inode,ielem), phig(:,:,inode,ielem), nx, nequations,mut(inode,ielem))  &
-               & - normalviscousflux( vg(:,knode,kelem), phig(:,:,knode,kelem), nx, nequations,mut(inode,ielem))
-
-! ==  Fluxes
-
-          ! Compute the IP penalty contribution, i.e. M (u-v), where M, in the
-          ! case without flip-flop is a positive matrix defined as:
-          ! M = pinv(1) (c_ii_side_1 + c_ii_side_2)/2, i: normal direction
-          ! ------------------------------------------------------------------
-
-          ! c_ii_side_1 matrix
-          hatc_side_1 = matrix_hatc_node(vg(:,inode,ielem),nx,nx, nequations)
-
-          ! cii_side_2 matrix
-          hatc_side_2 = matrix_hatc_node(vg(:,knode,kelem),nx,nx, nequations)
-
-          ! IP penalty matrix
-          matrix_ip = 0.5_wp*(hatc_side_1 + hatc_side_2)*pinv(1)
-
-          call primitive_to_entropy(vg(:,inode,ielem),w_side_1,nequations)
-            
-          call primitive_to_entropy(vg(:,knode,kelem),w_side_2,nequations)
-
-          ! Add the LDG and IP terms to the penalty
-          l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
-          gsat(:,inode,ielem) = gsat(:,inode,ielem) + &
-            & pinv(1) * ( (fn - fstar) + l01_ldg_flip_flop*fstarV ) - &
-            & pinv(1) * l00*matmul(matrix_ip,w_side_1 - w_side_2)
+          gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
 
         end do
       end if
@@ -5313,14 +5176,15 @@ contains
     ! Nothing is implicitly defined
     implicit none
     
-    integer, intent(in) :: n_eq
+    integer,  intent(in) :: n_eq
     real(wp), intent(in) :: n_i(3), n_j(3)
     real(wp), intent(in) :: v_in(n_eq)
-    real(wp) :: matrix_hatc_node(n_eq,n_eq)
     real(wp), dimension(n_eq,n_eq) :: mat
     real(wp) :: con1, con2, con3, con4
     real(wp) :: u, v, w, T
     real(wp) :: mu
+
+    real(wp) :: matrix_hatc_node(n_eq,n_eq)
 
     ! Initialize all elements of mat to zero
     mat = 0.0_wp
@@ -5367,19 +5231,16 @@ contains
     mat(5,4) = con2*(u*mat(2,4) + v*mat(3,4) + w*mat(4,4))
 
     mat(5,5) = con3*(mat(5,2)*u + mat(5,3)*v + mat(5,4)*w) &
-              + con4*(n_i(1)*n_j(1) + n_i(2)*n_j(2) + n_i(3)*n_j(3)) 
+             + con4*(n_i(1)*n_j(1) + n_i(2)*n_j(2) + n_i(3)*n_j(3)) 
 
-    ! Jacobi matrix wrt to the conserved variables 
+    ! Jacobian matrix wrt to the conserved variables 
     matrix_hatc_node = mat(:,:)
 
     return
   end function matrix_hatc_node
 
   !============================================================================
-  
-  !============================================================================
-  ! set_boundary_conditions - Set the pointer to the boundary condition 
-  ! subroutine. 
+  ! set_boundary_conditions - Set the pointer to the boundary condition subroutine. 
 
   subroutine set_boundary_conditions(bc_type,initial_condition)
     
@@ -6131,4 +5992,151 @@ contains
 
     end subroutine Calc_Entropy_Viscosity
       
+  !============================================================================
+
+    function SAT_Inv_Vis_Flux(neq,iface,ielem,vg_On,vg_Off,phig_On,phig_Off,nx,Jx_r,pinv,mut)
+
+      use precision_vars
+  
+      use controlvariables,     only: Riemann_Diss
+      use collocationvariables, only: l01, l00, Sfix, ldg_flip_flop_sign, alpha_ldg_flip_flop
+
+
+      integer,                       intent(in) :: neq, iface, ielem
+      real(wp),  dimension(neq),     intent(in) ::   vg_On,   vg_Off
+      real(wp),  dimension(neq,3),   intent(in) :: phig_On, phig_Off
+      real(wp),  dimension(3),       intent(in) :: nx
+      real(wp),                      intent(in) :: Jx_r, pinv, mut
+
+      real(wp), parameter :: Cevmax          =  1.0_wp
+      real(wp), parameter :: deltaU          =  0.1_wp
+      real(wp), parameter :: LocalLaxF_factor=  2.0_wp
+
+      real(wp),  dimension(neq,neq)             :: smat,sinv
+      real(wp),  dimension(neq,neq)             :: hatc_On, hatc_Off, matrix_ip
+      real(wp),  dimension(neq,neq)             :: mattmp
+
+
+      real(wp),  dimension(neq)                 :: fLLF
+      real(wp),  dimension(neq)                 :: wg_On, wg_Off
+      real(wp),  dimension(neq)                 :: ug_On, ug_Off
+      real(wp),  dimension(neq)                 :: vav, ev, evabs
+      real(wp),  dimension(neq)                 :: fn, fstar, fstarV
+      real(wp)                                  :: evmax
+      real(wp)                                  :: l01_ldg_flip_flop
+
+      real(wp),  parameter                      :: tol = 2.0e-12_wp
+      real(wp),  dimension(neq)                 ::   tmpr,tmp2
+      real(wp)                                  :: UavAbs, switch
+      real(wp)                                  :: t1
+      logical                                   :: testing = .false.
+ 
+      integer                                   :: k
+
+
+      real(wp),  dimension(neq)                 :: SAT_Inv_Vis_Flux
+
+         call primitive_to_entropy (vg_On (:),wg_On (:),neq)
+         call primitive_to_entropy (vg_Off(:),wg_Off(:),neq)
+
+         call roeavg( vg_On (:), vg_Off(:), Vav, neq )   
+         call CharacteristicDecomp( vav, neq, sinv, smat, ev, nx )      
+         evmax = Cevmax*maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax*evmax)
+
+         select case(Riemann_Diss)
+
+           case('Roe')
+
+             fstar = EntropyConsistentFlux(vg_On(:), vg_Off(:), nx, neq ) &
+                 & + half * matmul(smat,evabs*matmul(transpose(smat), wg_On(:)-wg_Off(:)) )
+
+           case('LocalLaxF')
+             call primitive_to_conserved(vg_On (:),ug_On (:),neq)
+             call primitive_to_conserved(vg_Off(:),ug_Off(:),neq)
+             fLLF  = half * ( normalflux( vg_On (:), nx, neq )    &
+                          +   normalflux( vg_Off(:), nx, neq )    &
+                          +   LocalLaxF_factor*evmax*(ug_On(:)-ug_Off(:)) )
+             fstar = fLLF
+
+           case('RoeLF')
+
+             call primitive_to_conserved(vg_On (:),ug_On (:),neq)
+             call primitive_to_conserved(vg_Off(:),ug_Off(:),neq)
+
+             UavAbs = 0.5_wp*(ug_On(1)+ug_Off(1)) ; switch = 0.0_wp
+             if(UavAbs <= 1.0e-7_wp)then
+               switch = 1.0_wp
+             else
+               switch = 1.0_wp/deltaU * abs((ug_On(1)-ug_Off(1))/UavAbs)
+             endif
+             if(switch.gt.1.0_wp)switch = 1.0_wp
+
+             fstar = EntropyConsistentFlux(vg_On(:), vg_Off(:), nx, neq ) &
+                 & + half * matmul(smat,evabs*matmul(transpose(smat), wg_On(:)-wg_Off(:)) )
+
+             fLLF  = half * ( normalflux( vg_On (:), nx, neq )    &
+                          +   normalflux( vg_Off(:), nx, neq )    &
+                          +   LocalLaxF_factor*evmax*(ug_On(:)- ug_Off(:))  )
+
+             fstar = switch*fLLF + (1.0_wp-switch) * fstar
+
+         end select
+
+         ! Add the LDG
+         l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
+         fstarV = normalviscousflux(vg_On (:), phig_On (:,:), nx, neq, mut)  &
+              & - normalviscousflux(vg_Off(:), phig_Off(:,:), nx, neq, mut)
+
+         ! Compute the IP penalty contribution, 
+         ! c_ii_L matrix    ! cii_R matrix
+         hatc_On  = matrix_hatc_node(vg_On (:),nx,nx,neq)
+         hatc_Off = matrix_hatc_node(vg_Off(:),nx,nx,neq)
+
+         matrix_ip = 0.5_wp*(hatc_On + hatc_Off) * pinv / Jx_r
+
+         fn = normalflux( vg_On (:), nx, neq )                                  ! (Euler Flux)
+         SAT_Inv_Vis_Flux = + (fn - fstar) + l01_ldg_flip_flop*fstarV     &
+                            - l00*matmul(matrix_ip,wg_On (:)-wg_Off(:))
+
+          return
+     end function
+
+  !============================================================================
+
+    function SAT_Vis_Diss(neq,vg_On,vg_Off,nx)
+
+      use precision_vars
+
+      use collocationvariables, only: Sfix
+
+      integer,                       intent(in) :: neq
+      real(wp),  dimension(neq),     intent(in) ::   vg_On,   vg_Off
+      real(wp),  dimension(3),       intent(in) :: nx
+
+      real(wp),  dimension(neq,neq)             :: smat,sinv
+
+
+      real(wp),  dimension(neq)                 :: vav, ev, evabs
+      real(wp)                                  :: evmax
+
+      real(wp),  dimension(neq)                 ::   ug_On,   ug_Off
+ 
+
+      real(wp),  dimension(neq)                 :: SAT_Vis_Diss
+
+         call primitive_to_conserved(vg_On (:),ug_On (:),neq)
+         call primitive_to_conserved(vg_Off(:),ug_Off(:),neq)
+
+         call roeavg( vg_On (:), vg_Off(:), Vav, neq )   
+
+         call CharacteristicDecomp( vav, neq, sinv, smat, ev, nx )      
+
+         evmax = maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax)
+
+         SAT_Vis_Diss = half * matmul(smat,evabs*matmul(          sinv , ug_On (:)-ug_Off(:)) )
+!                     = half * matmul(smat,evabs*matmul(transpose(smat), wg_On (:)-wg_Off(:)) )
+
+          return
+     end function
+
  end module navierstokes
