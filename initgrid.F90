@@ -501,7 +501,7 @@ contains
     ! this subroutine applies TFI to a two-dimensional
     ! surface, assuming the edges and corners have been
     ! populated with data.
-    use collocationvariables, only: rcollocation
+    use collocationvariables, only: x_LGL_pts_1D
     implicit none
     integer, intent(in) :: nk
     real(wp), intent(inout) :: xl2d(3,nk,nk)
@@ -529,7 +529,7 @@ contains
     ! this subroutine applies TFI to a two-dimensional
     ! surface, assuming the edges and corners have been
     ! populated with data.
-    use collocationvariables, only: rcollocation
+    use collocationvariables, only: x_LGL_pts_1D
     implicit none
     integer, intent(in) :: nk
     real(wp), intent(inout) :: xl3d(3,nk,nk,nk)
@@ -580,7 +580,7 @@ contains
     ! Load modules
     use referencevariables
     use variables, only: xg, vx, e2v
-    use collocationvariables, only: rcollocation
+    use collocationvariables, only: x_LGL_pts_1D
     
     ! Nothing is implicitly defined
     implicit none
@@ -648,7 +648,7 @@ contains
     ! Load modules
     use referencevariables
     use variables, only: vx_master
-    use collocationvariables, only: rcollocation
+    use collocationvariables, only: x_LGL_pts_1D
     
     ! Nothing is implicitly defined
     implicit none
@@ -738,7 +738,7 @@ contains
     use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
-    use collocationvariables, only: rcollocation
+    use collocationvariables, only: x_LGL_pts_1D
     implicit none
     ! indices
     integer :: ielem, inode, idir, iface
@@ -813,7 +813,7 @@ contains
 
         ! Build the ``Bird cage'': 12 bounding edge connectors that define the Hexahedral Element
         do i = 1,nE                                 ! loop over nodes on edge
-            dr = 0.5_wp*(rcollocation(i)+1.0_wp)    ! distance in computational space
+            dr = 0.5_wp*(x_LGL_pts_1D(i)+1.0_wp)    ! distance in computational space
           if (ndim > 0) then
             dx = xl(:,nE, 1, 1)-xl(:, 1, 1, 1) ; xl(:, i, 1, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_2 = 0, xi_3 = 0
           endif
@@ -838,7 +838,7 @@ contains
 
         x00 = cylinder_x0 ; x01 = cylinder_x1 ;
 
-        xi(:) = 0.5_wp*(rcollocation(:)+1.0_wp)    ! distance in computational space
+        xi(:) = 0.5_wp*(x_LGL_pts_1D(:)+1.0_wp)    ! distance in computational space
 
         if (ndim > 0) then
           xl(:, :, 1, 1) = curved_connector_cylinder(nE,x00,x01,xl(:, 1, 1, 1),xl(:,nE, 1, 1),xi) ! xi_2 = 0, xi_3 = 0
@@ -861,7 +861,7 @@ contains
 
         case ('parabola')
 
-        xi(:) = 0.5_wp*(rcollocation(:)+1.0_wp)    ! distance in computational space
+        xi(:) = 0.5_wp*(x_LGL_pts_1D(:)+1.0_wp)    ! distance in computational space
 
         if (ndim > 0) then
           xl(:, :, 1, 1) = curved_connector_parabola(nE,xl(:, 1, 1, 1),xl(:,nE, 1, 1),xi) ! xi_2 = 0, xi_3 = 0
@@ -887,23 +887,23 @@ contains
       ! build faces
       if (ndim > 1) then
         ! xi_3 = 0
-        call TFI2D(xl(:, :, :, 1),nE,rcollocation)
+        call TFI2D(xl(:, :, :, 1),nE,x_LGL_pts_1D)
       end if
       if (ndim > 2) then
         ! xi_3 = 1
-        call TFI2D(xl(:, :, :,nE),nE,rcollocation)
+        call TFI2D(xl(:, :, :,nE),nE,x_LGL_pts_1D)
         ! xi_2 = 0
-        call TFI2D(xl(:, :, 1, :),nE,rcollocation)
+        call TFI2D(xl(:, :, 1, :),nE,x_LGL_pts_1D)
         ! xi_2 = 1
-        call TFI2D(xl(:, :,nE, :),nE,rcollocation)
+        call TFI2D(xl(:, :,nE, :),nE,x_LGL_pts_1D)
         ! xi_1 = 0
-        call TFI2D(xl(:, 1, :, :),nE,rcollocation)
+        call TFI2D(xl(:, 1, :, :),nE,x_LGL_pts_1D)
         ! xi_1 = 1
-        call TFI2D(xl(:,nE, :, :),nE,rcollocation)
+        call TFI2D(xl(:,nE, :, :),nE,x_LGL_pts_1D)
       end if
       ! build volumes
       if (ndim > 2) then
-        call TFI3D(xl(:,:,:,:),nE,rcollocation)
+        call TFI3D(xl(:,:,:,:),nE,x_LGL_pts_1D)
       end if
       ! populate global coordinate matrix simply by packing
       ! in the typical manner

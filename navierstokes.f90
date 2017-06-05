@@ -2145,18 +2145,13 @@ contains
       call SAT_Penalty(tin,ielem)        !  result in gsat
       !  
       ! compute time derivative
-      ! 
-      ! loop over all nodes in the element
-      do inode = 1, nodesperelem
-        ! reset the time derivative to zero
-        dudt(:,inode,ielem) = 0.0_wp
-        ! add the contribution from the flux divergence in each direction
+        
+      do inode = 1, nodesperelem                                               ! loop over all nodes in the element
 
-        do jdir = 1,ndim
-          dudt(:,inode,ielem) = dudt(:,inode,ielem) - divf(:,jdir,inode,ielem)
-        end do
-        ! add the contribution from the boundary and interface penalties
-        dudt(:,inode,ielem) = (dudt(:,inode,ielem) + gsat(:,inode,ielem))/Jx_r(inode,ielem) ! Thus this is the dudt of u and NOT u*J
+          dudt(:,inode,ielem) =  ( - divf(:,1,inode,ielem) &                 ! Thus this is the dudt of u and NOT J u*
+                                 & - divf(:,2,inode,ielem) &
+                                 & - divf(:,3,inode,ielem) &
+                                 & + gsat(:  ,inode,ielem) ) / Jx_r(inode,ielem) 
 
       end do
 

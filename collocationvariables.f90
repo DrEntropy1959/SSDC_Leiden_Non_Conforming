@@ -13,7 +13,7 @@ module collocationvariables
   real(wp), allocatable, dimension(:) :: face_sign
   integer, allocatable, dimension(:,:) :: ldg_flip_flop_sign
 
-  real(wp), allocatable, dimension(:)     :: rcollocation
+  real(wp), allocatable, dimension(:)     :: x_LGL_pts_1D
   real(wp), allocatable, dimension(:,:)   :: qmat
   real(wp), allocatable, dimension(:,:)   :: dmat
   real(wp), allocatable, dimension(:,:,:) :: gradmat
@@ -71,5 +71,27 @@ module collocationvariables
   real(wp), allocatable, dimension(:,:) :: dmat_Soln , dmat_Flux
 
   real(wp), allocatable, dimension(:,:) :: Dif_F2S
+
+  integer, allocatable, dimension(:,:)    :: elem_props
+
+  integer :: n_LGL_1d_pL, n_LGL_2d_pL, n_LGL_3d_pL
+  integer :: n_LGL_1d_pH, n_LGL_2d_pH, n_LGL_3d_pH
+  
+  real(wp), allocatable, dimension(:)     :: x_LGL_pts_1d_pL, x_LGL_pts_1d_pH
+  real(wp), allocatable, dimension(:)     :: pmat_pL , pmat_pH
+  real(wp), allocatable, dimension(:)     :: pinv_pL , pinv_pH
+  real(wp), allocatable, dimension(:,:)   :: qmat_pL , qmat_pH
+  real(wp), allocatable, dimension(:,:)   :: dmat_pL , dmat_pH
+  real(wp), allocatable, dimension(:)     :: pvol_pL , pvol_pH
+  real(wp), allocatable, dimension(:)     :: p_surf_pL , p_surf_pH
+
+  real(wp), allocatable, dimension(:,:,:) :: gradmat_pL, gradmat_pH
+  
+  ! Gradient matrix
+  integer,  allocatable, dimension(:)     :: iagrad_pL, iagrad_pH
+  integer,  allocatable, dimension(:,:)   :: jagrad_pL, jagrad_pH
+  real(wp), allocatable, dimension(:,:)   :: dagrad_pL, dagrad_pH
+  real(wp), allocatable, dimension(:,:)   :: qagrad_pL, qagrad_pH
+  integer :: nnzgrad_pL, nnzgrad_pH
 
 end module collocationvariables

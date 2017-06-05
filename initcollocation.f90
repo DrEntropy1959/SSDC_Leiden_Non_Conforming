@@ -21,6 +21,7 @@ module initcollocation
   public ComputeFluxtoSolutionInterpolationMatrix
   public ComputeSolutionToFluxExtrapolationMatrix
   public compute_gsat_f2s_matrix
+  public element_properties
 
 contains
 
@@ -96,7 +97,6 @@ contains
     errmax = sqrt(errmax/N/N)
 
     !       differentiate exact data to test accuracy of discrete operator
-    !                                                                       
 
     do i=1,N
       f(i)    =         x(i)**(N-1)
@@ -207,6 +207,99 @@ contains
     return
   end subroutine ComputeSolutionToFluxExtrapolationMatrix
 
+    subroutine element_properties(ielem, n_pts_1d, n_pts_2d, n_pts_3d, &
+                      pinv, qmat, dmat, iagrad, jagrad, dagrad,        &
+                      pmat, nnzgrad, pvol, p_surf)
+
+    use collocationvariables, only : n_LGL_1d_pL, n_LGL_2d_pL, n_LGL_3d_pL, &
+                                   & pinv_pL, pmat_pL, qmat_pL, dmat_pL, &
+                                   & iagrad_pL, jagrad_pL, nnzgrad_pL, &
+                                   & dagrad_pL, qagrad_pL, pvol_pL, p_surf_pL, &
+                                   & n_LGL_1d_pH, n_LGL_2d_pH, n_LGL_3d_pH, &
+                                   & pinv_pH, pmat_pH, qmat_pH, dmat_pH, &
+                                   & iagrad_pH, jagrad_pH, nnzgrad_pH, &
+                                   & dagrad_pH, qagrad_pH, pvol_pH, p_surf_pH, &
+                                   & elem_props
+
+    use referencevariables
+    implicit none
+
+    integer,                                   intent(in   ) :: ielem
+    integer,                                   intent(  out) :: n_pts_1d, n_pts_2d, n_pts_3d
+    real(wp), dimension(:),      allocatable,  intent(  out) :: pinv
+    real(wp), dimension(:,:),    allocatable,  intent(  out) :: dmat, qmat
+
+!   real(wp), dimension(:,:,:),  allocatable,  intent(inout) :: gradmat
+    integer,  dimension(:),      allocatable,  intent(inout) :: iagrad
+    integer,  dimension(:,:),    allocatable,  intent(inout) :: jagrad
+!   real(wp), dimension(:,:),    allocatable,  intent(inout) :: dagrad, qagrad
+    real(wp), dimension(:,:),    allocatable,  intent(inout) :: dagrad
+
+    integer,                                  optional, intent(  out) :: nnzgrad
+    real(wp), dimension(:),      allocatable, optional, intent(  out) :: pmat
+    real(wp), dimension(:),      allocatable, optional, intent(inout) :: pvol
+    real(wp), dimension(:),      allocatable, optional, intent(inout) :: p_surf
+ 
+    integer :: i,j,k,jj,kk,inode, idir
+    integer :: il(2,3), ix(3), ix_surf(2)
+    integer, allocatable, dimension(:) :: stride
+    integer :: icount
+
+    if((elem_props(1,ielem) == 1) .and. (elem_props(2,ielem) == npoly+1)) then
+      n_pts_1d = n_LGL_1d_pL
+      n_pts_2d = n_LGL_2d_pL
+      n_pts_3d = n_LGL_3d_pL
+      nnzgrad  = nnzgrad_pL
+    else
+      n_pts_1d = n_LGL_1d_pH
+      n_pts_2d = n_LGL_2d_pH
+      n_pts_3d = n_LGL_3d_pH
+      nnzgrad  = nnzgrad_pH
+    endif
+
+    if(allocated(pmat)) deallocate(pmat) ; allocate(pmat(n_pts_1d)) ;
+    if(allocated(pinv)) deallocate(pinv) ; allocate(pinv(n_pts_1d)) ;
+    if(allocated(qmat)) deallocate(qmat) ; allocate(qmat(n_pts_1d,n_pts_1d)) ;
+    if(allocated(dmat)) deallocate(dmat) ; allocate(dmat(n_pts_1d,n_pts_1d)) ;
+
+
+    if(allocated(iagrad)) deallocate(iagrad) ; allocate(iagrad(n_pts_3d+1)) ;
+    if(allocated(jagrad)) deallocate(jagrad) ; allocate(jagrad(3,nnzgrad)) ;
+    if(allocated(dagrad)) deallocate(dagrad) ; allocate(dagrad(3,nnzgrad)) ;
+
+    if(allocated(pvol  )) deallocate(pvol  ) ; allocate(pvol(n_pts_3d)) ;
+    if(allocated(p_surf)) deallocate(p_surf) ; allocate(p_surf(n_pts_2d)) ;
+
+    if((elem_props(1,ielem) == 1) .and. (elem_props(2,ielem) == npoly+1)) then
+      pmat(:)     = pmat_pL(:)
+      pinv(:)     = pinv_pL(:)
+      qmat(:,:)   = qmat_pL(:,:)
+      dmat(:,:)   = dmat_pL(:,:)
+
+      iagrad(:)   = iagrad_pL(:)
+      jagrad(:,:) = jagrad_pL(:,:)
+      dagrad(:,:) = dagrad_pL(:,:)
+!     qagrad(:,:) = qagrad_pL(:,:)
+
+      pvol(:)     = pvol_pL(:)
+      p_surf(:)   = p_surf_pL(:)
+    else
+      pmat(:)     = pmat_pH(:)
+      pinv(:)     = pinv_pH(:)
+      qmat(:,:)   = qmat_pH(:,:)
+      dmat(:,:)   = dmat_pH(:,:)
+
+      iagrad(:)   = iagrad_pH(:)
+      jagrad(:,:) = jagrad_pH(:,:)
+      dagrad(:,:) = dagrad_pH(:,:)
+!     qagrad(:,:) = qagrad_pH(:,:)
+
+      pvol(:)     = pvol_pH(:)
+      p_surf(:)   = p_surf_pH(:)
+    endif
+
+    end subroutine 
+
   subroutine gradmatrix()
     ! This subroutine calculates the multi-dimensional
     ! gradient operators for an already set dimension
@@ -247,11 +340,6 @@ contains
     allocate(dagrad(1:ndim,nnzgrad))
     dagrad = 0.0_wp
 
-!    ! matrix values
-!    allocate(gsat_f2s(1:ndim,nnzgrad))
-!    gsat_f2s = 0.0_wp
-
-    
     allocate(qagrad(1:ndim,nnzgrad))
     qagrad = 0.0_wp
 
@@ -289,9 +377,6 @@ contains
               dagrad(idir,icount) = dmat(ix(idir),kk)
               ! set coefficient for qmat
               qagrad(idir,icount) = qmat(ix(idir),kk)
-
-              ! set gsat_f2s (interpolation flux to solution matrix in 1D)
-!              gsat_f2s(idir,icount) = gsat_f2s_1d(ix(idir),kk)
             end do
             ! advance CSR counter by 1
             icount = icount + 1
@@ -381,7 +466,6 @@ contains
           end do
         end do
     end do
-
 
     deallocate(stride)
 

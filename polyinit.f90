@@ -39,14 +39,14 @@ contains
     nodesperface = nodesperedge**(ndim-1)
 
     ! initialize collocation matrices
-    allocate(rcollocation(nodesperedge))
-    call JacobiP11(polyorder,rcollocation)
+    allocate(x_LGL_pts_1D(nodesperedge))
+    call JacobiP11(polyorder,x_LGL_pts_1D)
     
     allocate(pmat(nodesperedge))
     allocate(pinv(nodesperedge))
     allocate(qmat(nodesperedge,nodesperedge))
     allocate(dmat(nodesperedge,nodesperedge))
-    call Amat(rcollocation,nodesperedge,pmat,pinv,qmat,dmat) 
+    call Amat(x_LGL_pts_1D,nodesperedge,pmat,pinv,qmat,dmat) 
 
     ! populate grad matrix
     call gradmatrix() ! (initcollocation)
