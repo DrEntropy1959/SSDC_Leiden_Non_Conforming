@@ -38,7 +38,33 @@ contains
     ! number of nodes on each face
     nodesperface = nodesperedge**(ndim-1)
 
+    n_LGL_1d_pL = npoly + 1 
+    n_LGL_2d_pL = n_LGL_1d_pL**2
+    n_LGL_3d_pL = n_LGL_1d_pL**3
+
+    n_LGL_1d_pH = npoly + 2 
+    n_LGL_2d_pH = n_LGL_1d_pH**2
+    n_LGL_3d_pH = n_LGL_1d_pH**3
+
     ! initialize collocation matrices
+    allocate(x_LGL_pts_1d_pL(n_LGL_1d_pL))
+    allocate(x_LGL_pts_1d_pH(n_LGL_1d_pH))
+
+    call JacobiP11(n_LGL_1D_pL-1,x_LGL_pts_1d_pL)
+    call JacobiP11(n_LGL_1D_pH-1,x_LGL_pts_1d_pH)
+
+    allocate(pmat_pL(n_LGL_1d_pL))
+    allocate(pinv_pL(n_LGL_1d_pL))
+    allocate(qmat_pL(n_LGL_1d_pL,n_LGL_1d_pL))
+    allocate(dmat_pL(n_LGL_1d_pL,n_LGL_1d_pL))
+    call Amat(x_LGL_pts_1d_pL,n_LGL_1d_pL,pmat_pL,pinv_pL,qmat_pL,dmat_pL) 
+
+    allocate(pmat_pH(n_LGL_1d_pH))
+    allocate(pinv_pH(n_LGL_1d_pH))
+    allocate(qmat_pH(n_LGL_1d_pH,n_LGL_1d_pH))
+    allocate(dmat_pH(n_LGL_1d_pH,n_LGL_1d_pH))
+    call Amat(x_LGL_pts_1d_pH,n_LGL_1d_pH,pmat_pH,pinv_pH,qmat_pH,dmat_pH) 
+
     allocate(x_LGL_pts_1D(nodesperedge))
     call JacobiP11(polyorder,x_LGL_pts_1D)
     
