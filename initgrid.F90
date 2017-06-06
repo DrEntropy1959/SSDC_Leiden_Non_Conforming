@@ -18,6 +18,7 @@ module initgrid
   public init_hex_8
   public E2EConnectivity
   public e2e_connectivity_aflr3
+  public set_element_orders
   public calculatepartitions
   public calcnodes
   public calcmetrics
@@ -919,7 +920,6 @@ contains
     end do
     deallocate(xl)
 
-
   end subroutine calcnodes
 
 ! =============================================================================
@@ -1505,6 +1505,11 @@ contains
 
           if (match_found .eqv. .false.) then
 
+!!!!!!!!!!!
+! NOTE: HERE WE WANT TO CHECK IF elem_props(2,ielem) == elem_props(2,ef2e(1,iface,ielem))
+!!!!!!!!!!!!!!
+
+
             ! Loop over the nodes on the face
             do inode = 1, nodesperface
 
@@ -1882,7 +1887,10 @@ contains
 
 
           if (match_found .eqv. .false.) then
-            
+!!!!!!!!!!!
+! NOTE: HERE WE WANT TO CHECK IF elem_props(2,ielem) == elem_props(2,ef2e(1,iface,ielem))
+!!!!!!!!!!!!!!
+
             ! Loop over the nodes on the face
             do inode = 1, nodesperface
 
@@ -1901,7 +1909,7 @@ contains
                 ! ef2e(2) gives the element
                 x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), &
                   & ef2e(2,iface,ielem))
-                
+               
                 ! Check the distance between the two nodes
                 if (magnitude(x1-x2) <= nodetol) then
 
@@ -4222,9 +4230,6 @@ contains
       deallocate(same_coord)
       deallocate(iv_hexa_elem)
 
-!      write(80,*) iae2v_tmp
-!      stop
-
     else
       write(*,*) 'Unknown number of spatial dimension of the problem:', ndim
       write(*,*) 'Exting...'
@@ -4236,6 +4241,33 @@ contains
 
   !============================================================================
   
+    subroutine set_element_orders()
+
+    ! Load modules
+    use variables
+    use collocationvariables
+    use referencevariables, only : npoly, ihelems
+
+    ! Nothing is implicitly defined
+    implicit none
+   
+    integer :: ielem, j
+
+
+    allocate(elem_props(2,ihelems(1):ihelems(2)))
+
+    do ielem = ihelems(1),ihelems(2)
+
+      elem_props(1,ielem) = 1
+      elem_props(2,ielem) = npoly+1
+      do j=1,8
+        if(vx(1,e2v(j,ielem)) >= 100000.5_wp) elem_props(2,ielem) = npoly+2
+      enddo
+ 
+    enddo
+
+    end subroutine 
+
   !============================================================================
 
   subroutine create_ldg_flip_flop_sign()
