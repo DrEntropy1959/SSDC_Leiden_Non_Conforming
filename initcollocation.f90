@@ -5,7 +5,6 @@ module initcollocation
   private
 
   public gradmatrix
-  public gradmatrix_New
   public jacobiP11
   public Amat
 
@@ -306,7 +305,7 @@ contains
   ! for an already set dimension and polynomial approximation.
   ! ===================================================================================
 
-  subroutine gradmatrix_New(n_pts_1d, n_pts_2d, n_pts_3d, nnzgrad,   &
+  subroutine gradmatrix(n_pts_1d, n_pts_2d, n_pts_3d, nnzgrad,   &
                         gradmat, iagrad, jagrad, dagrad, qagrad, &
                         pmat, qmat, dmat, pvol, p_surf)
 
@@ -487,9 +486,9 @@ contains
 
     deallocate(stride)
 
-  end subroutine gradmatrix_New
+  end subroutine gradmatrix
 
-  subroutine gradmatrix()
+  subroutine gradmatrix_Old()
     ! This subroutine calculates the multi-dimensional
     ! gradient operators for an already set dimension
     ! and polynomial approximation.
@@ -658,7 +657,7 @@ contains
 
     deallocate(stride)
 
-  end subroutine gradmatrix
+  end subroutine gradmatrix_Old
 
   subroutine FilterMatrix()
 

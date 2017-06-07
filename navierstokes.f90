@@ -958,16 +958,6 @@ contains
     EntropyConsistentFlux(4) = mdot*vhat(4) + Jx(3) * P * gM2I
     EntropyConsistentFlux(5) = mdot*vhat(5)
 
-!   !  Check if it satisfies the entropy shuffle   DelW^T f = Delpsi
-!   call primitive_to_entropy(vL,wL,neqin)
-!   call primitive_to_entropy(vR,wR,neqin)
-
-!   err = dot_product(wL-wR,EntropyConsistentFlux) - gm1og* (           &
-!                   ((vl(2)-vR(2))*vhat(1) + (vl(1)-vR(1))*vhat(2))*Jx(1) +  &
-!                   ((vl(3)-vR(3))*vhat(1) + (vl(1)-vR(1))*vhat(3))*Jx(2) +  &
-!                   ((vl(4)-vR(4))*vhat(1) + (vl(1)-vR(1))*vhat(4))*Jx(3) )
-!   if(abs(err) >= 1.0e-05_wp) write(*,*)'error in Ismail_Roe',err
-
     return
   end function EntropyConsistentFlux
 
@@ -1453,8 +1443,7 @@ contains
     return
   end subroutine roeavg
 
- pure subroutine CharacteristicDecomp(Vav,nq,Le,Re,ev,Jx)
- !! subroutine CharacteristicDecomp(Vav,nq,Le,Re,ev,Jx)
+  pure subroutine CharacteristicDecomp(Vav,nq,Le,Re,ev,Jx)
     ! this subroutine calculates the left and right eigenvector
     ! matrices and the eigenvalues of the flux jacobian 
     ! in the normal direction. The resulting right eigenvectors
@@ -2108,14 +2097,16 @@ contains
   !============================================================================
 
   subroutine nse_calc_dudt_LSRK(tin)
-    ! This subroutine calculates the time derivative of the
-    ! conserved variables at every node.
+
+    ! Calculates the time derivative of the conserved variables at all nodes.
+
     use variables
     use referencevariables
     use controlvariables, only: verbose
     use nsereferencevariables, only: entropy_viscosity
     use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,pinv,pvol
     implicit none
+
     ! local time of evaluation (for RK schemes, this is the stage time)
     real(wp), intent(in) :: tin
 
@@ -2134,6 +2125,7 @@ contains
     iell = ihelems(1) ;  ielh = ihelems(2)
 
     ! loop over all elements
+
     do ielem = iell, ielh
           
       !  Calculate the elementwise Divergence  \/ * (F - Fv)
@@ -2142,8 +2134,8 @@ contains
 
       !  Form the elementwise SAT_Penalties
 
-      call SAT_Penalty(tin,ielem)        !  result in gsat
-      !  
+      call SAT_Penalty(tin, ielem, nodesperedge, nodesperface, pinv )
+         
       ! compute time derivative
         
       do inode = 1, nodesperelem                                               ! loop over all nodes in the element
@@ -2422,8 +2414,7 @@ contains
       & MPI_DEFAULT_WP,MPI_MAX,petsc_comm_world,ierr)
 
     if (myprocid == 0) then
-!      open(unit=40,file=file_name_err,Access='append',Status='unknown')
-!      i = nodesperedge-1
+
       write(*,*) 'P',nodesperedge-1
       write(*,*) 'L1   error: ', l1sum(1)
       write(*,*) 'L2   error: ', l2sum(1)
@@ -3231,11 +3222,11 @@ contains
   end subroutine Entropy_Flux_Divergence
 
 
-  !============================================================================
-  ! sat_penalty - Calculates both inviscid and viscous penalty according to the
-  ! SAT procedure.
+  !===========================================================================================
+  ! sat_penalty - Calculates both inviscid and viscous penalty according to the SAT procedure.
+  !===========================================================================================
   
-  subroutine SAT_Penalty(tin,ielem)
+  subroutine SAT_Penalty(tin, ielem, n_S_1d, n_S_2d, pinv )
     
     ! Load modules
     use variables
@@ -3243,8 +3234,7 @@ contains
     use nsereferencevariables
     use controlvariables, only: verbose, heat_entropy_flow_wall_bc, Riemann_Diss,&
                              & Riemann_Diss_BC
-    use collocationvariables, only: iagrad, jagrad, dagrad, gradmat, pinv, &
-                                  & pvol, l01, l00, ldg_flip_flop_sign, &
+    use collocationvariables, only: l01, l00, ldg_flip_flop_sign, &
                                   & alpha_ldg_flip_flop, Sfix
     use initgrid
 
@@ -3252,8 +3242,9 @@ contains
     implicit none
 
     ! local time of evaluation (for RK schemes, this is the stage time)
-    integer , intent(in) :: ielem
-    real(wp), intent(in) :: tin
+    integer , intent(in)                     :: ielem, n_S_1d, n_S_2d
+    real(wp), intent(in)                     :: tin
+    real(wp), dimension(n_S_1d),  intent(in) :: pinv
 
     ! indices
     integer :: inode, jnode, knode, gnode
@@ -3286,9 +3277,7 @@ contains
     real(wp), parameter :: mirror          = -1.0_wp
     real(wp), parameter :: no_slip         = -0.0_wp
 
-!  Original
-!   real(wp), parameter :: Cevmax          =  4.0_wp
-!  Nail's recent modification
+
     real(wp), parameter :: Cevmax          =  1.0_wp
     real(wp), parameter :: deltaU          =  0.1_wp
     real(wp), parameter :: stab_strength   =  1.1_wp
@@ -3300,9 +3289,7 @@ contains
 
     real(wp), dimension(nequations)    :: tmpr
     real(wp), dimension(nequations)    :: w_side_1, w_side_2
-!   Original Version
-!   real(wp), dimension(nequations)    :: UavAbs, switch
-!   Nails Version
+
     real(wp) :: UavAbs, switch
 
 
@@ -3362,13 +3349,13 @@ contains
           call set_boundary_conditions(ef2e(1,iface,ielem),InitialCondition)
 
           ! Loop over each node on the face
-          do i = 1,nodesperface
+          do i = 1, n_S_2d
 
             ! Volumetric node index corresponding to face and node on face indices
             inode = kfacenodes(i,iface)
           
             ! Facial index corresponding to face and node on face indices
-            jnode = (iface-1)*nodesperface + i
+            jnode = (iface-1)* n_S_2d + i
           
             ! Outward facing normal of facial node
             nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
@@ -3441,13 +3428,13 @@ contains
         else         ! Entropy Stable Solid Wall BC
 
           ! Loop over each node on the face
-          do i = 1,nodesperface
+          do i = 1, n_S_2d
 
             ! Volumetric node index corresponding to face and node on face indices
             inode = kfacenodes(i,iface)
           
             ! Facial index corresponding to face and node on face indices
-            jnode = (iface-1)*nodesperface + i
+            jnode = (iface-1)* n_S_2d + i
           
             ! Outward facing normal of facial node
             nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
@@ -3465,11 +3452,7 @@ contains
             vstar(2) = tangent_vel(1) - normal_vel(1)
             vstar(3) = tangent_vel(2) - normal_vel(2)
             vstar(4) = tangent_vel(3) - normal_vel(3)
-!  HACK HUGE  (need an entropy proof for this change
-!           vstar(2) = -vg(2,inode,ielem)
-!           vstar(3) = -vg(3,inode,ielem)
-!           vstar(4) = -vg(4,inode,ielem)
-!  HACK HUGE  (need an entropy proof for this change
+
             vstar(5) = vg(5,inode,ielem) 
 
             ! Compute the entropy variables in the ghost node for imposing the
@@ -3576,8 +3559,8 @@ contains
       else if (ef2e(3,iface,ielem) /= myprocid) then
         
         ! This is a parallel interface
-        do i = 1, nodesperface
-          jnode = nodesperface*(iface-1)+i
+        do i = 1,  n_S_2d
+          jnode =  n_S_2d*(iface-1)+i
           
           ! Volumetric node index corresponding to facial node index
           inode = ifacenodes(jnode)
@@ -3610,11 +3593,10 @@ contains
         end do
       
       else
-
-        do i = 1,nodesperface
+        do i = 1, n_S_2d
         
           ! Index in facial ordering
-          jnode = nodesperface*(iface-1)+i
+          jnode =  n_S_2d*(iface-1)+i
             
           ! Volumetric node index corresponding to facial node index
           inode = ifacenodes(jnode)
@@ -3706,7 +3688,7 @@ contains
 
       !  Form the elementwise SAT_Penalties
 
-      if(IMEX_penalty == 'explicit') call SAT_Penalty(tin,ielem)        !  result in gsat
+!     if(IMEX_penalty == 'explicit') call SAT_Penalty(tin,ielem)        !  result in gsat
       !  
       ! compute time derivative
       ! 
@@ -3766,7 +3748,7 @@ contains
 
       !  Form the elementwise SAT_Penalties
 
-      if(IMEX_penalty == 'implicit') call SAT_Penalty(tin,ielem)        !  result in gsat
+!     if(IMEX_penalty == 'implicit') call SAT_Penalty(tin,ielem)        !  result in gsat
       !  
       ! compute the "IMPLICIT" flux Fimp
       ! 

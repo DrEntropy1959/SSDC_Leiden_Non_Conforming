@@ -66,11 +66,13 @@ contains
     allocate(dmat_pH(n_LGL_1d_pH,n_LGL_1d_pH))
     call Amat(x_LGL_pts_1d_pH,n_LGL_1d_pH,pmat_pH,pinv_pH,qmat_pH,dmat_pH) 
 
-    call gradmatrix_New(n_LGL_1d_pL, n_LGL_2d_pL, n_LGL_3d_pL, nnzgrad_pL,   &
+    ! populate grad matrix
+    call gradmatrix(n_LGL_1d_pL, n_LGL_2d_pL, n_LGL_3d_pL, nnzgrad_pL,   &
                     gradmat_pL, iagrad_pL, jagrad_pL, dagrad_pL, qagrad_pL, &
                     pmat_pL, qmat_pL, dmat_pL, pvol_pL, p_surf_pL)
 
-    call gradmatrix_New(n_LGL_1d_pH, n_LGL_2d_pH, n_LGL_3d_pH, nnzgrad_pH,   &
+    ! populate grad matrix
+    call gradmatrix(n_LGL_1d_pH, n_LGL_2d_pH, n_LGL_3d_pH, nnzgrad_pH,   &
                     gradmat_pH, iagrad_pH, jagrad_pH, dagrad_pH, qagrad_pH, &
                     pmat_pH, qmat_pH, dmat_pH, pvol_pH, p_surf_pH)
 
@@ -84,10 +86,9 @@ contains
     call Amat(x_LGL_pts_1D,nodesperedge,pmat,pinv,qmat,dmat) 
 
     ! populate grad matrix
-    call gradmatrix_New(nodesperedge, nodesperface, nodesperelem, nnzgrad,   &
+    call gradmatrix(nodesperedge, nodesperface, nodesperelem, nnzgrad,   &
                     gradmat, iagrad, jagrad, dagrad, qagrad, &
                     pmat, qmat, dmat, pvol, p_surf)
-!   call gradmatrix() ! (initcollocation)
 
 !   Filter Matrix
     allocate(Filter(nodesperedge,nodesperedge))
