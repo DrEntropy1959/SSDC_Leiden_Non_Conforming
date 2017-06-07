@@ -59,11 +59,20 @@ contains
     allocate(dmat_pL(n_LGL_1d_pL,n_LGL_1d_pL))
     call Amat(x_LGL_pts_1d_pL,n_LGL_1d_pL,pmat_pL,pinv_pL,qmat_pL,dmat_pL) 
 
+! populate grad matrix
     allocate(pmat_pH(n_LGL_1d_pH))
     allocate(pinv_pH(n_LGL_1d_pH))
     allocate(qmat_pH(n_LGL_1d_pH,n_LGL_1d_pH))
     allocate(dmat_pH(n_LGL_1d_pH,n_LGL_1d_pH))
     call Amat(x_LGL_pts_1d_pH,n_LGL_1d_pH,pmat_pH,pinv_pH,qmat_pH,dmat_pH) 
+
+    call gradmatrix_New(n_LGL_1d_pL, n_LGL_2d_pL, n_LGL_3d_pL, nnzgrad_pL,   &
+                    gradmat_pL, iagrad_pL, jagrad_pL, dagrad_pL, qagrad_pL, &
+                    pmat_pL, qmat_pL, dmat_pL, pvol_pL, p_surf_pL)
+
+    call gradmatrix_New(n_LGL_1d_pH, n_LGL_2d_pH, n_LGL_3d_pH, nnzgrad_pH,   &
+                    gradmat_pH, iagrad_pH, jagrad_pH, dagrad_pH, qagrad_pH, &
+                    pmat_pH, qmat_pH, dmat_pH, pvol_pH, p_surf_pH)
 
     allocate(x_LGL_pts_1D(nodesperedge))
     call JacobiP11(polyorder,x_LGL_pts_1D)
@@ -75,7 +84,10 @@ contains
     call Amat(x_LGL_pts_1D,nodesperedge,pmat,pinv,qmat,dmat) 
 
     ! populate grad matrix
-    call gradmatrix() ! (initcollocation)
+    call gradmatrix_New(nodesperedge, nodesperface, nodesperelem, nnzgrad,   &
+                    gradmat, iagrad, jagrad, dagrad, qagrad, &
+                    pmat, qmat, dmat, pvol, p_surf)
+!   call gradmatrix() ! (initcollocation)
 
 !   Filter Matrix
     allocate(Filter(nodesperedge,nodesperedge))
@@ -85,7 +97,7 @@ contains
 
 !   Begin Conversion to staggered approach    
 
-    N_Soln_Pts = npoly + 1 
+    N_Soln_Pts = npoly + 1
     N_Flux_Pts = npoly + 1 + npoly_DeltaF
 
     allocate(X_Soln_Pts(N_Soln_Pts))

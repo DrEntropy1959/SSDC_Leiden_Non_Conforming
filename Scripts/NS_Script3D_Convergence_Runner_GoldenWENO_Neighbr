@@ -27,7 +27,7 @@ cp zerodat NS_Convergence.Data.VS.Pencil_Uniform_1x1_SSDC_GoldenWENO_Neighbr.csv
    do
    for var1 in 3
      do
-     for var2 in 002 004 008 016
+     for var2 in 008 016
        do
        echo "OverColl: $var0   Order: $var1   Grid: $var2 "
        cat SSDCstartup.ref    | sed 's/deltaf/'${var0}'/g' | sed 's/NPoly/'${var1}'/g' | sed 's/PTS/'${var2}'/g' > SSDCstartup

@@ -5,6 +5,7 @@ module initcollocation
   private
 
   public gradmatrix
+  public gradmatrix_New
   public jacobiP11
   public Amat
 
@@ -299,6 +300,194 @@ contains
     endif
 
     end subroutine 
+
+  ! ===================================================================================
+  ! This subroutine calculates the multi-dimensional gradient operators 
+  ! for an already set dimension and polynomial approximation.
+  ! ===================================================================================
+
+  subroutine gradmatrix_New(n_pts_1d, n_pts_2d, n_pts_3d, nnzgrad,   &
+                        gradmat, iagrad, jagrad, dagrad, qagrad, &
+                        pmat, qmat, dmat, pvol, p_surf)
+
+!   use collocationvariables
+    use referencevariables
+    implicit none
+
+    integer,                                   intent(in)    :: n_pts_1d, n_pts_2d, n_pts_3d
+    integer,                                   intent(  out) :: nnzgrad
+    real(wp), dimension(n_pts_1d),             intent(in)    :: pmat
+    real(wp), dimension(n_pts_1d,n_pts_1d),    intent(in)    :: dmat, qmat
+
+    real(wp), dimension(:,:,:),  allocatable,  intent(inout) :: gradmat
+    integer,  dimension(:),      allocatable,  intent(inout) :: iagrad
+    integer,  dimension(:,:),    allocatable,  intent(inout) :: jagrad
+    real(wp), dimension(:,:),    allocatable,  intent(inout) :: dagrad, qagrad
+    real(wp), dimension(:),      allocatable,  intent(inout) :: pvol
+    real(wp), dimension(:),      allocatable,  intent(inout) :: p_surf
+
+    integer :: i,j,k,jj,kk,inode, idir
+    integer :: il(2,3), ix(3), ix_surf(2)
+    integer, allocatable, dimension(:) :: stride
+    integer :: icount
+
+    ! high and low indices in each dimension
+    il = 1
+    do idir = 1,ndim
+      il(2,idir) = n_pts_1d
+    end do
+
+    ! initialize gradient matrix for each direction
+    allocate(gradmat(n_pts_3d,n_pts_3d,ndim))
+    gradmat = 0.0_wp
+
+    ! allocate csr storage
+    ! ====================
+    ! number of nonzeroes is the same in each direction
+    nnzgrad = n_pts_3d*n_pts_1d
+    
+    ! row pointers
+    allocate(iagrad(n_pts_3d+1))
+    iagrad = 0
+    
+    ! column pointers
+    allocate(jagrad(1:ndim,nnzgrad))
+    jagrad = 0
+
+    ! matrix values
+    allocate(dagrad(1:ndim,nnzgrad))
+    dagrad = 0.0_wp
+
+    allocate(qagrad(1:ndim,nnzgrad))
+    qagrad = 0.0_wp
+
+    ! stride between columns in each direction
+    allocate(stride(1:ndim))
+    do idir = 1,ndim
+      stride(idir) = n_pts_1d**(idir-1)
+    end do
+
+    ! set CSR pointer index counter
+    icount = 1
+    ! reset row index coutner
+    inode = 0
+    ! loop over third direction (will be 1 to 1 unless 3D)
+    do k = il(1,3), il(2,3)
+      ! loop over second dimension (1 to 1 unless 2D)
+      do j = il(1,2), il(2,2)
+        ! loop over first dimension
+        do i = il(1,1), il(2,1)
+          ! index vector
+          ix = (/ i,j,k /)
+          ! advance row index by 1
+          inode = inode+1
+          ! set CSR counter for row
+          iagrad(inode) = icount
+          ! each gradient requires n_pts_1d nonzero columns
+          ! loop over n_pts_1d
+          do kk = 1,n_pts_1d
+            ! loop over directions
+            do idir = 1,ndim
+              ! column/node corresponding to coefficient in idir-direction
+              jj = stride(idir)*(kk-ix(idir)) + inode
+              jagrad(idir,icount) = jj
+              ! set coefficient for dmat
+              dagrad(idir,icount) = dmat(ix(idir),kk)
+              ! set coefficient for qmat
+              qagrad(idir,icount) = qmat(ix(idir),kk)
+            end do
+            ! advance CSR counter by 1
+            icount = icount + 1
+          end do
+        end do
+      end do
+    end do
+    ! set last pointer index for CSR
+    iagrad(n_pts_3d+1) = icount
+
+    ! gradmat is the same as dmat but is a full matrix
+    ! loop over directions
+    do idir = 1, ndim
+      ! reset node counter
+      inode = 0
+      ! loop over third direction
+      do k = il(1,3), il(2,3)
+        ! loop over second direction
+        do j = il(1,2), il(2,2)
+          ! loop over first direction
+          do i = il(1,1), il(2,1)
+            ! index vector
+            ix = (/ i,j,k /)
+            ! advance node counter by 1
+            inode = inode+1
+            ! loop over coefficients in gradient operator
+            do kk = 1,n_pts_1d
+              ! column/node corresponding to coefficient
+              jj = stride(idir)*(kk-ix(idir)) + inode
+              ! set coefficient in larger gradient matrix
+              gradmat(inode,jj,idir) = dmat(ix(idir),kk)
+            end do
+          end do
+        end do
+      end do
+    end do
+
+    ! pvol is used to integrate over the volume. It represents
+    ! the local volume in computational space. It is a diagonal
+    ! matrix, and thus set to a vector to save space.
+    allocate(pvol(n_pts_3d))
+    ! initialize to 1 because the length of every dimension not included is 1.
+    pvol = 1.0_wp
+    ! loop over directions
+    do idir = 1, ndim
+      ! reset node counter
+      inode = 0
+      ! loop over third direction
+      do k = il(1,3), il(2,3)
+        ! loop over second direction
+        do j = il(1,2), il(2,2)
+          ! loop over first direction
+          do i = il(1,1), il(2,1)
+            ! index vector
+            ix = (/ i,j,k /)
+            ! advance node counter by 1
+            inode = inode+1
+            ! update the product of the volume
+            pvol(inode) = pvol(inode)*pmat(ix(idir))
+          end do
+        end do
+      end do
+    end do
+
+    ! p_surf is used to integrate over the surface. It represents
+    ! the local surface in computational space. It is a diagonal
+    ! matrix, and thus set to a vector to save space.
+    allocate(p_surf(n_pts_2d))
+    ! initialize to 1 because the length of every dimension not included is 1.
+    p_surf = 1.0_wp
+    ! loop over directions
+    do idir = 1, ndim-1
+      ! reset node counter
+      inode = 0
+      ! loop over third direction
+      !do k = il(1,3), il(2,3)
+        ! loop over second direction
+        do j = il(1,2), il(2,2)
+          ! loop over first direction
+          do i = il(1,1), il(2,1)
+            ! index vector
+            ix_surf = (/ i,j /)
+            ! advance node counter by 1
+            inode = inode+1
+            ! update the product of the volume
+            p_surf(inode) = p_surf(inode)*pmat(ix_surf(idir))
+          end do
+        end do
+    end do
+
+    deallocate(stride)
+
+  end subroutine gradmatrix_New
 
   subroutine gradmatrix()
     ! This subroutine calculates the multi-dimensional
