@@ -506,28 +506,6 @@ contains
     return
   end subroutine primitive_to_entropy
 
-  pure subroutine KineticEnergyVariables(vin,keout,nq)
-    ! this routine calculates the kinetic energy variables corresponding to
-    ! the entropy function keout = 1/2 r (u_i u_i)
-    ! using the primitive variables.
-    implicit none
-    ! number of equations
-    integer, intent(in)   :: nq
-    ! primitive variables
-    real(wp), intent(in)  :: vin(nq)
-    ! entropy variables
-    real(wp), intent(out) :: keout(nq)
-
-    ! ke_1 = -1/2 u_i u_i 
-    keout(1)   = - 0.5_wp*dot_product(vin(2:4),vin(2:4))
-    ! ke_{2:4} = u_i
-    keout(2:4) = vin(2:4)
-    ! no fifth variable because KE not dependent on rho E .
-    keout(5)   = 0.0_wp
-
-    return
-  end subroutine KineticEnergyVariables
-
   pure subroutine entropy_to_primitive(win,vout,nq)
     use nsereferencevariables, only:gm1M2, gm1og
     implicit none
@@ -2093,7 +2071,6 @@ contains
     return
   end subroutine nse_reconcilestates
 
-  
   !============================================================================
 
   subroutine nse_calc_dudt_LSRK(tin)
@@ -2129,7 +2106,6 @@ contains
       call element_properties(ielem, n_pts_1d, n_pts_2d, n_pts_3d, &
                       pinv, qmat, dmat, iagrad, jagrad, dagrad,    &
                       pmat, nnzgrad, pvol, p_surf)
-!     n_pts_1d = nodesperedge ; n_pts_2D = nodesperface ; n_pts_3D = nodesperelem ;
           
       !  Calculate the elementwise Divergence  \/ * (F - Fv)
 
@@ -4611,7 +4587,6 @@ contains
     use variables
     use referencevariables
     use controlvariables, only: discretization, Entropy_Correction
-!   use collocationvariables
     use SSWENOvariables
     use initgrid
 
