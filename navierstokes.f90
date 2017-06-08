@@ -3084,7 +3084,8 @@ contains
     use referencevariables
     use nsereferencevariables
     use controlvariables, only: verbose, discretization
-    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,pinv,pvol
+    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,  &
+                                    pinv, qmat, dmat, pvol
     implicit none
     ! local time of evaluation (for RK schemes, this is the stage time)
     integer , intent(in) :: ielem
@@ -3099,7 +3100,8 @@ contains
     ! normal vector
 !   real(wp) :: nx(3)
      
-    call Flux_Div_Pencil(ielem)    !  result in divF
+!   call Flux_Div_Pencil(ielem)    !  result in divF
+    call Flux_Div_Pencil(ielem, nodesperedge, nodesperface, pinv, qmat, dmat) ! result in divF
 
     !divf = 0.0_wp
 
@@ -4596,37 +4598,34 @@ contains
     return
   end subroutine Solution_Filter
  
-  subroutine Flux_Div_Pencil(ielem)
-    ! This subroutine calculates elementwise 
-    ! the Divergence of the Conservative Flux
+  subroutine Flux_Div_Pencil(ielem, N_S, N_S_2d, pinv, qmat, dmat)
+
+    ! This subroutine calculates elementwise the Divergence of the Conservative Flux
+
     use variables
     use referencevariables
     use controlvariables, only: discretization, Entropy_Correction
-    use collocationvariables
+!   use collocationvariables
     use SSWENOvariables
     use initgrid
 
     implicit none
-    ! local time of evaluation (for RK schemes, this is the stage time)
-    integer , intent(in) :: ielem
+
+    integer ,                     intent(in)   :: ielem, N_S, N_S_2d
+
+    real(wp), dimension(N_S),     intent(in)   :: pinv
+    real(wp), dimension(N_S,N_S), intent(in)   :: qmat, dmat
 
     ! indices
     integer :: inode, jdir, iface, ipen
     integer :: i, k, l
 
-!   real(wp), dimension(N_Soln_Pts) :: tmpS
-!   real(wp), dimension(N_Flux_Pts) :: tmpF
-!   real(wp), dimension(nequations) :: tmpE
-!   real(wp), dimension(         3) :: tmpD
+    real(wp), dimension(nequations,N_S)        :: ugS, vgS, wgS, fgS, d_fgS
+    real(wp), dimension(         3,N_S)        :: JnS
 
-    real(wp), dimension(nequations,N_Soln_Pts) :: ugS, wgS, d_fgS
-!   real(wp), dimension(         3,N_Soln_Pts) :: nxS
-    real(wp), dimension(         3,N_Soln_Pts) :: JnS
+!   real(wp), dimension(nequations,N_Flux_Pts) :: ugF, wgF, vgF
+!   real(wp), dimension(         3,N_Flux_Pts) :: JnF
 
-    real(wp), dimension(nequations,N_Flux_Pts) :: ugF, wgF, vgF, fgF
-!   real(wp), dimension(         3,N_Flux_Pts) :: nxF
-    real(wp), dimension(         3,N_Flux_Pts) :: JnF
-!   real(wp), dimension(           N_Flux_Pts) :: JxF
 
     integer,  dimension(2)                     :: faceLR
     real(wp), dimension(nequations)            :: uLL,uL,uR,uRR
@@ -4646,42 +4645,27 @@ contains
 
       do jdir = 1,ndim            ! Directional loop
 
-        do ipen = 1,nodesperface
+        do ipen = 1, N_S_2d
 
           !  Grab a pencil of data
-          do i = 1,N_Soln_Pts
-            inode    = Pencil_Coord(N_Soln_Pts,jdir,ipen,i)
+          fgS(:,:) = zero
+          do i = 1,N_S
+            inode    = Pencil_Coord(N_S,jdir,ipen,i)
             ugS(:,i) =   ug(     :,inode,ielem)    !  Neqns
             JnS(:,i) = Jx_r(inode,ielem)*r_x(jdir,:,inode,ielem)
+
+            call conserved_to_primitive(ugS(:,i),vgS(:,i),nequations)
+            fgS(:,i) = normalflux( vgS(:,i), JnS(:,i), nequations )
+
           enddo
-
-          !  Extrapolate data from Solution points to Flux points
-          ugF(:,:) = zero  
-          do k = 1,nequations
-            ugF(k,1:N_Flux_Pts) = matmul(Ext_S2F,ugS(k,1:N_Soln_Pts))
-          enddo
-          JnF(:,:) = zero  
-          do l = 1,ndim
-            JnF(l,1:N_Flux_Pts) = matmul(Ext_S2F,JnS(l,1:N_Soln_Pts))
-          enddo
-
-          ! Build Inviscid fluxes on Pencil
-          fgF(:,:) = zero
-          do i = 1,N_Flux_Pts
-
-            call conserved_to_primitive(ugF(:,i),vgF(:,i),nequations)
-
-            fgF(:,i) = normalflux( vgF(:,i), JnF(:,i), nequations )
-
-          end do
 
           ! Differentiate Pencil of Fluxes on to solution points
           do k = 1,nequations
-            d_fgS(k,1:N_Soln_Pts) = matmul(Dif_F2S,fgF(k,1:N_Flux_Pts))
+            d_fgS(k,1:N_S) = matmul(dmat,fgS(k,1:N_S))
           enddo
 
-          do i = 1,N_Soln_Pts
-            inode   = Pencil_Coord(N_Soln_Pts,jdir,ipen,i)
+          do i = 1,N_S
+            inode   = Pencil_Coord(N_S,jdir,ipen,i)
             divf(:,jdir,inode,ielem) = d_fgS(:,i)
           enddo
 
@@ -4693,42 +4677,26 @@ contains
 
       do jdir = 1,ndim            ! Directional loop
 
-        do ipen = 1,nodesperface
+        do ipen = 1, N_S_2d
 
           !  Grab a pencil of data
-          do i = 1,N_Soln_Pts
-            inode    = Pencil_Coord(N_Soln_Pts,jdir,ipen,i)  
+          do i = 1,N_S
+            inode    = Pencil_Coord(N_S,jdir,ipen,i)  
             ugS(:,i) =   ug(     :,inode,ielem)    !  Neqns
             wgS(:,i) =   wg(     :,inode,ielem)    !  Neqns
             JnS(:,i) = Jx_r(inode,ielem)*r_x(jdir,:,inode,ielem)
           enddo
 
           !  Extrapolate data from Solution points to Flux points
-          if(N_Soln_Pts == N_Flux_Pts) then
-            ugF(:,:) = ugS(:,:)
-            wgF(:,:) = wgS(:,:)
-            JnF(:,:) = JnS(:,:)
-          else
-            ugF(:,:) = zero  
-            wgF(:,:) = zero  
-            do k = 1,nequations
-              ugF(k,1:N_Flux_Pts) = matmul(Ext_S2F,ugS(k,1:N_Soln_Pts))
-              wgF(k,1:N_Flux_Pts) = matmul(Ext_S2F,wgS(k,1:N_Soln_Pts))
-            enddo
-            JnF(:,:) = zero  
-            do l = 1,ndim
-              JnF(l,1:N_Flux_Pts) = matmul(Ext_S2F,JnS(l,1:N_Soln_Pts))
-            enddo
-          endif
 
           if( .not. Entropy_Correction) then
-            call SS_Euler_Dspec(N_Soln_Pts,N_Flux_Pts,nequations, wgF, JnF, d_fgS)
+            call SS_Euler_Dspec(N_S, nequations, pinv, qmat, dmat, ugS, JnS, d_fgS)
           else
-            call SS_Stabilized_Euler_Dspec(N_Soln_Pts,N_Flux_Pts,nequations, ugF, JnF, d_fgS)
+            call SS_Stabilized_Euler_Dspec(N_S,nequations, pinv, qmat, ugS, JnS, d_fgS)
           endif
 
-          do i = 1,N_Soln_Pts
-            inode   = Pencil_Coord(N_Soln_Pts,jdir,ipen,i)
+          do i = 1,N_S
+            inode   = Pencil_Coord(N_S,jdir,ipen,i)
             divf(:,jdir,inode,ielem) = d_fgS(:,i)
           enddo
 
@@ -4742,7 +4710,7 @@ contains
 
         faceLR = face_pairs(jdir)
 
-        do ipen = 1,nodesperface
+        do ipen = 1,N_S_2d
 
            inb  =  0     !  Assumes the pencil is an interior one.
 
@@ -4750,7 +4718,7 @@ contains
 
            if     (ef2e(1,faceLR(1),ielem) < 0) then            ! Partner is a BC (i.e. no partner) 
              inb   = -1
-            i_node = Pencil_Coord(N_Soln_Pts,jdir,ipen,1)  
+            i_node = Pencil_Coord(N_S,jdir,ipen,1)  
              uL(:) = ug(:,i_node,ielem)
             uLL(:) = ug(:,i_node,ielem)
 
@@ -4777,7 +4745,7 @@ contains
 
           if     (ef2e(1,faceLR(2),ielem) < 0) then            ! Partner is a BC (no partner) 
              inb   = +1
-            i_node = Pencil_Coord(N_Soln_Pts,jdir,ipen,N_Soln_Pts)  
+            i_node = Pencil_Coord(N_S,jdir,ipen,N_S)  
              uR(:) = ug(:,i_node,ielem)
             uRR(:) = ug(:,i_node,ielem)
 
@@ -4801,8 +4769,8 @@ contains
           endif
 
           !  Grab a pencil of data
-          do i = 1,N_Soln_Pts
-            inode    = Pencil_Coord(N_Soln_Pts,jdir,ipen,i)  
+          do i = 1,N_S
+            inode    = Pencil_Coord(N_S,jdir,ipen,i)  
             ugS(:,i) =   ug(     :,inode,ielem)    !  Neqns
             wgS(:,i) =   wg(     :,inode,ielem)    !  Neqns
             JnS(:,i) = Jx_r(inode,ielem)*r_x(jdir,:,inode,ielem)
@@ -4812,7 +4780,7 @@ contains
           ! Second conditional catches elements that are periodic onto themselves (1 wide)
           if ( (ef2e(1,faceLR(1),ielem) <      0) .and. (ef2e(1,faceLR(2),ielem) <      0)    .or. &
              & (ef2e(2,faceLR(1),ielem) == ielem) .and. (ef2e(2,faceLR(2),ielem) == ielem)  ) then
-            call SS_Stabilized_Euler_Dspec(N_Soln_Pts,N_Flux_Pts,nequations, ugS, JnS, d_fgS)
+            call SS_Stabilized_Euler_Dspec(N_S,nequations, pinv, qmat, ugS, JnS, d_fgS)
           else
             if(WENO_type == 'Element_WENO') then
               uLL = uL ; uRR = uR ;     !  Ensures consistency of smoothness parameters tau_i
@@ -4820,8 +4788,8 @@ contains
             call SSWENO4(inb, ugS, uLL, uL, uR, uRR, WENO_Extrp, 1.0_wp, WENO_Extrp, JnS, d_fgS)
           endif
 
-          do i = 1,N_Soln_Pts
-            inode   = Pencil_Coord(N_Soln_Pts,jdir,ipen,i)
+          do i = 1,N_S
+            inode   = Pencil_Coord(N_S,jdir,ipen,i)
             divf(:,jdir,inode,ielem) = d_fgS(:,i)
           enddo
 
@@ -4877,37 +4845,36 @@ contains
 
 !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-  subroutine SS_Euler_Dspec(N_S,N_F,N_q, wgF,JnF, dfn)
+  subroutine SS_Euler_Dspec(N_S, N_q, pinv, qmat, dmat, ugS, JnS, dfn)
 
     use variables
     use referencevariables
     use controlvariables, only: discretization
-    use collocationvariables
 
     implicit none 
 
-    integer,                      intent(in ) :: N_S, N_F, N_q
-    real(wp), dimension(N_q,N_F), intent(in ) :: wgF
-    real(wp), dimension(  3,N_F), intent(in ) :: JnF
+    integer,                      intent(in ) :: N_S, N_q
+    real(wp), dimension(N_S),     intent(in ) :: pinv
+    real(wp), dimension(N_S,N_S), intent(in ) :: qmat, dmat
+    real(wp), dimension(N_q,N_S), intent(in ) :: ugS
+    real(wp), dimension(  3,N_S), intent(in ) :: JnS
 
     real(wp), dimension(N_q,N_S), intent(out) :: dfn
 
-    real(wp), dimension(N_q,N_F    )          :: vgF
-    real(wp), dimension(N_q,N_F,N_F)          :: SSFlux
-
+    real(wp), dimension(N_q,N_S,N_S)          :: SSFlux
 
     real(wp), dimension(3)                    :: nx
-    real(wp), dimension(N_q,N_F)              :: dfnT
 
     integer                                   :: i,j,k,l
-    logical                                   :: flux = .true.
-    real(wp), dimension(N_q,0:N_F)            :: fnS
 
+    real(wp), dimension(N_q,N_S)              :: vgS
+    real(wp), dimension(N_q,0:N_S)            :: fnS
+
+    logical                                   :: flux = .false.
 
     !  Rotate pencil from conserved variables to primitive variables
-    do i=1,N_F
-      !call conserved_to_primitive(ugF(:,i),vgF(:,i),N_q)
-      call entropy_to_primitive(wgF(:,i),vgF(:,i),N_q)
+    do i=1,N_S
+      call conserved_to_primitive(ugS(:,i),vgS(:,i),N_q)
     enddo
 
     !  EntropyConsistentFlux is symmetric w.r.t. the Left and Right states
@@ -4917,48 +4884,36 @@ contains
 
       SSFlux = 0.0_wp
 
-      do i=1,N_F-1
-          do j=i+1,N_F
-                    nx(:) = half*(JnF(:,i) + JnF(:,j))
-            SSFlux(:,i,j) = EntropyConsistentFlux(vgF(:,i),vgF(:,j),nx,N_q) 
-!           SSFlux(:,i,j) = Entropy_KE_Consistent_Flux(vgF(:,i),vgF(:,j),nx,N_q) 
+      do i=1,N_S-1
+          do j=i+1,N_S
+                    nx(:) = half*(JnS(:,i) + JnS(:,j))
+            SSFlux(:,i,j) = 2.0_wp * EntropyConsistentFlux(vgS(:,i),vgS(:,j),nx,N_q) 
             SSFlux(:,j,i) = SSFlux(:,i,j)
         enddo
       enddo
 
-!       SSFlux(:,  1,  1) = EntropyConsistentFlux(vgF(:,  1),vgF(:,  1),JxF(  1)*nxF(:,  1),N_q)
-!       SSFlux(:,N_F,N_F) = EntropyConsistentFlux(vgF(:,N_F),vgF(:,N_F),JxF(N_F)*nxF(:,N_F),N_q)
-!       To machine precision, the EntropyConsistenTFlux and the conventional flux are the same
-!       when the left and right states are identical
+      SSFlux(:,  1,  1) = 2.0_wp * normalflux( vgS(:,  1), JnS(:,  1), N_q )
+      SSFlux(:,N_S,N_S) = 2.0_wp * normalflux( vgS(:,N_S), JnS(:,N_S), N_q )
 
-      SSFlux(:,  1,  1) = normalflux( vgF(:,  1), JnF(:,  1), N_q )
-      SSFlux(:,N_F,N_F) = normalflux( vgF(:,N_F), JnF(:,N_F), N_q )
-
-      do i=1,N_F
-        dfnT(:,i) = zero
-        do j=1,N_F
-          dfnT(:,i) = dfnT(:,i) + dmat_Flux(i,j)*SSFlux(:,i,j)
+      do i=1,N_S
+        dfn(:,i) = zero
+        do j=1,N_S
+          dfn(:,i) = dfn(:,i) + dmat(i,j)*SSFlux(:,i,j)
         enddo
-      enddo
-  
-      do i=1,N_q
-        dfn(i,:) = two * matmul(Int_F2S,dfnT(i,:))
       enddo
 
     else
 
       fnS(:,:) = 0.0_wp ;
-      do i=1,N_F-1
+      do i=1,N_S-1
   
-        do j=i+1,N_F
-                  nx(:) = half*(JnF(:,i) + JnF(:,j))
-          SSFlux(:,i,j) = 2.0_wp* qmat_Flux(i,j)*EntropyConsistentFlux(vgF(:,i),vgF(:,j),nx,N_q) 
-!         SSFlux(:,i,j) = 2.0_wp* qmat_Flux(i,j)*diabolical_flux(vgF(:,i), vgF(:,j), wgF(:,i), wgF(:,j),nx,N_q)
-!         SSFlux(:,i,j) = 2.0_wp* qmat_Flux(i,j)*Entropy_KE_Consistent_Flux(vgF(:,i),vgF(:,j),nx,N_q) 
+        do j=i+1,N_S
+                  nx(:) = half*(JnS(:,i) + JnS(:,j))
+          SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*EntropyConsistentFlux(vgS(:,i),vgS(:,j),nx,N_q) 
         enddo
   
         fnS(:,i) = 0.0_wp
-        do k=i+1,N_F
+        do k=i+1,N_S
           do l=1,i
             fnS(:,i) = fnS(:,i) + SSFlux(:,l,k)
           enddo
@@ -4966,18 +4921,12 @@ contains
 
       enddo
 
-      fnS(:,  0) = normalflux  (vgF(:,  1),JnF(:,  1),N_q)
-      fnS(:,N_F) = normalflux  (vgF(:,N_F),JnF(:,N_F),N_q)
+      fnS(:,  0) = normalflux  (vgS(:,  1),JnS(:,  1),N_q)
+      fnS(:,N_S) = normalflux  (vgS(:,N_S),JnS(:,N_S),N_q)
 
-      !dfnT(:.:) = 0.0_wp
-      do k = 1,N_F
-        dfnT(:,k) = pinv_Flux(k) * (fnS(:,k) - fnS(:,k-1))
+      do k = 1,N_S
+        dfn(:,k) = pinv(k) * (fnS(:,k) - fnS(:,k-1))
       enddo
-
-      do i=1,N_q
-        dfn(i,:) = matmul(Int_F2S,dfnT(i,:))
-      enddo
-
 
     endif
 
@@ -4986,26 +4935,28 @@ contains
 
 !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-  subroutine SS_Stabilized_Euler_Dspec(N_S,N_F,N_q, ugF,JnF, dfn)
+  subroutine SS_Stabilized_Euler_Dspec(N_S, N_q, pinv, qmat, ugS,JnS, dfn)
 
     use variables
     use referencevariables
     use controlvariables, only: discretization, flux_entropy_correction
-    use collocationvariables
+!   use collocationvariables
 
     implicit none 
 
-    integer,                      intent(in ) :: N_S, N_F, N_q
-    real(wp), dimension(N_q,N_F), intent(in ) :: ugF
-    real(wp), dimension(  3,N_F), intent(in ) :: JnF
+    integer,                      intent(in ) :: N_S, N_q
+    real(wp), dimension(N_S),     intent(in ) :: pinv
+    real(wp), dimension(N_S,N_S), intent(in ) :: qmat
+    real(wp), dimension(N_q,N_S), intent(in ) :: ugS
+    real(wp), dimension(  3,N_S), intent(in ) :: JnS
 
     real(wp), dimension(N_q,N_S), intent(out) :: dfn
 
-    real(wp), dimension(N_q,N_F,N_F)          :: SSFlux, DSFlux
+    real(wp), dimension(N_q,N_S,N_S)          :: SSFlux, DSFlux
 
-    real(wp), dimension(N_q,1:N_F)            :: vgF, wgF
+    real(wp), dimension(N_q,1:N_S)            :: vgS, wgS
 
-    real(wp), dimension(N_q,0:N_F)            :: fnS, fnD
+    real(wp), dimension(N_q,0:N_S)            :: fnS, fnD
 
     real(wp), dimension(3)                    :: nx
 
@@ -5020,25 +4971,24 @@ contains
 
 
     !  Rotate pencil from conserved variables to primitive variables
-    do i=1,N_F
-      call conserved_to_primitive(ugF(:,i),vgF(:,i),N_q)
-      call primitive_to_entropy  (vgF(:,i),wgF(:,i),N_q)
+    do i=1,N_S
+      call conserved_to_primitive(ugS(:,i),vgS(:,i),N_q)
+      call primitive_to_entropy  (vgS(:,i),wgS(:,i),N_q)
     enddo
 
-    !  Form Entropy Fluxes 0:N_F
+    !  Form Entropy Fluxes 0:N_S
     fnS(:,:) = 0.0_wp ; fnD(:,:) = 0.0_wp ;
-    do i=1,N_F-1
+    do i=1,N_S-1
 
-      do j=i+1,N_F
-                nx(:) = half * (JnF(:,i) + JnF(:,j))
-        SSFlux(:,i,j) = two  * qmat(i,j)*EntropyConsistentFlux(vgF(:,i),vgF(:,j),nx,N_q) 
-!       SSFlux(:,i,j) = two  * qmat(i,j)*Entropy_KE_Consistent_Flux(vgF(:,i),vgF(:,j),nx,N_q) 
+      do j=i+1,N_S
+                nx(:) = half * (JnS(:,i) + JnS(:,j))
+        SSFlux(:,i,j) = two  * qmat(i,j)*EntropyConsistentFlux(vgS(:,i),vgS(:,j),nx,N_q) 
         
         select case (flux_entropy_correction)
           case ('normal')
-            DSFlux(:,i,j) = two  * qmat(i,j)*normalflux    (half*(vgF(:,i)+vgF(:,j)),nx,N_q)
+            DSFlux(:,i,j) = two  * qmat(i,j)*normalflux    (half*(vgS(:,i)+vgS(:,j)),nx,N_q)
           case ('Honein-Moin')
-            DSFlux(:,i,j) = two  * qmat(i,j)*HoneinMoinFlux(vgF(:,i),vgF(:,j),nx,N_q)
+            DSFlux(:,i,j) = two  * qmat(i,j)*HoneinMoinFlux(vgS(:,i),vgS(:,j),nx,N_q)
           case default
             write(*,*) 'The flux selected to be use for the entropy correction is unknown.'
             write(*,*) 'Check the subroutine SS_Stabilized_Euler_Dspec()'
@@ -5048,7 +4998,7 @@ contains
       enddo
 
       fnS(:,i) = 0.0_wp ; fnD(:,i) = 0.0_wp ;
-      do k=i+1,N_F
+      do k=i+1,N_S
         do l=1,i
           fnS(:,i) = fnS(:,i) + SSFlux(:,l,k)
           fnD(:,i) = fnD(:,i) + DSFlux(:,l,k)
@@ -5057,22 +5007,22 @@ contains
 
     enddo
 
-    fnS(:,  0) = normalflux(vgF(:,  1),JnF(:,  1),N_q) ; fnD(:,  0) = fnS(:,  0)
-    fnS(:,N_F) = normalflux(vgF(:,N_F),JnF(:,N_F),N_q) ; fnD(:,N_F) = fnS(:,N_F)
+    fnS(:,  0) = normalflux(vgS(:,  1),JnS(:,  1),N_q) ; fnD(:,  0) = fnS(:,  0)
+    fnS(:,N_S) = normalflux(vgS(:,N_S),JnS(:,N_S),N_q) ; fnD(:,N_S) = fnS(:,N_S)
 
     !  Entropy Correction 
-    do i = 1,N_F-1
-!         bb(:) = (wgF(:,i+1) - wgF(:,i+0))*(fnS(:,i) - fnD(:,i))
+    do i = 1,N_S-1
+!         bb(:) = (wgS(:,i+1) - wgS(:,i+0))*(fnS(:,i) - fnD(:,i))
 !         ds(:) = sqrt(bb(:)*bb(:) + cc2)
 !      delta(:) = (ds(:) - bb(:))/(two*ds(:))
 !      fnD(:,i) = fnD(:,i) + delta(:)*(fnS(:,i) - fnD(:,i))  !  Entropy Correction
-         bbS = dot_product(wgF(:,i+1)-wgF(:,i+0),fnS(:,i)-fnD(:,i))
+         bbS = dot_product(wgS(:,i+1)-wgS(:,i+0),fnS(:,i)-fnD(:,i))
          dsS = sqrt(bbS*bbS + cc2)
       deltaS = (dsS - bbS)/(two*dsS)
       fnD(:,i) = fnD(:,i) + deltaS * (fnS(:,i) - fnD(:,i))
     enddo
 
-    do i = 1,N_F
+    do i = 1,N_S
       dfn(:,i) = pinv(i) * (fnD(:,i) - fnD(:,i-1))
     enddo
 
@@ -5080,27 +5030,6 @@ contains
   end subroutine SS_Stabilized_Euler_Dspec
 
 !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-! pure function Pencil_Coord(Ns,jdir,iface,i)
-!   
-!   integer, intent(in)  :: Ns,jdir,iface,i
-
-!   integer              :: Pencil_Coord
-
-!   Pencil_Coord = 0
-
-!   select case (jdir)
-!     case(1)
-!       Pencil_Coord =  1 + (mod((iface-0),Ns)-1)*Ns + int((iface-0)/Ns) * Ns*Ns + (i-1)
-!     case(2)
-!       Pencil_Coord =  1 + (mod((iface-1),Ns)-0)    + int((iface-1)/Ns) * Ns*Ns + (i-1) * Ns
-!     case(3)
-!       Pencil_Coord =            iface                                          + (i-1) * Ns*Ns
-!   end select
-
-! end function
-
-  !============================================================================
 
   !============================================================================
   ! matrix_hatc_node - Computes the matrix \hat{[C]} of one node using the 
