@@ -2102,10 +2102,11 @@ contains
 
     use variables
     use referencevariables
-    use controlvariables, only: verbose
+    use initcollocation,       only: element_properties
+    use controlvariables,      only: verbose
     use nsereferencevariables, only: entropy_viscosity
-    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,&
-                                    pinv, qmat, dmat, pvol
+    use collocationvariables,  only: iagrad,jagrad,dagrad,gradmat,nnzgrad, &
+                                     pinv, pmat, qmat, dmat, pvol, p_surf
     implicit none
 
     ! local time of evaluation (for RK schemes, this is the stage time)
@@ -2113,14 +2114,10 @@ contains
 
     ! indices
     integer :: inode,ielem, jdir
+    integer :: n_pts_1d, n_pts_2d, n_pts_3d
 
     ! low and high volumetric element indices
     integer :: iell, ielh
-    real(wp) :: t1
-
-    ! update the primitive and entropy variables and
-    ! the LDG/LDC gradients
-    !call nse_reconcilestates() IMPORTANT NOTE: This is now called in timeinteg.f90 
 
     ! low : high volumetric element index
     iell = ihelems(1) ;  ielh = ihelems(2)
@@ -2128,19 +2125,24 @@ contains
     ! loop over all elements
 
     do ielem = iell, ielh
+
+      call element_properties(ielem, n_pts_1d, n_pts_2d, n_pts_3d, &
+                      pinv, qmat, dmat, iagrad, jagrad, dagrad,    &
+                      pmat, nnzgrad, pvol, p_surf)
+!     n_pts_1d = nodesperedge ; n_pts_2D = nodesperface ; n_pts_3D = nodesperelem ;
           
       !  Calculate the elementwise Divergence  \/ * (F - Fv)
 
-      call Flux_Divergence(tin, nodesperedge, nodesperface, nodesperelem, &
-                          pinv, qmat, dmat, iagrad, jagrad, dagrad, ielem)
+      call Flux_Divergence(tin, n_pts_1d, n_pts_2d, n_pts_3d,  &
+                           pinv, qmat, dmat, iagrad, jagrad, dagrad, ielem)
 
       !  Form the elementwise SAT_Penalties
 
-      call SAT_Penalty(tin, ielem, nodesperedge, nodesperface, pinv )
+      call SAT_Penalty(tin, ielem, n_pts_1d, n_pts_2d, pinv )
          
       ! compute time derivative
         
-      do inode = 1, nodesperelem                                               ! loop over all nodes in the element
+      do inode = 1, n_pts_3d                                                 ! loop over all nodes in the element
 
           dudt(:,inode,ielem) =  ( - divf(:,1,inode,ielem) &                 ! Thus this is the dudt of u and NOT J u*
                                  & - divf(:,2,inode,ielem) &

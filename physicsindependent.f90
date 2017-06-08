@@ -67,13 +67,13 @@ contains
     if (grid_format == 'cgns') then
 
       ! Define boundary condition types
-      call init_cgns_bc()
+!      call init_cgns_bc()
 
       ! The master node compute the connectivity and calls metis to assign 
       ! the elements to each process.
       if (myprocid == 0) then
         ! Read only the necessary information from the datafile
-        call cgnsPrelimUnstructuredGrid(casefile)
+!        call cgnsPrelimUnstructuredGrid(casefile)
 
         ! Check the number of processors and the number of elements
         call check_n_procs_n_elems(nprocs,nelems)
@@ -90,7 +90,7 @@ contains
       call distributeelements_cgns()
     
       ! Read vertices now from grid file using known connectivity information
-      call cgnsParallelUnstructuredGrid(casefile)
+!      call cgnsParallelUnstructuredGrid(casefile)
     
     
     else if (grid_format == 'aflr3') then
@@ -105,7 +105,6 @@ contains
         ! Read only the necessary information from the datafile
         call aflr3ReadUnstructuredGrid(casefile)
 
-
         ! Check the number of processors and the number of elements
         call check_n_procs_n_elems(nprocs,nelems) 
 
@@ -117,10 +116,6 @@ contains
 
         ! Construct the vector of +1 and -1 for the LDG flip-flop
         call create_ldg_flip_flop_sign()
-
-!       write(*,*) 'Master node builds processes geometry for HO Curvature'
-!       call Boundary_Vertex_2_Vertex_Connectivity()
-!       stop
 
         write(*,*) 'Master node calls metis to subdivide the domain'
         write(*,*) '==============================================================='
@@ -137,7 +132,10 @@ contains
 
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()
-      !call distributeelements()
+
+      ! Assign element orders (HACK)
+      call set_element_orders()
+
     
     end if
     
