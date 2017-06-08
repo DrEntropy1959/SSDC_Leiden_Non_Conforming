@@ -955,7 +955,10 @@ contains
 
       divf = 0.0_wp
 
-      call Flux_Divergence(timestep,elem_id)
+!     HACK
+!     call Flux_Divergence(timestep,elem_id)
+!     HACK
+
       ! Loop over all nodes in the element
       do i_node = 1, nodesperelem
         ! Add the contribution from the flux divergence in each direction

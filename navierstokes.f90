@@ -2104,7 +2104,8 @@ contains
     use referencevariables
     use controlvariables, only: verbose
     use nsereferencevariables, only: entropy_viscosity
-    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,pinv,pvol
+    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,&
+                                    pinv, qmat, dmat, pvol
     implicit none
 
     ! local time of evaluation (for RK schemes, this is the stage time)
@@ -2130,7 +2131,8 @@ contains
           
       !  Calculate the elementwise Divergence  \/ * (F - Fv)
 
-      call Flux_Divergence(tin,ielem)           !  result in divF
+      call Flux_Divergence(tin, nodesperedge, nodesperface, nodesperelem, &
+                          pinv, qmat, dmat, iagrad, jagrad, dagrad, ielem)
 
       !  Form the elementwise SAT_Penalties
 
@@ -3077,37 +3079,36 @@ contains
     return
   end subroutine rhalf
 
-  subroutine Flux_Divergence(tin,ielem)
-    ! This subroutine calculates elementwise 
-    ! the Divergence of the Conservative Flux
+!=====================================================================================================
+
+  subroutine Flux_Divergence(tin, N_S, N_S_2d, N_S_3d, pinv, qmat, dmat, iagrad, jagrad, dagrad, ielem)
+
+    ! This subroutine calculates elementwise the Divergence of the Conservative Flux
+
     use variables
     use referencevariables
     use nsereferencevariables
     use controlvariables, only: verbose, discretization
-    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,  &
-                                    pinv, qmat, dmat, pvol
     implicit none
-    ! local time of evaluation (for RK schemes, this is the stage time)
-    integer , intent(in) :: ielem
-    real(wp), intent(in) :: tin
+
+    integer ,                     intent(in)  :: N_S, N_S_2d, N_S_3d, ielem
+    real(wp),                     intent(in)  :: tin
+    real(wp), dimension(N_S),     intent(in)  :: pinv
+    real(wp), dimension(N_S,N_S), intent(in)  :: qmat, dmat
+    integer,  dimension(:),       intent(in)  :: iagrad
+    integer,  dimension(:,:),     intent(in)  :: jagrad
+    real(wp), dimension(:,:),     intent(in)  :: dagrad
 
     ! indices
     integer :: inode, jdir
     integer :: jnode
     integer :: i
 
-    real(wp), dimension(nequations) :: t1
-    ! normal vector
-!   real(wp) :: nx(3)
-     
-!   call Flux_Div_Pencil(ielem)    !  result in divF
-    call Flux_Div_Pencil(ielem, nodesperedge, nodesperface, pinv, qmat, dmat) ! result in divF
-
-    !divf = 0.0_wp
+    call Flux_Div_Pencil(ielem, N_S, N_S_2d, pinv, qmat, dmat)    !  result in divF
 
     if (viscous) then
       ! loop over all nodes in element
-      do inode = 1,nodesperelem
+      do inode = 1, N_S_3d
 
         ! calculate viscous flux
         fvg (:,:,inode,ielem) = 0.0_wp
@@ -3118,7 +3119,7 @@ contains
             r_x(:,:,inode,ielem), &
             nequations, &
             ndim, &
-            mut(inode,ielem))
+            mut(inode,ielem)) ! (navierstokes)
       end do
 
       !
@@ -3126,7 +3127,7 @@ contains
       ! 
 
       ! loop over all nodes in the element
-      do inode = 1,nodesperelem
+      do inode = 1, N_S_3d
 
         ! loop over all nonzero columns in CSR corresponding to this row
         do i = iagrad(inode), iagrad(inode+1)-1
@@ -3141,7 +3142,6 @@ contains
           end do
         end do
       end do
-
     endif
 
     return
@@ -3686,11 +3686,13 @@ contains
       !                                        __
       !  Calculate the elementwise Divergence  \/ * (F - Fv)
        
-      if(IMEX_element == 'explicit') call Flux_Divergence(tin,ielem)    !  result in divF
+!     HACK
+!     if(IMEX_element == 'explicit') call Flux_Divergence(tin,ielem)    !  result in divF
 
       !  Form the elementwise SAT_Penalties
 
 !     if(IMEX_penalty == 'explicit') call SAT_Penalty(tin,ielem)        !  result in gsat
+!     HACK
       !  
       ! compute time derivative
       ! 
@@ -3746,11 +3748,13 @@ contains
       !                                        __
       !  Calculate the elementwise Divergence  \/ * (F - Fv)
        
-      if(IMEX_element == 'implicit') call Flux_Divergence(tin,ielem)    !  result in divF
+!     HACK
+!     if(IMEX_element == 'implicit') call Flux_Divergence(tin,ielem)    !  result in divF
 
       !  Form the elementwise SAT_Penalties
 
 !     if(IMEX_penalty == 'implicit') call SAT_Penalty(tin,ielem)        !  result in gsat
+!     HACK
       !  
       ! compute the "IMPLICIT" flux Fimp
       ! 
