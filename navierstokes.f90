@@ -1877,11 +1877,6 @@ contains
 !   real(wp), allocatable :: phig_tmp3(:,:,:), phig_test(:,:,:)
 !  HACK Testing
 
-    ! low volumetric element index
-    iell = ihelems(1)
-    ! high volumetric element index
-    ielh = ihelems(2)
-
     call UpdateComm1DGhostData(ug, ughst, upetsc, ulocpetsc, &
       nequations, nodesperelem, ihelems, nghost)
 
@@ -1900,18 +1895,13 @@ contains
 
     endif
 
-    ! loop over elements
-    do ielem = iell, ielh
-      ! loop over every node in element
-      do inode = 1,nodesperelem
-        ! compute primitive variables
-        call conserved_to_primitive( ug(:,inode,ielem), &
-          vg(:,inode,ielem), &
-          nequations ) ! (navierstokes)
-        ! compute entropy variables
-        call primitive_to_entropy( vg(:,inode,ielem), &
-          wg(:,inode,ielem), &
-          nequations ) ! (navierstokes)
+    ! low and high volumetric element index
+    iell = ihelems(1) ; ielh = ihelems(2) ;
+
+    do ielem = iell, ielh         ! loop over elements
+      do inode = 1,nodesperelem   ! loop over nodes and compute primitive and entropy variables
+        call conserved_to_primitive(ug(:,inode,ielem), vg(:,inode,ielem), nequations ) ! (navierstokes)
+        call primitive_to_entropy  (vg(:,inode,ielem), wg(:,inode,ielem), nequations ) ! (navierstokes)
       end do
     end do
 
@@ -1926,11 +1916,9 @@ contains
       ! dphi is calculated at faces
       allocate(dphi(nequations))
       allocate(wtmp(nequations))
-      ! LDC/LDG coefficient according to CNG-revisited
       ! loop over elements
       do ielem = iell, ielh
         ! compute computational gradients of the entropy variables
-        !
         ! initialize phi
         phig(:,:,:,ielem) = 0.0_wp
         phig_err(:,:,:,ielem) = 0.0_wp
