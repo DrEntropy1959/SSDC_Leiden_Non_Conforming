@@ -1906,152 +1906,155 @@ contains
     end do
 
     if (viscous) then
-      ! phitmp is calculated in computational space
-      allocate(phig_err1(nequations,ndim),phig_err2(nequations,ndim))
-!  HACK Testing
-!     allocate(phig_tmp3(nequations,ndim,nodesperelem))
-!     allocate(phig_test(nequations,ndim,nodesperelem))
-!  HACK Testing
-      allocate(phitmp(nequations,ndim))
-      ! dphi is calculated at faces
-      allocate(dphi(nequations))
-      allocate(wtmp(nequations))
-      ! loop over elements
-      do ielem = iell, ielh
-        ! compute computational gradients of the entropy variables
-        ! initialize phi
-        phig(:,:,:,ielem) = 0.0_wp
-        phig_err(:,:,:,ielem) = 0.0_wp
-!  HACK TESTING new viscous path
-!       phig_test(:,:,:) = 0.0_wp
-!       phig_tmp3(:,:,:) = 0.0_wp
-!  HACK Testing New viscous path
-        grad_w_jacobian(:,:,:,ielem) = 0.0_wp
-        ! loop over every node in element
-        do inode = 1, nodesperelem
-          ! reinitialize computational gradient to zero
-          phitmp(:,:) = 0.0_wp
-          phig_err1(:,:) = 0.0_wp
-          phig_err2(:,:) = 0.0_wp
-          ! loop over number of dependent elements in gradient
-          do i = iagrad(inode), iagrad(inode+1)-1
-            ! loop over dimensions
-            do jdir = 1,ndim
-              ! column/node from gradient operator in CSR format in
-              ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
-              jnode = jagrad(jdir,i)
-              ! update gradient using coefficient and entropy variables at appropriate node
-              phitmp(:,jdir)    = phitmp(:,jdir)    + dagrad(jdir,i)*wg(:,jnode,ielem) 
-              phig_err1(:,jdir) = phig_err1(:,jdir) + dagrad(jdir,i)*vg(:,jnode,ielem) 
-            end do
-          end do
 
-!  HACK Testing
-!         phig_tmp3(:,:,inode) = phitmp(:,:) 
-!  HACK Testing
+      call viscous_gradients()
 
-          ! Store gradient of the entropy variables in computational space
-          do i = 1, ndim
-            grad_w_jacobian(:,i,inode,ielem) = phitmp(:,i)
-          enddo
-          ! transform to physical space using dxi_jdir/dx_idir
-          do jdir = 1,ndim
-            do idir = 1,ndim
-              phig(:,idir,inode,ielem) = phig(:,idir,inode,ielem) + phitmp(:,jdir)*r_x(jdir,idir,inode,ielem)
-              phig_err2(:,idir) = phig_err2(:,idir) + phig_err1(:,jdir)*r_x(jdir,idir,inode,ielem)
-            end do
-          end do
+ !    ! phitmp is calculated in computational space
+ !    allocate(phig_err1(nequations,ndim),phig_err2(nequations,ndim))
+!! HACK Testing
+!!    allocate(phig_tmp3(nequations,ndim,nodesperelem))
+!!    allocate(phig_test(nequations,ndim,nodesperelem))
+!! HACK Testing
+ !    allocate(phitmp(nequations,ndim))
+ !    ! dphi is calculated at faces
+ !    allocate(dphi(nequations))
+ !    allocate(wtmp(nequations))
+ !    ! loop over elements
+ !    do ielem = iell, ielh
+ !      ! compute computational gradients of the entropy variables
+ !      ! initialize phi
+ !      phig(:,:,:,ielem) = 0.0_wp
+ !      phig_err(:,:,:,ielem) = 0.0_wp
+!! HACK TESTING new viscous path
+!!      phig_test(:,:,:) = 0.0_wp
+!!      phig_tmp3(:,:,:) = 0.0_wp
+!! HACK Testing New viscous path
+ !      grad_w_jacobian(:,:,:,ielem) = 0.0_wp
+ !      ! loop over every node in element
+ !      do inode = 1, nodesperelem
+ !        ! reinitialize computational gradient to zero
+ !        phitmp(:,:) = 0.0_wp
+ !        phig_err1(:,:) = 0.0_wp
+ !        phig_err2(:,:) = 0.0_wp
+ !        ! loop over number of dependent elements in gradient
+ !        do i = iagrad(inode), iagrad(inode+1)-1
+ !          ! loop over dimensions
+ !          do jdir = 1,ndim
+ !            ! column/node from gradient operator in CSR format in
+ !            ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
+ !            jnode = jagrad(jdir,i)
+ !            ! update gradient using coefficient and entropy variables at appropriate node
+ !            phitmp(:,jdir)    = phitmp(:,jdir)    + dagrad(jdir,i)*wg(:,jnode,ielem) 
+ !            phig_err1(:,jdir) = phig_err1(:,jdir) + dagrad(jdir,i)*vg(:,jnode,ielem) 
+ !          end do
+ !        end do
 
-          phig_err(:,:,inode,ielem) = matmul(dWdV(vg(:,inode,ielem),nequations),phig_err2(:,:))
+!! HACK Testing
+!!        phig_tmp3(:,:,inode) = phitmp(:,:) 
+!! HACK Testing
 
-        end do
-         
-        ! LDC/LDG penalty on phig
-        ! 
-        ! loop over only faces
-        do iface = 1, nfacesperelem
-!  HACK Testing
-!         ! sign so normal is facing outward
-!         dx = sign(1.0_wp,real(facenormalcoordinate(iface),wp))
-!         jdir_face = abs(facenormalcoordinate(iface))
-!  HACK Testing
-          if (ef2e(1,iface,ielem) < 0) then
-            cycle
-          else if (ef2e(3,iface,ielem) /= myprocid) then
-            do i = 1,nodesperface
-              jnode = nodesperface*(iface-1)+i
-              ! corresponding volumetric node for face node
-              inode = ifacenodes(jnode)
-              ! volumetric node of partner node
-              gnode = efn2efn(3,jnode,ielem)
-              ! volumetric element of partner node
-              kelem = efn2efn(2,jnode,ielem)
-              ! outward facing normal of facial node
-              nx = facenodenormal(:,jnode,ielem)
+ !        ! Store gradient of the entropy variables in computational space
+ !        do i = 1, ndim
+ !          grad_w_jacobian(:,i,inode,ielem) = phitmp(:,i)
+ !        enddo
+ !        ! transform to physical space using dxi_jdir/dx_idir
+ !        do jdir = 1,ndim
+ !          do idir = 1,ndim
+ !            phig(:,idir,inode,ielem) = phig(:,idir,inode,ielem) + phitmp(:,jdir)*r_x(jdir,idir,inode,ielem)
+ !            phig_err2(:,idir) = phig_err2(:,idir) + phig_err1(:,jdir)*r_x(jdir,idir,inode,ielem)
+ !          end do
+ !        end do
 
-              call conserved_to_primitive(ughst(:,gnode),dphi,nequations)
-              call primitive_to_entropy(dphi,wtmp,nequations)
+ !        phig_err(:,:,inode,ielem) = matmul(dWdV(vg(:,inode,ielem),nequations),phig_err2(:,:))
 
-              ! LDC/LDG penalty value
-              l10_ldg_flip_flop = l10*(1.0_wp + ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
-              dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg(:,inode,ielem) - wtmp)
-              ! add LDC/LDG penalty to each physical gradient using the normal
-              do jdir = 1,ndim
-                phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
-              end do
-!  HACK Testing
-!             phig_tmp3(:,jdir_face,inode) = phig_tmp3(:,jdir_face,inode) + dphi(:)*dx
-!  HACK Testing
-            end do
-          else
-            do i = 1,nodesperface
-              jnode = nodesperface*(iface-1)+i
-              ! corresponding volumetric node for face node
-              inode = ifacenodes(jnode)
-              ! volumetric node of partner node
-              knode = efn2efn(1,jnode,ielem)
-              ! volumetric element of partner node
-              kelem = efn2efn(2,jnode,ielem)
-              ! outward facing normal of facial node
-              nx = facenodenormal(:,jnode,ielem)
+ !      end do
+ !       
+ !      ! LDC/LDG penalty on phig
+ !      ! 
+ !      ! loop over only faces
+ !      do iface = 1, nfacesperelem
+!! HACK Testing
+!!        ! sign so normal is facing outward
+!!        dx = sign(1.0_wp,real(facenormalcoordinate(iface),wp))
+!!        jdir_face = abs(facenormalcoordinate(iface))
+!! HACK Testing
+ !        if (ef2e(1,iface,ielem) < 0) then
+ !          cycle
+ !        else if (ef2e(3,iface,ielem) /= myprocid) then
+ !          do i = 1,nodesperface
+ !            jnode = nodesperface*(iface-1)+i
+ !            ! corresponding volumetric node for face node
+ !            inode = ifacenodes(jnode)
+ !            ! volumetric node of partner node
+ !            gnode = efn2efn(3,jnode,ielem)
+ !            ! volumetric element of partner node
+ !            kelem = efn2efn(2,jnode,ielem)
+ !            ! outward facing normal of facial node
+ !            nx = facenodenormal(:,jnode,ielem)
 
-              ! LDC/LDG penalty value
-              l10_ldg_flip_flop = l10*(1.0_wp + ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
-              dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg(:,inode,ielem) - wg(:,knode,kelem))
-              ! add LDC/LDG penalty to each physical gradient using the normal
-              do jdir = 1,ndim
-                phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
-              end do
-!  HACK Testing
-!             phig_tmp3(:,jdir_face,inode) = phig_tmp3(:,jdir_face,inode) + dphi(:)*dx
-!  HACK Testing
-            end do
-          end if
-        end do
-!  HACK Testing
-!       phig_test(:,:,:) = 0.0_wp
-!       do inode = 1, nodesperelem
-!         do jdir = 1,ndim
-!           do idir = 1,ndim
-!             phig_test(:,idir,inode) = phig_test(:,idir,inode) + phig_tmp3(:,jdir,inode)*r_x(jdir,idir,inode,ielem)
-!           end do
-!         end do
-!       end do
-!       t1 = maxval(abs(phig_test(:,:,:) - phig(:,:,:,ielem)))
-!       if(t1 >= 1.0e-15) write(*,*)'error in reconcilestates',t1
-!       This line runs the new path through the code
-!       phig(:,:,:,ielem) = phig_test(:,:,:)
-!  HACK Testing
-      end do
-      deallocate(phitmp,dphi,wtmp)
-      deallocate(phig_err1,phig_err2)
-!  HACK Testing
-!     deallocate(phig_tmp3,phig_test)
-!  HACK Testing
+ !            call conserved_to_primitive(ughst(:,gnode),dphi,nequations)
+ !            call primitive_to_entropy(dphi,wtmp,nequations)
+
+ !            ! LDC/LDG penalty value
+ !            l10_ldg_flip_flop = l10*(1.0_wp + ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
+ !            dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg(:,inode,ielem) - wtmp)
+ !            ! add LDC/LDG penalty to each physical gradient using the normal
+ !            do jdir = 1,ndim
+ !              phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
+ !            end do
+!! HACK Testing
+!!            phig_tmp3(:,jdir_face,inode) = phig_tmp3(:,jdir_face,inode) + dphi(:)*dx
+!! HACK Testing
+ !          end do
+ !        else
+ !          do i = 1,nodesperface
+ !            jnode = nodesperface*(iface-1)+i
+ !            ! corresponding volumetric node for face node
+ !            inode = ifacenodes(jnode)
+ !            ! volumetric node of partner node
+ !            knode = efn2efn(1,jnode,ielem)
+ !            ! volumetric element of partner node
+ !            kelem = efn2efn(2,jnode,ielem)
+ !            ! outward facing normal of facial node
+ !            nx = facenodenormal(:,jnode,ielem)
+
+ !            ! LDC/LDG penalty value
+ !            l10_ldg_flip_flop = l10*(1.0_wp + ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
+ !            dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg(:,inode,ielem) - wg(:,knode,kelem))
+ !            ! add LDC/LDG penalty to each physical gradient using the normal
+ !            do jdir = 1,ndim
+ !              phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
+ !            end do
+!! HACK Testing
+!!            phig_tmp3(:,jdir_face,inode) = phig_tmp3(:,jdir_face,inode) + dphi(:)*dx
+!! HACK Testing
+ !          end do
+ !        end if
+ !      end do
+!! HACK Testing
+!!      phig_test(:,:,:) = 0.0_wp
+!!      do inode = 1, nodesperelem
+!!        do jdir = 1,ndim
+!!          do idir = 1,ndim
+!!            phig_test(:,idir,inode) = phig_test(:,idir,inode) + phig_tmp3(:,jdir,inode)*r_x(jdir,idir,inode,ielem)
+!!          end do
+!!        end do
+!!      end do
+!!      t1 = maxval(abs(phig_test(:,:,:) - phig(:,:,:,ielem)))
+!!      if(t1 >= 1.0e-15) write(*,*)'error in reconcilestates',t1
+!!      This line runs the new path through the code
+!!      phig(:,:,:,ielem) = phig_test(:,:,:)
+!! HACK Testing
+ !    end do
+ !    deallocate(phitmp,dphi,wtmp)
+ !    deallocate(phig_err1,phig_err2)
+!! HACK Testing
+!!    deallocate(phig_tmp3,phig_test)
+!! HACK Testing
     end if
 
-!   write(*,*)'error in phig',maxval(abs(phig-phig_err))
-!   stop
+!!  write(*,*)'error in phig',maxval(abs(phig-phig_err))
+!!  stop
 
     call UpdateComm2DGhostData(phig, phighst, phipetsc, philocpetsc, &
       nequations, 3, nodesperelem, ihelems, nghost)
@@ -5985,5 +5988,148 @@ contains
 
           return
      end function
+
+      subroutine viscous_gradients()
+
+        use variables
+        use referencevariables
+        use nsereferencevariables
+        use collocationvariables, only: iagrad,jagrad,dagrad,pinv,l10, &
+                                      & ldg_flip_flop_sign, alpha_ldg_flip_flop
+
+        implicit none
+
+        ! temporary arrays for phi and delta phi
+        real(wp), dimension(:),   allocatable :: dphi, vg_Off, wg_On, wg_Off
+        real(wp), dimension(:,:), allocatable :: phig_tmp1, phig_tmp2, phig_err1
+
+        ! low and high volumetric element indices
+        integer :: iell, ielh
+
+        ! normal direction at face
+        real(wp) :: nx(3)
+
+        ! loop indices
+        integer :: ielem, jdir, idir, i
+        integer :: inode, jnode, knode, gnode
+        integer :: kelem
+        integer :: iface
+
+        real(wp) :: l10_ldg_flip_flop
+
+        ! phig_tmp is calculated in computational space
+        allocate(phig_tmp1(nequations,ndim),phig_tmp2(nequations,ndim),phig_err1(nequations,ndim))
+        ! tmp variables: dphi, vg_Off, wg_On and wg_Off
+        allocate(dphi(nequations),vg_Off(nequations),wg_On(nequations),wg_Off(nequations))
+
+        ! low and high volumetric element index
+        iell = ihelems(1) ; ielh = ihelems(2) ;
+    
+        ! loop over elements
+        do ielem = iell, ielh
+
+          ! compute computational gradients of the entropy variables
+          ! initialize phi
+          phig    (:,:,:,ielem) = 0.0_wp
+          phig_err(:,:,:,ielem) = 0.0_wp
+          grad_w_jacobian(:,:,:,ielem) = 0.0_wp
+          ! loop over every node in element
+          do inode = 1, nodesperelem
+
+            phig_tmp1(:,:) = 0.0_wp ; phig_tmp2(:,:) = 0.0_wp ;
+
+            ! loop over number of dependent elements in gradient
+            do i = iagrad(inode), iagrad(inode+1)-1
+              ! loop over dimensions
+              do jdir = 1,ndim
+                ! column/node from gradient operator in CSR format in
+                ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
+                jnode = jagrad(jdir,i)
+                ! update gradient using coefficient and entropy variables at appropriate node
+                phig_tmp1(:,jdir) = phig_tmp1(:,jdir) + dagrad(jdir,i)*wg(:,jnode,ielem) 
+                phig_tmp2(:,jdir) = phig_tmp2(:,jdir) + dagrad(jdir,i)*vg(:,jnode,ielem) 
+              end do
+            end do
+  
+            ! Store gradient of the entropy variables in computational space
+            grad_w_jacobian(:,:,inode,ielem) = phig_tmp1(:,:)
+
+            ! transform to physical space using dxi_jdir/dx_idir
+            do jdir = 1,ndim
+              do idir = 1,ndim
+                phig(:,idir,inode,ielem) = phig(:,idir,inode,ielem) + phig_tmp1(:,jdir)*r_x(jdir,idir,inode,ielem)
+                phig_err1(:,idir)        = phig_err1(:,idir)        + phig_tmp2(:,jdir)*r_x(jdir,idir,inode,ielem)
+              end do
+            end do
+
+            phig_err(:,:,inode,ielem) = matmul(dWdV(vg(:,inode,ielem),nequations),phig_err1(:,:))  &
+                                      - phig(:,:,inode,ielem)
+  
+          end do
+           
+          ! LDC/LDG penalty on phig
+          ! 
+          ! loop over only faces
+          do iface = 1, nfacesperelem
+  
+            if (ef2e(1,iface,ielem) < 0) then
+              cycle
+            else if (ef2e(3,iface,ielem) /= myprocid) then
+              do i = 1,nodesperface
+                jnode = nodesperface*(iface-1)+i
+                ! corresponding volumetric node for face node
+                inode = ifacenodes(jnode)
+                ! volumetric node of partner node
+                gnode = efn2efn(3,jnode,ielem)
+                ! volumetric element of partner node
+                kelem = efn2efn(2,jnode,ielem)
+                ! outward facing normal of facial node
+                nx = facenodenormal(:,jnode,ielem)
+  
+                wg_On(:) = wg(:,inode,ielem)
+  
+                call conserved_to_primitive(ughst(:,gnode),vg_Off(:),nequations)
+                call primitive_to_entropy(vg_Off(:),wg_Off(:),nequations)
+  
+                ! LDC/LDG penalty value
+                l10_ldg_flip_flop = l10*(1.0_wp + ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
+                dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg_On(:) - wg_Off(:))
+                ! add LDC/LDG penalty to each physical gradient using the normal
+                do jdir = 1,ndim
+                  phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
+                end do
+  
+              end do
+            else
+              do i = 1,nodesperface
+                jnode = nodesperface*(iface-1)+i
+                ! corresponding volumetric node for face node
+                inode = ifacenodes(jnode)
+                ! volumetric node of partner node
+                knode = efn2efn(1,jnode,ielem)
+                ! volumetric element of partner node
+                kelem = efn2efn(2,jnode,ielem)
+                ! outward facing normal of facial node
+                nx = facenodenormal(:,jnode,ielem)
+  
+                wg_On (:) = wg(:,inode,ielem)
+                wg_Off(:) = wg(:,knode,kelem)
+  
+                ! LDC/LDG penalty value
+                l10_ldg_flip_flop = l10*(1.0_wp + ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
+                dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg_On(:) - wg_Off(:))
+                ! add LDC/LDG penalty to each physical gradient using the normal
+                do jdir = 1,ndim
+                  phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
+                end do
+              end do
+            end if
+          end do
+        end do
+
+        deallocate(phig_tmp1,phig_tmp2,phig_err1)
+        deallocate(dphi,vg_Off,wg_On,wg_Off)
+
+      end subroutine viscous_gradients
 
  end module navierstokes
