@@ -83,31 +83,70 @@ module SSWENO_Routines
 
         end subroutine WENO_Coeffs
 
-    pure subroutine Negative_Density_Removal(uin,nq)
-      ! this routine calculates the primitive variables
-      ! from the conserved variables
-      use nsereferencevariables, only: gm1M2, gm1og
-      implicit none
-      ! number of equations
-      integer, intent(in) :: nq
-      ! conserved variables
-      real(wp), intent(inout) :: uin(nq)
-  
-      real(wp)                :: vin(nq)
-  
-      ! density
-      vin(1) = abs(uin(1))
-      ! velocity
-      vin(2:4) = uin(2:4)/vin(1)
-      ! temperature
-      vin(5) = abs(( uin(5)/vin(1) - gm1M2*0.5_wp*dot_product(vin(2:4),vin(2:4)))/(1.0_wp-gm1og) )
+    subroutine Negative_Density_Removal(nnodes,ielem,uin)
 
-      ! density
-      uin(1) = vin(1)
-      ! momentum
-      uin(2:4) = vin(1)*vin(2:4)
-      ! energy
-      uin(5) = vin(1)*( (1.0_wp-gm1og)*vin(5) + gm1M2*0.5_wp*dot_product(vin(2:4),vin(2:4)) )
+      use unary_mod,             only: qsortd
+      use referencevariables,    only: nequations
+      use nsereferencevariables, only: gm1M2, gm1og
+      use collocationvariables,  only: pvol
+      use variables,             only: Jx_r
+
+      implicit none
+
+      integer,                                intent(in   ) :: nnodes, ielem
+      real(wp), dimension(nequations,nnodes), intent(inout) :: uin
+  
+      real(wp), parameter                                   :: tol = 1.0e-10_wp
+
+      integer,  dimension(nnodes)                           :: ind
+      integer                                               :: i
+
+      real(wp), dimension(nequations,nnodes)                :: vin
+      real(wp), dimension(nnodes)                           :: d_rho
+      real(wp)                                              :: xnumer, xdenom, xlam, volume
+      real(wp)                                              :: rho_min, T_min
+  
+
+      vin(1,:) =  uin(1,:)
+      vin(2,:) =  uin(2,:)/vin(1,:)
+      vin(3,:) =  uin(3,:)/vin(1,:)
+      vin(4,:) =  uin(4,:)/vin(1,:)
+      vin(5,:) = (uin(5,:)/vin(1,:)  &
+               - gm1M2*0.5_wp*(vin(2,:)*vin(2,:)+vin(3,:)*vin(3,:)+vin(4,:)*vin(4,:)))/(1.0_wp-gm1og)
+
+      rho_min = minval(vin(1,:))
+        T_min = minval(vin(5,:))
+      if((rho_min >= tol) .and. (T_min >= tol))  return
+
+      volume = 0.0_wp
+      do i = 1,nnodes
+        volume = volume + pvol(i)*Jx_r(i,ielem)
+      enddo
+
+      if(rho_min < tol) then
+
+        call qsortd(uin(1,:),ind,nnodes)
+
+        xnumer = 0.0_wp ; xdenom = volume ;
+        do i = 1,nnodes-1
+          d_rho(ind(i)) = - (uin(1,ind(i)) - tol)
+          xnumer = xnumer + (uin(1,ind(i)) - tol) * pvol(ind(i)) * Jx_r(ind(i),ielem)
+          xdenom = xdenom -                         pvol(ind(i)) * Jx_r(ind(i),ielem)
+          xlam   = xnumer / xdenom
+          if( uin(1,ind(i+1)) + xlam >= tol) then
+            uin(1,ind(i+1:nnodes)) = xlam
+            exit
+          endif
+        enddo
+      
+        uin(1,:) = uin(1,:) + d_rho(:)
+      endif
+
+      if(T_min < tol) then
+        write(*,*)'not finished.  Stopping'
+        stop
+      endif
+
 
       return
     end subroutine Negative_Density_Removal

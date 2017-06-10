@@ -184,7 +184,7 @@ contains
         end if
 
         ! Integrate in time
-        call LSRK(ug,uhat,du,dudt,irkstep,timestep,nequations,nodesperelem, nelems)
+        call LSRK(irkstep)
 
         ! Update primitive, entropy variables and CNG gradients
         call nse_reconcilestates()
@@ -461,49 +461,40 @@ contains
   end subroutine rk_imex_final
   
   !============================================================================
-  
-  !============================================================================
   ! LSRK - Integrates the system of ODEs in time using an explicit fourth-order 
   !        accurate Runge-Kutta scheme.
+  !============================================================================
 
-  subroutine LSRK(Ut, Uh, dU, dUdt, nstep, dt, neq, nk, nel)
+  subroutine LSRK(nstep)
 
     ! Load modules
-    use SSWENO_routines, only: Negative_Density_Removal
-    use time_integ_coeff 
-    use variables, only: xg
-    use referencevariables
+    use SSWENO_routines,    only: Negative_Density_Removal
+    use time_integ_coeff,   only: alsrk, brk, brkh
+    use variables,          only: ug, uhat, du, dudt
+    use referencevariables, only: ihelems, nodesperelem, nequations
+    use controlvariables,   only: timestep
     
     ! Nothing is implicitly defined
     implicit none
+
+    integer,  intent(in) :: nstep
     
-    integer, intent(in) :: nstep
-    real(wp), intent(in) :: dt
-    integer, intent(in) :: neq,nk,nel
-    real(wp), intent(in) :: dUdt(neq,nk,nel)
-    real(wp) :: Ut(neq,nk,nel)
-    real(wp) :: Uh(neq,nk,nel)
-    real(wp) :: dU(neq,nk,nel)
-    integer :: j,k,meq
+    integer              :: iell, ielh, inode, ielem
 
-    do k = 1,nel
-      do j = 1,nk
-        do meq = 1,neq
-          dU(meq,j,k) = alsrk(nstep)*dU(meq,j,k) + dt*dUdt(meq,j,k)
-          Ut(meq,j,k) = Ut(meq,j,k) + brk(nstep)*dU(meq,j,k)
-          Uh(meq,j,k) = Uh(meq,j,k) + brkh(nstep)*dU(meq,j,k)
-        end do
+    ! Low and High volumetric element index
+    iell = ihelems(1) ; ielh = ihelems(2) ;
 
-        call Negative_Density_Removal(Ut(:,j,k),neq)
-!       call Negative_Density_Removal(Uh(:,j,k),neq)
+    do ielem = iell, ielh
+       do inode = 1, nodesperelem
+          dU(:,inode,ielem) = alsrk(nstep)*dU(:,inode,ielem) + timestep   * dUdt(:,inode,ielem)
+          ug(:,inode,ielem) =              ug(:,inode,ielem) + brk (nstep)* dU  (:,inode,ielem)
+        uhat(:,inode,ielem) =            uhat(:,inode,ielem) + brkh(nstep)* dU  (:,inode,ielem)
+       enddo
 
-      end do
+      call Negative_Density_Removal(nodesperelem,ielem,ug(:,:,ielem))
     end do
 
-
   end subroutine LSRK
-
-  !============================================================================
 
   !============================================================================
   ! timestepcontroller - Adjusts the current timestep based on the error 
