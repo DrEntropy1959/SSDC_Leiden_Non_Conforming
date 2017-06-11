@@ -2658,7 +2658,7 @@ contains
     real(wp), intent(inout) :: dt_global
     real(wp), dimension(:), allocatable :: dt_min_proc
 
-    integer :: elem_low, elem_high
+    integer :: iell, ielh
     integer :: s_tag, r_tag, m_size, &
                s_request_dt_min, r_request_dt_min, i_err
 
@@ -2675,14 +2675,14 @@ contains
     continue
 
     ! Low and high  volumetric element index
-    elem_low  = ihelems(1) ;  ielh = ihelems(2)
+    iell  = ihelems(1) ;  ielh = ihelems(2)
 
     ! Compute gradient of the velocity components
     ! ===========================================
     dt_global_max = dt_global*1.1_wp
     dt_min = 100.0_wp
 
-    do i_elem = elem_low, elem_high
+    do i_elem = iell, ielh
       do i_node = 1, n_Gau_pts_3d
                 
           call conserved_to_primitive(ug_Gau_pts_hex(:,i_node,i_elem),vg_Gau_pts_hex(:,i_node),nequations)

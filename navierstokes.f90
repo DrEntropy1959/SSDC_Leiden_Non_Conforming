@@ -127,10 +127,8 @@ contains
     ! Arbitrary value for normals
     ctmp = 0.0_wp
 
-    ! Low volumetric element index
-    iell = ihelems(1)
-    ! High volumetric element index
-    ielh = ihelems(2)
+    ! low and high volumetric element index
+    iell = ihelems(1) ; ielh = ihelems(2) ;
 
     ! We are limited to the calorically perfect Navier-Stokes equations
     nequations = 5
@@ -1565,10 +1563,8 @@ contains
     integer :: iell, ielh
     integer :: nshell
 
-    ! low volumetric element index
-    iell = ihelems(1)
-    ! high volumetric element index
-    ielh = ihelems(2)
+    ! low and high volumetric element index
+    iell = ihelems(1) ; ielh = ihelems(2) ;
 
     ! ghost cells for solution
     allocate(ughst(1:nequations,nghost)) ; ughst = 0.0_wp
@@ -1764,22 +1760,20 @@ contains
     real(wp) :: eta, delta
     real(wp), allocatable :: lambda(:), muvec(:)
 
-    ! low volumetric element index
-    iell = ihelems(1)
-    ! high volumetric element index
-    ielh = ihelems(2)
-
     ! phitmp is calculated in computational space
     allocate(phitmp(nequations,3))
     ! dphi is calculated at faces
-    mut = 0.0_wp
-    chig = 0.0_wp
     allocate(lambda(nequations))
     allocate(muvec(nequations))
-    ! LDC/LDG coefficient according to CNG-revisited
-!   l10 = -0.5_wp
-    ! loop over elements
+     mut = 0.0_wp
+    chig = 0.0_wp
+
+    ! low and high volumetric element index
+    iell = ihelems(1) ; ielh = ihelems(2) ;
+
+    ! loop over all elements
     do ielem = iell, ielh
+
       delta = 0.0_wp
       ! loop over every node in element
       do inode = 1, nodesperelem
@@ -1863,7 +1857,7 @@ contains
     ! low and high volumetric element index
     iell = ihelems(1) ; ielh = ihelems(2) ;
 
-    do ielem = iell, ielh         ! loop over elements
+    do ielem = iell, ielh         ! loop over all elements
       do inode = 1,nodesperelem   ! loop over nodes and compute primitive and entropy variables
         call conserved_to_primitive(ug(:,inode,ielem), vg(:,inode,ielem), nequations ) ! (navierstokes)
         call primitive_to_entropy  (vg(:,inode,ielem), wg(:,inode,ielem), nequations ) ! (navierstokes)
@@ -1911,7 +1905,6 @@ contains
     iell = ihelems(1) ;  ielh = ihelems(2)
 
     ! loop over all elements
-
     do ielem = iell, ielh
 
       call element_properties(ielem, n_pts_1d, n_pts_2d, n_pts_3d, &
@@ -1993,15 +1986,14 @@ contains
 
     allocate(ex(nequations))
 
-    ! low volumetric element index
-    iell = ihelems(1)
-    ! high volumetric element index
-    ielh = ihelems(2)
-
     ! initialize errors to zero
-    l2 = 0.0_wp
+      l2 = 0.0_wp
     linf = 0.0_wp
-    ! loop over elements
+
+    ! low : high volumetric element index
+    iell = ihelems(1) ;  ielh = ihelems(2)
+
+    ! loop over all elements
     do ielem = iell, ielh
       ! loop over each index in the element
       do inode = 1, nodesperelem
@@ -2063,16 +2055,13 @@ contains
 
     allocate(ex(nequations))
 
-    ! low volumetric element index
-    iell = ihelems(1)
-    ! high volumetric element index
-    ielh = ihelems(2)
-
     ! initialize errors to zero
     l2 = 0.0_wp
-    linf = 0.0_wp
-    sglob = 0.0_wp
-    ! loop over elements
+
+    ! low : high volumetric element index
+    iell = ihelems(1) ;  ielh = ihelems(2)
+
+    ! loop over all elements
     do ielem = iell, ielh
       ! loop over each index in the element
       do inode = 1, nodesperelem
@@ -2154,14 +2143,12 @@ contains
     allocate(vex(nequations))
     allocate(ftmp(nequations))
 
-    ! Low volumetric element index
-    iell = ihelems(1)
-    ! High volumetric element index
-    ielh = ihelems(2)
-
     ! Initialize error to zero
-    l2 = 0.0_wp; l2sum = 0.0_wp
-    linf = 0.0_wp
+    l2 = 0.0_wp; l2sum = 0.0_wp ; linf = 0.0_wp ;
+
+    ! low : high volumetric element index
+    iell = ihelems(1) ;  ielh = ihelems(2)
+
     ! Loop over all elements
     do ielem = iell, ielh
       ! Loop over every node in the element
@@ -4021,14 +4008,15 @@ contains
 
     continue
 
-    ! Low and high  volumetric element index
-    iell  = ihelems(1) ;  ielh = ihelems(2)
-
     ! Compute gradient of the velocity components
     ! ===========================================
     dt_global_max = dt_global*1.1_wp
     dt_min = 100.0_wp
 
+    ! Low and high  volumetric element index
+    iell  = ihelems(1) ;  ielh = ihelems(2)
+
+    ! loop over all elements
     do i_elem = iell, ielh
       do i_node = 1, nodesperelem
                 
@@ -4119,15 +4107,15 @@ contains
 
     continue
     
-    ! Low volumetric element index
-    iell  = ihelems(1)
-
-    ! High volumetric element index
-    ielh = ihelems(2)
-
     ! Compute gradient of the velocity components
     ! ===========================================
+
+    ! Low and high  volumetric element index
+    iell  = ihelems(1) ;  ielh = ihelems(2)
+
     do i_elem = iell, ielh
+
+      ! loop over all elements
       do i_node = 1, nodesperelem
 
         !  __           __
@@ -4205,11 +4193,8 @@ contains
     integer :: iell, ielh
     integer :: i_elem, i_node
 
-    ! Low volumetric element index
-    iell = ihelems(1)
-
-    ! High volumetric element index
-    ielh = ihelems(2)
+    ! Low and high  volumetric element index
+    iell  = ihelems(1) ;  ielh = ihelems(2)
 
     ! Loop over elements
     do i_elem = iell, ielh
@@ -4244,11 +4229,8 @@ contains
     integer :: iell, ielh
     integer :: i_elem, i_node
 
-    ! Low volumetric element index
-    iell = ihelems(1)
-
-    ! High volumetric element index
-    ielh = ihelems(2)
+    ! Low and high  volumetric element index
+    iell  = ihelems(1) ;  ielh = ihelems(2)
 
     ! Loop over elements
     do i_elem = iell, ielh
@@ -4285,12 +4267,8 @@ contains
     integer :: iell, ielh
     integer :: i_elem, i_node
 
-
-    ! Low volumetric element index
-    iell = ihelems(1)
-
-    ! High volumetric element index
-    ielh = ihelems(2)
+    ! Low and high volumetric element index
+    iell = ihelems(1) ; ielh = ihelems(2) ;
 
     ! Loop over elements
     do i_elem = iell, ielh
@@ -4334,12 +4312,10 @@ contains
     allocate(tmp88(1:nequations,1:nodesperelem))
     allocate(tmp89(1:nequations,1:nodesperelem))
 
-    ! low volumetric element index
-    iell = ihelems(1)
-    ! high volumetric element index
-    ielh = ihelems(2)
+    ! Low and high volumetric element index
+    iell = ihelems(1) ; ielh = ihelems(2) ;
 
-    ! loop over elements
+    ! loop over all elements
     do ielem = iell, ielh
       ! loop over all nodes in the element
       tmp89(:,:) = ug(:,:,ielem)
@@ -4990,14 +4966,13 @@ contains
     ! Temporary arrays for phi
     real(wp), allocatable :: phitmp(:,:)
 
-    ! low volumetric element index
-    iell = ihelems(1)
-    ! high volumetric element index
-    ielh = ihelems(2)
-
     ! phitmp is calculated in computational space
     allocate(phitmp(nequations,ndim))
+
+    ! Low and high volumetric element index
+    iell = ihelems(1) ; ielh = ihelems(2) ;
     
+    ! loop over all elements
     do ielem = iell, ielh
     ! compute computational gradients of the entropy variables
     !
@@ -5537,12 +5512,12 @@ contains
       integer    :: iell, ielh, ielem, iface, ipen, jnode
       integer    :: elem_face_nodes
 
+      elem_face_nodes = nodesperface*nfacesperelem
 
       ! low and high volumetric element index
       iell = ihelems(1) ; ielh = ihelems(2) ;
 
-      elem_face_nodes = nodesperface*nfacesperelem
-
+      ! loop over all elements
       do ielem = iell, ielh
 
         do iface = 1,nfacesperelem
@@ -5589,6 +5564,7 @@ contains
       ! low and high volumetric element index
       iell = ihelems(1) ; ielh = ihelems(2) ;
 
+      ! loop over all elements
       do ielem = iell, ielh
 
         ! calcualte the max - max eigenvalue on element (times density)
@@ -5788,7 +5764,7 @@ contains
         ! low and high volumetric element index
         iell = ihelems(1) ; ielh = ihelems(2) ;
     
-        ! loop over elements
+        ! loop over all elements
         do ielem = iell, ielh
 
           ! compute computational gradients of the entropy variables
@@ -5939,7 +5915,7 @@ contains
         ! low and high volumetric element index
         iell = ihelems(1) ; ielh = ihelems(2) ;
     
-        ! loop over elements
+        ! loop over all elements
         do ielem = iell, ielh
 
           ! compute computational gradients of the entropy variables
