@@ -389,7 +389,6 @@ contains
     MatStructure, intent(out) :: flag
     PetscObject, intent(in):: dummy
     PetscErrorCode, intent(inout) :: i_err
-    real(wp) :: info(MAT_INFO_SIZE)
     
     ! Code variables
     integer :: low_elem, high_elem
@@ -398,7 +397,6 @@ contains
     integer :: nodes_counter, blocks_counter
     integer :: nnz_blocks_per_block_row
     real(wp) :: a_kk
-    logical :: assemble_jacobian_mat
     integer :: stage_update_pc_mat
     integer :: elems_counter
 

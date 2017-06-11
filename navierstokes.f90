@@ -92,7 +92,7 @@ contains
     ! The grid and connectivities must already be populated.
 
     ! Load modules
-    use variables, only: vg, wg, ug, xg, r_x, boundaryelems, omega, phig, &
+    use variables, only: vg, wg, ug, xg, omega, &
                          specific_entropy, mean_vg, time_ave_prod_vel_comp, &
                          reynolds_stress, mut
     use referencevariables
@@ -424,7 +424,7 @@ contains
 
   pure function conserved_to_entropy(uin,nq)
 
-    use nsereferencevariables, only: gm1og, gm1M2, gamma0
+    use nsereferencevariables, only: gm1M2, gamma0
 
     implicit none
     ! number of equations
@@ -486,7 +486,7 @@ contains
     ! this routine calculates the entropy variables corresponding
     ! to the entropy--entropy flux pair (S,F^i) = (-rho*s,-rho*u_i*s)
     ! using the primitive variables.
-    use nsereferencevariables, only:gm1M2, gm1og
+    use nsereferencevariables, only: gm1M2
     implicit none
     ! number of equations
     integer, intent(in) :: nq
@@ -564,7 +564,7 @@ contains
     ! direction. Note that because we nondimensionalize the pressure
     ! by the reference pressure that there is a nondimensional parameter
     ! in the flux.
-    use nsereferencevariables, only: gm1M2, gm1og, gM2
+    use nsereferencevariables, only: gm1M2, gM2
     implicit none
     ! number of equations
     integer, intent(in) :: nq
@@ -606,10 +606,8 @@ contains
     ! variables and the gradients of the entropy variables,
     ! penalized with an LDC/LDG methodology. The use
     ! of entropy variables ensures stability.
-    use nsereferencevariables, only: gm1M2, gm1og, gM2, Re0inv, Pr0
+    use nsereferencevariables, only: Re0inv
     
-    use controlvariables, only : variable_viscosity
-
     ! Nothing is implicitly defined
     implicit none
 
@@ -630,11 +628,6 @@ contains
     real(wp) :: fvl(nq,3)
     ! direction index
     integer :: idir
-
-    ! thermal conductivity (normalized by kappa0)
-    real(wp) :: kappa
-    ! dynamic viscosity (normalized by mu0)
-    real(wp) :: mu
 
     continue
 
@@ -659,8 +652,6 @@ contains
     ! of entropy variables ensures stability.
     use nsereferencevariables, only: Re0inv
     
-    use controlvariables, only : variable_viscosity
-
     ! Nothing is implicitly defined
     implicit none
     
@@ -851,7 +842,7 @@ contains
     ! it is consistent with the nondimensionalization employed
     ! herein and follows directly from the work of Ismail and Roe,
     ! DOI: 10.1016/j.jcp.2009.04.021
-    use nsereferencevariables, only: gM2, gM2I, gm1og, gp1og, gm1M2, gamma0
+    use nsereferencevariables, only: gM2I, gm1og, gp1og, gm1M2
     implicit none
     ! Arguments
     ! =========
@@ -959,7 +950,7 @@ contains
 !
 !   Both the ``rho'' or ``T'' logarithmic means are formed
 
-    use nsereferencevariables, only: gM2, gM2I, gm1og, gp1og, gm1M2, gamma0, gamI
+    use nsereferencevariables, only: gM2I, gm1M2, gamI
     implicit none
     ! Arguments
     ! =========
@@ -977,15 +968,13 @@ contains
     ! Local temporary Variables
     ! ===============
     real(wp), dimension(nq) :: vave
-    real(wp), dimension(nq) :: wL,wR
 
     ! prevent division by zero and 
     real(wp), parameter :: sdiv2 = 1e-030_wp
     ! log degenerates in multiple cases (toggle between asymptotic expression and actual logarithm)
     real(wp), parameter :: seps = 1.0e-02_wp
-    real(wp) :: xi, fs, us, ut, al, F
+    real(wp) :: xi, fs, us, ut, F
     real(wp) :: alr,alB
-    real(wp) :: err
 
 
     ! normal mass flux (mdot), Pressure, Logave density and temperature
@@ -1065,7 +1054,7 @@ contains
 ! pure function diabolical_flux(vL,vR,wL,wR,nx,nq)
   function diabolical_flux(vL,vR,wL,wR,nx,nq)
 
-    use nsereferenceVariables, only: gm1og, gm1M2,gM2I,gamI,gM2
+    use nsereferenceVariables, only: gm1og, gm1M2,gM2I,gamI
 
       implicit none
       integer,                 intent(in) :: nq
@@ -1089,10 +1078,7 @@ contains
 
       real(wp) :: unL, unR
       real(wp) :: mdotL, mdotR, mdotA
-      real(wp) :: pL, pR, pA, tA, En, keL, keR, den
-      real(wp) :: norm_x
-
-      integer  :: i,j
+      real(wp) :: pL, pR, pA, tA, En, keL, keR
 
       keL = dot_product(vL(2:4),vL(2:4)) * 0.5_wp
       keR = dot_product(vR(2:4),vR(2:4)) * 0.5_wp
@@ -1761,7 +1747,7 @@ contains
     use variables
     use referencevariables
     use nsereferencevariables
-    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,pinv,l10
+    use collocationvariables, only: iagrad,jagrad,dagrad
     implicit none
 
     ! loop indices
@@ -1840,9 +1826,6 @@ contains
     use controlvariables,     only: discretization
     use referencevariables
     use nsereferencevariables
-    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,pinv,pvol,l10, &
-                                  & ldg_flip_flop_sign, alpha_ldg_flip_flop, &
-                                  & face_sign
 
     use mpimod, only: UpdateComm1DGhostData, UpdateComm2DGhostData,     &
                       UpdateComm1DGhostDataWENO, UpdateCommShellGhostData
@@ -1852,11 +1835,8 @@ contains
     implicit none
 
     ! loop indices
-    integer :: ielem, jdir, idir
-    integer :: inode, jnode, knode, gnode
-    integer :: kelem
-    integer :: iface
-    integer :: i
+    integer :: ielem
+    integer :: inode
     integer :: nshell
 
     ! low and high volumetric element indices
@@ -1912,9 +1892,8 @@ contains
     use variables
     use referencevariables
     use initcollocation,       only: element_properties
-    use controlvariables,      only: verbose
     use nsereferencevariables, only: entropy_viscosity
-    use collocationvariables,  only: iagrad,jagrad,dagrad,gradmat,nnzgrad, &
+    use collocationvariables,  only: iagrad,jagrad,dagrad,nnzgrad, &
                                      pinv, pmat, qmat, dmat, pvol, p_surf
     implicit none
 
@@ -1989,7 +1968,7 @@ contains
   subroutine nse_calcembeddedspatialerror()
     ! this subroutine calculates the embedded error approximation
     ! using the solution, ug, and the embedded solution uhat.
-    use variables, only: gsat, Jx_r, boundaryelems
+    use variables, only: gsat, Jx_r
     use collocationvariables, only: pvol
     use controlvariables, only: verbose
     use referencevariables
@@ -2058,7 +2037,7 @@ contains
   subroutine nse_calcembeddederror()
     ! this subroutine calculates the embedded error approximation
     ! using the solution, ug, and the embedded solution uhat.
-    use variables, only: ug,uhat,vg,Jx_r,boundaryelems
+    use variables, only: ug,uhat,vg,Jx_r
     use collocationvariables, only: pvol
     use controlvariables, only: verbose
     use referencevariables
@@ -2134,7 +2113,7 @@ contains
   subroutine nse_calcerror(tin)
     ! This subroutine calculates the L1, L2 and Linfinity errors
     ! when the exact solution is known.
-    use variables, only: uhat, ug, vg, xg, Jx_r, boundaryelems, phig, mut
+    use variables, only: ug, vg, xg, Jx_r, phig, mut
     use collocationvariables, only: pvol
     use referencevariables
     use mpimod
@@ -2160,7 +2139,7 @@ contains
     integer :: ierr
 
     ! Global error norms file name
-    character(len=23) :: file_name_err
+!   character(len=23) :: file_name_err
 
     ! Assign global error norms file name
 !    file_name_err = 'global_error_norms.data'
@@ -2475,7 +2454,7 @@ contains
   subroutine exact_Riemann(p1,ro1,p2,ro2,g,xb,x0,y1,y2,y3,t)
 
       implicit none
-      integer   :: it,j,i
+      integer   :: it
 
       real(wp), intent(in)    :: p1,ro1,p2,ro2,g,xb,x0,t
       real(wp), intent(out)   :: y1,y2,y3
@@ -2550,7 +2529,6 @@ contains
 
     ! Load modules
     use nsereferencevariables
-    use controlvariables, only : variable_viscosity
   
     implicit none
 
@@ -2573,8 +2551,6 @@ contains
     real(wp) :: cc, ss, xp
     real(wp) :: theta
     real(wp) :: den,pres,vel
-
-    integer :: i
 
 !   Use a one-dimensional exact solution rotated into the orientation of the uniformfreestream flow
     theta = uniformFreeStreamAOA*pi/180._wp
@@ -2750,10 +2726,6 @@ contains
     real(wp) :: w_1, w_2
     real(wp) :: p_1, p_2
 
-    real(wp) :: x0,y0
-    real(wp) :: f
-    real(wp) :: alpha, rin2
-   
 
     ! Set up the primitive variables of the two states
     ! ================================================
@@ -2898,7 +2870,7 @@ contains
     use variables
     use referencevariables
     use nsereferencevariables
-    use controlvariables, only: verbose, discretization
+
     implicit none
 
     integer ,                     intent(in)  :: N_S, N_S_2d, N_S_3d, ielem
@@ -2965,19 +2937,17 @@ contains
     use variables
     use referencevariables
     use nsereferencevariables
-    use controlvariables, only: verbose, discretization
-    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,pinv,pvol
+    use collocationvariables, only: iagrad,jagrad,dagrad
     implicit none
     ! local time of evaluation (for RK schemes, this is the stage time)
     integer , intent(in) :: ielem
     real(wp), intent(in) :: tin
 
     ! indices
-    integer :: idir,  jdir
+    integer :: jdir
     integer :: inode, jnode
     integer :: i
-    real(wp), dimension(3)  :: n_i,n_j
-    real(wp), dimension(:,:),   allocatable :: fvg_S
+
     real(wp), dimension(:,:,:), allocatable :: fvg_err
     real(wp), dimension(:,:,:), allocatable :: divfV_err
 
@@ -3044,10 +3014,8 @@ contains
     use variables
     use referencevariables
     use nsereferencevariables
-    use controlvariables, only: verbose, heat_entropy_flow_wall_bc, Riemann_Diss,&
-                             & Riemann_Diss_BC
-    use collocationvariables, only: l01, l00, ldg_flip_flop_sign, &
-                                  & alpha_ldg_flip_flop, Sfix
+    use controlvariables, only: heat_entropy_flow_wall_bc, Riemann_Diss_BC
+    use collocationvariables, only: l01, l00, Sfix
     use initgrid
 
     ! Nothing is implicitly defined
@@ -3062,7 +3030,7 @@ contains
     integer :: inode, jnode, knode, gnode
     integer :: kelem
     integer :: iface
-    integer :: i,j,k
+    integer :: i,j
 
     ! reconstructed flux
     real(wp), allocatable :: fstar(:), fstarV(:)
@@ -3081,8 +3049,6 @@ contains
     real(wp) :: nx(3)
     ! Lax-Freidrich max Eigenvalue
     real(wp) :: evmax
-    ! penalty parameter for interfaces
-    real(wp) :: t1 
 
     logical,  parameter :: testing         = .false.
 
@@ -3099,11 +3065,7 @@ contains
     real(wp), dimension(nequations,nequations) :: hatc_side_1, hatc_side_2, &
                                                 & matrix_ip
 
-    real(wp), dimension(nequations)    :: tmpr
     real(wp), dimension(nequations)    :: w_side_1, w_side_2
-
-    real(wp) :: UavAbs, switch
-
 
     real(wp), dimension(nequations)    ::   vg_On,   vg_Off
     real(wp), dimension(nequations)    ::   ug_On,   ug_Off
@@ -3115,15 +3077,11 @@ contains
     real(wp), dimension(nequations)    :: entr_ghost_adiabatic
     real(wp), dimension(nequations)    :: prim_ref
     
-    real(wp), dimension(nequations,3)  :: grad_prim_int, grad_prim_ghost, grad_entr_ghost
-    real(wp), dimension(nequations,3)  :: grad_prim_int_normal,grad_prim_int_tangent
+    real(wp), dimension(nequations,3)  :: grad_prim_int, grad_entr_ghost
     real(wp), dimension(nequations,3)  :: grad_entr_int_normal,grad_entr_int_tangent
 
     real(wp), dimension(3)             :: unit_normal, normal_vel, tangent_vel, ref_vel_vector
     
-    real(wp) :: l01_ldg_flip_flop
-
-
     ! allocate local arrays
     allocate(ustar(nequations))
     allocate(vstar(nequations))
@@ -3469,7 +3427,6 @@ contains
     use variables
     use referencevariables
     use controlvariables
-    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,pinv,pvol
     use mpimod
     implicit none
     ! local time of evaluation (for RK schemes, this is the stage time)
@@ -3534,7 +3491,7 @@ contains
     use variables
     use referencevariables
     use controlvariables
-    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,pinv,pvol
+
     implicit none
     ! local time of evaluation (for RK schemes, this is the stage time)
     integer,  intent(in) :: irk
@@ -4024,8 +3981,6 @@ contains
     real(wp), intent(in) :: xin(3)
     real(wp), intent(in) :: tin, mut
     
-    real(wp)                 :: rho, p
-
     Vx = Vx
     fv = zero
 
@@ -4042,7 +3997,7 @@ contains
     use controlvariables
     use referencevariables
     use nsereferencevariables
-    use collocationvariables, only: pmat, pvol
+    use collocationvariables, only: pvol
     use mpimod 
 
     implicit none
@@ -4058,11 +4013,11 @@ contains
     integer :: r_status(mpi_status_size)
 
     integer :: i_elem, i_node
-    integer :: i, j, k, m
+    integer :: m
 
     real(wp)               :: Lngth, a0, dt0, dt_min, dt_global_max
     real(wp)               :: tI, tV
-    real(wp), dimension(3) :: xvec, sq, ucon
+    real(wp), dimension(3) :: sq, ucon
 
     continue
 
@@ -4152,7 +4107,6 @@ contains
     ! Load modules
     use variables
     use referencevariables
-    use collocationvariables, only: iagrad,jagrad,dagrad
 
     ! Nothing is implicitly defined
     implicit none
@@ -4207,7 +4161,6 @@ contains
     ! Load modules
     use variables
     use referencevariables
-    use collocationvariables, only: iagrad,jagrad,dagrad
 
     ! Nothing is implicitly defined
     implicit none
@@ -4427,21 +4380,14 @@ contains
     real(wp), dimension(N_S,N_S), intent(in)   :: qmat, dmat
 
     ! indices
-    integer :: inode, jdir, iface, ipen
-    integer :: i, k, l
+    integer :: inode, jdir, ipen
+    integer :: i, k
 
     real(wp), dimension(nequations,N_S)        :: ugS, vgS, wgS, fgS, d_fgS
     real(wp), dimension(         3,N_S)        :: JnS
 
-!   real(wp), dimension(nequations,N_Flux_Pts) :: ugF, wgF, vgF
-!   real(wp), dimension(         3,N_Flux_Pts) :: JnF
-
-
     integer,  dimension(2)                     :: faceLR
     real(wp), dimension(nequations)            :: uLL,uL,uR,uRR
-    real(wp), dimension(nequations)            :: uLLT,uRRT
-    real(wp)                                   :: dxL,dx,dxR
-    real(wp)                                   :: t1, scl
     real(wp), parameter                        :: tol1 = 1.0e-10_wp
 
     integer                                    :: jnode,gnode
@@ -4628,7 +4574,7 @@ contains
 
     ! indices
     integer :: inode, jnode, jdir
-    integer :: i, k, l
+    integer :: i
 
     real(wp), dimension(nequations) :: ugS, vgS
     real(wp), dimension(         3) :: JnS
@@ -4659,7 +4605,6 @@ contains
 
     use variables
     use referencevariables
-    use controlvariables, only: discretization
 
     implicit none 
 
@@ -4749,7 +4694,7 @@ contains
 
     use variables
     use referencevariables
-    use controlvariables, only: discretization, flux_entropy_correction
+    use controlvariables, only: flux_entropy_correction
 !   use collocationvariables
 
     implicit none 
@@ -4769,8 +4714,6 @@ contains
     real(wp), dimension(N_q,0:N_S)            :: fnS, fnD
 
     real(wp), dimension(3)                    :: nx
-
-    real(wp), dimension(N_q)                  :: bb, ds, delta
 
     real(wp), parameter                       :: cc2  = 1.0e-24_wp
 
@@ -5031,23 +4974,18 @@ contains
     use variables
     use referencevariables
     use nsereferencevariables
-    use collocationvariables, only: iagrad, jagrad, dagrad, gradmat, pinv, pvol
+    use collocationvariables, only: iagrad, jagrad, dagrad
     
     ! Nothing is implicitly defined
     implicit none
 
     ! loop indices
     integer :: ielem, jdir, idir
-    integer :: inode, jnode, knode, gnode
-    integer :: kelem
-    integer :: iface
+    integer :: inode, jnode
     integer :: i
 
     ! low and high volumetric element indices
     integer :: iell, ielh
-    
-    ! normal direction at face
-    real(wp) :: nx(3)
     
     ! Temporary arrays for phi
     real(wp), allocatable :: phitmp(:,:)
@@ -5132,7 +5070,7 @@ contains
 
       real(wp), dimension(3)           :: nLL, nL, nR, nRR
       real(wp), dimension(3)           :: nxL,nxR, nxave
-      real(wp), dimension(nq,1:4)      :: vint, wint, Kint
+      real(wp), dimension(nq,1:4)      :: vint, wint
       real(wp), dimension(nq, 6)       :: uin, qin, vin
       real(wp), dimension(3,  6)       :: nin
       real(wp), dimension(6)           :: uhat, metr, cav2
@@ -5140,7 +5078,7 @@ contains
       real(wp), dimension(nq,0:ixd)    :: fbarW, fbarC, fnS, fnK
 
       ! Interpolation coefs and target values
-      real(wp), dimension(5,6)         :: Tar, TarP, TarM
+      real(wp), dimension(5,6)         :: Tar
       real(wp), dimension(ixd+1,2)     :: IM2n, IM1n, IP1n, IP2n
 
       ! Beta's - smoothness indicators
@@ -5157,18 +5095,11 @@ contains
       real(wp), dimension(nq,nq)       :: Smat,Sinv
       real(wp), dimension(nq)          :: ev, vL, vR, vav
 
-      real(wp)                         :: a00,w0,w1
       real(wp), dimension(nq)          :: bb ,ds ,delta 
-      real(wp)                         :: bbS,dsS,deltaS
       real(wp), parameter              :: cc2 = 1.0e-24_wp
       real(wp), parameter              :: cc1 = 1.0e-12_wp
 
       real(wp)                         :: x66
-      real(wp)                         :: a, b, c, r, x1, x2
-      real(wp), dimension(2,2)         :: Hmat, Hinv, Lam, Tmat
-!     real(wp), dimension(2,2)         :: eye
-      real(wp), dimension(2)           :: bSK
-      real(wp), dimension(2,nq)        :: Wmat
 
       integer                          :: i,j,k,l,n
 
@@ -5603,7 +5534,7 @@ contains
 
       implicit none
 
-      integer    :: iell, ielh, ielem, iface, ipen, jnode, kval
+      integer    :: iell, ielh, ielem, iface, ipen, jnode
       integer    :: elem_face_nodes
 
 
@@ -5702,8 +5633,6 @@ contains
 
       real(wp),  dimension(neq,neq)             :: smat,sinv
       real(wp),  dimension(neq,neq)             :: hatc_On, hatc_Off, matrix_ip
-      real(wp),  dimension(neq,neq)             :: mattmp
-
 
       real(wp),  dimension(neq)                 :: fLLF
       real(wp),  dimension(neq)                 :: wg_On, wg_Off
@@ -5714,13 +5643,7 @@ contains
       real(wp)                                  :: l01_ldg_flip_flop
 
       real(wp),  parameter                      :: tol = 2.0e-12_wp
-      real(wp),  dimension(neq)                 ::   tmpr,tmp2
       real(wp)                                  :: UavAbs, switch
-      real(wp)                                  :: t1
-      logical                                   :: testing = .false.
- 
-      integer                                   :: k
-
 
       real(wp),  dimension(neq)                 :: SAT_Inv_Vis_Flux
 
@@ -5980,8 +5903,7 @@ contains
         use referencevariables
         use nsereferencevariables
         use collocationvariables, only: iagrad,jagrad,dagrad,pinv,l10, &
-                                      & ldg_flip_flop_sign, alpha_ldg_flip_flop, &
-                                      & face_sign
+                                      & ldg_flip_flop_sign, alpha_ldg_flip_flop
 
         implicit none
 

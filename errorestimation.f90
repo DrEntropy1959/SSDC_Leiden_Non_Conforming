@@ -14,7 +14,7 @@ contains
   subroutine calcembeddedspatialerror()
     ! this subroutine calculates the embedded error approximation
     ! using the solution, ug, and the embedded solution uhat.
-    use variables, only: gsat, Jx_r, boundaryelems
+    use variables, only: gsat, Jx_r
     use collocationvariables, only: pvol
     use controlvariables
     use referencevariables
@@ -81,7 +81,7 @@ contains
   subroutine calcembeddedtemporalerror()
     ! this subroutine calculates the embedded error approximation
     ! using the solution, ug, and the embedded solution uhat.
-    use variables, only: ug,uhat,vg,Jx_r,boundaryelems
+    use variables, only: ug,uhat,Jx_r
     use collocationvariables, only: pvol
     use controlvariables
     use referencevariables

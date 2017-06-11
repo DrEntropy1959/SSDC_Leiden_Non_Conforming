@@ -9,8 +9,8 @@ FC = mpif90
 #FCFLAGS = -Wuninitialized -Wsurprising -fbacktrace -fbounds-check $(INCLUDESDIR)
 ##FCFLAGS = -Ofast $(INCLUDESDIR)
 
- FCFLAGS = -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
-#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 $(INCLUDESDIR)
+ FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 $(INCLUDESDIR)
 #FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
 CFLAGS = -Ofast  $(INCLUDESDIR)
 

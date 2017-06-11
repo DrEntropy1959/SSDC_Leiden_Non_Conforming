@@ -117,7 +117,7 @@ contains
     use errorestimation
     use navierstokes
     use mpimod
-    use variables, only:  ug, uhat, uold, du, dudt
+    use variables, only:  ug, uhat, uold, du
     use time_integ_coeff 
     use dkinetic_energy_dt_enstrophy
     use tools_IO
@@ -125,12 +125,12 @@ contains
     ! Nothing is implicitly defined
     implicit none
 
-    integer  :: irkstep
-    character(len=300) :: time_space_error_file_name
+    integer :: irkstep
     integer :: i_err
-    integer :: i_unit, io_status
-    logical :: negTemp = .false.
-    character(120) :: message
+!   character(len=300) :: time_space_error_file_name
+!   integer :: i_unit, io_status
+!   logical :: negTemp = .false.
+!   character(120) :: message
 
     continue
 
@@ -267,11 +267,10 @@ contains
     ! Nothing is implicitly defined
     implicit none
 
-    integer  :: irkstep
-    character(len=300) :: time_space_error_file_name
+!   character(len=300) :: time_space_error_file_name
     integer :: i_err
-    integer :: i_unit, io_status
-    character(120) :: message
+!   integer :: i_unit
+!   character(120) :: message
 
     continue
 
@@ -471,7 +470,7 @@ contains
     use SSWENO_routines,    only: Negative_Density_Removal
     use time_integ_coeff,   only: alsrk, brk, brkh
     use variables,          only: ug, uhat, du, dudt
-    use referencevariables, only: ihelems, nodesperelem, nequations
+    use referencevariables, only: ihelems, nodesperelem
     use controlvariables,   only: timestep
     
     ! Nothing is implicitly defined
@@ -514,7 +513,7 @@ contains
     implicit none
 
     integer, intent(in)  :: time_step_cnt
-    real(wp) :: predicted_time_step, tol, dt_global
+    real(wp) :: predicted_time_step, tol
     real(wp) :: al, be, ga
     real(wp), save :: err_time_tm0
     real(wp), save :: dt0, dt1, dt2

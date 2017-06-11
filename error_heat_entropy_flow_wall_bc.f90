@@ -30,8 +30,7 @@ module error_heat_entropy_flow_wall_bc
     use variables
     use referencevariables
     use navierstokes, only : dVdW
-    use nsereferencevariables, only : mu0, rho0, U0, Re0
-    use collocationvariables, only : p_surf, pmat_Soln
+    use nsereferencevariables, only : mu0
     use mpimod
     use controlvariables
 

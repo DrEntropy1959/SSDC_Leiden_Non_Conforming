@@ -241,7 +241,7 @@ contains
     logical :: lexist
     character(120) :: file_name
     character(120) :: tag_proc
-    integer :: elem_low, elem_high, i_elem, i_node
+    integer :: elem_low, elem_high, ielem, i_node
     integer :: i_unit, io_status
     integer :: elem_ID
     integer :: max_unit
@@ -311,9 +311,9 @@ contains
       read(i_unit,*) err_time_tm2
 
       ! Read element ID and conserved variables from file
-      do i_elem = elem_low,elem_high
+      do ielem = elem_low,elem_high
         read(i_unit,*) elem_ID
-        if (elem_ID .ne. i_elem) then
+        if (elem_ID .ne. ielem) then
           write(*,*) 'Failure in reading the restarting solution. The', &
             & ' element ID written in the restarting file does not', &
             & ' correspond to the element ID defined in the loop.', &
@@ -324,16 +324,16 @@ contains
         endif
 
         do i_node = 1, nodesperelem_tmp
-          read(i_unit,*) ug_tmp(:,i_node,i_elem)
+          read(i_unit,*) ug_tmp(:,i_node,ielem)
         enddo
       enddo
 
       if ((read_restart_time_averaging) .and. (npoly == npoly_tmp)) then
 
         ! Read element ID and time-averaged quantities from file
-        do i_elem = elem_low,elem_high
+        do ielem = elem_low,elem_high
           read(i_unit,*) elem_ID
-          if (elem_ID .ne. i_elem) then
+          if (elem_ID .ne. ielem) then
             write(*,*) 'Failure in reading the restarting solution. The', &
               & ' element ID written in the restarting file does not', &
               & ' correspond to the element ID defined in the loop.',&
@@ -344,13 +344,13 @@ contains
           endif
 
           do i_node = 1, nodesperelem
-            read(i_unit,*) mean_vg(:,i_node,i_elem)
+            read(i_unit,*) mean_vg(:,i_node,ielem)
           enddo
         enddo
 
-        do i_elem = elem_low,elem_high
+        do ielem = elem_low,elem_high
           read(i_unit,*) elem_ID
-          if (elem_ID .ne. i_elem) then
+          if (elem_ID .ne. ielem) then
             write(*,*) 'Failure in reading the restarting solution. The', &
               & ' element ID written in the restarting file does not', &
               & ' correspond to the element ID defined in the loop.', &
@@ -361,7 +361,7 @@ contains
           endif
 
           do i_node = 1, nodesperelem
-            read(i_unit,*) time_ave_prod_vel_comp(:,i_node,i_elem)
+            read(i_unit,*) time_ave_prod_vel_comp(:,i_node,ielem)
           enddo
         enddo
 
@@ -402,9 +402,9 @@ contains
       read(i_unit) err_time_tm2
 
       ! Read element ID and conserved variables from file
-      do i_elem = elem_low,elem_high
+      do ielem = elem_low,elem_high
         read(i_unit) elem_ID
-        if (elem_ID .ne. i_elem) then
+        if (elem_ID .ne. ielem) then
           write(*,*) 'Failure in reading the restarting solution. The', &
             & ' element ID written in the restarting file does not', &
             & ' correspond to the element ID defined in the loop.', &
@@ -415,7 +415,7 @@ contains
         endif
 
         do i_node = 1, nodesperelem_tmp
-          read(i_unit) ug_tmp(:,i_node,i_elem)
+          read(i_unit) ug_tmp(:,i_node,ielem)
         enddo
       enddo
 
@@ -431,9 +431,9 @@ contains
         endif
 
         ! Read element ID and time-averaged quantities from file
-        do i_elem = elem_low,elem_high
+        do ielem = elem_low,elem_high
           read(i_unit) elem_ID
-          if (elem_ID .ne. i_elem) then
+          if (elem_ID .ne. ielem) then
             write(*,*) 'Failure in reading the restarting solution. The', &
               & ' element ID written in the restarting file does not', &
               & ' correspond to the element ID defined in the loop.', &
@@ -444,14 +444,14 @@ contains
           endif
 
           do i_node = 1, nodesperelem
-            read(i_unit) mean_vg(:,i_node,i_elem)
+            read(i_unit) mean_vg(:,i_node,ielem)
           enddo
         enddo
 
 
-        do i_elem = elem_low,elem_high
+        do ielem = elem_low,elem_high
           read(i_unit) elem_ID
-          if (elem_ID .ne. i_elem) then
+          if (elem_ID .ne. ielem) then
             write(*,*) 'Failure in reading the restarting solution. The', &
               & ' element ID written in the restarting file does not', &
               & ' correspond to the element ID defined in the loop.', &
@@ -462,7 +462,7 @@ contains
           endif
 
           do i_node = 1, nodesperelem
-            read(i_unit) time_ave_prod_vel_comp(:,i_node,i_elem)
+            read(i_unit) time_ave_prod_vel_comp(:,i_node,ielem)
           enddo
         enddo
 
@@ -486,16 +486,14 @@ contains
 
       allocate(tmpfieldA( (nXA)**ndim ))
 
-      do i_elem = elem_low,elem_high
+      do ielem = elem_low,elem_high
 
         do k = 1,nequations
-          tmpfieldA(:) = ug_tmp(k,:,i_elem)
-          call ExtrpXA2XB(ndim,nXA,nXB,XA,XB,tmpfieldA(:),ug(k,:,i_elem))
+          tmpfieldA(:) = ug_tmp(k,:,ielem)
+          call ExtrpXA2XB(ndim,nXA,nXB,XA,XB,tmpfieldA(:),ug(k,:,ielem))
         enddo
 
-        do i_node = 1, nodesperelem
-          call Negative_Density_Removal(ug(:,i_node,i_elem),nequations)
-        enddo
+        call Negative_Density_Removal(nodesperelem,ielem,ug(:,:,ielem))
 
       enddo
 

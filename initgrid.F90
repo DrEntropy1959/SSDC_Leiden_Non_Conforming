@@ -195,10 +195,8 @@ contains
 
   subroutine init_elem_type()
     use referencevariables
-    use variables, only: boundaryelems, ef2e,  &
-                         iae2v, jae2v, nnze2v, &
-                         facenormalcoordinate
-!                        iae2e, jae2e, nnze2e, 
+    use variables, only: facenormalcoordinate
+
     implicit none
     integer :: i
 
@@ -502,7 +500,7 @@ contains
     ! this subroutine applies TFI to a two-dimensional
     ! surface, assuming the edges and corners have been
     ! populated with data.
-    use collocationvariables, only: x_LGL_pts_1D
+
     implicit none
     integer, intent(in) :: nk
     real(wp), intent(inout) :: xl2d(3,nk,nk)
@@ -530,7 +528,7 @@ contains
     ! this subroutine applies TFI to a two-dimensional
     ! surface, assuming the edges and corners have been
     ! populated with data.
-    use collocationvariables, only: x_LGL_pts_1D
+
     implicit none
     integer, intent(in) :: nk
     real(wp), intent(inout) :: xl3d(3,nk,nk,nk)
@@ -574,21 +572,18 @@ contains
 
   !============================================================================
   
-  !============================================================================
-
   subroutine perturb_vertices_tg_vortex_1(p_scale)
 
     ! Load modules
     use referencevariables
-    use variables, only: xg, vx, e2v
-    use collocationvariables, only: x_LGL_pts_1D
+    use variables, only: vx, e2v
     
     ! Nothing is implicitly defined
     implicit none
     
     real(wp), intent(in) :: p_scale
     integer :: ielem
-    integer :: i, j, izone
+    integer :: i, j
     real(wp) :: dx(3), dr
     integer,parameter :: seed = 86456
     real(wp) :: rand
@@ -641,29 +636,24 @@ contains
   end subroutine perturb_vertices_tg_vortex_1
 
   !============================================================================
-  
-  !============================================================================
 
   subroutine pert_int_vert(p_scale)
 
     ! Load modules
     use referencevariables
     use variables, only: vx_master
-    use collocationvariables, only: x_LGL_pts_1D
     
     ! Nothing is implicitly defined
     implicit none
     
     real(wp), intent(in) :: p_scale
-    integer :: ielem
-    integer :: i, j, izone
-    real(wp) :: dx(3), dr
+    integer :: j
+    real(wp) :: dx(3)
     integer,parameter :: seed = 86456
     real(wp) :: rand
     
     integer :: n_tot_vertices, i_vertex
 
-    real(wp) :: diff_x, diff_y, diff_z
     real(wp), parameter :: toll = 1e-6
     real :: tmp
     real(wp) :: x, y, z
@@ -752,11 +742,8 @@ contains
     ! local grid distance
     real(wp)                :: dr
     real(wp), dimension(nodesperedge)  :: xi
-    real(wp), dimension(3)  :: dx, x0
+    real(wp), dimension(3)  :: dx
     real(wp), dimension(3)  :: x00,x01
-
-    integer,  dimension(6)  :: curved_faces
-
 
     ! nE is simply for convenience of presentation in the coding
     nE = nodesperedge
@@ -939,8 +926,7 @@ contains
     !  
     use referencevariables
     use mpimod
-    use variables, only: xg, kfacenodes, ifacenodes, ef2e, efn2efn, &
-      & boundaryelems
+    use variables, only: kfacenodes, ifacenodes
     implicit none
 
     ! indices
@@ -1040,8 +1026,7 @@ contains
     !  
     use referencevariables
     use mpimod
-    use variables, only: xg, kfacenodesWENO, ifacenodesWENO, ef2e, efn2efn, &
-      & boundaryelems
+    use variables, only: kfacenodesWENO, ifacenodesWENO
     implicit none
 
     ! indices
@@ -1138,7 +1123,7 @@ contains
     use referencevariables
     use mpimod
     use variables, only: xg, xghst, kfacenodes, ifacenodes, ef2e, efn2efn, &
-      & boundaryelems, jelems, periodic_elem_face_ids_x1, &
+      & jelems, periodic_elem_face_ids_x1, &
       & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
 
     ! Nothing is implicitly defined
@@ -1972,8 +1957,7 @@ contains
     ! this subroutine calculates the outward facing normals
     ! of each facial node
     use referencevariables
-    use variables, only: kfacenodes, ifacenodes, &
-      & boundaryelems, facenodenormal, r_x, xg, ef2e, efn2efn, Jx_r
+    use variables, only: kfacenodes, facenodenormal, r_x, ef2e, efn2efn, Jx_r
     implicit none
 
     ! indices
@@ -2061,7 +2045,7 @@ contains
     ! This subroutine calculates the metric transformations
     ! between computational and physical space.
     use referencevariables
-    use variables, only: xg, x_r, r_x, Jx_r, e2v, dx_min_elem
+    use variables, only: xg, x_r, r_x, Jx_r, dx_min_elem
     use collocationvariables, only: iagrad, jagrad, dagrad, pvol
     use mpimod
 
@@ -4280,8 +4264,6 @@ contains
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: low_elem, high_elem
-
     integer, dimension(nfacesperelem) :: face_pairs
 
     logical :: hit_boundary, close_loop
@@ -4549,9 +4531,9 @@ contains
 
     implicit none
     ! indices
-    integer :: ielem, inode, jnode, jdir, ipen, face_id, shift, iface, kface
-    integer :: gnode, ieq, iloc, kelem, knode, nodespershell
-    integer :: i,j,k, petscsize, i_err
+    integer :: ielem, inode, jnode, jdir, ipen, face_id, iface, kface
+    integer :: gnode, iloc, kelem, knode, nodespershell
+    integer :: i, i_err
     integer :: extrnal_xi_cnt, extrnal_xi_sum
     integer, dimension(2)  :: faceLR
 
@@ -4562,7 +4544,7 @@ contains
     real(wp), dimension(3)              :: xgL, xgR
 
     real(wp), dimension(3,8)            :: comp2phys_coeffs
-    real(wp)                            :: tmp, t1,t2,t3, rnorm, rnorm_max
+    real(wp)                            :: tmp, rnorm, rnorm_max
     real(wp)                            :: XI_max, XI_max_Glob
     real(wp)                            :: del
 
@@ -4749,8 +4731,8 @@ contains
 
     ! Load modules
 
-    use referencevariables, only: nvertices, nodesperface
-    use variables, only: if2nq, ifacetag, ic2nh, nqface
+    use referencevariables, only: nvertices
+    use variables, only: if2nq, ifacetag, nqface
     use unary_mod, only: qsorti
 !   use variables, only: iaBv2Bv, jaBv2Bv
 
@@ -4761,23 +4743,20 @@ contains
     ! Nothing is implicitly defined
     implicit none
 
-    integer :: i,j,k,L,m,n
-    integer :: k1,k2,k3
-    integer :: nI,nO
+    integer :: i,k,L,m
+    integer :: k2,k3
     integer :: jV,jE
     integer :: icnt0,icnt1,icnt2,icnt3
-    integer :: iwrk
     integer, dimension(2)  :: itmp
 
     integer, parameter   :: bigN = 20
 
     integer, dimension(5)                :: stack
-    integer, dimension(bigN)             :: shuffle, wrk_vec
     integer, dimension(bigN)             :: wrk_vec0, wrk_vec1, wrk_vec2, wrk_vec3
 
-    integer                              :: n_bc_types, new_vert
+    integer                              :: n_bc_types
 
-    integer, dimension(2,4)              :: if2nq_off
+!   integer, dimension(2,4)              :: if2nq_off
 
     integer, dimension(:),   allocatable :: iaBv2Bv, ind, nqface_type
     integer, dimension(:,:), allocatable :: jaBv2Bv
@@ -5052,7 +5031,7 @@ contains
     real(wp), parameter                   :: tol_r = 1.0e-06_wp
 
 
-    real(wp), dimension(ndim)             :: dx, vec1
+    real(wp), dimension(ndim)             :: dx
     real(wp)                              :: r1, r2
     real(wp), dimension(ndim)             :: origin_1, origin_2
     real(wp)                              :: theta1,theta2, theta
@@ -5136,7 +5115,7 @@ contains
     real(wp)                              :: aa,bb,cc,de
     real(wp)                              :: x0,xm,xp,x1
     real(wp)                              :: y0,ym,yp,y1
-    real(wp)                              :: z0,zm,zp,z1
+    real(wp)                              :: z0,zm,   z1
 
     integer                               :: i
 
@@ -5216,8 +5195,6 @@ contains
   pure function ortho_projection_to_line3D(x00,x01,x)
 
     real(wp), dimension(3), intent(in) :: x00,x01,x
-
-    real(wp), dimension(3)             :: xmin
 
     real(wp)                           :: t
     real(wp), dimension(3)             :: ortho_projection_to_line3D

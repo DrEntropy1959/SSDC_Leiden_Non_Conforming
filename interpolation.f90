@@ -281,7 +281,7 @@ contains
 
   real(wp), dimension(neq,NPts)              :: u
 
-  integer                                    :: i,j,k,m,n
+  integer                                    :: j,k,m,n
   integer                                    :: StrideY, StrideZ
 
   select case(ndim)
@@ -361,13 +361,10 @@ contains
     real(wp), dimension(3,nodesperelem), intent(in)     :: xg
     real(wp), dimension(3,8),            intent(inout)  :: comp2phys_coeffs
 
-    real(wp), dimension(8,8)                 :: Jac, vec_test, wrk, eye
+    real(wp), dimension(8,8)                 :: Jac, vec_test, eye
     real(wp), dimension(3,8)                 :: xtrain
-    real(wp), dimension(3)                   :: xi,x
-    real(wp), dimension(3)                   :: xmax,xmin,xave
-    integer,  dimension(8)                   :: neighbors
     real(wp)                                 :: t1
-    integer                                  :: i,j
+    integer                                  :: i
 
 !   real(wp),  dimension(8,8)                :: JacT= reshape(                    &
 !                                                   & (/+1,-1,-1,-1,+1,+1,+1,-1,  &
@@ -612,7 +609,7 @@ contains
     integer,                             intent(in   ) :: nodesperelem
 
     integer,  dimension(nodesperelem)                  :: ind
-    integer,  dimension(8)                             :: neighbors
+!   integer,  dimension(8)                             :: neighbors
 
     real(wp), dimension(nodesperelem)                  :: distance
 

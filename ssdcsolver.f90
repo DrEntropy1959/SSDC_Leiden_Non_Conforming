@@ -9,7 +9,6 @@ program ssdcsolver
   use mpimod
   use navierstokes
   use timeinteg
-  use variables, only: xg, ug, vg, wg, uhat, uold, du, dudt
   use controlvariables
   use physicsindependent
   use errorestimation

@@ -21,7 +21,6 @@ module SSWENO_Routines
 
         real(wp), dimension(5), parameter :: tau_coeffT0 = (/0.0_wp,-c1,c2,-c2,c1/)
         real(wp), dimension(5), parameter :: tau_coeffT1 = (/-c1,c2,-c2,c1,0.0_wp/)
-        real(wp), dimension(5)            :: tau_cL4,tau_cR4
 
 !       WENO smoothness indicators 
         allocate(tau_cfL(5),tau_cfR(5))

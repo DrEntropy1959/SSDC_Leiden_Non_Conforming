@@ -159,7 +159,7 @@ contains
 
     ! Load modules
     use referencevariables
-    use variables, only : vg, mean_vg, time_ave_prod_vel_comp, &
+    use variables, only : mean_vg, time_ave_prod_vel_comp, &
                           reynolds_stress
       
     ! Nothing is implicitly defined

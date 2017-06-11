@@ -1283,7 +1283,6 @@ contains
     use referencevariables
     use controlvariables
     use tools_IO
-    use variables, only : xg
 
     ! Nothing is implicitly defined
     implicit none
@@ -2761,8 +2760,7 @@ contains
 
     use mpimod
     use referencevariables
-    use nsereferencevariables, only: gM2
-    use variables,             only: xg, Jx_r, vg
+    use variables,             only: xg, vg
     use tools_IO
 
     ! Nothing is implicitly defined

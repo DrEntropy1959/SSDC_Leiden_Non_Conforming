@@ -39,8 +39,7 @@ module aerodynamic_coefficients
     use variables
     use referencevariables
     use navierstokes, only : dVdW, normalviscousflux
-    use nsereferencevariables, only : mu0, rho0, U0, Re0, Re0inv, gM2, &
-                                      aero_coeffs_surface
+    use nsereferencevariables, only : mu0, gM2, aero_coeffs_surface
     use collocationvariables, only : pmat_Soln
     use mpimod
     use controlvariables

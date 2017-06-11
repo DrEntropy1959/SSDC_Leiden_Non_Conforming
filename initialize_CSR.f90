@@ -1032,7 +1032,7 @@ contains
     use variables
     use referencevariables
     use controlvariables
-    use collocationvariables, only: iagrad,jagrad,dagrad,dmat
+    use collocationvariables, only: iagrad,jagrad
 
     implicit none
     integer,                  intent(in   ) :: iface, local_row, inode, i_elem, knode, kelem
@@ -2036,7 +2036,7 @@ contains
     use nsereferencevariables
     use unary_mod
     use jacobian_matrix_implicit_ts_variables
-    use controlvariables, only : imex_element, imex_penalty
+!   use controlvariables, only : imex_element, imex_penalty
 
     ! Nothing is implicitly defined
     implicit none
@@ -2613,7 +2613,7 @@ contains
     use nsereferencevariables
     use unary_mod
     use jacobian_matrix_implicit_ts_variables
-    use controlvariables, only : imex_element, imex_penalty
+    use controlvariables, only : imex_penalty
 
     ! Nothing is implicitly defined
     implicit none
@@ -3866,7 +3866,7 @@ contains
     use nsereferencevariables
     use unary_mod
     use jacobian_matrix_implicit_ts_variables
-    use controlvariables, only : imex_element, imex_penalty
+!   use controlvariables, only : imex_element, imex_penalty
 
     ! Nothing is implicitly defined
     implicit none

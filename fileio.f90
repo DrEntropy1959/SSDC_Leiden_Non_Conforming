@@ -80,7 +80,7 @@ contains
 
   subroutine cgnsReadUnstructuredGrid(filein)
     use referencevariables
-    use variables, only: vx, e2v, bctypes, boundaryelems
+    use variables, only: vx, bctypes, boundaryelems
     implicit none
 
     character(120), intent(in) :: filein
@@ -292,7 +292,7 @@ contains
 
 
     use referencevariables
-    use variables, only: vx, e2v, bctypes, boundaryelems, code_bc_names
+    use variables, only: boundaryelems, code_bc_names
     implicit none
 
     character(120), intent(in) :: filein
@@ -520,7 +520,7 @@ contains
 
   subroutine cgnsParallelUnstructuredGrid(filein)
     use referencevariables
-    use variables, only: vx, e2v, bctypes, boundaryelems, &
+    use variables, only: vx, e2v, boundaryelems, &
       jelems
     implicit none
 
@@ -949,7 +949,7 @@ contains
   subroutine aflr3ReadUnstructuredGrid(filein)
 
     use referencevariables
-    use variables, only: vx_master, e2v, nqface, if2nq, ifacetag, ic2nh, &
+    use variables, only: vx_master, nqface, if2nq, ifacetag, ic2nh, &
                        & aflr3_bc_ids, periodic_face_data_x1, &
                        & periodic_face_data_x2, periodic_face_data_x3, &
                        & wall_face_data 

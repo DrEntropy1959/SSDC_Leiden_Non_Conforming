@@ -418,7 +418,7 @@ contains
     use referencevariables
     use unary_mod
     use nsereferencevariables
-    use jacobian_matrix_implicit_ts_variables, only : iw_viscous_1, iw_viscous_2
+    use jacobian_matrix_implicit_ts_variables, only : iw_viscous_1
 
     ! Nothing is implicitly defined
     implicit none
@@ -1368,7 +1368,7 @@ contains
     use referencevariables
     use unary_mod
     use nsereferencevariables
-    use jacobian_matrix_implicit_ts_variables, only : iw_viscous_1, iw_viscous_2
+    use jacobian_matrix_implicit_ts_variables, only : iw_viscous_1
 
     ! Nothing is implicitly defined
     implicit none
@@ -1649,8 +1649,7 @@ enddo
   pure function inviscid_flux_jacobian_node(v_in,n_in,n_eq)
     
     ! Load modules
-    use nsereferencevariables, only: gamma0, gm1, gm1M2, gm1og, gM2, Re0inv, &
-                                     & Pr0, Mach0
+    use nsereferencevariables, only: gamma0, gm1, gm1M2, Mach0
     
     ! Nothing is implicitly defined
     implicit none
@@ -1938,8 +1937,7 @@ enddo
   function dhatcdu_gradwj_node(vin,dw,ni,nj,nq)
       
     ! Load modules
-    use nsereferencevariables, only: gamma0, gm1, gm1M2, gm1og, gM2, Re0inv, &
-      & Pr0, Mach0, k0, mu0
+    use nsereferencevariables, only: gm1M2, Re0inv, Pr0, k0, mu0
     use navierstokes, only: dWdU, dVdU
     
     ! Nothing is implicitly defined
@@ -2037,8 +2035,7 @@ enddo
   subroutine hatc_dhatcdu_gradwj_node(vin,dw,ni,nj,nq,hatc,dhatc_du)
       
     ! Load modules
-    use nsereferencevariables, only: gamma0, gm1, gm1M2, gm1og, gM2, Re0inv, &
-                                   & Pr0, Mach0, k0, mu0
+    use nsereferencevariables, only: gm1M2, Re0inv, Pr0, k0, mu0
     use navierstokes, only: dWdU, dVdU
     
     ! Nothing is implicitly defined
@@ -2243,11 +2240,10 @@ enddo
 
     ! Load modules
     use variables, only : ifacenodes, efn2efn, Jx_r, facenodenormal, ef2e, &
-      & kfacenodes, ug, ughst, vg, xg
+      & kfacenodes, ug, ughst
     use referencevariables, only : nequations, nfacesperelem, nodesperface 
     use CSRlocalvariables
     use referencevariables
-    use collocationvariables, only : pinv
 
     ! Nothing is implicitly defined
     implicit none
@@ -2435,14 +2431,14 @@ enddo
 
     ! Load modules
     use variables, only : ifacenodes, efn2efn, efn2efn, r_x, Jx_r, & 
-      & facenodenormal, ef2e, kfacenodes, ug, ughst, uelemghst, vg, wg, &
+      & facenodenormal, ef2e, kfacenodes, ughst, vg, &
       & grad_w_jacobian, velemghst, welemghst, r_x_ghst 
     use referencevariables, only : nequations, nfacesperelem, nodesperface 
     use CSRlocalvariables
     use referencevariables
     use nsereferencevariables
     use navierstokes, only : dWdU, conserved_to_primitive, primitive_to_entropy
-    use collocationvariables, only: iagrad,jagrad,dagrad,dmat,pinv,l01
+    use collocationvariables, only: iagrad,jagrad,dagrad,pinv,l01
 
     ! Nothing is implicitly defined
     implicit none
@@ -2932,9 +2928,7 @@ enddo
     ! Load modules
     use nsereferencevariables
     use referencevariables
-    use variables, only : ug, phig, xg, ef2e, vg
-    use controlvariables, only : timelocal
-    use collocationvariables, only : pinv
+    use variables, only : ef2e
     use navierstokes
     use CSRlocalvariables
     
@@ -2980,7 +2974,7 @@ enddo
     ! Load modules
     use nsereferencevariables
     use referencevariables
-    use variables, only : ug, phig, xg, ef2e, vg
+    use variables, only : ug, xg, ef2e, vg
     use controlvariables, only : timelocal
     use collocationvariables, only : pinv
     use navierstokes
@@ -3331,7 +3325,6 @@ enddo
     ! Load modules
     use nsereferencevariables
     use referencevariables
-    use variables, only : ug, vg
     use collocationvariables, only: pinv
     use navierstokes, only : conserved_to_primitive
     
@@ -3832,7 +3825,7 @@ enddo
   function v_to_normal_flux_complex(v_in,n_v,n_eq)
     
     ! Load modules
-    use nsereferencevariables, only: gm1M2, gm1og, gM2
+    use nsereferencevariables, only: gm1M2, gM2
 
     ! Nothing is implicitly defined
     implicit none
@@ -3894,7 +3887,7 @@ enddo
   pure function v_to_entropy_consistent_flux_complex(v_l,v_r,n_v,n_eq)
     
     ! Load modules
-    use nsereferencevariables, only: gM2, gM2I, gm1og, gp1og, gm1M2, gamma0
+    use nsereferencevariables, only: gM2I, gm1og, gp1og, gm1M2
     
     ! Nothing is implicitly defined
     implicit none
@@ -4032,7 +4025,7 @@ enddo
   pure function v_to_w_complex(v_in,n_eq)
     
     ! Load modules
-    use nsereferencevariables, only: gm1M2, gm1og
+    use nsereferencevariables, only: gm1M2
     
     ! Nothing is implicitly defined
     implicit none
@@ -4101,8 +4094,8 @@ enddo
     use variables
     use referencevariables
     use nsereferencevariables
-    use controlvariables, only: verbose, timelocal
-    use collocationvariables, only: iagrad,jagrad,dagrad,gradmat,pinv,pvol
+    use controlvariables, only: timelocal
+    use collocationvariables, only: pinv
     use navierstokes
     implicit none
     ! local time of evaluation (for RK schemes, this is the stage time)

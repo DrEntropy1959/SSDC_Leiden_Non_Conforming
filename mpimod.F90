@@ -288,7 +288,7 @@ contains
     integer :: i_w_face, w_elem, w_face
     integer, allocatable, dimension(:) :: cnt_w_faces
     integer, allocatable, dimension(:,:) :: w_data
-    integer :: cnt_pack, cnt_unpack, cnt_unpack_2
+    integer :: cnt_pack, cnt_unpack
 
     integer, allocatable, dimension(:) :: tmp_periodic_elem_face_ids_x1, &
                                           tmp_periodic_elem_face_ids_x2, &
@@ -337,9 +337,6 @@ contains
                                         & tmp_ldg_flip_flop_sign_tmp2
 
     integer :: n_elems
-
-    integer :: kkk, jjj
-
 
     continue
 
@@ -1548,7 +1545,7 @@ contains
     integer :: max_n_vert_per_proc, n_vert_per_proc, j_vert_pos, j_vert_elem, &
              & k_vert_proc
 
-    integer, allocatable :: vlist(:), vert_list_proc(:)
+    integer, allocatable :: vert_list_proc(:)
 
     continue
 
@@ -2364,7 +2361,7 @@ contains
     ! this subroutine communicates solution data across processes and updates
     ! the array ughst.
     use referencevariables
-    use variables, only: ef2e, kfacenodes
+    use variables, only: ef2e
     implicit none
 
     ! Arguments
@@ -2456,7 +2453,7 @@ contains
     ! this subroutine communicates solution data across processes and updates
     ! the array ughst.
     use referencevariables
-    use variables, only: ef2e, kfacenodes
+    use variables, only: ef2e
     implicit none
 
     ! Arguments
@@ -2546,7 +2543,7 @@ contains
   
   subroutine UpdateComm2DGhostData(vin, vghstin, vpetscin, vlocin, nq, nd, nk, ih, ngh)
     use referencevariables
-    use variables, only: ef2e, kfacenodes
+    use variables, only: ef2e
     implicit none
 
     ! Arguments
@@ -2643,7 +2640,7 @@ contains
   
   subroutine UpdateComm2DGeomGhostData(vin,vghstin,vpetscin,vlocin,nd,nk,ih,ngh)
     use referencevariables
-    use variables, only: ef2e, kfacenodes
+    use variables, only: ef2e
     implicit none
 
     ! Arguments
@@ -2816,7 +2813,7 @@ contains
     ! this subroutine communicates solution data across processes and updates
     ! the array ughst.
     use referencevariables
-    use variables, only: ef2e, kfacenodes
+    use variables, only: ef2e
     implicit none
 
     ! Arguments
@@ -2934,7 +2931,7 @@ contains
     !      ----------------
     !
     use referencevariables
-    use variables, only: ef2e, kfacenodes
+    use variables, only: ef2e
     implicit none
 
     ! Arguments
@@ -3019,7 +3016,7 @@ contains
     ! this subroutine communicates solution data across processes and updates
     ! the array ughst.
     use referencevariables
-    use variables, only: ef2e, kfacenodes
+    use variables, only: ef2e
     implicit none
 
     ! Arguments
@@ -3035,7 +3032,7 @@ contains
     integer :: ntotu
     real(wp), allocatable ::  yu(:)
     integer,  allocatable :: iyu(:)
-    integer :: ielem, iloc, inode, iface
+    integer :: ielem, iloc, iface
     integer :: i, ieq, ipen, jnode
     real(wp), pointer :: xx_v(:)
 
@@ -3214,7 +3211,7 @@ contains
     integer :: ntotu
     real(wp), allocatable ::  yu(:)
     integer,  allocatable :: iyu(:)
-    integer :: ielem, iloc, inode, iface
+    integer :: ielem, iloc, iface
     integer :: i, ieq, ipen, jnode
     real(wp), pointer :: xx_v(:)
 
