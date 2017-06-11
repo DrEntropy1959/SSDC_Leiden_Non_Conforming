@@ -100,19 +100,19 @@ contains
 
     integer, intent(in) :: time_step_cnt
     
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: i_elem, i_node
 
 
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)
 
 
     ! Compute time-averaged of the product of the velocity components 
-    forall(i_node = 1:nodesperelem, i_elem = elem_low:elem_high)
+    forall(i_node = 1:nodesperelem, i_elem = iell:elem_high)
 
       ! <u*u> 
       time_ave_prod_vel_comp(1,i_node,i_elem) = (time_ave_prod_vel_comp(1,i_node,i_elem) * &
@@ -165,19 +165,19 @@ contains
     ! Nothing is implicitly defined
     implicit none
 
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: i_elem, i_node
 
 
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)
 
 
     ! Compute Reynolds stress
-    forall(i_node = 1:nodesperelem, i_elem = elem_low:elem_high)
+    forall(i_node = 1:nodesperelem, i_elem = iell:elem_high)
 
       ! <u'*u'> 
       reynolds_stress(1,i_node,i_elem) = time_ave_prod_vel_comp(1,i_node,i_elem) - &

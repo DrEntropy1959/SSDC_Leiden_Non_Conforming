@@ -37,7 +37,7 @@ module error_bc_no_slip_wall
     ! Nothing is implicitly defined
     implicit none
 
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: i_elem, i_node
     integer :: n_wall_elems
     integer :: i, j, elem_id, face_id
@@ -57,7 +57,7 @@ module error_bc_no_slip_wall
     continue
 
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)

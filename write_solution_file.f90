@@ -79,19 +79,19 @@ contains
     implicit none
 
     real(wp) :: tmp
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: n_elems, n_subelems, n_vertices_sub_elem
     
     continue
     
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)
 
     ! Number of elements
-    n_elems = elem_high + 1 - elem_low
+    n_elems = elem_high + 1 - iell
 
     ! Number of sub-elements
     n_subelems = n_elems*(nodesperedge-1)**ndim
@@ -292,7 +292,7 @@ contains
     character(120) :: tag_time
     integer :: i_unit, io_status
     integer :: max_unit
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: n_elems, n_subelems, n_nodes
     character(120) :: message
 
@@ -322,13 +322,13 @@ contains
     call check_io_open_file(io_status,myprocid,message)
     
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)
 
     ! Number of elements
-    n_elems = elem_high+1-elem_low
+    n_elems = elem_high+1-iell
     
     ! Number of sub-elements
     n_subelems = n_elems*(nodesperedge-1)**ndim
@@ -561,7 +561,7 @@ contains
     character(120) :: tag_time
     integer :: i_unit, io_status
     integer :: max_unit
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: n_elems, n_subelems_1d
     character(120) :: message
     character(Len=*),intent(in) :: var_name
@@ -573,13 +573,13 @@ contains
                & local_node_8_idx
 
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)
 
     ! Number of elements
-    n_elems = elem_high+1-elem_low
+    n_elems = elem_high+1-iell
     
     ! Number of sub-elements in 1D
     n_subelems_1D = nodesperedge-1
@@ -733,7 +733,7 @@ contains
     character(120) :: tag_time
     integer :: i_unit, io_status
     integer :: max_unit
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: n_elems, n_subelems_1d
     character(120) :: message
     character(Len=*),intent(in) :: var_name
@@ -745,13 +745,13 @@ contains
                & local_node_8_idx
 
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)
 
     ! Number of elements
-    n_elems = elem_high+1-elem_low
+    n_elems = elem_high+1-iell
     
     ! Number of sub-elements in 1D
     n_subelems_1D = nodesperedge-1
@@ -920,7 +920,7 @@ contains
     character(120) :: tag_time
     integer :: i_unit, io_status
     integer :: max_unit
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: n_elems, n_subelems_1d
     character(120) :: message
     character(Len=*),intent(in) :: var_name
@@ -932,13 +932,13 @@ contains
                & local_node_8_idx
 
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)
 
     ! Number of elements
-    n_elems = elem_high+1-elem_low
+    n_elems = elem_high+1-iell
     
     ! Number of sub-elements in 1D
     n_subelems_1D = nodesperedge-1
@@ -1107,7 +1107,7 @@ contains
     character(120) :: tag_time
     integer :: i_unit, io_status
     integer :: max_unit
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: n_subelems_1d
     character(120) :: message
     integer :: i_elem, i_subelem, i_row_face, i_slice
@@ -1118,7 +1118,7 @@ contains
 
 
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)
@@ -1159,7 +1159,7 @@ contains
 
     if(ndim == 2) then
       
-      do i_elem = elem_low, elem_high
+      do i_elem = iell, elem_high
         do i_row_face = 1, n_subelems_1d
           do i_subelem = 1, n_subelems_1d
 
@@ -1192,7 +1192,7 @@ contains
 
     else
 
-      do i_elem = elem_low, elem_high
+      do i_elem = iell, elem_high
         do i_slice = 1, n_subelems_1D
           do i_row_face = 1, n_subelems_1D
             do i_subelem = 1, n_subelems_1d
@@ -1292,7 +1292,7 @@ contains
     character(120) :: tag_time
     integer :: i_unit, io_status
     integer :: max_unit
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: n_elems, n_subelems_1d, n_subelems
     character(120) :: message
     integer :: i_elem, i_subelem, i_row_face, i_slice
@@ -1311,13 +1311,13 @@ contains
     endif 
 
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)
 
     ! Number of elements
-    n_elems = elem_high+1-elem_low
+    n_elems = elem_high+1-iell
     
     ! Number of sub-elements in 1D
     n_subelems_1D = nodesperedge-1
@@ -1664,7 +1664,7 @@ contains
     character(120) :: tag_time
     integer :: i_unit, io_status
     integer :: max_unit
-    integer :: elem_low, elem_high
+    integer :: iell, elem_high
     integer :: n_elems, n_subelems, n_nodes, n_vertices_sub_elem, n_subelems_1d
     character(120) :: message
     character(8) :: str_1, str_2, offset
@@ -1726,13 +1726,13 @@ contains
     call check_io_open_file(io_status,myprocid,message)
     
     ! Low volumetric element index
-    elem_low = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
     elem_high = ihelems(2)
 
     ! Number of elements
-    n_elems = elem_high + 1 - elem_low
+    n_elems = elem_high + 1 - iell
     
     ! Number of sub-elements
     n_subelems = n_elems*(nodesperedge-1)**ndim
@@ -1923,7 +1923,7 @@ contains
     ! ==================
     ! Write density field
     write(i_unit) n_bytes_scal
-    do i_elem = elem_low, elem_high 
+    do i_elem = iell, elem_high 
       do i_slice = 1, n_subelems_1d
         do i_row_face = 1, n_subelems_1d
           do i_subelem = 1, n_subelems_1d
@@ -1973,7 +1973,7 @@ contains
 
     ! Write temperature field
     write(i_unit) n_bytes_scal
-    do i_elem = elem_low, elem_high 
+    do i_elem = iell, elem_high 
       do i_slice = 1, n_subelems_1d
         do i_row_face = 1, n_subelems_1d
           do i_subelem = 1, n_subelems_1d
@@ -2023,7 +2023,7 @@ contains
 
     ! Write momentum field
     write(i_unit) n_bytes_vec
-    do i_elem = elem_low, elem_high 
+    do i_elem = iell, elem_high 
       do i_slice = 1, n_subelems_1d
         do i_row_face = 1, n_subelems_1d
           do i_subelem = 1, n_subelems_1d
@@ -2094,7 +2094,7 @@ contains
 
     ! Write total specific energy field
     write(i_unit) n_bytes_scal
-    do i_elem = elem_low, elem_high 
+    do i_elem = iell, elem_high 
       do i_slice = 1, n_subelems_1d
         do i_row_face = 1, n_subelems_1d
           do i_subelem = 1, n_subelems_1d
@@ -2144,7 +2144,7 @@ contains
 
     ! Write velocity field
     write(i_unit) n_bytes_vec
-    do i_elem = elem_low, elem_high 
+    do i_elem = iell, elem_high 
       do i_slice = 1, n_subelems_1d
         do i_row_face = 1, n_subelems_1d
           do i_subelem = 1, n_subelems_1d
@@ -2216,7 +2216,7 @@ contains
 
     ! Write vorticity field
     write(i_unit) n_bytes_vec
-    do i_elem = elem_low, elem_high 
+    do i_elem = iell, elem_high 
       do i_slice = 1, n_subelems_1d
         do i_row_face = 1, n_subelems_1d
           do i_subelem = 1, n_subelems_1d
@@ -2288,7 +2288,7 @@ contains
 
     ! Write specific entropy field
     write(i_unit) n_bytes_scal
-    do i_elem = elem_low, elem_high 
+    do i_elem = iell, elem_high 
       do i_slice = 1, n_subelems_1d
         do i_row_face = 1, n_subelems_1d
           do i_subelem = 1, n_subelems_1d
@@ -2338,7 +2338,7 @@ contains
 
     ! Write coordinates
     write(i_unit) n_bytes_xyz
-    do i_elem = elem_low, elem_high
+    do i_elem = iell, elem_high
       do i_slice = 1, n_subelems_1d
         do i_row_face = 1, n_subelems_1d
           do i_subelem = 1, n_subelems_1d
