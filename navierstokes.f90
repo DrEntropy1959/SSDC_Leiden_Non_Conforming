@@ -4005,7 +4005,7 @@ contains
     real(wp), intent(inout) :: dt_global
     real(wp), dimension(:), allocatable :: dt_min_proc
 
-    integer :: iell, elem_high
+    integer :: iell, ielh
     integer :: s_tag, r_tag, m_size, &
                s_request_dt_min, r_request_dt_min, i_err
 
@@ -4022,14 +4022,14 @@ contains
     continue
 
     ! Low and high  volumetric element index
-    iell  = ihelems(1) ;  elem_high = ihelems(2)
+    iell  = ihelems(1) ;  ielh = ihelems(2)
 
     ! Compute gradient of the velocity components
     ! ===========================================
     dt_global_max = dt_global*1.1_wp
     dt_min = 100.0_wp
 
-    do i_elem = iell, elem_high
+    do i_elem = iell, ielh
       do i_node = 1, nodesperelem
                 
           Lngth = pvol(i_node)**(third)
@@ -4113,7 +4113,7 @@ contains
 
     real(wp), dimension(5,3) :: GradV
 
-    integer :: iell, elem_high
+    integer :: iell, ielh
     
     integer :: i_elem, i_node
 
@@ -4123,11 +4123,11 @@ contains
     iell  = ihelems(1)
 
     ! High volumetric element index
-    elem_high = ihelems(2)
+    ielh = ihelems(2)
 
     ! Compute gradient of the velocity components
     ! ===========================================
-    do i_elem = iell, elem_high
+    do i_elem = iell, ielh
       do i_node = 1, nodesperelem
 
         !  __           __
@@ -4202,17 +4202,17 @@ contains
     ! Nothing is defined implicitly
     implicit none
 
-    integer :: iell, elem_high
+    integer :: iell, ielh
     integer :: i_elem, i_node
 
     ! Low volumetric element index
     iell = ihelems(1)
 
     ! High volumetric element index
-    elem_high = ihelems(2)
+    ielh = ihelems(2)
 
     ! Loop over elements
-    do i_elem = iell, elem_high
+    do i_elem = iell, ielh
       ! Loop over nodes in each element
       do i_node = 1, nodesperelem
 
@@ -4241,17 +4241,17 @@ contains
     ! Nothing is defined implicitly
     implicit none
 
-    integer :: iell, elem_high
+    integer :: iell, ielh
     integer :: i_elem, i_node
 
     ! Low volumetric element index
     iell = ihelems(1)
 
     ! High volumetric element index
-    elem_high = ihelems(2)
+    ielh = ihelems(2)
 
     ! Loop over elements
-    do i_elem = iell, elem_high
+    do i_elem = iell, ielh
       ! Loop over nodes in each element
       do i_node = 1, nodesperelem
             
@@ -4282,7 +4282,7 @@ contains
     ! Nothing is defined implicitly
     implicit none
 
-    integer :: iell, elem_high
+    integer :: iell, ielh
     integer :: i_elem, i_node
 
 
@@ -4290,10 +4290,10 @@ contains
     iell = ihelems(1)
 
     ! High volumetric element index
-    elem_high = ihelems(2)
+    ielh = ihelems(2)
 
     ! Loop over elements
-    do i_elem = iell, elem_high
+    do i_elem = iell, ielh
       ! Loop over nodes in each element
       do i_node = 1, nodesperelem
             

@@ -70,7 +70,7 @@ contains
     character(120) :: file_name
     character(120) :: tag_proc
     character(120) :: tag_time
-    integer :: iell, elem_high, i_elem, i_node
+    integer :: iell, ielh, i_elem, i_node
     integer :: i_unit, io_status
     integer :: max_unit
     character(120) :: message
@@ -94,7 +94,7 @@ contains
     iell = ihelems(1)
 
     ! High volumetric element index
-    elem_high = ihelems(2)
+    ielh = ihelems(2)
 
     ! Get free IO unit
     i_unit = get_file_unit(max_unit)
@@ -120,7 +120,7 @@ contains
       write(i_unit,*) err_time_tm2
 
       ! Write element ID and conserved variables to file
-      do i_elem = iell,elem_high
+      do i_elem = iell, ielh
         write(i_unit,*) i_elem
         do i_node = 1, nodesperelem
           write(i_unit,*) ug(:,i_node,i_elem)
@@ -129,14 +129,14 @@ contains
 
       ! Write element ID and time-averaged quantities to file
       if (time_averaging) then
-        do i_elem = iell,elem_high
+        do i_elem = iell, ielh
           write(i_unit,*) i_elem
           do i_node = 1, nodesperelem
             write(i_unit,*) mean_vg(:,i_node,i_elem)
           enddo
         enddo
 
-        do i_elem = iell,elem_high
+        do i_elem = iell, ielh
           write(i_unit,*) i_elem
           do i_node = 1, nodesperelem
             write(i_unit,*) time_ave_prod_vel_comp(:,i_node,i_elem)
@@ -172,7 +172,7 @@ contains
       write(i_unit) err_time_tm2
 
       ! Write element ID and conserved variables to file
-      do i_elem = iell,elem_high
+      do i_elem = iell, ielh
         write(i_unit) i_elem
         do i_node = 1, nodesperelem
           write(i_unit) ug(:,i_node,i_elem)
@@ -182,14 +182,14 @@ contains
       ! Write element ID and time-averaged quantitiesi to file
       if (time_averaging) then
 
-        do i_elem = iell,elem_high
+        do i_elem = iell, ielh
           write(i_unit) i_elem
           do i_node = 1, nodesperelem
             write(i_unit) mean_vg(:,i_node,i_elem)
           enddo
         enddo
 
-        do i_elem = iell,elem_high
+        do i_elem = iell, ielh
           write(i_unit) i_elem
           do i_node = 1, nodesperelem
             write(i_unit) time_ave_prod_vel_comp(:,i_node,i_elem)
@@ -241,7 +241,7 @@ contains
     logical :: lexist
     character(120) :: file_name
     character(120) :: tag_proc
-    integer :: iell, elem_high, ielem, i_node
+    integer :: iell, ielh, ielem, i_node
     integer :: i_unit, io_status
     integer :: elem_ID
     integer :: max_unit
@@ -280,7 +280,7 @@ contains
     iell = ihelems(1)
 
     ! High volumetric element index
-    elem_high = ihelems(2)
+    ielh = ihelems(2)
 
     ! Get free IO unit
     i_unit = get_file_unit(max_unit)
@@ -299,7 +299,7 @@ contains
 !     npoly_tmp = npoly
 
       nodesperelem_tmp = (npoly_tmp+1)**(ndim)
-      allocate(ug_tmp(nequations,nodesperelem_tmp,iell:elem_high))
+      allocate(ug_tmp(nequations,nodesperelem_tmp,iell:ielh))
 
       ! Read number of time steps used in the previous run 
       read(i_unit,*) restart_time_steps
@@ -311,7 +311,7 @@ contains
       read(i_unit,*) err_time_tm2
 
       ! Read element ID and conserved variables from file
-      do ielem = iell,elem_high
+      do ielem = iell, ielh
         read(i_unit,*) elem_ID
         if (elem_ID .ne. ielem) then
           write(*,*) 'Failure in reading the restarting solution. The', &
@@ -331,7 +331,7 @@ contains
       if ((read_restart_time_averaging) .and. (npoly == npoly_tmp)) then
 
         ! Read element ID and time-averaged quantities from file
-        do ielem = iell,elem_high
+        do ielem = iell, ielh
           read(i_unit,*) elem_ID
           if (elem_ID .ne. ielem) then
             write(*,*) 'Failure in reading the restarting solution. The', &
@@ -348,7 +348,7 @@ contains
           enddo
         enddo
 
-        do ielem = iell,elem_high
+        do ielem = iell, ielh
           read(i_unit,*) elem_ID
           if (elem_ID .ne. ielem) then
             write(*,*) 'Failure in reading the restarting solution. The', &
@@ -390,7 +390,7 @@ contains
       read(i_unit) npoly_tmp
 
       nodesperelem_tmp = (npoly_tmp+1)**(ndim)
-      allocate(ug_tmp(nequations,nodesperelem_tmp,iell:elem_high))
+      allocate(ug_tmp(nequations,nodesperelem_tmp,iell:ielh))
 
       ! Read number of time steps used in the previous run 
       read(i_unit) restart_time_steps
@@ -402,7 +402,7 @@ contains
       read(i_unit) err_time_tm2
 
       ! Read element ID and conserved variables from file
-      do ielem = iell,elem_high
+      do ielem = iell, ielh
         read(i_unit) elem_ID
         if (elem_ID .ne. ielem) then
           write(*,*) 'Failure in reading the restarting solution. The', &
@@ -431,7 +431,7 @@ contains
         endif
 
         ! Read element ID and time-averaged quantities from file
-        do ielem = iell,elem_high
+        do ielem = iell, ielh
           read(i_unit) elem_ID
           if (elem_ID .ne. ielem) then
             write(*,*) 'Failure in reading the restarting solution. The', &
@@ -449,7 +449,7 @@ contains
         enddo
 
 
-        do ielem = iell,elem_high
+        do ielem = iell, ielh
           read(i_unit) elem_ID
           if (elem_ID .ne. ielem) then
             write(*,*) 'Failure in reading the restarting solution. The', &
@@ -486,7 +486,7 @@ contains
 
       allocate(tmpfieldA( (nXA)**ndim ))
 
-      do ielem = iell,elem_high
+      do ielem = iell, ielh
 
         do k = 1,nequations
           tmpfieldA(:) = ug_tmp(k,:,ielem)

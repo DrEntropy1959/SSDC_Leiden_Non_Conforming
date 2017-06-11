@@ -47,7 +47,7 @@ module aerodynamic_coefficients
     ! Nothing is implicitly defined
     implicit none
 
-    integer :: iell, elem_high
+    integer :: iell, ielh
     integer :: i_elem, i_node, j_node
     integer :: n_wall_elems
     integer :: i, j, elem_id, face_id
@@ -78,7 +78,7 @@ module aerodynamic_coefficients
     iell = ihelems(1)
 
     ! High volumetric element index
-    elem_high = ihelems(2)
+    ielh = ihelems(2)
 
     ! Number of elements whcih own a wall face 
     n_wall_elems = size(wall_elem_face_ids(1,:))

@@ -2675,7 +2675,7 @@ contains
     continue
 
     ! Low and high  volumetric element index
-    elem_low  = ihelems(1) ;  elem_high = ihelems(2)
+    elem_low  = ihelems(1) ;  ielh = ihelems(2)
 
     ! Compute gradient of the velocity components
     ! ===========================================
