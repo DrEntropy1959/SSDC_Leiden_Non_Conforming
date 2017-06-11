@@ -148,7 +148,7 @@ contains
     ! Code variables
     integer :: i_brow, j_bcolumn
     integer :: block_size
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
     integer, allocatable, dimension(:) :: d_nnz, o_nnz
     real(wp) :: d_tol_ksp
     integer :: max_iters_ksp
@@ -242,14 +242,14 @@ contains
     o_nnz = 0
     
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Compute the column bounds on the processor
-    min_column_on_proces = (low_elem-1)*nodesperelem + 1
-    max_column_on_proces = high_elem*nodesperelem
+    min_column_on_proces = (iell-1)*nodesperelem + 1
+    max_column_on_proces = ielh*nodesperelem
 
     ! I am going into C ordering
     min_column_on_proces = min_column_on_proces - 1
@@ -391,7 +391,7 @@ contains
     PetscErrorCode, intent(inout) :: i_err
     
     ! Code variables
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
     integer :: shift
     integer :: i_node, i_elem
     integer :: nodes_counter, blocks_counter
@@ -409,13 +409,13 @@ contains
       a_kk = arkimp(current_stage_imex,current_stage_imex)
 
       ! Low volumetric element index
-      low_elem = ihelems(1)
+      iell = ihelems(1)
 
       ! High volumetric element index
-      high_elem = ihelems(2)
+      ielh = ihelems(2)
 
       ! Compute shift of the diagonal portion of each process using C indexing
-      shift = (low_elem-1)*nodesperelem-1
+      shift = (iell-1)*nodesperelem-1
 
       ! Initialize node_counter
       nodes_counter = 1
@@ -429,7 +429,7 @@ contains
 
       ! ON ELEMENT contribution to the residual Jacobian submatrix
       ! ==========================================================
-      do i_elem = low_elem, high_elem
+      do i_elem = iell, ielh
 
         ! Compute element contribution
         call compute_residual_jacobian_element(timestep,a_kk,i_elem, &
@@ -538,20 +538,20 @@ contains
 
     ! Code variables
     integer :: m
-    integer ::  low_elem, high_elem
+    integer ::  iell, ielh
     integer :: len_local
     ! Temporary variable for calculating the error
     !real(wp), allocatable, dimension(:,:) :: tmp_x
 
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Number of local solution values and indices
-    len_local = (high_elem-low_elem+1)*nodesperelem*nequations
+    len_local = (ielh-iell+1)*nodesperelem*nequations
 
     !allocate(tmp_x(len_local,1))
 
@@ -559,7 +559,7 @@ contains
     index_list = (/(m, m=1, len_local)/)
 
     ! Add contribution previous elements/nodes and use C indexing
-    index_list = index_list + (low_elem-1)*nodesperelem*nequations - 1
+    index_list = index_list + (iell-1)*nodesperelem*nequations - 1
 
     !tmp_x = reshape(ug,(/len_local,1/))
 
@@ -578,10 +578,10 @@ contains
 
     ! Check if reshape is working correctly
     !error = 0.0_wp
-    !do i_elem = low_elem, high_elem
+    !do i_elem = iell, ielh
     !  do i_node = 1,nodesperelem
     !    do i_eq = 1,nequations
-    !      error = error + ug(i_eq,i_node,i_elem) - tmp_x((i_node-1)*5+(i_elem-low_elem)*nodesperelem*5+i_eq,1) 
+    !      error = error + ug(i_eq,i_node,i_elem) - tmp_x((i_node-1)*5+(i_elem-iell)*nodesperelem*5+i_eq,1) 
     !    enddo
     !  enddo
     !enddo
@@ -623,30 +623,30 @@ contains
 
     ! Code variables  
     integer :: m
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
     integer :: len_local
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
 
     ! Low volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Number of local solution values and indices
-    len_local = (high_elem-low_elem+1)*nodesperelem*nequations
+    len_local = (ielh-iell+1)*nodesperelem*nequations
 
     ! Store sequence of integer numbers in index_list
     index_list =(/(m, m=1, len_local)/)
 
     ! Add contribution of previous elements/nodes and use C indexing
-    index_list = index_list + (low_elem-1)*nodesperelem*nequations - 1
+    index_list = index_list + (iell-1)*nodesperelem*nequations - 1
 
     ! Get local vector, i.e. portion of the vector owned by the processor
     call VecGetArrayF90(x_vec,x_vec_pointer,i_err)
 
     ! Set solution value based on input vector x_vec
     ! Actually the portion of the global vector owned by the process
-    ug = reshape(x_vec_pointer,(/nequations,nodesperelem,high_elem-low_elem+1/))
+    ug = reshape(x_vec_pointer,(/nequations,nodesperelem,ielh-iell+1/))
 
     ! Release x_vec_pointer pointer
     call VecRestoreArrayF90(x_vec,x_vec_pointer,i_err)
@@ -697,7 +697,7 @@ contains
     ! Code variables
     logical, intent(out) :: converged
     integer :: m
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
     real(wp), pointer, dimension(:) :: x_vec_pointer
     integer :: len_local
     MatStructure :: flag
@@ -705,19 +705,19 @@ contains
 
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Number of local solution values and indices
-    len_local = (high_elem-low_elem+1)*nodesperelem*nequations
+    len_local = (ielh-iell+1)*nodesperelem*nequations
 
     ! Store sequence of integer numbers in index_list
     index_list = (/(m, m=1, len_local)/)
 
     ! Add contribution previous elements/nodes and use C indexing
-    index_list = index_list + (low_elem-1)*nodesperelem*nequations - 1
+    index_list = index_list + (iell-1)*nodesperelem*nequations - 1
 
     ! Call RK-IMEX SVP routine
     call rk_imex_svp(current_stage_imex,timestep)
@@ -776,7 +776,7 @@ contains
     call check_petsc_error(i_err)
 
     ! Assign to the solution array ug(:,:,:) the new computed solution
-    ug = reshape(x_vec_pointer,(/nequations,nodesperelem,high_elem-low_elem+1/))
+    ug = reshape(x_vec_pointer,(/nequations,nodesperelem,ielh-iell+1/))
 
     ! Release x_vec_local pointer
     call VecRestoreArrayF90(petsc_x_vec,x_vec_pointer,i_err)
@@ -884,7 +884,7 @@ contains
     real(wp), allocatable, dimension(:) :: sol_node, v_i_node
 
     ! Code variables
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
     integer :: i_node, j_dir, i
     real(wp) :: a_kk
 
@@ -898,10 +898,10 @@ contains
     a_kk = arkimp(current_stage_imex,current_stage_imex)
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Length of the solution vector for one element
     length = nequations*nodesperelem

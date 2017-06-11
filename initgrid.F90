@@ -588,7 +588,7 @@ contains
     integer,parameter :: seed = 86456
     real(wp) :: rand
     
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
 
     real(wp) :: diff_x, diff_y, diff_z
     real(wp), parameter :: toll = 1e-6
@@ -596,12 +596,12 @@ contains
     
     continue
   
-    low_elem = ihelems(1)
-    high_elem = ihelems(2)
+    iell = ihelems(1)
+    ielh = ihelems(2)
 
     call srand(seed)
 
-    do ielem = low_elem, high_elem
+    do ielem = iell, ielh
       do i = 1, nverticesperelem
         ! Compute the difference between each coordinate and pi.
         ! The domain of computation for the Taylor-Green vortex goes from 
@@ -1132,7 +1132,7 @@ contains
     integer ::  ielem, inode, jnode, iface, knode
     integer ::  i_low
 
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
     real(wp) :: x1(3), x2(3)
     real(wp), parameter :: nodetol = 1.0e-8_wp
 
@@ -1147,22 +1147,22 @@ contains
     cnt_debug = 0
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
 
     ! efn2efn contains the partner node information of every facenode in the 
     ! domain
-    allocate(efn2efn(4,nfacesperelem*nodesperface,low_elem:high_elem))
+    allocate(efn2efn(4,nfacesperelem*nodesperface,iell:ielh))
     efn2efn = -1000
 
     ! Initialize position of the ghost point in the stack
     i_low = 0
 
     ! Loop over elements
-    do ielem = low_elem, high_elem
+    do ielem = iell, ielh
       
       ! Reset facial node index counter
       knode = 0

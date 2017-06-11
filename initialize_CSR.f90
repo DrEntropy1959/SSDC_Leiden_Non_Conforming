@@ -341,21 +341,21 @@ contains
     integer :: cnt, nnz
     integer :: i_elem
     integer :: n_elems
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
     integer :: global_shift
 
     continue
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
-    n_elems = 1 + high_elem - low_elem
+    n_elems = 1 + ielh - iell
 
     ! Shift for global indexing for parallel computation
-    global_shift = (low_elem-1)*nodesperelem
+    global_shift = (iell-1)*nodesperelem
 
     ! Diagonal terms stored in ia_0
     cnt = 0
@@ -742,7 +742,7 @@ contains
     ! indices
     integer :: i_elem, n_elems
     integer :: inode, jnode, knode, kelem, iface
-    integer :: low_elem, high_elem, mat_dim_proc, local_row
+    integer :: iell, ielh, mat_dim_proc, local_row
     integer :: i, j
     integer :: cntI, cntV
     integer :: cnt_penI_nnz, cnt_penV_nnz
@@ -750,9 +750,9 @@ contains
     real(wp),              dimension(3)   :: n_v
 
     ! low : high volumetric element index
-    low_elem = ihelems(1) ;  high_elem = ihelems(2)
+    iell = ihelems(1) ;  ielh = ihelems(2)
 
-    n_elems = 1 + high_elem - low_elem
+    n_elems = 1 + ielh - iell
 
     mat_dim_proc = n_elems * nodesperelem
 
@@ -786,7 +786,7 @@ contains
     cntI = 0 ; cntV = 0 ;
 
     ! Begin First pass : Loop over all elements
-    elemloop: do i_elem = low_elem, high_elem
+    elemloop: do i_elem = iell, ielh
 
       ! loop over each face
       faceloop:do iface = 1,nfacesperelem
@@ -811,7 +811,7 @@ contains
             ! Outward facing normal of facial node
             n_v = facenodenormal(:,jnode,i_elem)
 
-            local_row = (i_elem-low_elem)*nodesperelem + inode
+            local_row = (i_elem-iell)*nodesperelem + inode
 
             
             cntI = cntI + 1
@@ -849,7 +849,7 @@ contains
             ! Outward facing normal of facial node
             n_v = facenodenormal(:,jnode,i_elem)
 
-            local_row = (i_elem-low_elem)*nodesperelem + inode
+            local_row = (i_elem-iell)*nodesperelem + inode
 
 !           Both On and Off process info is accumulated into process CSR
 
@@ -887,7 +887,7 @@ contains
             ! Outward facing normal of facial node
             n_v = facenodenormal(:,jnode,i_elem)
 
-            local_row = (i_elem-low_elem)*nodesperelem + inode
+            local_row = (i_elem-iell)*nodesperelem + inode
 
             cntI = cntI + 1
             ia_penI_tmp(local_row) = ia_penI_tmp(local_row) + 1
@@ -1121,7 +1121,7 @@ contains
     real(wp) , allocatable , dimension(:) :: a_tmp
     integer :: i_err
     real(wp) , allocatable , dimension(:) :: aS
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
     character(120) :: message
     integer :: shift, ll, cntI, cntV
     integer :: ngrowsS
@@ -1132,13 +1132,13 @@ contains
     message = 'csr_combine_pointers'
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Number of elements on the process
-    n_elems = 1 + high_elem - low_elem
+    n_elems = 1 + ielh - iell
 
     ! Check iaS with another approach, i.e. using the sparskit
     n_rows_0 = size(ia_0)-1
@@ -1802,17 +1802,17 @@ contains
     if(IMEX_penalty == 'implicit') then
 
       cntI = 0 ;
-      elemloopI: do i_elem = low_elem, high_elem
+      elemloopI: do i_elem = iell, ielh
         faceloopI:do iface = 1,nfacesperelem
 
-          shift = iaS((i_elem-low_elem)*nodesperelem + 1) - 1  
+          shift = iaS((i_elem-iell)*nodesperelem + 1) - 1  
 
           if (ef2e(1,iface,i_elem) < 0) then
             do jnode = 1,nodesperface
               inode = kfacenodes(jnode,iface)
               knode = inode
               kelem = i_elem
-              local_row = (i_elem-low_elem)*nodesperelem + inode
+              local_row = (i_elem-iell)*nodesperelem + inode
 
               ! On process
               cntI = cntI + 1 ; jj   = (i_elem-1)*nodesperelem + inode
@@ -1839,7 +1839,7 @@ contains
               inode = ifacenodes(jnode)
               knode = efn2efn(1,jnode,i_elem)
               kelem = efn2efn(2,jnode,i_elem)
-              local_row = (i_elem-low_elem)*nodesperelem + inode
+              local_row = (i_elem-iell)*nodesperelem + inode
 
               ! On process
               cntI = cntI + 1 ; jj   = (i_elem-1)*nodesperelem + inode
@@ -1865,7 +1865,7 @@ contains
               inode = ifacenodes(jnode)
               knode = efn2efn(1,jnode,i_elem)
               kelem = efn2efn(2,jnode,i_elem)
-              local_row = (i_elem-low_elem)*nodesperelem + inode
+              local_row = (i_elem-iell)*nodesperelem + inode
 
               ! On process
               cntI = cntI + 1 ; jj   = (i_elem-1)*nodesperelem + inode
@@ -1892,8 +1892,8 @@ contains
         cntV = 0 ;
         ka_penV_proc(:) = 0
 
-        elemloopV: do i_elem = low_elem, high_elem
-          shift = iaS((i_elem-low_elem)*nodesperelem + 1) - 1  
+        elemloopV: do i_elem = iell, ielh
+          shift = iaS((i_elem-iell)*nodesperelem + 1) - 1  
           faceloopV:do iface = 1,nfacesperelem
 
 
@@ -1902,7 +1902,7 @@ contains
                 inode = kfacenodes(jnode,iface)
                 knode = inode
                 kelem = i_elem
-                local_row = (i_elem-low_elem)*nodesperelem + inode
+                local_row = (i_elem-iell)*nodesperelem + inode
   
                 ! On process
                 do jdir = 1,ndim
@@ -1941,7 +1941,7 @@ contains
                 inode = ifacenodes(jnode)
                 knode = efn2efn(1,jnode,i_elem)
                 kelem = efn2efn(2,jnode,i_elem)
-                local_row = (i_elem-low_elem)*nodesperelem + inode
+                local_row = (i_elem-iell)*nodesperelem + inode
 
                 ! On element  (use inode and i_elem)
                 do jdir = 1,ndim
@@ -1981,7 +1981,7 @@ contains
                 inode = ifacenodes(jnode)
                 knode = efn2efn(1,jnode,i_elem)
                 kelem = efn2efn(2,jnode,i_elem)
-                local_row = (i_elem-low_elem)*nodesperelem + inode
+                local_row = (i_elem-iell)*nodesperelem + inode
   
                 ! On element  (use inode and i_elem)
                 do jdir = 1,ndim
@@ -2624,7 +2624,7 @@ contains
     character(120) :: message
     real(wp), allocatable, dimension(:,:) :: eye_matrix
     real(wp), allocatable, dimension(:,:,:) :: dummy_matrix_elem
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
     integer :: cnt, nnz, n_elems
     integer :: i_elem
     integer :: ll, shift
@@ -2656,19 +2656,19 @@ contains
     endif
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Number of elements owned by the processor
-    n_elems = 1 + high_elem - low_elem
+    n_elems = 1 + ielh - iell
 
     ! Subroutine name for possible error message
     message = 'csr_on_element_operator'
 
     ! Shift for global indexing for parallel computation
-    global_shift = (low_elem-1)*nodesperelem
+    global_shift = (iell-1)*nodesperelem
 
     ! Diagonal terms stored in ia_0
     cnt = 0
@@ -4057,7 +4057,7 @@ contains
 
     ! Nothing is implicitly defined
     integer :: cnt, n_tot_nodes, i_dir
-    integer :: low_elem, high_elem, i_elem, j_node
+    integer :: iell, ielh, i_elem, j_node
 
     real(wp), allocatable, dimension(:) :: fn, exact
     real(wp), allocatable, dimension(:) :: dxi, deta, dzeta
@@ -4069,14 +4069,14 @@ contains
     continue
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
 
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Total number of nodes owned by a processor
     n_tot_nodes = 0
-    do i_elem = low_elem, high_elem
+    do i_elem = iell, ielh
       n_tot_nodes = n_tot_nodes + nodesperelem
     enddo
 
@@ -4119,7 +4119,7 @@ contains
     !============   Testing First-derivative terms   =======
     !============ _x
     cnt = 0
-    do i_elem = low_elem, high_elem
+    do i_elem = iell, ielh
       do j_node = 1, nodesperelem 
         cnt = cnt + 1
         fn(cnt) = 1.0_wp*(xg(1,j_node,i_elem))**4
@@ -4135,7 +4135,7 @@ contains
     endif
 
     cnt = 0
-    do i_elem = low_elem, high_elem
+    do i_elem = iell, ielh
       do j_node = 1, nodesperelem 
         cnt = cnt + 1
         error = error + exact(cnt) - ( + dxi  (cnt)*r_x(1,1,j_node,i_elem)  &
@@ -4151,7 +4151,7 @@ contains
     
     !============ _y
     cnt = 0
-    do i_elem = low_elem, high_elem
+    do i_elem = iell, ielh
       do j_node = 1, nodesperelem 
         cnt = cnt + 1
         fn(cnt) = 1.0_wp*(xg(2,j_node,i_elem))**4
@@ -4167,7 +4167,7 @@ contains
     endif
 
     cnt = 0
-    do i_elem = low_elem, high_elem
+    do i_elem = iell, ielh
       do j_node = 1, nodesperelem 
         cnt = cnt + 1
         error = error + exact(cnt) - ( + dxi  (cnt)*r_x(1,2,j_node,i_elem)  &
@@ -4183,7 +4183,7 @@ contains
 
     !============ _z
     cnt = 0
-    do i_elem = low_elem, high_elem
+    do i_elem = iell, ielh
       do j_node = 1, nodesperelem 
         cnt = cnt + 1
         fn(cnt) = 1.0_wp*(xg(3,j_node,i_elem))**4
@@ -4200,7 +4200,7 @@ contains
 
 
     cnt = 0
-    do i_elem = low_elem, high_elem
+    do i_elem = iell, ielh
       do j_node = 1, nodesperelem 
         cnt = cnt + 1
         error = error + exact(cnt) - ( + dxi  (cnt)*r_x(1,3,j_node,i_elem)  &
@@ -4221,7 +4221,7 @@ contains
     !============ _xx, _yy, _zz
       do i_dir = 1,3
         cnt = 0
-        do i_elem = low_elem, high_elem
+        do i_elem = iell, ielh
           do j_node = 1, nodesperelem 
             cnt = cnt + 1
             fn(cnt) = 1.0_wp*(xg(i_dir,j_node,i_elem))**4
@@ -4238,7 +4238,7 @@ contains
 
 
         cnt = 0
-        do i_elem = low_elem, high_elem
+        do i_elem = iell, ielh
           do j_node = 1, nodesperelem 
             cnt = cnt + 1
             error = error + exact(cnt) - ( + dxixi    (cnt)*r_x(1,i_dir,j_node,i_elem)*r_x(1,i_dir,j_node,i_elem)  &
@@ -4261,7 +4261,7 @@ contains
 
       ! U_{xy}
       cnt = 0
-      do i_elem = low_elem, high_elem
+      do i_elem = iell, ielh
         do j_node = 1, nodesperelem 
           cnt = cnt + 1
           fn(cnt) =  1.0_wp*xg(1,j_node,i_elem)**2 * xg(2,j_node,i_elem)**2 * xg(3,j_node,i_elem)**2
@@ -4281,7 +4281,7 @@ contains
 
 
       cnt = 0
-      do i_elem = low_elem, high_elem
+      do i_elem = iell, ielh
         do j_node = 1, nodesperelem 
           cnt = cnt + 1
           error = error + exact(cnt) -                             &
@@ -4308,7 +4308,7 @@ contains
 
       ! U_{xz}
       cnt = 0
-      do i_elem = low_elem, high_elem
+      do i_elem = iell, ielh
         do j_node = 1, nodesperelem 
           cnt = cnt + 1
           fn(cnt) =  1.0_wp*xg(1,j_node,i_elem)**2 * xg(2,j_node,i_elem)**2 * xg(3,j_node,i_elem)**2
@@ -4328,7 +4328,7 @@ contains
 
 
       cnt = 0
-      do i_elem = low_elem, high_elem
+      do i_elem = iell, ielh
         do j_node = 1, nodesperelem 
           cnt = cnt + 1
           error = error + exact(cnt) -                             &
@@ -4353,7 +4353,7 @@ contains
 
       ! U_{yz}
       cnt = 0
-      do i_elem = low_elem, high_elem
+      do i_elem = iell, ielh
         do j_node = 1, nodesperelem 
           cnt = cnt + 1
           fn(cnt) =  1.0_wp*xg(1,j_node,i_elem)**2 * xg(2,j_node,i_elem)**2 * xg(3,j_node,i_elem)**2
@@ -4374,7 +4374,7 @@ contains
 
 
       cnt = 0
-      do i_elem = low_elem, high_elem
+      do i_elem = iell, ielh
         do j_node = 1, nodesperelem 
           cnt = cnt + 1
           error = error + exact(cnt) -                             &
@@ -4425,16 +4425,16 @@ contains
     use nsereferencevariables
 
     integer :: nnz
-    integer :: low_elem, high_elem, i_elem, i_face, i_node
+    integer :: iell, ielh, i_elem, i_face, i_node
     integer :: i_err
 
     continue
 
     ! Low volumetric element index
-    low_elem = ihelems(1) 
+    iell = ihelems(1) 
 
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Set to zero number of nonzero (nnz) elements
     nnz = 0
@@ -4444,7 +4444,7 @@ contains
     ngrows = 0
 
     ! Loop over elements
-    do i_elem = low_elem, high_elem
+    do i_elem = iell, ielh
       ! Interior contributions
       ! ----------------------
 

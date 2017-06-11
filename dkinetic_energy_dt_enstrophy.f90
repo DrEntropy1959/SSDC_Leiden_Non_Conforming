@@ -31,7 +31,7 @@ contains
 
     integer :: i_node, i_elem
 
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
 
     real(wp) :: local_enstrophy, enstrophy_sum
     
@@ -40,10 +40,10 @@ contains
     continue
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
     
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Initialize local_enstrophy to zero
     local_enstrophy = 0.0_wp
@@ -52,7 +52,7 @@ contains
 !    call compute_vorticity_field_elements()
     
     ! Loop over the elements own by a process
-    do i_elem = low_elem, high_elem
+    do i_elem = iell, ielh
       
       ! Loop over each node in the element
       do i_node = 1, nodesperelem
@@ -96,7 +96,7 @@ contains
 
     integer :: i_node, i_elem
 
-    integer :: low_elem, high_elem
+    integer :: iell, ielh
 
 !    real(wp), dimension(nodesperelem) :: ke_elem
     
@@ -111,10 +111,10 @@ contains
     continue
 
     ! Low volumetric element index
-    low_elem = ihelems(1)
+    iell = ihelems(1)
     
     ! High volumetric element index
-    high_elem = ihelems(2)
+    ielh = ihelems(2)
 
     ! Initialize local_ke to zero
     local_ke(:) = 0.0_wp
@@ -123,7 +123,7 @@ contains
     call compute_vorticity_field_elements()
     
     ! Loop over the elements own by a process
-    do i_elem = low_elem, high_elem
+    do i_elem = iell, ielh
 
 !      ! Compute kinetic energy in the element with ID i_elem
 !      ke_elem = kinetic_energy_element(i_elem) 
