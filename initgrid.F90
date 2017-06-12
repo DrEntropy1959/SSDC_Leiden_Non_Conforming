@@ -911,8 +911,6 @@ contains
 
 ! =============================================================================
 
-! =============================================================================
-
   subroutine facenodesetup()
     ! This subroutine calculates the partner node of each facial
     ! node on every volumetric element. Partner nodes of boundary
@@ -1113,10 +1111,10 @@ contains
   end subroutine facenodesetupWENO
 
   !============================================================================
-
-  !============================================================================
   ! calculate_face_node_connectivity - Sets the face-node connectivity for the
   ! collocation points.
+  !============================================================================
+
   subroutine calculate_face_node_connectivity()
     
     ! Load modules
@@ -2429,7 +2427,7 @@ contains
     if (ndim == 2) then
       write(*,*) '2D grid connectivity for the AFLR3 format is not yet', &
         & ' implemented'
-      write(*,*) 'Exting...'
+      write(*,*) 'Exiting...'
       stop
 
     else if (ndim == 3) then
