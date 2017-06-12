@@ -20,6 +20,7 @@ module initgrid
   public e2e_connectivity_aflr3
   public set_element_orders
   public calculatepartitions
+
   public calcnodes
   public calcmetrics
   public facenodesetup
@@ -72,7 +73,8 @@ module initgrid
 
 contains
 
-  subroutine init_edge_2()
+  subroutine init_edge_2()    !   SERIAL Routine
+
     ! we require the following info about the edge_2 elements
     ! to fully define the connectivity. This is in compliance
     ! with the CGNS standard
@@ -92,9 +94,10 @@ contains
     edge_2_facedirections(1) = -1
     edge_2_facedirections(2) = 1
 
-  end subroutine init_edge_2
+  end subroutine init_edge_2   !  SERIAL Routine
 
-  subroutine init_quad_4()
+  subroutine init_quad_4()     !  SERIAL Routine
+
     ! we require the following info about the quad_4 elements
     ! to fully define the connectivity. This is in compliance
     ! with the CGNS standard
@@ -118,9 +121,9 @@ contains
     quad_4_facedirections(3) = +2
     quad_4_facedirections(4) = -1
 
-  end subroutine init_quad_4
+  end subroutine init_quad_4   !  SERIAL Routine
 
-  subroutine init_hex_8()
+  subroutine init_hex_8()   !  SERIAL Routine
 !
 !                        8-----------------7
 !                       /.                /|
@@ -171,7 +174,7 @@ contains
     hex_8_facedirections(5) = -1
     hex_8_facedirections(6) = +3
 
-  end subroutine init_hex_8
+  end subroutine init_hex_8   !  SERIAL Routine
 
   function isort(iain,nl)
     integer, intent(in) :: nl
@@ -193,7 +196,7 @@ contains
 
   end function isort
 
-  subroutine init_elem_type()
+  subroutine init_elem_type()   !  SERIAL Routine
     use referencevariables
     use variables, only: facenormalcoordinate
 
@@ -224,9 +227,14 @@ contains
       stop
     end if
 
-  end subroutine init_elem_type
+  end subroutine init_elem_type   !  SERIAL Routine
 
-  subroutine E2EConnectivity()
+  subroutine E2EConnectivity()   !   SERIAL Routine
+
+!   SERIAL ROUTINE
+!     CGNS Element to element connectivity
+!   SERIAL ROUTINE
+
     use referencevariables
     use variables, only: boundaryelems, ef2e,  &
                          iae2v, jae2v, nnze2v
@@ -384,37 +392,21 @@ contains
 
     iae2v(nelems+1) = vertexcount
 
-!   nnze2e = connectioncount
-!   !   local work (i.e. in initgrid)
-!   allocate(iae2e(nelems+1))
-!   iae2e = 0
-!   allocate(jae2e(nnze2e))
-!   jae2e = 0
-
-!   ii = 1
-!   do ielem = 1, nelems
-!     iae2e(ielem) = ii
-!     do j = 1, nfacesperelem
-!       ! only add element connections to other elements
-!       if ( ef2e(1,j,ielem) > 0 ) then
-!         jae2e(ii) = ef2e(2,j,ielem)
-!         ii = ii+1
-!       end if
-!     end do
-!   end do
-!   iae2e(nelems+1) = ii
-
     deallocate(ivtmp1,ivtmp2)
 
     deallocate(iav2e,v2e)
 
 
-  end subroutine E2EConnectivity
+  end subroutine E2EConnectivity     !   SERIAL Routine
 
-  subroutine calculatepartitions()
+  subroutine calculatepartitions()   !   SERIAL Routine
+
+!   SERIAL Routine
     ! this subroutine contains the c-bindings for
     ! calling the metis library on the "grid", defined by
     ! the element-to-node connectivities read from the datafile.
+!   SERIAL Routine
+
     use mpimod
     use referencevariables
     use variables, only: nnze2v, iae2v, iae2v_tmp, jae2v, jae2v_tmp, elempart
@@ -1144,12 +1136,8 @@ contains
 
     cnt_debug = 0
 
-    ! Low volumetric element index
-    iell = ihelems(1)
-
-    ! High volumetric element index
-    ielh = ihelems(2)
-
+    ! Low and High volumetric element index
+    iell = ihelems(1) ; ielh = ihelems(2) ;
 
     ! efn2efn contains the partner node information of every facenode in the 
     ! domain
@@ -1628,14 +1616,6 @@ contains
 
                       cnt_debug = cnt_debug + 1
 
-!                      if (ielem == 1) then
-!                        write(*,*) 'ielem', ielem
-!                        write(*,*) 'x1_p', x1_p
-!                        write(*,*) 'x2_p', x2_p
-!                        write(*,*) 'x1', x1
-!                        write(*,*) 'x2', x2
-!                      end if
-
                       exit ! partner jnode found; exit the jnode do loop
                     
                     end if
@@ -1733,14 +1713,6 @@ contains
                       efn2efn(4,knode,ielem) = jnode
 
                       cnt_debug = cnt_debug + 1
-
-!                      if (ielem == 1) then
-!                        write(*,*) 'ielem', ielem
-!                        write(*,*) 'x1_p', x1_p
-!                        write(*,*) 'x2_p', x2_p
-!                        write(*,*) 'x1', x1
-!                        write(*,*) 'x2', x2
-!                      end if
 
                       exit ! partner jnode found; exit the jnode do loop
                     
@@ -1840,14 +1812,6 @@ contains
 
                       cnt_debug = cnt_debug + 1
 
-!                      if (ielem == 1) then
-!                        write(*,*) 'ielem', ielem
-!                        write(*,*) 'x1_p', x1_p
-!                        write(*,*) 'x2_p', x2_p
-!                        write(*,*) 'x1', x1
-!                        write(*,*) 'x2', x2
-!                      end if
-
                       exit ! partner jnode found; exit the jnode do loop
                     
                     end if
@@ -1946,9 +1910,6 @@ contains
     return
   end subroutine calculate_face_node_connectivity
 
-
-  !============================================================================
-  
   !============================================================================
   
   subroutine calcfacenormals()
@@ -2339,7 +2300,11 @@ contains
   ! e2e_connectivity_aflr3 - Constructs the element-to-element connectivity
   ! starting from the information read from the AFLR3 grid.
 
-  subroutine e2e_connectivity_aflr3()
+  subroutine e2e_connectivity_aflr3()   !  SERIAL Routine
+
+!  SERIAL Routine
+!     Element to element connectivity using AFLR3 formated grids
+!  SERIAL Routine
 
     ! Load modules
     use unary_mod, only: qsorti
@@ -2680,40 +2645,8 @@ contains
         enddo
       endif
 
-     
-!      do i = 1, nelems
-!        iv_hexa_elem = ic2nh(:,i)
-!
-!        write(*,*)
-!        write(*,*) 'Element', i
-!        do j = 1, 8
-!          write(*,*) 'Node:', j, iv_hexa_elem(j)
-!          write(*,*) 'x', vx_master(1,iv_hexa_elem(j))
-!          write(*,*) 'y', vx_master(2,iv_hexa_elem(j))
-!          write(*,*) 'z', vx_master(3,iv_hexa_elem(j))
-!        end do
-!
-!        write(*,*)
-!      enddo
-
-
-!      do i = 1, 8
-!        write(*,*) vx_master(:,ic2nh(i,231))
-!        write(*,*) vx_master(:,ic2nh(i,595))
-!
-!      end do
-!
-!      write(*,*) 'Partner element'
-!      do i = 1, 8
-!        write(*,*) vx_master(:,ic2nh(i,595))
-!      end do
-!      stop
-
-
-      ! ===================================================
       ! ===================================================
       ! Build ef2e for "periodic" faces in the x1 direction
-      ! ===================================================
       ! ===================================================
 
       ! Loop over the element that owns a "periodic" face
@@ -4219,11 +4152,11 @@ contains
     end if ! End if ndim == 3
 
     return
-  end subroutine e2e_connectivity_aflr3
+  end subroutine e2e_connectivity_aflr3     !  SERIAL Routine
 
   !============================================================================
   
-    subroutine set_element_orders()
+    subroutine set_element_orders()     !  PARALLEL Routine
 
     ! Load modules
     use variables
@@ -4248,11 +4181,15 @@ contains
  
     enddo
 
-    end subroutine 
+    end subroutine      !  PARALLEL Routine
 
   !============================================================================
 
-  subroutine create_ldg_flip_flop_sign()
+  subroutine create_ldg_flip_flop_sign()    !   SERIAL Routine
+
+!   SERIAL ROUTINE
+!     Creates flip flow operators on faces of elements.
+!   SERIAL ROUTINE
     
     ! Load modules
     use collocationvariables
@@ -4435,6 +4372,8 @@ contains
 
   !============================================================================
 
+! SERIAL Routine
+
   pure subroutine data_partner_element_serial(node,face_id,elem_id,k_node,k_elem,k_face,i_node)
 
     ! Load modules
@@ -4467,9 +4406,9 @@ contains
     k_face = ef2e(1,face_id,elem_id)
 
     return
-  end subroutine data_partner_element_serial
+  end subroutine data_partner_element_serial     !   SERIAL Routine
 
-  pure function WENO_Adjoining_Data(k_node,k_face)
+  pure function WENO_Adjoining_Data(k_node,k_face)     !   PARALLEL Routine
 ! function WENO_Adjoining_Data(k_node,k_face)
      !  Grab the data that lives at the first point off the surface of the
      !  adjoining element
@@ -4493,9 +4432,9 @@ contains
          WENO_Adjoining_Data = k_node - nodesperface
      endif
 
-  end function WENO_Adjoining_Data
+  end function WENO_Adjoining_Data     !   PARALLEL Routine
 
-  pure function Pencil_Coord(Ns,jdir,iface,i)
+  pure function Pencil_Coord(Ns,jdir,iface,i)     !   PARALLEL Routine
 
     integer, intent(in)  :: Ns,jdir,iface,i
 
@@ -4512,11 +4451,11 @@ contains
         Pencil_Coord =            iface + (i-1) * Ns*Ns
     end select
 
-  end function
+  end function     !   PARALLEL Routine
 
   !============================================================================
 
-  subroutine WENO_Intrp_Face_Nodes()
+  subroutine WENO_Intrp_Face_Nodes()   !   PARALLEL  Routine
 
     !  Preprocessing step to build physical locations needed for interpolation
 
@@ -4688,7 +4627,8 @@ contains
 !    write(*,*)'max residual in nonlinear decode of XI',rnorm_max
     endif
 
-  end subroutine WENO_Intrp_Face_Nodes
+  end subroutine WENO_Intrp_Face_Nodes       !   PARALLEL Routine
+
 
   !============================================================================
 

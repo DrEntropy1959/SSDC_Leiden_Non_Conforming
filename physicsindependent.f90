@@ -123,11 +123,9 @@ contains
         ! Metis calculates the partitions
         call calculatepartitions() 
 
-      end if
-      
-      if (myprocid == 0) then
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
+
       end if
 
       ! Push element connectivity to all processes
@@ -135,7 +133,6 @@ contains
 
       ! Assign element orders (HACK)
       call set_element_orders()
-
     
     end if
     
@@ -203,7 +200,6 @@ contains
       write(*,*) 'Start actual computation'
       write(*,*) '==============================================================='
     end if
-
 
     ! Set binary sizes for writing the solution vtu files in raw binary vtu format
     call calculate_binary_sizes_vtu()

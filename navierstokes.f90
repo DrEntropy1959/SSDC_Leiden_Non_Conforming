@@ -3999,7 +3999,7 @@ contains
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
 
-    integer :: i_elem, i_node
+    integer :: ielem, i_node
     integer :: m
 
     real(wp)               :: Lngth, a0, dt0, dt_min, dt_global_max
@@ -4017,20 +4017,20 @@ contains
     iell  = ihelems(1) ;  ielh = ihelems(2)
 
     ! loop over all elements
-    do i_elem = iell, ielh
+    do ielem = iell, ielh
       do i_node = 1, nodesperelem
                 
           Lngth = pvol(i_node)**(third)
 
-          a0  = sqrt(abs(gamma0*vg(5,i_node,i_elem)/gM2))
+          a0  = sqrt(abs(gamma0*vg(5,i_node,ielem)/gM2))
 
-          sq(1) = magnitude(r_x(1,:,i_node,i_elem))
-          sq(2) = magnitude(r_x(2,:,i_node,i_elem))
-          sq(3) = magnitude(r_x(3,:,i_node,i_elem))
+          sq(1) = magnitude(r_x(1,:,i_node,ielem))
+          sq(2) = magnitude(r_x(2,:,i_node,ielem))
+          sq(3) = magnitude(r_x(3,:,i_node,ielem))
 
-          ucon(1) = dot_product(r_x(1,:,i_node,i_elem),vg(2:4,i_node,i_elem))
-          ucon(2) = dot_product(r_x(2,:,i_node,i_elem),vg(2:4,i_node,i_elem))
-          ucon(3) = dot_product(r_x(3,:,i_node,i_elem),vg(2:4,i_node,i_elem))
+          ucon(1) = dot_product(r_x(1,:,i_node,ielem),vg(2:4,i_node,ielem))
+          ucon(2) = dot_product(r_x(2,:,i_node,ielem),vg(2:4,i_node,ielem))
+          ucon(3) = dot_product(r_x(3,:,i_node,ielem),vg(2:4,i_node,ielem))
 
           tI  =  sum(abs(ucon(:))) + a0 * ( sum(sq) )
           tV  =  Re0Inv * magnitude(sq)
@@ -4103,7 +4103,7 @@ contains
 
     integer :: iell, ielh
     
-    integer :: i_elem, i_node
+    integer :: ielem, i_node
 
     continue
     
@@ -4113,7 +4113,7 @@ contains
     ! Low and high  volumetric element index
     iell  = ihelems(1) ;  ielh = ihelems(2)
 
-    do i_elem = iell, ielh
+    do ielem = iell, ielh
 
       ! loop over all elements
       do i_node = 1, nodesperelem
@@ -4121,15 +4121,15 @@ contains
         !  __           __
         !  \/ V  = dVdW \/ W  = dVdW phi
         !  
-        GradV(:,:)    = MatMul(dVdW(vg(:,i_node,i_elem),nequations),phig(:,:,i_node,i_elem))
+        GradV(:,:)    = MatMul(dVdW(vg(:,i_node,ielem),nequations),phig(:,:,i_node,ielem))
 
         ! Compute the vorticity
-        omega(:,i_node,i_elem) = 0.0_wp 
+        omega(:,i_node,ielem) = 0.0_wp 
 
         ! Note:  GradV(1,:) is gradient of density
-        omega(1,i_node,i_elem) = GradV(4,2) - GradV(3,3)
-        omega(2,i_node,i_elem) = GradV(2,3) - GradV(4,1)
-        omega(3,i_node,i_elem) = GradV(3,1) - GradV(2,2)
+        omega(1,i_node,ielem) = GradV(4,2) - GradV(3,3)
+        omega(2,i_node,ielem) = GradV(2,3) - GradV(4,1)
+        omega(3,i_node,ielem) = GradV(3,1) - GradV(2,2)
       
       end do
     end do
@@ -4191,18 +4191,18 @@ contains
     implicit none
 
     integer :: iell, ielh
-    integer :: i_elem, i_node
+    integer :: ielem, i_node
 
     ! Low and high  volumetric element index
     iell  = ihelems(1) ;  ielh = ihelems(2)
 
     ! Loop over elements
-    do i_elem = iell, ielh
+    do ielem = iell, ielh
       ! Loop over nodes in each element
       do i_node = 1, nodesperelem
 
         ! Calculate primitive variables from conservative variables
-        call conserved_to_primitive(ug(:,i_node,i_elem),vg(:,i_node,i_elem),nequations)
+        call conserved_to_primitive(ug(:,i_node,ielem),vg(:,i_node,ielem),nequations)
       
       enddo
     enddo
@@ -4227,20 +4227,20 @@ contains
     implicit none
 
     integer :: iell, ielh
-    integer :: i_elem, i_node
+    integer :: ielem, i_node
 
     ! Low and high  volumetric element index
     iell  = ihelems(1) ;  ielh = ihelems(2)
 
     ! Loop over elements
-    do i_elem = iell, ielh
+    do ielem = iell, ielh
       ! Loop over nodes in each element
       do i_node = 1, nodesperelem
             
         ! Calculate entropy variables from primitive variables
         call primitive_to_entropy( &
-        vin = vg(:,i_node,i_elem), &
-        wout = wg(:,i_node,i_elem), &
+        vin = vg(:,i_node,ielem), &
+        wout = wg(:,i_node,ielem), &
         nq = nequations )
 
       enddo
@@ -4265,18 +4265,18 @@ contains
     implicit none
 
     integer :: iell, ielh
-    integer :: i_elem, i_node
+    integer :: ielem, i_node
 
     ! Low and high volumetric element index
     iell = ihelems(1) ; ielh = ihelems(2) ;
 
     ! Loop over elements
-    do i_elem = iell, ielh
+    do ielem = iell, ielh
       ! Loop over nodes in each element
       do i_node = 1, nodesperelem
             
         ! Calculate specific entropy
-        specific_entropy(i_node,i_elem) = specificentropy(vg(:,i_node,i_elem),&
+        specific_entropy(i_node,ielem) = specificentropy(vg(:,i_node,ielem),&
                                                       nequations)
 
       enddo
