@@ -1875,8 +1875,8 @@ contains
               
               end do ! End do jnode
 
-              ! Print information at screen if there is a problem and stop
-              ! computation
+              ! Print information at screen if there is a problem and stop computation
+
               if (efn2efn(1,knode,ielem) < 0 .or. efn2efn(2,knode,ielem) < 0) then
                 write(*,*) 'Connectivity error in face-node connectivity.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'

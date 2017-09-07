@@ -987,7 +987,8 @@ contains
 
     ! Average KE 
     ! Keave = half*half*(dot_product(vL(2:4),vL(2:4)) + dot_product(vR(2:4),vR(2:4)))
-      Keave = half*half*(vL(2)*vL(2)+vL(3)*vL(3)+vL(4)*vL(4) + vR(2)*vR(2)+vR(3)*vR(3)+vR(4)*vR(4))
+      Keave = half*half*( + vL(2)*vL(2)+vL(3)*vL(3)+vL(4)*vL(4)  &
+                          + vR(2)*vR(2)+vR(3)*vR(3)+vR(4)*vR(4) )
 
     ! logarithmic average of density
     xi = vl(1)/vr(1)
@@ -3317,6 +3318,8 @@ contains
         
         ! This is a parallel interface
         do i = 1,  n_S_2d
+
+          ! Index in facial ordering
           jnode =  n_S_2d*(iface-1)+i
           
           ! Volumetric node index corresponding to facial node index
@@ -3350,6 +3353,7 @@ contains
         end do
       
       else
+
         do i = 1, n_S_2d
         
           ! Index in facial ordering

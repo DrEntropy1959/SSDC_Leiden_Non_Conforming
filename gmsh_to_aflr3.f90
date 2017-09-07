@@ -244,7 +244,7 @@ program gmsh_to_aflr3
   ! Close i_unit
   close(i_unit)
 
-  ! Re-oder nodes of the boundary quadrilaterla faces defined by 4 vertices so
+  ! Re-order nodes of the boundary quadrilateral faces defined by 4 vertices so
   ! that they follow the righ-hand-side rule.
 
   !do i = 1, cnt_quads_gmsh
@@ -302,7 +302,7 @@ program gmsh_to_aflr3
   close(i_unit)
 
 
-  ! Re-oder nodes of the boundary quadrilaterla faces defined by 4 vertices so
+  ! Re-oder nodes of the boundary quadrilateral faces defined by 4 vertices so
   ! that they follow the righ-hand-side rule.
 
   !do i = 1, cnt_quads_gmsh
