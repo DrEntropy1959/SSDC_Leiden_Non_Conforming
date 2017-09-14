@@ -160,7 +160,7 @@ contains
     end if
 
     ! Setup collocated nodes connectivity
-    call facenodesetup()
+    call facenodesetup_LGL()
 
     if (myprocid == 0) then
       write(*,*) 'Each process finds the WENO partner node of each collocated node'
@@ -169,7 +169,7 @@ contains
 
     if(discretization == 'SSWENO') then
       ! Setup collocated nodes connectivity
-      call facenodesetupWENO()
+      call facenodesetup_LGL_WENO()
     endif
 
     if (myprocid == 0) then

@@ -3003,7 +3003,7 @@ contains
     use referencevariables
     use nsereferencevariables
     use controlvariables, only: heat_entropy_flow_wall_bc, Riemann_Diss_BC
-    use collocationvariables, only: l01, l00, Sfix
+    use collocationvariables, only: l01, l00, Sfix, elem_props
     use initgrid
 
     ! Nothing is implicitly defined
@@ -3015,9 +3015,10 @@ contains
     real(wp), dimension(n_S_1d),  intent(in) :: pinv
 
     ! indices
-    integer :: inode, jnode, knode, gnode
+    integer :: n_S_2d_On , n_S_2d_Off
+    integer :: inode, jnode, knode, lnode, gnode
     integer :: kelem
-    integer :: iface
+    integer :: iface, kface
     integer :: i,j
 
     ! reconstructed flux
@@ -3314,78 +3315,159 @@ contains
 !       Off Processor Contributions to gsat
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-      else if (ef2e(3,iface,ielem) /= myprocid) then
+      else if (ef2e(3,iface,ielem) /= myprocid) then ! This is an interface between parallel parts
         
-        ! This is a parallel interface
-        do i = 1,  n_S_2d
+!         kelem = elem_props(2,ef2e(2,iface,ielem))
+!         write(*,*)'elem_props(2,ielem)', elem_props(2,ielem)
+!         write(*,*)'elem_props(2,kelem)', elem_props(2,kelem)
+!       if(elem_props(2,ielem) == elem_props(2,ef2e(2,iface,ielem))) then
 
-          ! Index in facial ordering
-          jnode =  n_S_2d*(iface-1)+i
-          
-          ! Volumetric node index corresponding to facial node index
-          inode = ifacenodes(jnode)
-          
-          ! Index in ghost
-          gnode = efn2efn(3,jnode,ielem)  ! This is pointing to ghost stack not volumetric stack
-          
-          ! Element index of partner node
-          kelem = efn2efn(2,jnode,ielem)
-          
-          ! Outward facing normal of facial node
-          nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+          n_S_2d_On  = (elem_props(2,ielem))**2
 
-          ug_On(:)  = ug(:,inode,ielem)
-          ug_Off(:) = ughst(:,gnode)
-          call conserved_to_primitive(ug_On (:), vg_On (:), nequations)
-          call conserved_to_primitive(ug_Off(:), vg_Off(:), nequations)
+          do i = 1,  n_S_2d_On
 
-          phig_On (:,:) = phig(:,:,inode,ielem)
-          phig_Off(:,:) = phighst(:,:,gnode)
+            ! Index in facial ordering
+            jnode =  n_S_2d_On*(iface-1)+i
+            
+            ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes(jnode)
+            
+            ! Index in ghost
+            gnode = efn2efn(3,jnode,ielem)  ! This is pointing to ghost stack not volumetric stack
+            
+!           ! Element index of partner node
+!           kelem = efn2efn(2,jnode,ielem)   !  not used in off-process SAT
+            
+            ! Outward facing normal of facial node
+            nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+  
+            ug_On(:)  = ug(:,inode,ielem)
+            ug_Off(:) = ughst(:,gnode)
+            call conserved_to_primitive(ug_On (:), vg_On (:), nequations)
+            call conserved_to_primitive(ug_Off(:), vg_Off(:), nequations)
+  
+            phig_On (:,:) = phig(:,:,inode,ielem)
+            phig_Off(:,:) = phighst(:,:,gnode)
+  
+            SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
+                                          & vg_On,vg_Off,              &
+                                          & phig_On,phig_Off,          &
+                                          & nx,Jx_r(inode,ielem),      &
+                                          & pinv(1), mut(inode,ielem))
+  
+            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+  
+          end do
 
-          SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
-                                        & vg_On,vg_Off,              &
-                                        & phig_On,phig_Off,          &
-                                        & nx,Jx_r(inode,ielem),      &
-                                        & pinv(1), mut(inode,ielem))
+!       else  ! Adjoining element on iface differs in order
 
-          gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+!         write(*,*)'I shouldnt be here parallel'
+!         kelem      = ef2e(2,iface,ielem)
+!         n_S_2d_On  = (elem_props(2,ielem))**2
+!         n_S_2d_Off = (elem_props(2,kelem))**2
 
-        end do
+!         do i = 1, n_S_2d_On
+
+!           ! Index in facial ordering
+!           jnode =  n_S_2d_On*(iface-1)+i
+!           
+!           ! Volumetric node index corresponding to facial node index
+!           inode = ifacenodes(jnode)
+
+!           ! Grab on process conserved variables and fluxes
+!           ug_On(:)  = ug(:,inode,ielem)
+!           call conserved_to_primitive(ug_On (:), vg_On (:), nequations)
+
+!           phig_On (:,:) = phig(:,:,inode,ielem)
+
+!         end do
+            
+!       endif
       
-      else
+      else             !  on process interfaces
 
-        do i = 1, n_S_2d
+        if(elem_props(2,ielem) == elem_props(2,ef2e(2,iface,ielem))) then
+
+          n_S_2d_On  = (elem_props(2,ielem))**2
+
+          do i = 1, n_S_2d_On
         
-          ! Index in facial ordering
-          jnode =  n_S_2d*(iface-1)+i
+            ! Index in facial ordering
+            jnode =  n_S_2d_On*(iface-1)+i
+              
+            ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes(jnode)
+              
+            ! Volumetric index of partner node
+            knode = efn2efn(1,jnode,ielem)
+              
+            ! Element index of partner node
+            kelem = efn2efn(2,jnode,ielem)
             
-          ! Volumetric node index corresponding to facial node index
-          inode = ifacenodes(jnode)
+            ! Outward facing normal of facial node
+            nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
             
-          ! Volumetric index of partner node
-          knode = efn2efn(1,jnode,ielem)
-            
-          ! Element index of partner node
-          kelem = efn2efn(2,jnode,ielem)
-          
-          ! Outward facing normal of facial node
-          nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
-          
-          vg_On(:)  = vg(:,inode,ielem)
-          vg_Off(:) = vg(:,knode,kelem)
+            vg_On(:)  = vg(:,inode,ielem)
+            vg_Off(:) = vg(:,knode,kelem)
+  
+            phig_On (:,:) = phig(:,:,inode,ielem)
+            phig_Off(:,:) = phig(:,:,knode,kelem)
+  
+            SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
+                                          & vg_On,vg_Off,              &
+                                          & phig_On,phig_Off,          &
+                                          & nx,Jx_r(inode,ielem),      &
+                                          & pinv(1), mut(inode,ielem))
 
-          phig_On (:,:) = phig(:,:,inode,ielem)
-          phig_Off(:,:) = phig(:,:,knode,kelem)
+            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+  
+          end do
 
-          SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
-                                        & vg_On,vg_Off,              &
-                                        & phig_On,phig_Off,          &
-                                        & nx,Jx_r(inode,ielem),      &
-                                        & pinv(1), mut(inode,ielem))
+        else  ! Adjoining element on iface differs in order
 
-          gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+          write(*,*)'I shouldnt be here'
+          kelem      = ef2e(2,iface,ielem)
+          n_S_2d_On  = elem_props(2,ielem)
+          n_S_2d_Off = elem_props(2,kelem)
 
-        end do
+          do i = 1, n_S_2d_On
+        
+            ! Index in facial ordering
+            jnode =  n_S_2d_On*(iface-1)+i
+              
+            ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes(jnode)
+              
+            ! On-element face data
+            vg_On(:)  = vg(:,inode,ielem)
+            phig_On (:,:) = phig(:,:,inode,ielem)
+
+            do j = 1, n_S_2d_Off
+
+              ! Index in facial ordering
+              knode =  n_S_2d_Off*(kface-1) + j
+
+              ! Volumetric index of partner node
+              lnode = efn2efn(1,knode,kelem)
+!             
+!             ! Outward facing normal of facial node
+!             nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+!             
+!             vg_Off(:) = vg(:,knode,kelem)
+!   
+!             phig_Off(:,:) = phig(:,:,knode,kelem)
+!   
+!             SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
+!                                           & vg_On,vg_Off,              &
+!                                           & phig_On,phig_Off,          &
+!                                           & nx,Jx_r(inode,ielem),      &
+!                                           & pinv(1), mut(inode,ielem))
+! 
+!             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+
+            end do
+          end do
+        end if
       end if
     end do
     

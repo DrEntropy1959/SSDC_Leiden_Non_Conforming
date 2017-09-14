@@ -23,8 +23,8 @@ module initgrid
 
   public calcnodes
   public calcmetrics
-  public facenodesetup
-  public facenodesetupWENO
+  public facenodesetup_LGL
+  public facenodesetup_LGL_WENO
   public calculate_face_node_connectivity
   public calcfacenormals
   public init_elem_type
@@ -903,7 +903,7 @@ contains
 
 ! =============================================================================
 
-  subroutine facenodesetup()
+  subroutine facenodesetup_LGL()
     ! This subroutine calculates the partner node of each facial
     ! node on every volumetric element. Partner nodes of boundary
     ! faces are set to themselves.
@@ -999,11 +999,11 @@ contains
       end do
     end do
 
-  end subroutine facenodesetup
+  end subroutine facenodesetup_LGL
 
 ! =============================================================================
 
-  subroutine facenodesetupWENO()
+  subroutine facenodesetup_LGL_WENO()
     ! This subroutine calculates the partner node of each facial
     ! node on every volumetric element. Partner nodes of boundary
     ! faces are set to themselves.
@@ -1100,7 +1100,7 @@ contains
       end do
     end do
 
-  end subroutine facenodesetupWENO
+  end subroutine facenodesetup_LGL_WENO
 
   !============================================================================
   ! calculate_face_node_connectivity - Sets the face-node connectivity for the
