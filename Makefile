@@ -1,23 +1,23 @@
 .SUFFIXES: .o .c .f90 .F90
 
-INCLUDESDIR = -I/home/carpentr/OpenSourceLib/Lib-Install/include\
-              -I/home/carpentr/OpenSourceLib/Lib-Install/petsc-3.5/include
+hostname = ${HOSTNAME}
 
+ifeq ($(hostname),tab16)
+$(info ${hostname})
+INCLUDESDIR = -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/include\
+              -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/include
+FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -fbounds-check -O3 $(INCLUDESDIR)
+CFLAGS  = -Ofast  $(INCLUDESDIR)
+LFLAGS  = -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/lib\
+          -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/lib
+LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
 CC = gcc
 FC = mpif90
+else ifeq ($(hostname),Leiden)
+else
+$(info Hostname Not Found)
+endif
 
-#FCFLAGS = -Wuninitialized -Wsurprising -fbacktrace -fbounds-check $(INCLUDESDIR)
-##FCFLAGS = -Ofast $(INCLUDESDIR)
-
- FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
-#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 $(INCLUDESDIR)
-#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
-CFLAGS = -Ofast  $(INCLUDESDIR)
-
-LFLAGS = -L/home/carpentr/OpenSourceLib/Lib-Install/lib\
-         -L/home/carpentr/OpenSourceLib/Lib-Install/petsc-3.5/lib
-
-LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
 
 SRCS = precision_vars.f90\
        datatypes.f90\
