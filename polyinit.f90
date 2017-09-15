@@ -90,6 +90,21 @@ contains
                     gradmat, iagrad, jagrad, dagrad, qagrad, &
                     pmat, qmat, dmat, pvol, p_surf)
 
+    !  Interpolation matrices rotating LGL <-> Gau points of various orders
+
+    allocate(Ext_LGL_p0_2_Gau_p1_1d(n_LGL_1d_pL,n_Gau_1d_pH)) ; Ext_LGL_p0_2_Gau_p1_1d = 0.0_wp ;
+    allocate(Int_Gau_p1_2_LGL_p0_1d(n_Gau_1d_pH,n_LGL_1d_pL)) ; Int_Gau_p1_2_LGL_p0_1d = 0.0_wp ;
+
+    allocate(Rot_Gau_p1_2_LGL_p1_1d(n_Gau_1d_pH,n_LGL_1d_pH)) ; Rot_Gau_p1_2_LGL_p1_1d = 0.0_wp ;
+    allocate(Rot_LGL_p1_2_Gau_p1_1d(n_LGL_1d_pH,n_Gau_1d_pH)) ; Rot_LGL_p1_2_Gau_p1_1d = 0.0_wp ;
+
+!   call Rotate_LGL_H_2_Gau_H_2_LGL_H(n_Gau_1d_pH,n_LGL_1d_pH, Rot_LGL_p1_2_Gau_p1_1d , &
+!                                                            & Rot_Gau_p1_2_LGL_p1_1d )
+
+!   call Rotate_LGL_L_2_Gau_H_2_LGL_L(n_Gau_1d_pH,n_LGL_1d_pH, Ext_LGL_p0_2_Gau_p1_1d , &
+!                                                            & Int_Gau_p1_2_LGL_p0_1d )
+
+
 !   Filter Matrix
     allocate(Filter(nodesperedge,nodesperedge))
 
