@@ -77,6 +77,9 @@ module collocationvariables
   integer :: n_LGL_1d_pL, n_LGL_2d_pL, n_LGL_3d_pL
   integer :: n_LGL_1d_pH, n_LGL_2d_pH, n_LGL_3d_pH
   
+  integer :: n_Gau_1d_pL, n_Gau_2d_pL, n_Gau_3d_pL
+  integer :: n_Gau_1d_pH, n_Gau_2d_pH, n_Gau_3d_pH
+  
   real(wp), allocatable, dimension(:)     :: x_LGL_pts_1d_pL, x_LGL_pts_1d_pH
   real(wp), allocatable, dimension(:)     :: pmat_pL , pmat_pH
   real(wp), allocatable, dimension(:)     :: pinv_pL , pinv_pH
@@ -93,5 +96,10 @@ module collocationvariables
   real(wp), allocatable, dimension(:,:)   :: dagrad_pL, dagrad_pH
   real(wp), allocatable, dimension(:,:)   :: qagrad_pL, qagrad_pH
   integer :: nnzgrad_pL, nnzgrad_pH
+
+  real(wp), allocatable, dimension(:,:)   :: Ext_LGL_p0_2_Gau_p1_1d
+  real(wp), allocatable, dimension(:,:)   :: Int_Gau_p1_2_LGL_p0_1d
+  real(wp), allocatable, dimension(:,:)   :: Rot_Gau_p1_2_LGL_p1_1d
+  real(wp), allocatable, dimension(:,:)   :: Rot_LGL_p1_2_Gau_p1_1d
 
 end module collocationvariables
