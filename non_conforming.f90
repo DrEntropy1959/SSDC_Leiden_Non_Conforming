@@ -1,6 +1,7 @@
 module non_conforming
 
   use precision_vars
+  use initcollocation
 
   !-- Nothing is implicitely defined
   implicit none
@@ -10,7 +11,7 @@ module non_conforming
 
   !-- public subroutines functions etc
   public Lagrange_interpolant_basis_1D
-
+  public Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo
   
 
 contains
@@ -45,9 +46,9 @@ contains
      real(wp), intent(inout)                     :: Vandermonde(nxitwo,nxione)
      
      !-- local variables
-     integer                                     :: j, k
+     integer                                     :: i, j, k
      real(wp)                                    :: wj(nxione),l
-
+ 
      !-- construct the wjs
      do j = 0,nxione-1 
        wj(j+1) = 1.0_wp
@@ -62,6 +63,11 @@ contains
      !-- construct the Vandermonde matrix
      do j = 1,nxione
        do k = 1,nxitwo
+         !-- construct l
+         l = 1.0_wp
+         do i = 1, nxione
+           l = l*(xitwo(j)-xione(i))
+         end do
          Vandermonde(j,k)  = l*wj(k)/(xitwo(j)-xione(k))
        end do
      end do

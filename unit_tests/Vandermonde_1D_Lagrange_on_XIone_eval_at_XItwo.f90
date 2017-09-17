@@ -1,4 +1,4 @@
-program Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo
+program Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo_program
 !==================================================================================================
 !
 ! Purpose: this tests the subroutine Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo against 
@@ -7,6 +7,7 @@ program Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo
   !-- load modules
   use non_conforming
   use precision_vars
+  use initcollocation
 
   !-- Nothing is implicitely definted
   implicit none
@@ -14,10 +15,15 @@ program Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo
   !-- local variables
   real(wp)                                       :: IGL2G_nGL2_nG2_Maple(2,2),IGL2G_nGL3_nG3_Maple(3,3),&
                                                    &IGL2G_nGL4_nG4_Maple(4,4),IGL2G_nGL5_nG5_Maple(5,5),&
-                                                   &IGL2G_nGL6_nG6_Maple(6,6),IGL2G_nGL6_nG6_Maple(7,7),&
-                                                   &IGL2G_nGL6_nG6_Maple(8,8),IGL2G_nGL6_nG6_Maple(9,9),&
-                                                   &IGL2G_nGL6_nG6_Maple(10,10),IGL2G_nGL6_nG6_Maple(11,11),&
-                                                   &IGL2G_nGL6_nG6_Maple(12,12),IGL2G_nGL6_nG6_Maple(13,13)
+                                                   &IGL2G_nGL6_nG6_Maple(6,6),IGL2G_nGL7_nG7_Maple(7,7),&
+                                                   &IGL2G_nGL8_nG8_Maple(8,8),IGL2G_nGL9_nG9_Maple(9,9),&
+                                                   &IGL2G_nGL10_nG10_Maple(10,10),IGL2G_nGL11_nG11_Maple(11,11),&
+                                                   &IGL2G_nGL12_nG12_Maple(12,12),IGL2G_nGL13_nG13_Maple(13,13)
+
+  real(wp), allocatable                          :: IGL2G(:,:)
+ 
+  integer                                        :: nxione,nxitwo,k
+  real(wp),allocatable                           :: xione(:), xitwo(:), wxione(:), wxitwo(:)
 
   !-- interpolants form Maple
   IGL2G_nGL2_nG2_Maple(1,1) = 0.788675134594812882254574390252D0
@@ -33,22 +39,22 @@ program Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo
   IGL2G_nGL3_nG3_Maple(3,2) = 0.400000000000000000000000000000D0
   IGL2G_nGL3_nG3_Maple(3,3) = 0.687298334620741688517926539978D0
 
-  IGL2G_nGL4_nG4_Maple(4,4)(1,1) = 0.629943166103445446330457444109D0
-  IGL2G_nGL4_nG4_Maple(4,4)(1,2) = 0.472558747113818019422460921285D0
-  IGL2G_nGL4_nG4_Maple(4,4)(1,3) = -0.149503431046079529034582194715D0
-  IGL2G_nGL4_nG4_Maple(4,4)(1,4) = 0.47001517828816063281663829321D-1
-  IGL2G_nGL4_nG4_Maple(4,4)(2,1) = -0.706947952738558677885339849113D-1
-  IGL2G_nGL4_nG4_Maple(4,4)(2,2) = 0.972976186258263046088011720925D0
-  IGL2G_nGL4_nG4_Maple(4,4)(2,3) = 0.132539926245427034952680981077D0
-  IGL2G_nGL4_nG4_Maple(4,4)(2,4) = -0.348213172298342132521587170905D-1
-  IGL2G_nGL4_nG4_Maple(4,4)(3,1) = -0.348213172298342132521587170905D-1
-  IGL2G_nGL4_nG4_Maple(4,4)(3,2) = 0.132539926245427034952680981077D0
-  IGL2G_nGL4_nG4_Maple(4,4)(3,3) = 0.972976186258263046088011720925D0
-  IGL2G_nGL4_nG4_Maple(4,4)(3,4) = -0.706947952738558677885339849113D-1
-  IGL2G_nGL4_nG4_Maple(4,4)(4,1) = 0.47001517828816063281663829321D-1
-  IGL2G_nGL4_nG4_Maple(4,4)(4,2) = -0.149503431046079529034582194715D0
-  IGL2G_nGL4_nG4_Maple(4,4)(4,3) = 0.472558747113818019422460921285D0
-  IGL2G_nGL4_nG4_Maple(4,4)(4,4) = 0.629943166103445446330457444109D0
+  IGL2G_nGL4_nG4_Maple(1,1) = 0.629943166103445446330457444109D0
+  IGL2G_nGL4_nG4_Maple(1,2) = 0.472558747113818019422460921285D0
+  IGL2G_nGL4_nG4_Maple(1,3) = -0.149503431046079529034582194715D0
+  IGL2G_nGL4_nG4_Maple(1,4) = 0.47001517828816063281663829321D-1
+  IGL2G_nGL4_nG4_Maple(2,1) = -0.706947952738558677885339849113D-1
+  IGL2G_nGL4_nG4_Maple(2,2) = 0.972976186258263046088011720925D0
+  IGL2G_nGL4_nG4_Maple(2,3) = 0.132539926245427034952680981077D0
+  IGL2G_nGL4_nG4_Maple(2,4) = -0.348213172298342132521587170905D-1
+  IGL2G_nGL4_nG4_Maple(3,1) = -0.348213172298342132521587170905D-1
+  IGL2G_nGL4_nG4_Maple(3,2) = 0.132539926245427034952680981077D0
+  IGL2G_nGL4_nG4_Maple(3,3) = 0.972976186258263046088011720925D0
+  IGL2G_nGL4_nG4_Maple(3,4) = -0.706947952738558677885339849113D-1
+  IGL2G_nGL4_nG4_Maple(4,1) = 0.47001517828816063281663829321D-1
+  IGL2G_nGL4_nG4_Maple(4,2) = -0.149503431046079529034582194715D0
+  IGL2G_nGL4_nG4_Maple(4,3) = 0.472558747113818019422460921285D0
+  IGL2G_nGL4_nG4_Maple(4,4) = 0.629943166103445446330457444109D0
 
   IGL2G_nGL5_nG5_Maple(1,1) = 0.593370696019946512394738110170D0
   IGL2G_nGL5_nG5_Maple(1,2) = 0.516435198649617653748203260045D0
@@ -292,4 +298,42 @@ program Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo
   IGL2G_nGL9_nG9_Maple(9,8) = 0.595856698558384891213556118036D0
   IGL2G_nGL9_nG9_Maple(9,9) = 0.524442912284427668267277645250D0
 
-end Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo
+
+  !-- test the construction against the construction from Maple
+  do k = 2,9
+    nxione = k
+    nxitwo = k
+    allocate(xione(nxione),wxione(nxione))
+    allocate(xitwo(nxitwo),wxitwo(nxitwo))
+    allocate(IGL2G(nxitwo,nxione))
+
+    call Gauss_Lobatto_Legendre_points(k,xione,wxione)
+    call Gauss_Legendre_points(k,xitwo,wxitwo)
+
+    call Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo(nxione,nxitwo,xione,xitwo,IGL2G)
+
+    if (k==2) then
+      write(*,*)"k = ",k,"error IGL2G =", maxval(abs(IGL2G-IGL2G_nGL2_nG2_Maple))
+    else if (k==3) then
+      write(*,*)"k = ",k,"error IGL2G =", maxval(abs(IGL2G-IGL2G_nGL3_nG3_Maple))
+    else if (k==4) then
+      write(*,*)"k = ",k,"error IGL2G =", maxval(abs(IGL2G-IGL2G_nGL4_nG4_Maple))
+    else if (k==5) then
+      write(*,*)"k = ",k,"error IGL2G =", maxval(abs(IGL2G-IGL2G_nGL5_nG5_Maple))
+    else if (k==6) then
+      write(*,*)"k = ",k,"error IGL2G =", maxval(abs(IGL2G-IGL2G_nGL6_nG6_Maple))
+    else if (k==7) then
+      write(*,*)"k = ",k,"error IGL2G =", maxval(abs(IGL2G-IGL2G_nGL7_nG7_Maple))
+    else if (k==8) then
+      write(*,*)"k = ",k,"error IGL2G =", maxval(abs(IGL2G-IGL2G_nGL8_nG8_Maple))
+    else if (k==9) then
+      write(*,*)"k = ",k,"error IGL2G =", maxval(abs(IGL2G-IGL2G_nGL9_nG9_Maple))
+    end if
+    !-- deallocate statments
+    deallocate(xione,wxione)
+    deallocate(xitwo,wxitwo)
+    deallocate(IGL2G)
+  end do
+
+
+end program Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo_program
