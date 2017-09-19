@@ -860,6 +860,56 @@ contains
 
 !=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
+  subroutine ExtrpXA2XB_2D_neq(neq,NPtsA,NPtsB,XA,XB,fA,fB,Extrp)
+
+  ! Extrapolate from Tensor product XA points to Tensor product XB points
+
+  implicit none
+
+  integer,                          intent(in   )  :: neq, NPtsA, NPtsB
+  real(wp), dimension(NPtsA),       intent(in   )  :: XA
+  real(wp), dimension(NPtsB),       intent(in   )  :: XB
+  real(wp), dimension(NPtsB,NptsA), intent(in   )  :: Extrp
+  real(wp), dimension(:,:),         intent(in   )  :: fA
+  real(wp), dimension(:,:),         intent(inout)  :: fB
+
+  real(wp), allocatable, dimension(:,:,:) :: F1
+
+  integer                                 :: i,j,m,n
+  integer                                 :: StrideY
+
+    allocate(F1(neq,NptsB,NptsA))
+
+    ! Extrapolate in the xi direction;
+    StrideY = NPtsA
+    F1(:,:,:) = 0.0_wp
+    do j = 1,NPtsA
+      do i = 1,NPtsB
+        do m = 1,NPtsA
+          n = + (j-1)*StrideY + m
+          F1(:,i,j) = F1(:,i,j) + Extrp(i,m)*FA(:,n)
+        enddo
+      enddo
+    enddo
+
+    ! Extrapolate in the eta direction;
+    StrideY = NPtsB
+    FB(:,:) = 0.0_wp
+    do j = 1,NPtsB
+      do i = 1,NPtsB
+        do m = 1,NPtsA
+          n = + (j-1)*StrideY + i
+          FB(:,n) = FB(:,n) + Extrp(j,m)*F1(:,i,m)
+        enddo
+      enddo
+    enddo
+
+    deallocate(F1)
+
+  end subroutine ExtrpXA2XB_2D_neq
+
+!=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
   subroutine ExtrpXA2XB_3D(NPtsA,NPtsB,XA,XB,fA,fB,Extrp)
 
   ! Extrapolate from Tensor product XA points to Tensor product XB points
