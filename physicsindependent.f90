@@ -79,7 +79,7 @@ contains
         call check_n_procs_n_elems(nprocs,nelems)
 
         ! Create connectivity from the original grid
-        call E2EConnectivity() 
+        call E2EConnectivity_cgns() 
      
         ! Metis calculates the partitions
         call calculatepartitions() 
@@ -108,11 +108,15 @@ contains
         ! Check the number of processors and the number of elements
         call check_n_procs_n_elems(nprocs,nelems) 
 
-
         write(*,*) 'Master node builds connectivity arrays'
-       
+!       write(*,*) '==============================================================='
+
         ! Create connectivity from the original grid
-        call e2e_connectivity_aflr3() 
+        call e2e_connectivity_aflr3()  
+
+!       write(*,*) 'Master node builds element orders'
+!       write(*,*) '==============================================================='
+        call set_element_orders_serial()      
 
         ! Construct the vector of +1 and -1 for the LDG flip-flop
         call create_ldg_flip_flop_sign()
@@ -131,9 +135,14 @@ contains
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()
 
-      ! Assign element orders (HACK)
-      call set_element_orders()
-    
+      if (myprocid == 0) then
+!       write(*,*) 'read element polynomial orders'
+!       write(*,*) '==============================================================='
+      endif
+
+      ! Assign element orders
+      call set_element_orders()      
+
     end if
     
     if (myprocid == 0) then

@@ -16,9 +16,10 @@ module initgrid
   public init_edge_2
   public init_quad_4
   public init_hex_8
-  public E2EConnectivity
+  public E2EConnectivity_cgns
   public e2e_connectivity_aflr3
   public set_element_orders
+  public set_element_orders_Serial
   public calculatepartitions
 
   public calcnodes
@@ -229,7 +230,7 @@ contains
 
   end subroutine init_elem_type   !  SERIAL Routine
 
-  subroutine E2EConnectivity()   !   SERIAL Routine
+  subroutine E2EConnectivity_cgns()   !   SERIAL Routine
 
 !   SERIAL ROUTINE
 !     CGNS Element to element connectivity
@@ -397,9 +398,9 @@ contains
     deallocate(iav2e,v2e)
 
 
-  end subroutine E2EConnectivity     !   SERIAL Routine
+  end subroutine E2EConnectivity_cgns !   SERIAL Routine
 
-  subroutine calculatepartitions()   !   SERIAL Routine
+  subroutine calculatepartitions()    !   SERIAL Routine
 
 !   SERIAL Routine
     ! this subroutine contains the c-bindings for
@@ -1883,8 +1884,6 @@ contains
                 write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
                 write(*,*) 'Node coordinates'
                 write(*,*) x1
-!                write(*,*) 'Type of face', ef2e(1,iface,ielem)
-!                write(*,*) 'Process ID', ef2e(3,iface,ielem)
                 write(*,*) 'Possible partner node coordinates'
                 
                 do jnode = 1, nodesperface
@@ -2376,16 +2375,20 @@ contains
     !  nelems     :    elements  =  nhex in this case
     !
     !                   Dim,    Dim,         Dim
-    !  ef2e       :    ( 2 ,nfaceperelem, nelements) 
+    !  ef2e       :    ( 5 ,nfaceperelem, nelements) 
     !             :  Two situation occur.  The face is either an 
     !                  (Interior face 
-    !                      :  (1,j,k) = face ID of the adjoining element
-    !                      :  (2,j,k) = Connected to Element 
+    !                      :  (1,j,k) = Adjoining element face ID
+    !                      :  (2,j,k) = Adjoining element ID
+    !                      :  (3,j,k) = Adjoining element process ID
+    !                      :  (4,j,k) = Adjoining element polynomial order
+    !                      :  (5,j,k) = Number of Adjoining elements
     !                  (Boundary face 
     !                      :  (1,j,k) = Set to -11 
     !                      :  (2,j,k) = -100000000
-    !
-    !         (Note:  redimensioned (3,:,:) to account for processor info)
+    !                      :  (3,j,k) = -100000000
+    !                      :  (4,j,k) = -100000000
+    !                      :  (5,j,k) = -100000000
     !
     ! iae2v,jae2v     :    Which vertices belong to each element
 
@@ -2453,7 +2456,7 @@ contains
 
 
       ! Calculate element-to-element connectivity using shared nodes
-      allocate(ef2e(3,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
+      allocate(ef2e(5,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
 
       allocate(ivtmp1(nverticesperface*bigN),ivtmp2(nverticesperface*bigN))
       allocate(ivtmp3(nverticesperface),     ivtmp4(nverticesperface))
@@ -2652,15 +2655,11 @@ contains
       ! Loop over the element that owns a "periodic" face
       periodic_elem_x1_1 : do i_p_elem = 1, size(periodic_face_data_x1(1,:))
 
-!        write(*,*) 'IN bc_elem loop'
-
         ! Get the global ID of the element that owns a periodic boundary face
         ielem = periodic_face_data_x1(1,i_p_elem)
 
         ! Get the local (local for the element) ID of the periodic boundary face
         iface = periodic_face_data_x1(2,i_p_elem)
-
-!        write(*,*) 'iface tag', abs(ef2e(1,iface,ielem))
 
         ! Check if the face is a "periodic" face with tag equals to 8
         if (abs(ef2e(1,iface,ielem)) == 8) then
@@ -2670,17 +2669,7 @@ contains
             vx_iface(1,i_vertex_iface) = vx_master(1,periodic_face_data_x1(4+i_vertex_iface,i_p_elem))
             vx_iface(2,i_vertex_iface) = vx_master(2,periodic_face_data_x1(4+i_vertex_iface,i_p_elem))
             vx_iface(3,i_vertex_iface) = vx_master(3,periodic_face_data_x1(4+i_vertex_iface,i_p_elem))
-!            write(*,*) 'ID vertices iface', periodic_face_data(3+i_vertex_iface,i_p_elem)
           end do
-
-!          write(*,*)
-!          write(*,*) 'node coordinate iface'
-!          do i_vertex_iface = 1, nverticesperface 
-!            write(*,*) 'node', i_vertex_iface
-!            write(*,*) 'x', vx_iface(1,i_vertex_iface) 
-!            write(*,*) 'y', vx_iface(2,i_vertex_iface) 
-!            write(*,*) 'z', vx_iface(3,i_vertex_iface) 
-!          end do
 
           ! Search the partner face, i.e. the corresponding "periodic" face with
           ! face tag equals to 9
@@ -2702,18 +2691,6 @@ contains
                 vx_jface(3,i_vertex_jface) = vx_master(3,ivtmp_jface(i_vertex_jface))
               end do
 
-!              write(*,*)
-!              write(*,*) 'node coordinate jface'
-!              do i_vertex_jface = 1, nverticesperface 
-!                write(*,*) 'node', i_vertex_jface
-!                write(*,*) 'x', vx_jface(1,i_vertex_jface) 
-!                write(*,*) 'y', vx_jface(2,i_vertex_jface) 
-!                write(*,*) 'z', vx_jface(3,i_vertex_jface) 
-!              end do
-!              write(*,*)
-
-              !stop
-
               ! Set to zero the array that keeps track of the coordinates
               ! matches
               same_coord = 0
@@ -2727,33 +2704,20 @@ contains
                 do i_vertex_jface = 1, nverticesperface
                   same_coord(i_vertex_iface,:) = 0
                   do i_coord = 1, 3
-!                    write(*,*) 'vx_iface(i_coord,i_vertex_iface)', vx_iface(i_coord,i_vertex_iface)
-!                    write(*,*) 'vx_jface(i_coord,i_vertex_jface)', vx_jface(i_coord,i_vertex_jface)
                     if (abs(vx_jface(i_coord,i_vertex_jface) - vx_iface(i_coord,i_vertex_iface)) .lt. diff_toll) then
                       same_coord(i_vertex_iface,i_coord) = 1
-!                      write(*,*) 'i_vertex_iface', i_vertex_iface
-!                      write(*,*) 'i_vertex_jface', i_vertex_jface
-!                      write(*,*) 'vx_iface(i_coord,i_vertex_iface)', vx_iface(i_coord,i_vertex_iface)
-!                      write(*,*) 'vx_jface(i_coord,i_vertex_jface)', vx_jface(i_coord,i_vertex_jface)
-!                      write(*,*) 'HERE'
-!                      write(*,*) 'i_coord', i_coord
                     endif
                   end do
                   
                   if (sum(same_coord(i_vertex_iface,:)) == 2) then
                     ! Found a vertex of the jface which has two coordinates
                     ! equal to two coordinates of the vertex on the iface
-!                    write(*,*) 'Found node'
                     if (i_vertex_iface .gt. 1) then
                       ! Verify that the other possible partner nodes have the 
                       ! same two coordinates in common'
-                      !write(*,*) i_vertex_iface
                       do i_check = 2, i_vertex_iface
                         check_common_coord_x1_1: do i_coord = 1, 3
                           if (same_coord(1,i_coord)-same_coord(i_check,i_coord) == 0) then
-                            !write(*,*) i_p_elem
-                            !write(*,*) 'node 1',i_coord, same_coord(1,i_coord)
-                            !write(*,*) 'other nodes', i_coord, same_coord(i_check,i_coord)
                             cycle check_common_coord_x1_1
                           else
                             !write(*,*) same_coord(1,:)
@@ -2779,7 +2743,6 @@ contains
                 if (sum(same_coord(i_vertex_iface,:)) .lt. 2) then
                   ! Exit from the companion_face loop because none of the nodes
                   ! of the jface has two invariant coordinates
-!                  write(*,*) 'Not the right face'
                   if (i_comp_face == size(periodic_face_data_x1(3,:))) then
                     write(*,*) 'No periodic partner face has been found for', &
                       & ' face', iface, 'of element', ielem, 'in the x1', &
@@ -2794,13 +2757,8 @@ contains
                   end if
                 endif
 
-!                write(*,*) 'same_coord', same_coord(i_vertex_iface)
-
               end do search_x1_1
              
-!              write(*,*) 'Match found' !, exiting from the companion_face loop'
-!              write(*,*) 'ID vertices jface', ivtmp_jface
-
               ! Store the periodic direction (x or y or z) of each face
               do i_coord = 1, 3
                 ! Just pick up the first node for this check.
@@ -2861,7 +2819,6 @@ contains
 
                     if(maxval(abs(ivtmp_jface(:)-ivtmp4(:))) == 0)  then
                       ef2e(1,iface,ielem) = p_face
-!                      write(*,*) 'ef2e 1', ef2e(1,iface,ielem)
                       exit
                     endif
 
@@ -2899,8 +2856,6 @@ contains
         ! Get the local (local for the element) ID of the boundary face
         iface = periodic_face_data_x1(2,i_p_elem)
 
-!        write(*,*) 'iface tag', abs(ef2e(1,iface,ielem))
-
         ! Check if the face is a "periodic" face
         if (abs(ef2e(1,iface,ielem)) == 9) then
 
@@ -2909,17 +2864,7 @@ contains
             vx_iface(1,i_vertex_iface) = vx_master(1,periodic_face_data_x1(4+i_vertex_iface,i_p_elem))
             vx_iface(2,i_vertex_iface) = vx_master(2,periodic_face_data_x1(4+i_vertex_iface,i_p_elem))
             vx_iface(3,i_vertex_iface) = vx_master(3,periodic_face_data_x1(4+i_vertex_iface,i_p_elem))
-!            write(*,*) 'ID vertices iface', periodic_face_data(3+i_vertex_iface,i_p_elem)
           end do
-
-!          write(*,*)
-!          write(*,*) 'node coordinate iface'
-!          do i_vertex_iface = 1, nverticesperface 
-!            write(*,*) 'node', i_vertex_iface
-!            write(*,*) 'x', vx_iface(1,i_vertex_iface) 
-!            write(*,*) 'y', vx_iface(2,i_vertex_iface) 
-!            write(*,*) 'z', vx_iface(3,i_vertex_iface) 
-!          end do
 
           ! Search the partner face, i.e. the corresponding "periodic" face
           partner_face_x1_2: do i_comp_face = 1, size(periodic_face_data_x1(3,:))
@@ -3053,12 +2998,9 @@ contains
                 end do
                   
                 ! Set in ef2e(2,iface,ielem) the ID of the adjoining element 
-                !if (match == nverticesperface .and. jelem /= ielem) then
                 if (match == nverticesperface) then
                   ef2e(2,iface,ielem) = jelem
 
-!                  write(*,*) 'ielem, jelem', ielem, jelem
-               
                   ! Set the ID of the adjoning face
                   do p_face = 1, nfacesperelem              
 
@@ -3075,7 +3017,6 @@ contains
 
                     if(maxval(abs(ivtmp_jface(:)-ivtmp4(:))) == 0)  then
                       ef2e(1,iface,ielem) = p_face
-!                      write(*,*) 'ef2e 1', ef2e(1,iface,ielem)
                       exit
                     endif
 
@@ -3111,15 +3052,11 @@ contains
       ! Loop over the element that owns a "periodic" face
       periodic_elem_x2_1 : do i_p_elem = 1, size(periodic_face_data_x2(1,:))
 
-!        write(*,*) 'IN bc_elem loop'
-
         ! Get the global ID of the element that owns a periodic boundary face
         ielem = periodic_face_data_x2(1,i_p_elem)
 
         ! Get the local (local for the element) ID of the periodic boundary face
         iface = periodic_face_data_x2(2,i_p_elem)
-
-!        write(*,*) 'iface tag', abs(ef2e(1,iface,ielem))
 
         ! Check if the face is a "periodic" face with tag equals to 8
         if (abs(ef2e(1,iface,ielem)) == 10) then
@@ -3131,15 +3068,6 @@ contains
             vx_iface(3,i_vertex_iface) = vx_master(3,periodic_face_data_x2(4+i_vertex_iface,i_p_elem))
 !            write(*,*) 'ID vertices iface', periodic_face_data(3+i_vertex_iface,i_p_elem)
           end do
-
-!          write(*,*)
-!          write(*,*) 'node coordinate iface'
-!          do i_vertex_iface = 1, nverticesperface 
-!            write(*,*) 'node', i_vertex_iface
-!            write(*,*) 'x', vx_iface(1,i_vertex_iface) 
-!            write(*,*) 'y', vx_iface(2,i_vertex_iface) 
-!            write(*,*) 'z', vx_iface(3,i_vertex_iface) 
-!          end do
 
           ! Search the partner face, i.e. the corresponding "periodic" face with
           ! face tag equals to 9
@@ -3161,19 +3089,7 @@ contains
                 vx_jface(3,i_vertex_jface) = vx_master(3,ivtmp_jface(i_vertex_jface))
               end do
 
-!              write(*,*)
-!              write(*,*) 'node coordinate jface'
-!              do i_vertex_jface = 1, nverticesperface 
-!                write(*,*) 'node', i_vertex_jface
-!                write(*,*) 'x', vx_jface(1,i_vertex_jface) 
-!                write(*,*) 'y', vx_jface(2,i_vertex_jface) 
-!                write(*,*) 'z', vx_jface(3,i_vertex_jface) 
-!              end do
-!              write(*,*)
-
-              !stop
-              ! Set to zero the array that keeps track of the coordinates
-              ! matches
+              ! Set to zero the array that keeps track of the coordinates matches
               same_coord = 0
 
               ! Check if the jface is a partner face.
@@ -3185,37 +3101,22 @@ contains
                 do i_vertex_jface = 1, nverticesperface
                   same_coord(i_vertex_iface,:) = 0
                   do i_coord = 1, 3
-!                    write(*,*) 'vx_iface(i_coord,i_vertex_iface)', vx_iface(i_coord,i_vertex_iface)
-!                    write(*,*) 'vx_jface(i_coord,i_vertex_jface)', vx_jface(i_coord,i_vertex_jface)
                     if (abs(vx_jface(i_coord,i_vertex_jface) - vx_iface(i_coord,i_vertex_iface)) .lt. diff_toll) then
                       same_coord(i_vertex_iface,i_coord) = 1
-!                      write(*,*) 'i_vertex_iface', i_vertex_iface
-!                      write(*,*) 'i_vertex_jface', i_vertex_jface
-!                      write(*,*) 'vx_iface(i_coord,i_vertex_iface)', vx_iface(i_coord,i_vertex_iface)
-!                      write(*,*) 'vx_jface(i_coord,i_vertex_jface)', vx_jface(i_coord,i_vertex_jface)
-!                      write(*,*) 'HERE'
-!                      write(*,*) 'i_coord', i_coord
                     endif
                   end do
                   
                   if (sum(same_coord(i_vertex_iface,:)) == 2) then
                     ! Found a vertex of the jface which has two coordinates
                     ! equal to two coordinates of the vertex on the iface
-!                    write(*,*) 'Found node'
                     if (i_vertex_iface .gt. 1) then
                       ! Verify that the other possible partner nodes have the 
                       ! same two coordinates in common'
-                      !write(*,*) i_vertex_iface
                       do i_check = 2, i_vertex_iface
                         check_common_coord_x2_1: do i_coord = 1, 3
                           if (same_coord(1,i_coord)-same_coord(i_check,i_coord) == 0) then
-                            !write(*,*) i_p_elem
-                            !write(*,*) 'node 1',i_coord, same_coord(1,i_coord)
-                            !write(*,*) 'other nodes', i_coord, same_coord(i_check,i_coord)
                             cycle check_common_coord_x2_1
                           else
-                            !write(*,*) same_coord(1,:)
-                            !write(*,*) same_coord(i_check,:)
                             write(*,*) 'The periodic boundary conditions', &
                               & ' works only for two parallel boundary planes.', &
                               & ' Check x2 direction.'
@@ -3237,7 +3138,6 @@ contains
                 if (sum(same_coord(i_vertex_iface,:)) .lt. 2) then
                   ! Exit from the companion_face loop because none of the nodes
                   ! of the jface has two invariant coordinates
-!                  write(*,*) 'Not the right face'
                   if (i_comp_face == size(periodic_face_data_x2(3,:))) then
                     write(*,*) 'No periodic partner face has been found for', &
                       & ' face', iface, 'of element', ielem, 'in the x2', &
@@ -3252,13 +3152,8 @@ contains
                   end if
                 endif
 
-!                write(*,*) 'same_coord', same_coord(i_vertex_iface)
-
               end do search_x2_1
              
-!              write(*,*) 'Match found' !, exiting from the companion_face loop'
-!              write(*,*) 'ID vertices jface', ivtmp_jface
-
               ! Store the periodic direction (x or y or z) of each face
               do i_coord = 1, 3
                 ! Just pick up the first node for this check.
@@ -3289,20 +3184,9 @@ contains
                 end do
                   
                 ! Set in ef2e(2,iface,ielem) the ID of the adjoining element 
-                !if (match == nverticesperface .and. jelem /= ielem) then
                 if (match == nverticesperface) then
                   ef2e(2,iface,ielem) = jelem
 
-!                  write(*,*) 'ielem, jelem', ielem, jelem
-
-!                  do i_vertex_jface = 1, nverticesperface
-!                    do i_vertex_hexa = 1, nverticesperelem
-!                      if (iv_hexa_elem(i_vertex_hexa) == ivtmp_jface(i_vertex_jface)) then
-!                        ic2nh_mod(i_vertex_hexa,jelem) = periodic_face_data(3+i_vertex_jface,i_p_elem)
-!                      endif
-!                    end do
-!                  end do
-               
                   ! Set the ID of the adjoning face
                   do p_face = 1, nfacesperelem              
 
@@ -3319,7 +3203,6 @@ contains
 
                     if(maxval(abs(ivtmp_jface(:)-ivtmp4(:))) == 0)  then
                       ef2e(1,iface,ielem) = p_face
-!                      write(*,*) 'ef2e 1', ef2e(1,iface,ielem)
                       exit
                     endif
 
@@ -3344,7 +3227,6 @@ contains
 
       end do periodic_elem_x2_1
 
-
 !      write(*,*) 'NOW THE SYMMETRIC PART'
       
       periodic_elem_x2_2 : do i_p_elem = 1, size(periodic_face_data_x2(1,:))
@@ -3357,8 +3239,6 @@ contains
         ! Get the local (local for the element) ID of the boundary face
         iface = periodic_face_data_x2(2,i_p_elem)
 
-!        write(*,*) 'iface tag', abs(ef2e(1,iface,ielem))
-
         ! Check if the face is a "periodic" face
         if (abs(ef2e(1,iface,ielem)) == 11) then
 
@@ -3367,17 +3247,7 @@ contains
             vx_iface(1,i_vertex_iface) = vx_master(1,periodic_face_data_x2(4+i_vertex_iface,i_p_elem))
             vx_iface(2,i_vertex_iface) = vx_master(2,periodic_face_data_x2(4+i_vertex_iface,i_p_elem))
             vx_iface(3,i_vertex_iface) = vx_master(3,periodic_face_data_x2(4+i_vertex_iface,i_p_elem))
-!            write(*,*) 'ID vertices iface', periodic_face_data(3+i_vertex_iface,i_p_elem)
           end do
-
-!          write(*,*)
-!          write(*,*) 'node coordinate iface'
-!          do i_vertex_iface = 1, nverticesperface 
-!            write(*,*) 'node', i_vertex_iface
-!            write(*,*) 'x', vx_iface(1,i_vertex_iface) 
-!            write(*,*) 'y', vx_iface(2,i_vertex_iface) 
-!            write(*,*) 'z', vx_iface(3,i_vertex_iface) 
-!          end do
 
           ! Search the partner face, i.e. the corresponding "periodic" face
           partner_face_x2_2: do i_comp_face = 1, size(periodic_face_data_x2(3,:))
@@ -3399,17 +3269,6 @@ contains
                 vx_jface(3,i_vertex_jface) = vx_master(3,ivtmp_jface(i_vertex_jface))
               end do
 
-!              write(*,*)
-!              write(*,*) 'node coordinate jface'
-!              do i_vertex_jface = 1, nverticesperface 
-!                write(*,*) 'node', i_vertex_jface
-!                write(*,*) 'x', vx_jface(1,i_vertex_jface) 
-!                write(*,*) 'y', vx_jface(2,i_vertex_jface) 
-!                write(*,*) 'z', vx_jface(3,i_vertex_jface) 
-!              end do
-!              write(*,*)
-               
-
               ! Set to zero the array that keeps track of the coordinates
               ! matches
               same_coord = 0
@@ -3423,8 +3282,6 @@ contains
                 do i_vertex_jface = 1, nverticesperface
                   same_coord(i_vertex_iface,:) = 0
                   do i_coord = 1, 3
-!                    write(*,*) 'vx_iface(i_coord,i_vertex_iface)', vx_iface(i_coord,i_vertex_iface)
-!                    write(*,*) 'vx_jface(i_coord,i_vertex_jface)', vx_jface(i_coord,i_vertex_jface)
                     if (abs(vx_jface(i_coord,i_vertex_jface) - vx_iface(i_coord,i_vertex_iface)) .lt. diff_toll) then
                       same_coord(i_vertex_iface,i_coord) = 1 
                     endif
@@ -3433,7 +3290,6 @@ contains
                   if (sum(same_coord(i_vertex_iface,:)) == 2) then
                     ! Found a vertex of the jface which has two coordinates
                     ! equal to two coordinates of the vertex on the iface
-!                    write(*,*) 'Found node'
                     if (i_vertex_iface .gt. 1) then
                       ! Verify that the other possible partner nodes have the 
                       ! same two coordinates in common
@@ -3460,7 +3316,6 @@ contains
                 if (sum(same_coord(i_vertex_iface,:)) .lt. 2) then
                   ! Exit from the companion_face loop because none of the nodes
                   ! of the jface has two invariant coordinates
-                  !write(*,*) 'No the right face'
                   if (i_comp_face == size(periodic_face_data_x2(3,:))) then
                     write(*,*) 'No periodic partner face has been found for', &
                       & ' face', iface, 'of element', ielem, 'in the x2', &
@@ -3474,13 +3329,8 @@ contains
                   end if
                 endif
 
-!                write(*,*) 'same_coord', same_coord(i_vertex_iface)
-
               end do search_x2_3
              
-!              write(*,*) 'Match found' !, exiting from the companion_face loop'
-!              write(*,*) 'ID vertices jface', ivtmp_jface
-
               ! Store the periodic direction (x or y or z) of each face
               do i_coord = 1, 3
                 ! Just pick up the first node for this check.
@@ -3511,12 +3361,9 @@ contains
                 end do
                   
                 ! Set in ef2e(2,iface,ielem) the ID of the adjoining element 
-                !if (match == nverticesperface .and. jelem /= ielem) then
                 if (match == nverticesperface) then
                   ef2e(2,iface,ielem) = jelem
 
-!                  write(*,*) 'ielem, jelem', ielem, jelem
-               
                   ! Set the ID of the adjoning face
                   do p_face = 1, nfacesperelem              
 
@@ -3533,7 +3380,6 @@ contains
 
                     if(maxval(abs(ivtmp_jface(:)-ivtmp4(:))) == 0)  then
                       ef2e(1,iface,ielem) = p_face
-!                      write(*,*) 'ef2e 1', ef2e(1,iface,ielem)
                       exit
                     endif
 
@@ -3577,8 +3423,6 @@ contains
         ! Get the local (local for the element) ID of the periodic boundary face
         iface = periodic_face_data_x3(2,i_p_elem)
 
-!        write(*,*) 'iface tag', abs(ef2e(1,iface,ielem))
-
         ! Check if the face is a "periodic" face with tag equals to 8
         if (abs(ef2e(1,iface,ielem)) == 12) then
 
@@ -3587,17 +3431,7 @@ contains
             vx_iface(1,i_vertex_iface) = vx_master(1,periodic_face_data_x3(4+i_vertex_iface,i_p_elem))
             vx_iface(2,i_vertex_iface) = vx_master(2,periodic_face_data_x3(4+i_vertex_iface,i_p_elem))
             vx_iface(3,i_vertex_iface) = vx_master(3,periodic_face_data_x3(4+i_vertex_iface,i_p_elem))
-!            write(*,*) 'ID vertices iface', periodic_face_data(3+i_vertex_iface,i_p_elem)
           end do
-
-!          write(*,*)
-!          write(*,*) 'node coordinate iface'
-!          do i_vertex_iface = 1, nverticesperface 
-!            write(*,*) 'node', i_vertex_iface
-!            write(*,*) 'x', vx_iface(1,i_vertex_iface) 
-!            write(*,*) 'y', vx_iface(2,i_vertex_iface) 
-!            write(*,*) 'z', vx_iface(3,i_vertex_iface) 
-!          end do
 
           ! Search the partner face, i.e. the corresponding "periodic" face with
           ! face tag equals to 9
@@ -3619,17 +3453,6 @@ contains
                 vx_jface(3,i_vertex_jface) = vx_master(3,ivtmp_jface(i_vertex_jface))
               end do
 
-!              write(*,*)
-!              write(*,*) 'node coordinate jface'
-!              do i_vertex_jface = 1, nverticesperface 
-!                write(*,*) 'node', i_vertex_jface
-!                write(*,*) 'x', vx_jface(1,i_vertex_jface) 
-!                write(*,*) 'y', vx_jface(2,i_vertex_jface) 
-!                write(*,*) 'z', vx_jface(3,i_vertex_jface) 
-!              end do
-!              write(*,*)
-
-              !stop
               ! Set to zero the array that keeps track of the coordinates
               ! matches
               same_coord = 0
@@ -3643,37 +3466,22 @@ contains
                 do i_vertex_jface = 1, nverticesperface
                   same_coord(i_vertex_iface,:) = 0
                   do i_coord = 1, 3
-!                    write(*,*) 'vx_iface(i_coord,i_vertex_iface)', vx_iface(i_coord,i_vertex_iface)
-!                    write(*,*) 'vx_jface(i_coord,i_vertex_jface)', vx_jface(i_coord,i_vertex_jface)
                     if (abs(vx_jface(i_coord,i_vertex_jface) - vx_iface(i_coord,i_vertex_iface)) .lt. diff_toll) then
                       same_coord(i_vertex_iface,i_coord) = 1
-!                      write(*,*) 'i_vertex_iface', i_vertex_iface
-!                      write(*,*) 'i_vertex_jface', i_vertex_jface
-!                      write(*,*) 'vx_iface(i_coord,i_vertex_iface)', vx_iface(i_coord,i_vertex_iface)
-!                      write(*,*) 'vx_jface(i_coord,i_vertex_jface)', vx_jface(i_coord,i_vertex_jface)
-!                      write(*,*) 'HERE'
-!                      write(*,*) 'i_coord', i_coord
                     endif
                   end do
                   
                   if (sum(same_coord(i_vertex_iface,:)) == 2) then
                     ! Found a vertex of the jface which has two coordinates
                     ! equal to two coordinates of the vertex on the iface
-!                    write(*,*) 'Found node'
                     if (i_vertex_iface .gt. 1) then
                       ! Verify that the other possible partner nodes have the 
                       ! same two coordinates in common'
-                      !write(*,*) i_vertex_iface
                       do i_check = 2, i_vertex_iface
                         check_common_coord_x3_1: do i_coord = 1, 3
                           if (same_coord(1,i_coord)-same_coord(i_check,i_coord) == 0) then
-                            !write(*,*) i_p_elem
-                            !write(*,*) 'node 1',i_coord, same_coord(1,i_coord)
-                            !write(*,*) 'other nodes', i_coord, same_coord(i_check,i_coord)
                             cycle check_common_coord_x3_1
                           else
-                            !write(*,*) same_coord(1,:)
-                            !write(*,*) same_coord(i_check,:)
                             write(*,*) 'The periodic boundary conditions', &
                               & ' works only for two parallel boundary planes.', &
                               & ' Check x3 direction.'
@@ -3695,7 +3503,6 @@ contains
                 if (sum(same_coord(i_vertex_iface,:)) .lt. 2) then
                   ! Exit from the companion_face loop because none of the nodes
                   ! of the jface has two invariant coordinates
-!                  write(*,*) 'Not the right face'
                   if (i_comp_face == size(periodic_face_data_x3(3,:))) then
                     write(*,*) 'No periodic partner face has been found for', &
                       & ' face', iface, 'of element', ielem, 'in the x3', &
@@ -3710,13 +3517,8 @@ contains
                   end if
                 endif
 
-!                write(*,*) 'same_coord', same_coord(i_vertex_iface)
-
               end do search_x3_1
              
-!              write(*,*) 'Match found' !, exiting from the companion_face loop'
-!              write(*,*) 'ID vertices jface', ivtmp_jface
-
               ! Store the periodic direction (x or y or z) of each face
               do i_coord = 1, 3
                 ! Just pick up the first node for this check.
@@ -3747,20 +3549,9 @@ contains
                 end do
                   
                 ! Set in ef2e(2,iface,ielem) the ID of the adjoining element 
-                !if (match == nverticesperface .and. jelem /= ielem) then
                 if (match == nverticesperface) then
                   ef2e(2,iface,ielem) = jelem
 
-!                  write(*,*) 'ielem, jelem', ielem, jelem
-
-!                  do i_vertex_jface = 1, nverticesperface
-!                    do i_vertex_hexa = 1, nverticesperelem
-!                      if (iv_hexa_elem(i_vertex_hexa) == ivtmp_jface(i_vertex_jface)) then
-!                        ic2nh_mod(i_vertex_hexa,jelem) = periodic_face_data(3+i_vertex_jface,i_p_elem)
-!                      endif
-!                    end do
-!                  end do
-               
                   ! Set the ID of the adjoning face
                   do p_face = 1, nfacesperelem              
 
@@ -3777,7 +3568,6 @@ contains
 
                     if(maxval(abs(ivtmp_jface(:)-ivtmp4(:))) == 0)  then
                       ef2e(1,iface,ielem) = p_face
-!                      write(*,*) 'ef2e 1', ef2e(1,iface,ielem)
                       exit
                     endif
 
@@ -3815,8 +3605,6 @@ contains
         ! Get the local (local for the element) ID of the boundary face
         iface = periodic_face_data_x3(2,i_p_elem)
 
-!        write(*,*) 'iface tag', abs(ef2e(1,iface,ielem))
-
         ! Check if the face is a "periodic" face
         if (abs(ef2e(1,iface,ielem)) == 13) then
 
@@ -3825,17 +3613,7 @@ contains
             vx_iface(1,i_vertex_iface) = vx_master(1,periodic_face_data_x3(4+i_vertex_iface,i_p_elem))
             vx_iface(2,i_vertex_iface) = vx_master(2,periodic_face_data_x3(4+i_vertex_iface,i_p_elem))
             vx_iface(3,i_vertex_iface) = vx_master(3,periodic_face_data_x3(4+i_vertex_iface,i_p_elem))
-!            write(*,*) 'ID vertices iface', periodic_face_data(3+i_vertex_iface,i_p_elem)
           end do
-
-!          write(*,*)
-!          write(*,*) 'node coordinate iface'
-!          do i_vertex_iface = 1, nverticesperface 
-!            write(*,*) 'node', i_vertex_iface
-!            write(*,*) 'x', vx_iface(1,i_vertex_iface) 
-!            write(*,*) 'y', vx_iface(2,i_vertex_iface) 
-!            write(*,*) 'z', vx_iface(3,i_vertex_iface) 
-!          end do
 
           ! Search the partner face, i.e. the corresponding "periodic" face
           partner_face_x3_2: do i_comp_face = 1, size(periodic_face_data_x3(3,:))
@@ -3857,19 +3635,7 @@ contains
                 vx_jface(3,i_vertex_jface) = vx_master(3,ivtmp_jface(i_vertex_jface))
               end do
 
-!              write(*,*)
-!              write(*,*) 'node coordinate jface'
-!              do i_vertex_jface = 1, nverticesperface 
-!                write(*,*) 'node', i_vertex_jface
-!                write(*,*) 'x', vx_jface(1,i_vertex_jface) 
-!                write(*,*) 'y', vx_jface(2,i_vertex_jface) 
-!                write(*,*) 'z', vx_jface(3,i_vertex_jface) 
-!              end do
-!              write(*,*)
-               
-
-              ! Set to zero the array that keeps track of the coordinates
-              ! matches
+              ! Set to zero the array that keeps track of the coordinates matches
               same_coord = 0
 
               ! Check if the jface is a partner face.
@@ -3881,8 +3647,6 @@ contains
                 do i_vertex_jface = 1, nverticesperface
                   same_coord(i_vertex_iface,:) = 0
                   do i_coord = 1, 3
-!                    write(*,*) 'vx_iface(i_coord,i_vertex_iface)', vx_iface(i_coord,i_vertex_iface)
-!                    write(*,*) 'vx_jface(i_coord,i_vertex_jface)', vx_jface(i_coord,i_vertex_jface)
                     if (abs(vx_jface(i_coord,i_vertex_jface) - vx_iface(i_coord,i_vertex_iface)) .lt. diff_toll) then
                       same_coord(i_vertex_iface,i_coord) = 1 
                     endif
@@ -3891,7 +3655,6 @@ contains
                   if (sum(same_coord(i_vertex_iface,:)) == 2) then
                     ! Found a vertex of the jface which has two coordinates
                     ! equal to two coordinates of the vertex on the iface
-!                    write(*,*) 'Found node'
                     if (i_vertex_iface .gt. 1) then
                       ! Verify that the other possible partner nodes have the 
                       ! same two coordinates in common
@@ -3918,7 +3681,6 @@ contains
                 if (sum(same_coord(i_vertex_iface,:)) .lt. 2) then
                   ! Exit from the companion_face loop because none of the nodes
                   ! of the jface has two invariant coordinates
-                  !write(*,*) 'No the right face'
                   if (i_comp_face == size(periodic_face_data_x3(3,:))) then
                     write(*,*) 'No periodic partner face has been found for', &
                       & ' face', iface, 'of element', ielem, 'in the x3', &
@@ -3932,13 +3694,8 @@ contains
                   end if
                 endif
 
-!                write(*,*) 'same_coord', same_coord(i_vertex_iface)
-
               end do search_x3_3
              
-!              write(*,*) 'Match found' !, exiting from the companion_face loop'
-!              write(*,*) 'ID vertices jface', ivtmp_jface
-
               ! Store the periodic direction (x or y or z) of each face
               do i_coord = 1, 3
                 ! Just pick up the first node for this check.
@@ -3969,12 +3726,9 @@ contains
                 end do
                   
                 ! Set in ef2e(2,iface,ielem) the ID of the adjoining element 
-                !if (match == nverticesperface .and. jelem /= ielem) then
                 if (match == nverticesperface) then
                   ef2e(2,iface,ielem) = jelem
 
-!                  write(*,*) 'ielem, jelem', ielem, jelem
-               
                   ! Set the ID of the adjoning face
                   do p_face = 1, nfacesperelem              
 
@@ -3991,7 +3745,6 @@ contains
 
                     if(maxval(abs(ivtmp_jface(:)-ivtmp4(:))) == 0)  then
                       ef2e(1,iface,ielem) = p_face
-!                      write(*,*) 'ef2e 1', ef2e(1,iface,ielem)
                       exit
                     endif
 
@@ -4117,11 +3870,6 @@ contains
       
       iae2v_tmp = iae2v
 
-!      do i = 1, size(iae2v)
-!       cnt_pack = cnt_pack + 1
-!        write(93,*) iae2v(i)
-!      end do
-
       cnt = 0
       do j = 1,nelems
         do i = 1,nverticesperelem
@@ -4147,7 +3895,7 @@ contains
 
     else
       write(*,*) 'Unknown number of spatial dimension of the problem:', ndim
-      write(*,*) 'Exting...'
+      write(*,*) 'Exiting...'
       stop
     end if ! End if ndim == 3
 
@@ -4156,7 +3904,47 @@ contains
 
   !============================================================================
   
-    subroutine set_element_orders()     !  PARALLEL Routine
+    subroutine set_element_orders_Serial()     !  Serial Routine
+
+    ! Load modules
+    use variables
+    use collocationvariables
+    use referencevariables, only : npoly, nfacesperelem
+
+    ! Nothing is implicitly defined
+    implicit none
+   
+    integer :: ielem, j, nhex, iface
+
+    nhex = size(ic2nh,2)
+
+    if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,1:nhex))
+
+    do ielem = 1,nhex
+
+      elem_props(1,ielem) = 1
+      elem_props(2,ielem) = npoly+1
+      do j=1,8
+        if(vx_master(1,ic2nh(j,ielem)) >= 100000.5_wp) elem_props(2,ielem) = npoly+2
+      enddo
+ 
+    enddo
+
+    do ielem = 1,nhex
+
+      do iface = 1,nfacesperelem
+
+        if(ef2e(2,iface,ielem) > 0) ef2e(4,iface,ielem) = elem_props(2,ef2e(2,iface,ielem))
+
+      enddo
+    enddo
+ 
+
+    end subroutine set_element_orders_Serial    !  Serial Routine
+
+  !============================================================================
+  
+    subroutine set_element_orders()     !  Parallel Routine
 
     ! Load modules
     use variables
@@ -4168,8 +3956,7 @@ contains
    
     integer :: ielem, j
 
-
-    allocate(elem_props(2,ihelems(1):ihelems(2)))
+    if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,ihelems(1):ihelems(2)))
 
     do ielem = ihelems(1),ihelems(2)
 
@@ -4181,7 +3968,7 @@ contains
  
     enddo
 
-    end subroutine      !  PARALLEL Routine
+    end subroutine set_element_orders    !  Parallel Routine
 
   !============================================================================
 
