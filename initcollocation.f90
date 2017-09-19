@@ -14,7 +14,8 @@ module initcollocation
   public Interpolate_GLL_2_GL
   public Intrpltnmatrix
   public Extrpltnmatrix
-  public ExtrpXA2XB
+  public ExtrpXA2XB_2D
+  public ExtrpXA2XB_3D
   public Filter_GLL_2_GLL
   public FilterMatrix
   public Get_Ext_SSSCE_S2F
@@ -807,47 +808,36 @@ contains
 
   end subroutine Extrpltnmatrix
 
-  subroutine ExtrpXA2XB(Ndim,NPtsA,NPtsB,XA,XB,fA,fB)
-  ! Extrapolate data from XA points to XB points
-  ! Assume tensor product distributions.  i.e. the same in each direction
-  !  
+!=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+  subroutine ExtrpXA2XB_2D(NPtsA,NPtsB,XA,XB,fA,fB,Extrp)
+
+  ! Extrapolate from Tensor product XA points to Tensor product XB points
 
   implicit none
 
-  integer,                    intent(in   )  :: Ndim, NPtsA, NPtsB
-  real(wp), dimension(NPtsA), intent(in   )  :: XA
-  real(wp), dimension(NPtsB), intent(in   )  :: XB
-  real(wp), dimension(:),     intent(in   )  :: fA
-  real(wp), dimension(:),     intent(inout)  :: fB
+  integer,                          intent(in   )  :: NPtsA, NPtsB
+  real(wp), dimension(NPtsA),       intent(in   )  :: XA
+  real(wp), dimension(NPtsB),       intent(in   )  :: XB
+  real(wp), dimension(NPtsB,NptsA), intent(in   )  :: Extrp
+  real(wp), dimension(:),           intent(in   )  :: fA
+  real(wp), dimension(:),           intent(inout)  :: fB
 
-  real(wp), dimension(NPtsB,NptsA)           :: Extrp
+  real(wp), allocatable, dimension(:,:)   :: F1
 
-  real(wp), allocatable, dimension(:,:,:)  :: F1
-  real(wp), allocatable, dimension(:,:,:)  :: F2
+  integer                                 :: i,j,m,n
+  integer                                 :: StrideY
 
-  integer                                 :: i,j,k,m,n
-  integer                                 :: StrideY, StrideZ
-
-  call ComputeSolutionToFluxExtrapolationMatrix(NPtsA, NPtsB, XA, XB, Extrp)
-
-  !     do i = 1,NPtsB
-  !       write(*,'(i5,3(e15.5,1x))')i,(Extrp(i,j),j=1,NPtsA)
-  !     enddo
-
-  select case(ndim)
-
-  case(2)
-
-    allocate(F1(NptsB,NptsA,1))
+    allocate(F1(NptsB,NptsA))
 
     ! Extrapolate in the xi direction;
     StrideY = NPtsA
-    F1(:,:,:) = 0.0_wp
+    F1(:,:) = 0.0_wp
     do j = 1,NPtsA
       do i = 1,NPtsB
         do m = 1,NPtsA
           n = + (j-1)*StrideY + m
-          F1(i,j,1) = F1(i,j,1) + Extrp(i,m)*FA(n)
+          F1(i,j) = F1(i,j) + Extrp(i,m)*FA(n)
         enddo
       enddo
     enddo
@@ -859,13 +849,37 @@ contains
       do i = 1,NPtsB
         do m = 1,NPtsA
           n = + (j-1)*StrideY + i
-          FB(n) = FB(n) + Extrp(j,m)*F1(i,m,1)
+          FB(n) = FB(n) + Extrp(j,m)*F1(i,m)
         enddo
       enddo
     enddo
+
     deallocate(F1)
 
-  case(3)
+  end subroutine ExtrpXA2XB_2D
+
+!=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+  subroutine ExtrpXA2XB_3D(NPtsA,NPtsB,XA,XB,fA,fB,Extrp)
+
+  ! Extrapolate from Tensor product XA points to Tensor product XB points
+
+  implicit none
+
+  integer,                          intent(in   )  :: NPtsA, NPtsB
+  real(wp), dimension(NPtsA),       intent(in   )  :: XA
+  real(wp), dimension(NPtsB),       intent(in   )  :: XB
+  real(wp), dimension(NPtsB,NptsA), intent(in   )  :: Extrp
+  real(wp), dimension(:),           intent(in   )  :: fA
+  real(wp), dimension(:),           intent(inout)  :: fB
+
+
+  real(wp), allocatable, dimension(:,:,:)  :: F1
+  real(wp), allocatable, dimension(:,:,:)  :: F2
+
+  integer                                 :: i,j,k,m,n
+  integer                                 :: StrideY, StrideZ
+
 
     allocate(F1(NptsB,NptsA,NptsA))
     allocate(F2(NptsB,NptsB,NptsA))
@@ -912,19 +926,10 @@ contains
     deallocate(F1)
     deallocate(F2)
 
-  case default
-
-    write(*,*)'NDim must be either 2 or three'
-    write(*,*)'stopping'
-    stop
-  end select
-
-  return
-
-  end subroutine ExtrpXA2XB
+  end subroutine ExtrpXA2XB_3D
 
 !=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-!=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
 !   What follows is a HUGE amount of coefficient data
 !   All numbers were generated using Mathematica in N[*,30]  format.
 !=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
