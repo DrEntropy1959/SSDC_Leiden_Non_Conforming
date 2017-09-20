@@ -14,7 +14,7 @@ module non_conforming
   public Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo
   public Vandermonde_1D_monomial
   public Rotate_xione_2_xitwo_and_back
-  public Rotate_LGL_2_Gau_and_back_I
+  public Rotate_GL_2_G_and_back_I
 contains
 !==================================================================================================
 !
@@ -184,7 +184,7 @@ contains
 
 !==================================================================================================
 !
-! Rotate_LGL_2_Gau_and_back_I()
+! Rotate_GL_2_G_and_back_I()
 !
 ! Purpose: This gives back the interpolant from GL to G and back
 !
@@ -204,7 +204,7 @@ contains
 !         IG2GL (real(wp)) size(nGLXnG): interpolation matrix from the G nodes to GL nodes
 !
 !===================================================================================================
-   subroutine Rotate_LGL_2_Gau_and_back_I(nGL,nG,xiGL,xiG,BxiGL,BxiG,IGL2G,IG2GL)
+   subroutine Rotate_GL_2_G_and_back_I(nGL,nG,xiGL,xiG,BxiGL,BxiG,IGL2G,IG2GL)
 
      !-- Nothing is implicitely defined
      implicit none
@@ -346,7 +346,7 @@ contains
     else if (nGL==16.AND.nG==16) then
     else if (nGL==17.AND.nG==17) then
     end if 
-   end subroutine Rotate_LGL_2_Gau_and_back_I
+   end subroutine Rotate_GL_2_G_and_back_I
 
 !==================================================================================================
 !
