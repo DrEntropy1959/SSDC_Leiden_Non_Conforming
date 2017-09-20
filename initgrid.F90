@@ -22,12 +22,13 @@ module initgrid
   public set_element_orders_Serial
   public calculatepartitions
 
-  public calcnodes
-  public calcmetrics
+  public calcnodes_LGL
+  public calcmetrics_LGL
   public facenodesetup_LGL
+  public facenodesetup_Gau
   public facenodesetup_LGL_WENO
-  public calculate_face_node_connectivity
-  public calcfacenormals
+  public calculate_face_node_connectivity_LGL
+  public calcfacenormals_LGL
   public init_elem_type
   public create_ldg_flip_flop_sign
   public pert_int_vert
@@ -37,6 +38,7 @@ module initgrid
   public Pencil_Coord
   public WENO_Intrp_Face_Nodes
   public Boundary_Vertex_2_Vertex_Connectivity
+  public calc_Gau_shell_pts_all_hexas
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
@@ -714,7 +716,7 @@ contains
   
   !============================================================================
 
-  subroutine calcnodes()
+  subroutine calcnodes_LGL()
     ! this subroutine populates the nodal grid locations for
     ! each element. Currently we assume that all elements are
     ! straight sided, but this can be remedied by incorporating
@@ -900,7 +902,7 @@ contains
     end do
     deallocate(xl)
 
-  end subroutine calcnodes
+  end subroutine calcnodes_LGL
 
 ! =============================================================================
 
@@ -1108,12 +1110,12 @@ contains
   ! collocation points.
   !============================================================================
 
-  subroutine calculate_face_node_connectivity()
+  subroutine calculate_face_node_connectivity_LGL()
     
     ! Load modules
     use referencevariables
     use mpimod
-    use variables, only: xg, xghst, kfacenodes, ifacenodes, ef2e, efn2efn, &
+    use variables, only: xg, xghst_LGL, kfacenodes, ifacenodes, ef2e, efn2efn, &
       & jelems, periodic_elem_face_ids_x1, &
       & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
 
@@ -1221,7 +1223,7 @@ contains
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
-                    x2 = xghst(:,i_low + jnode)
+                    x2 = xghst_LGL(:,i_low + jnode)
                 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1320,7 +1322,7 @@ contains
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
-                    x2 = xghst(:,i_low + jnode)
+                    x2 = xghst_LGL(:,i_low + jnode)
                 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1419,7 +1421,7 @@ contains
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
-                    x2 = xghst(:,i_low + jnode)
+                    x2 = xghst_LGL(:,i_low + jnode)
                 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1496,7 +1498,7 @@ contains
 
                 ! Coordinates of the jnode
                 ! ef2e(2) gives the element of the neighbor
-                x2 = xghst(:,i_low + jnode)
+                x2 = xghst_LGL(:,i_low + jnode)
                 
                 ! Check the distance between the two nodes
                 if (magnitude(x1-x2) <= nodetol) then
@@ -1525,7 +1527,7 @@ contains
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
                 write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
                 write(*,*) 'Node coordinates and ghost node coordinates'
-                write(*,*) x1, xghst(:,i_low + 1:i_low + nodesperface)
+                write(*,*) x1, xghst_LGL(:,i_low + 1:i_low + nodesperface)
                 write(*,*) 'Exiting...'
                 stop
               end if
@@ -1907,11 +1909,11 @@ contains
     end do ! End do loop elements owned by the processor
 
     return
-  end subroutine calculate_face_node_connectivity
+  end subroutine calculate_face_node_connectivity_LGL
 
   !============================================================================
   
-  subroutine calcfacenormals()
+  subroutine calcfacenormals_LGL()
     ! this subroutine calculates the outward facing normals
     ! of each facial node
     use referencevariables
@@ -1980,7 +1982,7 @@ contains
       end do
     endif
 
-  end subroutine calcfacenormals
+  end subroutine calcfacenormals_LGL
 
 
   pure function cross_product(a, b)
@@ -1999,7 +2001,7 @@ contains
   end function cross_product
 
 
-  subroutine calcmetrics()
+  subroutine calcmetrics_LGL()
     ! This subroutine calculates the metric transformations
     ! between computational and physical space.
     use referencevariables
@@ -2292,7 +2294,7 @@ contains
     endif
 
     return
-  end subroutine calcmetrics
+  end subroutine calcmetrics_LGL
 
 
   !============================================================================
@@ -4330,7 +4332,7 @@ contains
              inode = ifacenodes(jnode)                                   ! Volumetric node index corresponding to facial node index
              gnode = efn2efn(3,jnode,ielem)                              ! This is pointing to ghost stack not volumetric stack
              xgWENO_partner(:,jnode,ielem) = xghstWENO_partner(:,iloc) & ! off process partner data
-                   - xghst(:,iloc) + xg(:,inode,ielem)                   ! account for possibility of non-periodic domain.
+                   - xghst_LGL(:,iloc) + xg(:,inode,ielem)                   ! account for possibility of non-periodic domain.
            end do
 
          else                                                            ! On process
@@ -4929,5 +4931,320 @@ contains
     ortho_projection_to_line3D = t*x00 + (1.0_wp - t)*x01 ;
 
   end function ortho_projection_to_line3D
+
+  !============================================================================
+
+  pure function LGL_pts_lexo_comp_hexa(x_1d,n_pts_1d)
+
+    ! Nothing is implicitly defined
+    implicit none
+
+    integer, intent(in) :: n_pts_1d
+    real(wp), dimension(n_pts_1d), intent(in) :: x_1d
+    real(wp), dimension(3,n_pts_1d**3) :: LGL_pts_lexo_comp_hexa
+    real(wp) :: zeta, eta, xi
+
+    integer :: i, j, k, node_id
+
+    continue
+
+    ! Initialize to zero the coordinates
+    LGL_pts_lexo_comp_hexa(:,:) = 0.0_wp
+
+    ! Set to zero the local node ID
+    node_id = 0
+
+    ! Set the coordinates of the Gauss points in computational space
+    do i = 1, n_pts_1d
+      zeta = x_1d(i)
+      do j = 1, n_pts_1d
+         eta = x_1d(j)
+        do k = 1, n_pts_1d
+            xi = x_1d(k)
+          node_id = node_id + 1
+          LGL_pts_lexo_comp_hexa(3,node_id) = zeta
+          LGL_pts_lexo_comp_hexa(2,node_id) =  eta
+          LGL_pts_lexo_comp_hexa(1,node_id) =   xi
+        end do
+      end do
+    end do
+
+    return
+  end function LGL_pts_lexo_comp_hexa
+
+  !=================================================================================================
+
+  subroutine calc_Gau_shell_pts_all_hexas()
+
+    ! Load module
+    use variables
+    use referencevariables
+    use collocationvariables
+    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points, JacobiP11
+
+    ! Nothing is implicitly defined
+    implicit none
+
+    real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_quad
+
+    integer  :: low_elem, high_elem
+    integer  :: i_elem, i_gauss, i_LGL, j_LGL, k_LGL, i_coord
+    real(wp) :: l_xi, l_eta, l_zeta
+    real(wp) :: xi_in, eta_in, zeta_in
+    real(wp),  dimension(n_Gau_1d_pH)    :: x_Gau_1d,w_Gau_1d
+    real(wp),  dimension(:), allocatable :: x_LGL_1d
+
+    integer :: l
+    integer :: n_Gau_shell_loc, n_Gau_1d, n_LGL_1d
+
+    continue
+
+    n_Gau_1d = n_Gau_1d_pH
+    call Gauss_Legendre_points(n_Gau_1d,x_Gau_1d,w_Gau_1d)
+
+    ! Set the coordinates of the 3D Gauss points in computational space
+    n_Gau_shell_loc = nfacesperelem*n_Gau_1d**2
+
+    allocate(Gau_pts_comp_shell_quad(3,N_Gau_shell_loc))
+
+    Gau_pts_comp_shell_quad = Shell_pts_lexo_comp_quad(x_Gau_1d,n_Gau_1d)
+
+    ! Low and high element indices
+    low_elem  = ihelems(1)
+    high_elem = ihelems(2)
+
+    ! Allocate memory
+    allocate(xg_Gau_Shell(3,N_Gau_shell_loc,low_elem:high_elem))
+
+    ! Loop over volumetric elements
+    do i_elem = low_elem, high_elem
+
+      n_LGL_1d = elem_props(2,i_elem)
+      if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ; allocate(x_LGL_1d(n_LGL_1d))
+      call JacobiP11(n_LGL_1d,x_LGL_1d)
+
+      do i_gauss = 1, N_Gau_shell_loc
+        l = 0
+        xg_Gau_shell(:,i_gauss,i_elem) = 0.0_wp
+
+          xi_in = Gau_pts_comp_shell_quad(1,i_gauss)
+         eta_in = Gau_pts_comp_shell_quad(2,i_gauss)
+        zeta_in = Gau_pts_comp_shell_quad(3,i_gauss)
+
+        do k_LGL = 1, n_LGL_1d
+
+          l_zeta = lagrange_basis_function_1d(zeta_in,k_LGL,x_LGL_1d,n_LGL_1d)
+
+          do j_LGL = 1, n_LGL_1d
+
+            l_eta  = lagrange_basis_function_1d(eta_in, j_LGL,x_LGL_1d,n_LGL_1d)
+
+            do i_LGL = 1, n_LGL_1d
+              l = l + 1
+
+              l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d,n_LGL_1d)
+
+              do i_coord = 1, 3
+                xg_Gau_shell(i_coord,i_gauss,i_elem) = xg_Gau_shell(i_coord,i_gauss,i_elem) + &
+                  & xg(i_coord,l,i_elem)*l_xi*l_eta*l_zeta
+              end do
+
+            end do
+          end do
+        end do
+      end do
+
+    end do
+    if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ;
+
+    deallocate(Gau_pts_comp_shell_quad)
+
+  end subroutine calc_Gau_shell_pts_all_hexas
+
+  !============================================================================
+
+  pure function Shell_pts_lexo_comp_quad(x_pts_1d,n_pts_1d)
+
+    ! Nothing is implicitly defined
+    use referencevariables
+
+    implicit none
+
+    integer, intent(in) :: n_pts_1d
+    real(wp), dimension(n_pts_1d), intent(in) :: x_pts_1d
+    real(wp), dimension(3,nfacesperelem*n_pts_1d**2) :: Shell_pts_lexo_comp_quad
+    real(wp) :: zeta, eta, xi
+
+    integer :: i, j, k, node_id, iface
+    integer :: ixL, ixH, iyL, iyH, izL, izH
+
+    continue
+
+    ! Initialize to zero the coordinates
+    Shell_pts_lexo_comp_quad(:,:) = 0.0_wp
+
+    ! Set to zero the local node ID
+    node_id = 0
+
+    do iface=1,nfacesperelem
+      ! Set the coordinates of the Gauss points in computational space
+          if(iface == 1) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = 1
+        zeta = -1.0_wp
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_quad(3,node_id) = zeta
+              Shell_pts_lexo_comp_quad(2,node_id) = eta
+              Shell_pts_lexo_comp_quad(1,node_id) = xi
+            end do
+          end do
+      elseif(iface == 2) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = 1
+         izL = 1   ;  izH = n_pts_1d
+         eta = -1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_quad(3,node_id) = zeta
+              Shell_pts_lexo_comp_quad(2,node_id) = eta
+              Shell_pts_lexo_comp_quad(1,node_id) = xi
+            end do
+        end do
+      elseif(iface == 3) then
+         ixL = 1   ;  ixH = 1
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = n_pts_1d
+         xi  = +1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_quad(3,node_id) = zeta
+              Shell_pts_lexo_comp_quad(2,node_id) = eta
+              Shell_pts_lexo_comp_quad(1,node_id) = xi
+          end do
+        end do
+      elseif(iface == 4) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = 1
+         izL = 1   ;  izH = n_pts_1d
+         eta = +1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_quad(3,node_id) = zeta
+              Shell_pts_lexo_comp_quad(2,node_id) = eta
+              Shell_pts_lexo_comp_quad(1,node_id) = xi
+            end do
+        end do
+      elseif(iface == 5) then
+         ixL = 1   ;  ixH = 1
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = n_pts_1d
+          xi = -1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_quad(3,node_id) = zeta
+              Shell_pts_lexo_comp_quad(2,node_id) = eta
+              Shell_pts_lexo_comp_quad(1,node_id) = xi
+          end do
+        end do
+      elseif(iface == 6) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = 1
+        zeta = +1.0_wp
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_quad(3,node_id) = zeta
+              Shell_pts_lexo_comp_quad(2,node_id) = eta
+              Shell_pts_lexo_comp_quad(1,node_id) = xi
+            end do
+          end do
+        endif
+      enddo     !  face do loop 
+
+    return
+  end function Shell_pts_lexo_comp_quad
+
+  !============================================================================
+
+  subroutine facenodesetup_Gau()
+    !  This subroutine establishes pointers for grabbing the face nodes from an 
+    !  element volumetic ordering.  Implicit are that a subset of the volume nodes 
+    !  are on the face of the element
+    !  
+    !   kfacenodes(n_Gau_pts_2d,nfacesperelem)  
+    !      volumetric node index of face node  
+    !      
+    !   ifacenodes(n_Gau_pts_2d*nfacesperelem)  
+    !      kfacenode flattened into a single vector
+    !  
+    use referencevariables
+    use mpimod
+    use variables, only: kfacenodes_Gau, ifacenodes_Gau
+    use collocationvariables, only: n_Gau_2d_pH
+    implicit none
+
+    ! indices
+    integer :: i,j,k
+
+    real(wp), parameter :: nodetol = 1.0e-8_wp
+
+    ! local facial masks
+    !
+    ! kfacenodes_Gau separates each face
+    allocate(kfacenodes_Gau(n_Gau_2d_pH,nfacesperelem))
+    ! ifacenodes_Gau includes all faces
+    allocate(ifacenodes_Gau(n_Gau_2d_pH*nfacesperelem))
+
+    if (ndim == 2) then
+    else if (ndim == 3) then
+      do k = 1, n_Gau_2d_pH
+          ! face 1 does not require an offset or a stride
+          kfacenodes_Gau(k,1) = (1-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,2) = (2-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,3) = (3-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,4) = (4-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,5) = (5-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,6) = (6-1)*n_Gau_2d_pH + k
+      end do
+    else
+      write(*,*) 'error: unsupported dimension', ndim
+      stop
+    end if
+    ! the nodes on each face are packed into a 1D array
+    k = 0
+    ! loop over faces
+    do j = 1, nfacesperelem
+      ! loop over nodes on each face
+      do i = 1, n_Gau_2d_pH
+        ! advance facial node index
+        k = k+1
+        ! map facial node index to volumetric node
+        ifacenodes_Gau(k) = kfacenodes_Gau(i,j)
+      end do
+    end do
+
+  end subroutine facenodesetup_Gau
+
+  !============================================================================
 
 end module initgrid

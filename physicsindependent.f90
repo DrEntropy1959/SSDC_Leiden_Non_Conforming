@@ -154,14 +154,16 @@ contains
     ! ==============================================================
     ! call perturbvertices(0.1_wp)
     ! Collocation points
-    call calcnodes()
+    call calcnodes_LGL()
+
+!   call calc_Gau_shell_pts_all_hexas()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the metrics'
     end if
 
     ! Calculate metrics
-    call calcmetrics()
+    call calcmetrics_LGL()
 
     if (myprocid == 0) then
       write(*,*) 'Each process finds the partner node of each collocated node'
@@ -170,6 +172,7 @@ contains
 
     ! Setup collocated nodes connectivity
     call facenodesetup_LGL()
+    call facenodesetup_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process finds the WENO partner node of each collocated node'
@@ -187,7 +190,11 @@ contains
     end if
 
     ! Communicate grid values
-    call PetscGridLocations()
+    call PetscGridLocations_LGL()
+
+!   call Petsc_shell_Counter()
+
+!   call PetscGridLocations_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the face-node connectivity'
@@ -195,7 +202,8 @@ contains
     end if
 
     ! Calculate connections
-    call calculate_face_node_connectivity()
+    call calculate_face_node_connectivity_LGL()
+!   call calculate_face_node_connectivity_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the normal vectors'
@@ -203,7 +211,8 @@ contains
     end if
 
     ! Calculate normals
-    call calcfacenormals()
+    call calcfacenormals_LGL()
+!   call calcfacenormals_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Start actual computation'
