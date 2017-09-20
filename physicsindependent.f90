@@ -190,7 +190,7 @@ contains
     end if
 
     ! Communicate grid values
-    call PetscGridLocations()
+    call PetscGridLocations_LGL()
 
 !   call Petsc_shell_Counter()
 

@@ -3,7 +3,6 @@ module mpimod
   use precision_vars
   implicit none
 
-
 #include "finclude/petscsys.h"
 #include "finclude/petscvec.h"
 #include "finclude/petscis.h"
@@ -1515,8 +1514,6 @@ contains
   end subroutine distribute_elements_aflr3
 
   !============================================================================
-  
-  !============================================================================
 
   subroutine distributeelements()
     ! Load modules
@@ -1886,14 +1883,12 @@ contains
   end subroutine distributeelements
 
   !============================================================================
-  
-  !============================================================================
 
-  subroutine PetscGridLocations()
+  subroutine PetscGridLocations_LGL()
     ! Initialize the global and ghost arrays for the grid
     ! It is run in parallel by all processes
     use referencevariables
-    use variables, only: xg, xghst, ef2e, kfacenodes
+    use variables, only: xg, xghst_LGL, ef2e, kfacenodes
     use petscvariables, only: xpetsc
     implicit none
 
@@ -1907,10 +1902,12 @@ contains
     real(wp), pointer, dimension(:) :: xx_v
     PetscScalar xinit
 
-
+    ! Set number of ghost points to zero. These are LGL points.
     nghost = 0
+
     ! count necessary ghost points for each process
     ! loop over elements
+  
     do ielem = ihelems(1), ihelems(2)
       ! loop over faces
       do iface = 1, nfacesperelem
@@ -1949,8 +1946,8 @@ contains
     end do
 
     ! actual ghost cells
-    allocate(xghst(3,nghost))
-    xghst = -100._wp
+    allocate(xghst_LGL(3,nghost))
+    xghst_LGL = -100._wp
 
     ! total number of local values in physical coordinate array
     ntot = 3*nelems*nodesperelem
@@ -2022,7 +2019,7 @@ contains
           ! loop over direction
           do idir = 1,3
             ! fill ghost data
-            xghst(idir,iloc) = xx_v(ntot+3*(iloc-1)+idir)
+            xghst_LGL(idir,iloc) = xx_v(ntot+3*(iloc-1)+idir)
           end do
         end do
       end do
@@ -2036,7 +2033,7 @@ contains
 
     deallocate(iy,yy)
 
-  end subroutine PetscGridLocations
+  end subroutine PetscGridLocations_LGL
 
   !============================================================================
 
@@ -2667,9 +2664,7 @@ contains
   end subroutine UpdateComm2DGhostData
 
   !============================================================================
-  
-  !============================================================================
-  
+
   subroutine UpdateComm2DGeomGhostData(vin,vghstin,vpetscin,vlocin,nd,nk,ih,ngh)
     use referencevariables
     use variables, only: ef2e

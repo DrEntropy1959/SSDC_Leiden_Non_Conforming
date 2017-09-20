@@ -13,7 +13,7 @@ module variables
   real(wp), allocatable, dimension(:,:,:) :: XIWENO_partner
   real(wp), allocatable, dimension(:,:,:) :: ugWENO_partner
 
-  real(wp), allocatable, dimension(:,:) :: xghst
+  real(wp), allocatable, dimension(:,:) :: xghst_LGL
   real(wp), allocatable, dimension(:,:) :: xghstWENO_partner
   real(wp), allocatable, dimension(:,:) :: ughst
   real(wp), allocatable, dimension(:,:) :: ughstWENO

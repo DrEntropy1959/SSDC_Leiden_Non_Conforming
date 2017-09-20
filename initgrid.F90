@@ -1115,7 +1115,7 @@ contains
     ! Load modules
     use referencevariables
     use mpimod
-    use variables, only: xg, xghst, kfacenodes, ifacenodes, ef2e, efn2efn, &
+    use variables, only: xg, xghst_LGL, kfacenodes, ifacenodes, ef2e, efn2efn, &
       & jelems, periodic_elem_face_ids_x1, &
       & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
 
@@ -1223,7 +1223,7 @@ contains
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
-                    x2 = xghst(:,i_low + jnode)
+                    x2 = xghst_LGL(:,i_low + jnode)
                 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1322,7 +1322,7 @@ contains
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
-                    x2 = xghst(:,i_low + jnode)
+                    x2 = xghst_LGL(:,i_low + jnode)
                 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1421,7 +1421,7 @@ contains
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
-                    x2 = xghst(:,i_low + jnode)
+                    x2 = xghst_LGL(:,i_low + jnode)
                 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1498,7 +1498,7 @@ contains
 
                 ! Coordinates of the jnode
                 ! ef2e(2) gives the element of the neighbor
-                x2 = xghst(:,i_low + jnode)
+                x2 = xghst_LGL(:,i_low + jnode)
                 
                 ! Check the distance between the two nodes
                 if (magnitude(x1-x2) <= nodetol) then
@@ -1527,7 +1527,7 @@ contains
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
                 write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
                 write(*,*) 'Node coordinates and ghost node coordinates'
-                write(*,*) x1, xghst(:,i_low + 1:i_low + nodesperface)
+                write(*,*) x1, xghst_LGL(:,i_low + 1:i_low + nodesperface)
                 write(*,*) 'Exiting...'
                 stop
               end if
@@ -4332,7 +4332,7 @@ contains
              inode = ifacenodes(jnode)                                   ! Volumetric node index corresponding to facial node index
              gnode = efn2efn(3,jnode,ielem)                              ! This is pointing to ghost stack not volumetric stack
              xgWENO_partner(:,jnode,ielem) = xghstWENO_partner(:,iloc) & ! off process partner data
-                   - xghst(:,iloc) + xg(:,inode,ielem)                   ! account for possibility of non-periodic domain.
+                   - xghst_LGL(:,iloc) + xg(:,inode,ielem)                   ! account for possibility of non-periodic domain.
            end do
 
          else                                                            ! On process
