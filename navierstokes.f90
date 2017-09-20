@@ -3542,7 +3542,9 @@ contains
           allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
           allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
           allocate(FC (nequations,n_S_2D_Mort))
-
+          
+          !-- interpolation and extrapolation operators
+          ! call Rotate_xione_2_xitwo_and_back(nxione,nxitwo,xione,xitwo,Bxione,Bxitwo,xione2xitwo,xitwo2xione)
           do i = 1, n_S_2d_On
         
             ! Index in facial ordering

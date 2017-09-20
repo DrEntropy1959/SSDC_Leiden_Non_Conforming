@@ -10,7 +10,7 @@ OBJ=$PWD # where are the mod files
 #-fimplicit-none = no implicit typing allowed
 #-fcheck=all = enable run-time tests, such as array bounds check
 #-fbacktrace = if a deadly signal is encountered output a backtrace of the error
-FLAGS="-O0 -fimplicit-none -fcheck=all -fbacktrace"
+FLAGS="-g -Wall -Wextra -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -ffpe-trap=zero,overflow,underflow -finit-real=nan"
 #BIN      # where to put the program (not currently used)
 
 #-- go back to unit_tests directory

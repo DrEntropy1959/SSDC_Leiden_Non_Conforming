@@ -27,6 +27,9 @@ contains
 !           (see docs/barycentric.pdf). The notation in this subroutine is consistent with that 
 !           in the paper and specifically with the section 3 "An improved Lagrange Formula".
 !
+!           the barycentric weights, wj, are computed as wj = 1/(Pi_{k=0^{n-1,K!=j}(x_{j}-x_{k})}
+!           the Lagrange basis functions are constructed as l_{j} =l*w_{j}/(x-x_{j}) where 
+!           l = Pi_{k=0}^{n-1}(x-x_{j})
 ! Additional documentation: docs/barycentric.pdf
 !
 ! Unit tests: unit_tests/Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo_program 
@@ -72,14 +75,14 @@ contains
          !-- construct l
          l = 1.0_wp
          do i = 1, nxione
-           l = l*(xitwo(j)-xione(i))
+           l = l*(xitwo(k)-xione(i))
          end do
          !-- check to see if the nodal location on the second set of nodes matches the node 
          !-- location associated with the kth Lagrange basis function 
-         if (abs(xitwo(j)-xione(k)) <=2*epsilon(1.0_wp)) then
-           Vandermonde(j,k) = 1.0_wp
+         if (abs(xitwo(k)-xione(j)) <=2.0_wp*epsilon(1.0_wp)) then
+           Vandermonde(k,j) = 1.0_wp
          else
-           Vandermonde(j,k)  = l*wj(k)/(xitwo(j)-xione(k))
+           Vandermonde(k,j)  = l*wj(j)/(xitwo(k)-xione(j))
          end if
        end do
      end do
@@ -173,7 +176,7 @@ contains
      !-- construct the interpolant from xitwo to xione
      do i = 1, nxione
        do j = 1,nxitwo
-         xitwo2xione(i,j) = Bxione(i)*xione2xitwo(j,i)*Bxitwo(j)
+         xitwo2xione(i,j) = 1.0_wp/Bxione(i)*(xione2xitwo(j,i)*Bxitwo(j))
        end do 
      end do 
    end subroutine Rotate_xione_2_xitwo_and_back
