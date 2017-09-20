@@ -23,6 +23,7 @@ module initcollocation
   public ComputeSolutionToFluxExtrapolationMatrix
   public compute_gsat_f2s_matrix
   public element_properties
+  public lagrange_basis_function_1d
 
 contains
 
@@ -4579,5 +4580,36 @@ contains
 
     return
   end subroutine compute_gsat_f2s_matrix
+
+  !============================================================================
+
+  function lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
+
+    ! Nothing is implicitly defined
+    implicit none
+
+    integer, intent(in) :: n_lag, i_lag
+    real(wp), intent(in) :: x_in
+    real(wp), dimension(n_lag), intent(in) :: x_lag
+    integer :: i_term_lag
+    real(wp) :: lagrange_basis_function_1d
+
+    ! Initialize the Lagrange basis function to1
+
+    ! Compute the actaul value of the Lagrange basis function of the Lagrange
+    ! node i_lgl evaluated at the point give by x_gl 
+    lagrange_basis_function_1d = 1.0_wp
+    do i_term_lag = 1, n_lag
+      if(i_term_lag /= i_lag) then
+        lagrange_basis_function_1d = lagrange_basis_function_1d*&
+          & (x_in-x_lag(i_term_lag))/(x_lag(i_lag)-x_lag(i_term_lag))
+      endif
+    enddo
+
+    return
+  end function lagrange_basis_function_1d
+
+  !============================================================================
+
 
 end module initcollocation

@@ -45,6 +45,26 @@ module variables
   real(wp), allocatable, dimension(:,:,:)   :: uold
   real(wp), allocatable, dimension(:,:,:)   :: uhat
 
+  ! Variables used on the mortar interfaces 
+
+  real(wp), allocatable, dimension(:,:)       ::  xgghst_Gau_Shell
+  real(wp), allocatable, dimension(:,:)       ::  fvghst_Gau_Shell         ! (nq,nShell)
+
+  real(wp), allocatable, dimension(:,:,:)     :: xg_Gau_Shell              ! (nq,nShell,nelem)
+
+  real(wp), allocatable, dimension(:,:)       :: Jx_r_Gau_Shell            ! (nGau_Shell,nelem)
+
+  real(wp), allocatable, dimension(:,:,:)     :: wg_Gau_Shell              ! (nq,nShell,nelem)
+  real(wp), allocatable, dimension(:,:,:)     :: wg_Gau_Shell_tmp          ! (nq,nShell,nelem)
+  real(wp), allocatable, dimension(:,:)       :: wgghst_Gau_Shell
+
+  real(wp), allocatable, dimension(:,:,:,:)   :: phig_Gau_Shell            ! (nq,nd,nShell,nelem)
+  real(wp), allocatable, dimension(:,:,:,:)   :: phig_Gau_Shell_tmp        ! (nq,nd,nShell,nelem)
+  real(wp), allocatable, dimension(:,:,:)     ::  fvg_Gau_Shell            ! (nq,nShell,nelem)
+  real(wp), allocatable, dimension(:,:,:)     ::  fvg_Gau_Shell_tmp        ! (nq,nShell,nelem)
+
+  real(wp), allocatable, dimension(:,:,:)     :: phighst_Gau_Shell         ! (nq,nd,nShell)
+
   ! This variable are used with the low-storage-RK
   real(wp), allocatable, dimension(:,:,:)   :: du
   real(wp), allocatable, dimension(:,:,:)   :: dudt
