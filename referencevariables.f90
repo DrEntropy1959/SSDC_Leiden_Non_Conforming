@@ -30,6 +30,7 @@ module referencevariables
   integer :: nverticesperface = 0
   integer :: nghost = 0
   integer :: nghost_elem = 0
+  integer :: nghost_Gau_shell = 0
 
   integer :: ihelems(2)
   integer :: nprocs

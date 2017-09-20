@@ -65,6 +65,13 @@ module variables
 
   real(wp), allocatable, dimension(:,:,:)     :: phighst_Gau_Shell         ! (nq,nd,nShell)
 
+  integer,  allocatable, dimension(:,:,:)     :: efn2efn_LGL               ! ( 4,nshell,nelem)
+  integer,  allocatable, dimension(:,:,:)     :: efn2efn_Gau               ! ( 4,nshell,nelem)
+  integer,  allocatable, dimension(:,:)       :: kfacenodes_Gau
+  integer,  allocatable, dimension(:)         :: ifacenodes_Gau
+  real(wp), allocatable, dimension(:,:,:)     :: facenodenormal_LGL_shell
+  real(wp), allocatable, dimension(:,:,:)     :: facenodenormal_Gau_shell
+
   ! This variable are used with the low-storage-RK
   real(wp), allocatable, dimension(:,:,:)   :: du
   real(wp), allocatable, dimension(:,:,:)   :: dudt

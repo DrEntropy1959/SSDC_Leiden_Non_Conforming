@@ -25,9 +25,10 @@ module initgrid
   public calcnodes_LGL
   public calcmetrics_LGL
   public facenodesetup_LGL
+  public facenodesetup_Gau
   public facenodesetup_LGL_WENO
-  public calculate_face_node_connectivity
-  public calcfacenormals
+  public calculate_face_node_connectivity_LGL
+  public calcfacenormals_LGL
   public init_elem_type
   public create_ldg_flip_flop_sign
   public pert_int_vert
@@ -1109,7 +1110,7 @@ contains
   ! collocation points.
   !============================================================================
 
-  subroutine calculate_face_node_connectivity()
+  subroutine calculate_face_node_connectivity_LGL()
     
     ! Load modules
     use referencevariables
@@ -1908,11 +1909,11 @@ contains
     end do ! End do loop elements owned by the processor
 
     return
-  end subroutine calculate_face_node_connectivity
+  end subroutine calculate_face_node_connectivity_LGL
 
   !============================================================================
   
-  subroutine calcfacenormals()
+  subroutine calcfacenormals_LGL()
     ! this subroutine calculates the outward facing normals
     ! of each facial node
     use referencevariables
@@ -1981,7 +1982,7 @@ contains
       end do
     endif
 
-  end subroutine calcfacenormals
+  end subroutine calcfacenormals_LGL
 
 
   pure function cross_product(a, b)
@@ -5185,5 +5186,65 @@ contains
 
   !============================================================================
 
+  subroutine facenodesetup_Gau()
+    !  This subroutine establishes pointers for grabbing the face nodes from an 
+    !  element volumetic ordering.  Implicit are that a subset of the volume nodes 
+    !  are on the face of the element
+    !  
+    !   kfacenodes(n_Gau_pts_2d,nfacesperelem)  
+    !      volumetric node index of face node  
+    !      
+    !   ifacenodes(n_Gau_pts_2d*nfacesperelem)  
+    !      kfacenode flattened into a single vector
+    !  
+    use referencevariables
+    use mpimod
+    use variables, only: kfacenodes_Gau, ifacenodes_Gau
+    use collocationvariables, only: n_Gau_2d_pH
+    implicit none
+
+    ! indices
+    integer :: i,j,k
+
+    real(wp), parameter :: nodetol = 1.0e-8_wp
+
+    ! local facial masks
+    !
+    ! kfacenodes_Gau separates each face
+    allocate(kfacenodes_Gau(n_Gau_2d_pH,nfacesperelem))
+    ! ifacenodes_Gau includes all faces
+    allocate(ifacenodes_Gau(n_Gau_2d_pH*nfacesperelem))
+
+    if (ndim == 2) then
+    else if (ndim == 3) then
+      do k = 1, n_Gau_2d_pH
+          ! face 1 does not require an offset or a stride
+          kfacenodes_Gau(k,1) = (1-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,2) = (2-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,3) = (3-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,4) = (4-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,5) = (5-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,6) = (6-1)*n_Gau_2d_pH + k
+      end do
+    else
+      write(*,*) 'error: unsupported dimension', ndim
+      stop
+    end if
+    ! the nodes on each face are packed into a 1D array
+    k = 0
+    ! loop over faces
+    do j = 1, nfacesperelem
+      ! loop over nodes on each face
+      do i = 1, n_Gau_2d_pH
+        ! advance facial node index
+        k = k+1
+        ! map facial node index to volumetric node
+        ifacenodes_Gau(k) = kfacenodes_Gau(i,j)
+      end do
+    end do
+
+  end subroutine facenodesetup_Gau
+
+  !============================================================================
 
 end module initgrid

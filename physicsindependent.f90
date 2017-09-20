@@ -172,7 +172,7 @@ contains
 
     ! Setup collocated nodes connectivity
     call facenodesetup_LGL()
-!   call facenodesetup_Gau()
+    call facenodesetup_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process finds the WENO partner node of each collocated node'
@@ -202,7 +202,7 @@ contains
     end if
 
     ! Calculate connections
-    call calculate_face_node_connectivity()
+    call calculate_face_node_connectivity_LGL()
 !   call calculate_face_node_connectivity_Gau()
 
     if (myprocid == 0) then
@@ -211,7 +211,7 @@ contains
     end if
 
     ! Calculate normals
-    call calcfacenormals()
+    call calcfacenormals_LGL()
 !   call calcfacenormals_Gau()
 
     if (myprocid == 0) then

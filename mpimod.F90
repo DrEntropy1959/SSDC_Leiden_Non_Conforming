@@ -2038,6 +2038,38 @@ contains
 
   end subroutine PetscGridLocations
 
+  !============================================================================
+
+  subroutine Petsc_shell_Counter()
+    ! Initialize the global and ghost arrays for the grid
+    ! It is run in parallel by all processes
+    use referencevariables
+    use variables, only: ef2e
+    use collocationvariables, only: n_Gau_2d_pH, elem_props
+    implicit none
+
+    integer :: ielem, iface
+
+    ! Set number of ghost points to zero. These are LGL points.
+    nghost_Gau_shell = 0
+
+    ! count necessary ghost points for each process
+    ! loop over elements
+    do ielem = ihelems(1), ihelems(2)
+      ! loop over faces
+      do iface = 1, nfacesperelem
+        if(ef2e(4,iface,ielem) /= elem_props(2,ielem)) then
+           write(*,*)'found dissimilar element orders'
+           ! if face neighbor is off process, then add ghost nodes
+           if (ef2e(3,iface,ielem) /= myprocid) nghost_Gau_shell = nghost_Gau_shell + n_Gau_2d_pH
+        endif
+      end do
+    end do
+
+  end subroutine Petsc_shell_Counter
+
+  !============================================================================
+
   subroutine PetscComm1DDataSetup(vin, vghstin, vpetscin, vlocin, nq, nk, ne, ngh)
     ! this routine allocates the ghost data for Navier Stokes computations
     use referencevariables
