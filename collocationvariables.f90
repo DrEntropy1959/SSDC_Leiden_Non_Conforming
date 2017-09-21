@@ -79,6 +79,8 @@ module collocationvariables
   
   integer :: n_Gau_1d_pL, n_Gau_2d_pL, n_Gau_3d_pL
   integer :: n_Gau_1d_pH, n_Gau_2d_pH, n_Gau_3d_pH
+
+  integer :: n_Gau_Shell
   
   real(wp), allocatable, dimension(:)     :: x_LGL_pts_1d_pL, x_LGL_pts_1d_pH
   real(wp), allocatable, dimension(:)     :: pmat_pL , pmat_pH

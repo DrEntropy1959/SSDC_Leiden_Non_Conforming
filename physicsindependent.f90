@@ -156,8 +156,6 @@ contains
     ! Collocation points
     call calcnodes_LGL()
 
-!   call calc_Gau_shell_pts_all_hexas()
-
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the metrics'
     end if
@@ -169,6 +167,8 @@ contains
       write(*,*) 'Each process finds the partner node of each collocated node'
       write(*,*) '==============================================================='
     end if
+
+!   call calc_Gau_shell_pts_all_hexas()
 
     ! Setup collocated nodes connectivity
     call facenodesetup_LGL()
