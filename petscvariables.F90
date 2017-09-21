@@ -27,6 +27,8 @@ module petscvariables
   Vec r_x_petsc
   Vec r_x_loc_petsc
 
+  Vec xpetsc_shell
+  Vec xlocpetsc_shell
 
 end module petscvariables
 
