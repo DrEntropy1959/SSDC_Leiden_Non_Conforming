@@ -13,7 +13,7 @@ module variables
   real(wp), allocatable, dimension(:,:,:) :: XIWENO_partner
   real(wp), allocatable, dimension(:,:,:) :: ugWENO_partner
 
-  real(wp), allocatable, dimension(:,:) :: xghst
+  real(wp), allocatable, dimension(:,:) :: xghst_LGL
   real(wp), allocatable, dimension(:,:) :: xghstWENO_partner
   real(wp), allocatable, dimension(:,:) :: ughst
   real(wp), allocatable, dimension(:,:) :: ughstWENO
@@ -44,6 +44,33 @@ module variables
 
   real(wp), allocatable, dimension(:,:,:)   :: uold
   real(wp), allocatable, dimension(:,:,:)   :: uhat
+
+  ! Variables used on the mortar interfaces 
+
+  real(wp), allocatable, dimension(:,:)       ::  xgghst_Gau_Shell
+  real(wp), allocatable, dimension(:,:)       ::  fvghst_Gau_Shell         ! (nq,nShell)
+
+  real(wp), allocatable, dimension(:,:,:)     :: xg_Gau_Shell              ! (nq,nShell,nelem)
+
+  real(wp), allocatable, dimension(:,:)       :: Jx_r_Gau_Shell            ! (nGau_Shell,nelem)
+
+  real(wp), allocatable, dimension(:,:,:)     :: wg_Gau_Shell              ! (nq,nShell,nelem)
+  real(wp), allocatable, dimension(:,:,:)     :: wg_Gau_Shell_tmp          ! (nq,nShell,nelem)
+  real(wp), allocatable, dimension(:,:)       :: wgghst_Gau_Shell
+
+  real(wp), allocatable, dimension(:,:,:,:)   :: phig_Gau_Shell            ! (nq,nd,nShell,nelem)
+  real(wp), allocatable, dimension(:,:,:,:)   :: phig_Gau_Shell_tmp        ! (nq,nd,nShell,nelem)
+  real(wp), allocatable, dimension(:,:,:)     ::  fvg_Gau_Shell            ! (nq,nShell,nelem)
+  real(wp), allocatable, dimension(:,:,:)     ::  fvg_Gau_Shell_tmp        ! (nq,nShell,nelem)
+
+  real(wp), allocatable, dimension(:,:,:)     :: phighst_Gau_Shell         ! (nq,nd,nShell)
+
+  integer,  allocatable, dimension(:,:,:)     :: efn2efn_LGL               ! ( 4,nshell,nelem)
+  integer,  allocatable, dimension(:,:,:)     :: efn2efn_Gau               ! ( 4,nshell,nelem)
+  integer,  allocatable, dimension(:,:)       :: kfacenodes_Gau
+  integer,  allocatable, dimension(:)         :: ifacenodes_Gau
+  real(wp), allocatable, dimension(:,:,:)     :: facenodenormal_LGL_shell
+  real(wp), allocatable, dimension(:,:,:)     :: facenodenormal_Gau_shell
 
   ! This variable are used with the low-storage-RK
   real(wp), allocatable, dimension(:,:,:)   :: du

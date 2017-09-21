@@ -3,7 +3,6 @@ module mpimod
   use precision_vars
   implicit none
 
-
 #include "finclude/petscsys.h"
 #include "finclude/petscvec.h"
 #include "finclude/petscis.h"
@@ -1515,8 +1514,6 @@ contains
   end subroutine distribute_elements_aflr3
 
   !============================================================================
-  
-  !============================================================================
 
   subroutine distributeelements()
     ! Load modules
@@ -1887,13 +1884,11 @@ contains
 
   !============================================================================
   
-  !============================================================================
-
-  subroutine PetscGridLocations()
+  subroutine PetscGridLocations_LGL()
     ! Initialize the global and ghost arrays for the grid
     ! It is run in parallel by all processes
     use referencevariables
-    use variables, only: xg, xghst, ef2e, kfacenodes
+    use variables, only: xg, xghst_LGL, ef2e, kfacenodes
     use petscvariables, only: xpetsc
     implicit none
 
@@ -1907,10 +1902,12 @@ contains
     real(wp), pointer, dimension(:) :: xx_v
     PetscScalar xinit
 
-
+    ! Set number of ghost points to zero. These are LGL points.
     nghost = 0
+
     ! count necessary ghost points for each process
     ! loop over elements
+  
     do ielem = ihelems(1), ihelems(2)
       ! loop over faces
       do iface = 1, nfacesperelem
@@ -1949,8 +1946,8 @@ contains
     end do
 
     ! actual ghost cells
-    allocate(xghst(3,nghost))
-    xghst = -100._wp
+    allocate(xghst_LGL(3,nghost))
+    xghst_LGL = -100._wp
 
     ! total number of local values in physical coordinate array
     ntot = 3*nelems*nodesperelem
@@ -2022,7 +2019,7 @@ contains
           ! loop over direction
           do idir = 1,3
             ! fill ghost data
-            xghst(idir,iloc) = xx_v(ntot+3*(iloc-1)+idir)
+            xghst_LGL(idir,iloc) = xx_v(ntot+3*(iloc-1)+idir)
           end do
         end do
       end do
@@ -2036,7 +2033,62 @@ contains
 
     deallocate(iy,yy)
 
-  end subroutine PetscGridLocations
+  end subroutine PetscGridLocations_LGL
+
+  !============================================================================
+  
+  subroutine PetscGridLocations_Gau()
+    ! Initialize the global and ghost arrays for the grid
+    ! It is run in parallel by all processes
+    use referencevariables
+    use variables, only: xg_Gau_shell, xgghst_Gau_shell
+    use petscvariables, only: xpetsc_shell, xlocpetsc_shell
+    use collocationvariables, only: n_Gau_2d_pH
+    implicit none
+
+    allocate(xgghst_Gau_shell(ndim,nghost_Gau_shell))
+
+!   call PetscComm1D_shell_DataSetup_Gau(xg_Gau_shell,xgghst_Gau_shell,xpetsc_shell,xlocpetsc_shell, &
+!                           & ndim, n_Gau_2d_pH, nelems, nghost_Gau_shell)
+
+!   call UpdateComm1D_shell_GhostData_Gau(xg_Gau_shell,xgghst_Gau_shell,xpetsc_shell,xlocpetsc_shell, &
+!                           & ndim, n_Gau_2d_pH, ihelems, nghost_Gau_shell)
+
+
+  end subroutine PetscGridLocations_Gau
+  
+
+  !============================================================================
+
+  subroutine Petsc_shell_Counter()
+    ! Initialize the global and ghost arrays for the grid
+    ! It is run in parallel by all processes
+    use referencevariables
+    use variables, only: ef2e
+    use collocationvariables, only: n_Gau_2d_pH, elem_props
+    implicit none
+
+    integer :: ielem, iface
+
+    ! Set number of ghost points to zero. These are LGL points.
+    nghost_Gau_shell = 0
+
+    ! count necessary ghost points for each process
+    ! loop over elements
+    do ielem = ihelems(1), ihelems(2)
+      ! loop over faces
+      do iface = 1, nfacesperelem
+        if(ef2e(4,iface,ielem) /= elem_props(2,ielem)) then
+           write(*,*)'found dissimilar element orders'
+           ! if face neighbor is off process, then add ghost nodes
+           if (ef2e(3,iface,ielem) /= myprocid) nghost_Gau_shell = nghost_Gau_shell + n_Gau_2d_pH
+        endif
+      end do
+    end do
+
+  end subroutine Petsc_shell_Counter
+
+  !============================================================================
 
   subroutine PetscComm1DDataSetup(vin, vghstin, vpetscin, vlocin, nq, nk, ne, ngh)
     ! this routine allocates the ghost data for Navier Stokes computations
@@ -2112,17 +2164,20 @@ contains
 
   end subroutine PetscComm1DDataSetup
 
-  subroutine PetscComm1DElementDataSetup(vin, vghstin, vpetscin, vlocin, nq, nk, ne, ngh)
+!============================================================================
+
+  subroutine PetscComm1DElementDataSetup(vin, vghstin, vpetscin, vlocin, nq, n_pts_3d, ne, ngh)
     ! this routine allocates the ghost data for Navier Stokes computations
     ! ngh = number of ghost points in adjoining elements.  ngh = nghost*nodesperedge
+    ! n_pts_3d is either n_LGL_pts_hex or n_Gau_pts_hex
     use referencevariables
     use variables, only: ef2e
     implicit none
 
     ! Arguments
     ! =========
-    integer, intent(in) :: nq, nk, ne, ngh
-    real(wp), intent(in) :: vin(nq,nk,ne)
+    integer, intent(in) :: nq, n_pts_3d, ne, ngh
+    real(wp), intent(in) :: vin(nq,n_pts_3d,ne)
     real(wp), intent(in) :: vghstin(nq,ngh)
     Vec vpetscin
     Vec vlocin
@@ -2130,8 +2185,7 @@ contains
     PetscErrorCode ierrpetsc
     integer :: ntot
     integer, allocatable :: iyu(:)
-    !real(wp), allocatable :: yu(:)
-    integer :: ielem, iloc, jloc, iface
+    integer :: ielem, jloc, iface
     integer :: i, ii, jj, ieq
     PetscScalar xinit
 
@@ -2139,7 +2193,6 @@ contains
 
     ! allocate memory for ghost locations
     allocate(iyu(ngh*nq))
-    iloc = 0
     jloc = 0
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
@@ -2152,21 +2205,20 @@ contains
         ! face of neighbor
         jj = ef2e(1,iface,ielem)
         ! loop over nodes on neighbor elements
-        do i = 1, nodesperelem
+        do i = 1, n_pts_3d
           ! loop over equations
           do ieq = 1, nq
             ! advance position in ghost array
             jloc = jloc+1
-            ! set position of ghost in global vector containing
-            ! solution data
-            iyu(jloc) = nq*nodesperelem*(ii-1) + (i-1)*nq + ieq
+            ! set position of ghost in global vector containing solution data
+            iyu(jloc) = nq * n_pts_3d * (ii-1) + (i-1)*nq + ieq
           end do
         end do
       end do
     end do
 
     ! total length of on process data for 1D vector of solution
-    ntot = nq*nelems*nodesperelem
+    ntot = nq*nelems * n_pts_3d
 
     ! create global vector for solution with ghosts
     ! 
@@ -2206,9 +2258,9 @@ contains
     integer :: ntotphi
     !real(wp), allocatable :: yphi(:)
     integer, allocatable :: iyphi(:)
-    integer :: ielem, iloc, jloc, idir, iface
+    integer :: ielem, iloc, idir, iface
     integer :: i, ii, jj, ieq
-    !Vec xlocal
+
     PetscScalar xinit
 
     xinit = 0.0_wp
@@ -2216,7 +2268,6 @@ contains
     ! allocate memory for ghost locations
     allocate(iyphi(ngh*nq*nd))
     iloc = 0
-    jloc = 0
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
       ! loop over faces
@@ -2253,8 +2304,7 @@ contains
     ! use C indexing
     iyphi = iyphi-1
     ! call to petsc to create global vector with ghosts
-    call VecCreateGhost(petsc_comm_world, ntotphi, petsc_decide, &
-      ngh*nq*nd, iyphi, vpetscin, ierrpetsc)
+    call VecCreateGhost(petsc_comm_world, ntotphi, petsc_decide, ngh*nq*nd, iyphi, vpetscin, ierrpetsc)
     ! initialize to zero
     call VecSet(vpetscin, xinit, ierrpetsc)
     ! assemble parallel vector
@@ -2270,8 +2320,7 @@ contains
   end subroutine PetscComm2DDataSetup
 
   !============================================================================
-  
-  !============================================================================
+
   subroutine PetscComm2DGeomDataSetup(vin,vghstin,vpetscin,vlocin,nd,nk,ne,ngh)
     ! this routine allocates the ghost data for Navier Stokes computations
     use referencevariables
@@ -2291,7 +2340,7 @@ contains
     integer, allocatable :: iy_r_x(:)
     integer :: ielem, iloc, jloc, idir, iface
     integer :: i, ii, jj, icomp
-    !Vec xlocal
+
     PetscScalar xinit
 
     xinit = 0.0_wp
@@ -2336,8 +2385,7 @@ contains
     ! use C indexing
     iy_r_x = iy_r_x - 1
     ! call to petsc to create global vector with ghosts
-    call VecCreateGhost(petsc_comm_world, ntot_r_x, petsc_decide, &
-      ngh*nd*nd,iy_r_x,vpetscin,ierrpetsc)
+    call VecCreateGhost(petsc_comm_world, ntot_r_x, petsc_decide, ngh*nd*nd,iy_r_x,vpetscin,ierrpetsc)
     ! initialize to zero
     call VecSet(vpetscin,xinit,ierrpetsc)
     ! assemble parallel vector
@@ -2354,7 +2402,9 @@ contains
   end subroutine PetscComm2DGeomDataSetup
 
   !============================================================================
-
+  !============================================================================
+  !  End of Communication setup routines
+  !============================================================================
   !============================================================================
 
   subroutine UpdateComm1DGhostData(vin, vghstin, vpetscin, vlocin, nq, nk, ih, ngh)
@@ -2379,8 +2429,7 @@ contains
     integer,  allocatable :: iyu(:)
     integer :: ielem, iloc, inode, iface
     integer :: i, ieq
-    !Vec xlocal
-    !PetscScalar xinit
+
     real(wp), pointer :: xx_v(:)
 
     ! length of arrays for filling global vectors with data
@@ -2396,7 +2445,7 @@ contains
         ! loop over variables
         do ieq = 1, nq
           ! update temporary solution values
-           yu(nq*(inode-1)+ieq) = vin(ieq,inode,ielem)
+          yu(nq*(inode-1)+ieq) = vin(ieq,inode,ielem)
           ! update global location of solution values
           iyu(nq*(inode-1)+ieq) = ntotu*(ielem-1)+nq*(inode-1)+ieq-1
         end do
@@ -2471,8 +2520,7 @@ contains
     integer, allocatable :: iyu(:)
     integer :: ielem, inode, iloc, iface
     integer :: i, ieq
-    !Vec xlocal
-    !PetscScalar xinit
+
     real(wp), pointer :: xx_v(:)
 
     ! length of arrays for filling global vectors with data
@@ -2539,8 +2587,6 @@ contains
 
   !============================================================================
   
-  !============================================================================
-  
   subroutine UpdateComm2DGhostData(vin, vghstin, vpetscin, vlocin, nq, nd, nk, ih, ngh)
     use referencevariables
     use variables, only: ef2e
@@ -2561,8 +2607,7 @@ contains
     integer, allocatable :: iyphi(:)
     integer :: ielem, inode, iloc, idir, iface
     integer :: i, ieq
-    !Vec xlocal
-    !PetscScalar xinit
+
     real(wp), pointer :: xx_v(:)
 
     ! length of temporary arrays for filling in global data
@@ -2582,8 +2627,7 @@ contains
             ! update gradient data
             yphi(nq*nd*(inode-1)+nq*(idir-1)+ieq) = vin(ieq,idir,inode,ielem)
             ! update global location of gradient data in 1D vector
-            iyphi(nq*nd*(inode-1)+nq*(idir-1)+ieq) = ntotphi*(ielem-1) &
-              + nq*nd*(inode-1) + nq*(idir-1)+ieq-1
+            iyphi(nq*nd*(inode-1)+nq*(idir-1)+ieq) = ntotphi*(ielem-1) + nq*nd*(inode-1) + nq*(idir-1)+ieq-1
           end do
         end do
       end do
@@ -2635,9 +2679,7 @@ contains
   end subroutine UpdateComm2DGhostData
 
   !============================================================================
-  
-  !============================================================================
-  
+
   subroutine UpdateComm2DGeomGhostData(vin,vghstin,vpetscin,vlocin,nd,nk,ih,ngh)
     use referencevariables
     use variables, only: ef2e

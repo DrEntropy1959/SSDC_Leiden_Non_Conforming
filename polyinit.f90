@@ -46,6 +46,12 @@ contains
     n_LGL_2d_pH = n_LGL_1d_pH**2
     n_LGL_3d_pH = n_LGL_1d_pH**3
 
+    n_Gau_1d_pH = n_LGL_1d_pH
+    n_Gau_2d_pH = n_LGL_2d_pH
+    n_Gau_3d_pH = n_LGL_3d_pH
+
+    n_Gau_shell = nfacesperelem*n_Gau_2d_pH
+
     ! initialize collocation matrices
     allocate(x_LGL_pts_1d_pL(n_LGL_1d_pL))
     allocate(x_LGL_pts_1d_pH(n_LGL_1d_pH))

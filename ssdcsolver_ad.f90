@@ -31,7 +31,7 @@ program ssdcsolver_ad
 	call cgnsReadUnstructuredGrid(casefile)
 	call init_quad_4()
 	! initialize connectivity
-	call E2EConnectivity()
+	call E2EConnectivity_cgns()
 	! initialize nodes
 	call calcnodes()
 	! calculate metrics

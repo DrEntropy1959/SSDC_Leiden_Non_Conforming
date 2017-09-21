@@ -1,5 +1,5 @@
 #!/bin/sh
-# compile Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo.f90 
+# compile Vandermonde_1D_monomial.f90 
 # go up one directory
 cd ..
 
@@ -18,10 +18,10 @@ gfortran -J$OBJ -c $SRC/initcollocation.f90 -o $OBJ/initcollocation.o
 gfortran -J$OBJ -c $SRC/collocationvariables.f90 -o $OBJ/collocationvariables.o
 
 #compile the program
-gfortran -I$OBJ -c Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo.f90
+gfortran -I$OBJ -c Vandermonde_1D_monomial.f90
 # make the executable
-gfortran -o Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo \
-Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo.o \
+gfortran -o Vandermonde_1D_monomial \
+Vandermonde_1D_monomial.o \
 $OBJ/precision_vars.o \
 $OBJ/non_conforming.o \
 $OBJ/referencevariables.o \

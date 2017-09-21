@@ -929,6 +929,108 @@ contains
   end function EntropyConsistentFlux
 
 !===================================================================================================
+
+  pure subroutine EntropyConsistentFlux_vectors(vl,vr,neqin,fx,fy,fz)
+    ! this function calculates the normal entropy consistent
+    ! flux based on left and right states of primitive variables.
+    ! it is consistent with the nondimensionalization employed
+    ! herein and follows directly from the work of Ismail and Roe,
+    ! DOI: 10.1016/j.jcp.2009.04.021
+    use nsereferencevariables, only: gM2I, gm1og, gp1og, gm1M2
+    implicit none
+    ! Arguments
+    ! =========
+    ! number of equations
+    integer,  intent(in)                   :: neqin
+    ! left and right states
+    real(wp), intent(in), dimension(neqin) :: vl, vr
+
+    ! left and right states
+    real(wp), intent(out), dimension(neqin) :: fx,fy,fz
+  
+  
+    ! Local Variables
+    ! ===============
+    ! temporary variables (dimension is legacy from different code)
+    real(wp), dimension(neqin) :: vhat
+
+    ! inverse and square roots of temperature states
+    real(wp) :: root_Tl_I, root_Tr_I, root_Tl, root_Tr
+    ! average of inverse temperature and its inverse
+    real(wp) :: tinvav, tinvavinv
+
+    ! prevent division by zero
+    real(wp), parameter :: sdiv = 1e-015_wp, sdiv2 = 1e-030_wp
+    ! log degenerates in multiple cases (see reference for use)
+    real(wp), parameter :: seps = 1.0e-04_wp
+    real(wp) :: xi, gs, us, ut, ftmp
+    real(wp) :: s1, s2, al
+
+    ! normal mass flux (mdot), Pressure,  Temperature
+    real(wp) :: P, T
+
+    ! Sqrt[temperature] and Sqrt[temperature]^{-1} are used a lot
+    root_Tl   = sqrt(vl(5)) ; root_Tr   = sqrt(vr(5))
+    root_Tl_I = one/root_Tl ; root_Tr_I = one/root_Tr
+    tinvav    = root_Tl_I   + root_Tr_I
+    tinvavinv = one/tinvav
+  
+    ! velocity
+    vhat(2:4) = (vl(2:4)*root_Tl_I + vr(2:4)*root_Tr_I)*tinvavinv
+
+    ! pressure
+    ftmp = vl(1)*root_Tl + vr(1)*root_Tr
+    P    = ftmp*tinvavinv
+
+    ! logarithmic averages used in density and temperature
+    ! calculate s1
+    xi = (root_Tl*vl(1))/(root_Tr*vr(1))
+    gs = (xi-one)/(xi+one)
+    us = gs*gs
+    al = exp(-us/seps)
+    s1 = half / (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
+    ut = log(xi)
+    s1 = ftmp * (al * s1 + (one-al) * gs * ut / (ut*ut + sdiv2) )
+
+    ! calculate s2
+    xi = root_Tl_I/root_Tr_I
+    gs = (xi-one)/(xi+one)
+    us = gs*gs
+    al = exp(-us/seps)
+    s2 = half / (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
+    ut = log(xi)
+    s2 = tinvav * (al * s2 + (one-al) * gs * ut / (ut*ut + sdiv2) )
+
+    ! density
+    vhat(1) = half *tinvav*s1
+
+    ! temperature
+    T = half * (gm1og * P + gp1og*s1/s2) / vhat(1)
+
+    ! total enthalpy
+    vhat(5) = gm1M2*half*dot_product(vhat(2:4),vhat(2:4)) + T
+
+    fx(1) = vhat(1)*vhat(2)
+    fx(2) = vhat(1)*vhat(2)*vhat(2) + P * gM2I
+    fx(3) = vhat(1)*vhat(2)*vhat(3)
+    fx(4) = vhat(1)*vhat(2)*vhat(4)
+    fx(5) = vhat(1)*vhat(2)*vhat(5)
+
+    fy(1) = vhat(1)*vhat(2)
+    fy(2) = vhat(1)*vhat(2)*vhat(2)
+    fy(3) = vhat(1)*vhat(2)*vhat(3) + P * gM2I
+    fy(4) = vhat(1)*vhat(2)*vhat(4)
+    fy(5) = vhat(1)*vhat(2)*vhat(5)
+
+    fz(1) = vhat(1)*vhat(2)
+    fz(2) = vhat(1)*vhat(2)*vhat(2)
+    fz(3) = vhat(1)*vhat(2)*vhat(3)
+    fz(4) = vhat(1)*vhat(2)*vhat(4) + P * gM2I
+    fz(5) = vhat(1)*vhat(2)*vhat(5)
+
+  end subroutine EntropyConsistentFlux_vectors
+
+!===================================================================================================
 ! pure function Entropy_KE_Consistent_Flux(vl,vr,Jx,nq)
   function Entropy_KE_Consistent_Flux(vl,vr,Jx,nq)
     ! this function calculates the normal entropy consistent
@@ -3015,7 +3117,7 @@ contains
     real(wp), dimension(n_S_1d),  intent(in) :: pinv
 
     ! indices
-    integer :: n_S_2d_On , n_S_2d_Off
+    integer :: n_S_2d_On , n_S_2d_Off, n_S_2D_Mort
     integer :: inode, jnode, knode, lnode, gnode
     integer :: kelem
     integer :: iface, kface
@@ -3038,6 +3140,11 @@ contains
     real(wp) :: nx(3)
     ! Lax-Freidrich max Eigenvalue
     real(wp) :: evmax
+
+    ! Flux vectors in the x,y,z directions
+    real(wp), allocatable, dimension(:,:) :: FxA, FyA, FzA
+    real(wp), allocatable, dimension(:,:) :: FxB, FyB, FzB
+    real(wp), allocatable, dimension(:,:) :: FC
 
     logical,  parameter :: testing         = .false.
 
@@ -3426,10 +3533,18 @@ contains
         else  ! Adjoining element on iface differs in order
 
           write(*,*)'I shouldnt be here'
-          kelem      = ef2e(2,iface,ielem)
-          n_S_2d_On  = elem_props(2,ielem)
-          n_S_2d_Off = elem_props(2,kelem)
+          kface       = ef2e(1,iface,ielem)
+          kelem       = ef2e(2,iface,ielem)
+          n_S_2d_On   = elem_props(2,ielem)
+          n_S_2d_Off  = ef2e(4,iface,ielem)
+          n_S_2d_mort = max(n_S_2D_On,n_S_2D_Off)
 
+          allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
+          allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
+          allocate(FC (nequations,n_S_2D_Mort))
+          
+          !-- interpolation and extrapolation operators
+          ! call Rotate_xione_2_xitwo_and_back(nxione,nxitwo,xione,xitwo,Bxione,Bxitwo,xione2xitwo,xitwo2xione)
           do i = 1, n_S_2d_On
         
             ! Index in facial ordering
@@ -3448,25 +3563,44 @@ contains
               knode =  n_S_2d_Off*(kface-1) + j
 
               ! Volumetric index of partner node
-              lnode = efn2efn(1,knode,kelem)
-!             
-!             ! Outward facing normal of facial node
-!             nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
-!             
-!             vg_Off(:) = vg(:,knode,kelem)
-!   
-!             phig_Off(:,:) = phig(:,:,knode,kelem)
-!   
-!             SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
-!                                           & vg_On,vg_Off,              &
-!                                           & phig_On,phig_Off,          &
-!                                           & nx,Jx_r(inode,ielem),      &
-!                                           & pinv(1), mut(inode,ielem))
-! 
-!             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+!             lnode = ifacenodes_poly(knode)
+
+              vg_Off(:)  = vg(:,lnode,kelem)
+
+              call EntropyConsistentFlux_Vectors(vg_On(:), vg_Off(:), nequations, FxA(:,j), FyA(:,j), FzA(:,j)) ! (Entropy Flux vectors)
 
             end do
+
+!           call ExtrpXA2XB_2D_neq(neq,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FxA,FxB,Extrp)
+!           call ExtrpXA2XB_2D_neq(neq,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FyA,FyB,Extrp)
+!           call ExtrpXA2XB_2D_neq(neq,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FzA,FzB,Extrp)
+
+            do j = 1, n_S_2d_mort
+
+              ! Index in facial ordering
+              jnode =  n_S_2d_Mort*(kface-1)+j
+
+              ! Outward facing normal of facial node
+!             nx = Jx_facenodenormal(:,perm(jnode),ielem)
+
+              FC(:,j) = FxB(:,j)*nx(1) + FyB(:,j)*nx(2) + FzB(:,j)*nx(3)
+              
+            enddo
+
+!           call ExtrpXA2XB_2D_neq_k(neq,n_S_1D_mort,n_S_1D_On,x_S_1D_mort,x_S_1D_On,FC,SAT_Pen,Extrp)
+    
+!           SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
+!                                         & vg_On,vg_Off,              &
+!                                         & phig_On,phig_Off,          &
+!                                         & nx,Jx_r(inode,ielem),      &
+!                                         & pinv(1), mut(inode,ielem))
+! 
+            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+
           end do
+          deallocate(FxA,FyA,FzA)
+          deallocate(FxB,FyB,FzB)
+          deallocate(FC)
         end if
       end if
     end do

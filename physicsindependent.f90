@@ -79,7 +79,7 @@ contains
         call check_n_procs_n_elems(nprocs,nelems)
 
         ! Create connectivity from the original grid
-        call E2EConnectivity() 
+        call E2EConnectivity_cgns() 
      
         ! Metis calculates the partitions
         call calculatepartitions() 
@@ -108,11 +108,15 @@ contains
         ! Check the number of processors and the number of elements
         call check_n_procs_n_elems(nprocs,nelems) 
 
-
         write(*,*) 'Master node builds connectivity arrays'
-       
+!       write(*,*) '==============================================================='
+
         ! Create connectivity from the original grid
-        call e2e_connectivity_aflr3() 
+        call e2e_connectivity_aflr3()  
+
+!       write(*,*) 'Master node builds element orders'
+!       write(*,*) '==============================================================='
+        call set_element_orders_serial()      
 
         ! Construct the vector of +1 and -1 for the LDG flip-flop
         call create_ldg_flip_flop_sign()
@@ -131,9 +135,14 @@ contains
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()
 
-      ! Assign element orders (HACK)
-      call set_element_orders()
-    
+      if (myprocid == 0) then
+!       write(*,*) 'read element polynomial orders'
+!       write(*,*) '==============================================================='
+      endif
+
+      ! Assign element orders
+      call set_element_orders()      
+
     end if
     
     if (myprocid == 0) then
@@ -145,22 +154,25 @@ contains
     ! ==============================================================
     ! call perturbvertices(0.1_wp)
     ! Collocation points
-    call calcnodes()
+    call calcnodes_LGL()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the metrics'
     end if
 
     ! Calculate metrics
-    call calcmetrics()
+    call calcmetrics_LGL()
 
     if (myprocid == 0) then
       write(*,*) 'Each process finds the partner node of each collocated node'
       write(*,*) '==============================================================='
     end if
 
+!   call calc_Gau_shell_pts_all_hexas()
+
     ! Setup collocated nodes connectivity
     call facenodesetup_LGL()
+    call facenodesetup_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process finds the WENO partner node of each collocated node'
@@ -178,7 +190,11 @@ contains
     end if
 
     ! Communicate grid values
-    call PetscGridLocations()
+    call PetscGridLocations_LGL()
+
+!   call Petsc_shell_Counter()
+
+!   call PetscGridLocations_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the face-node connectivity'
@@ -186,7 +202,8 @@ contains
     end if
 
     ! Calculate connections
-    call calculate_face_node_connectivity()
+    call calculate_face_node_connectivity_LGL()
+!   call calculate_face_node_connectivity_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the normal vectors'
@@ -194,7 +211,8 @@ contains
     end if
 
     ! Calculate normals
-    call calcfacenormals()
+    call calcfacenormals_LGL()
+!   call calcfacenormals_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Start actual computation'

@@ -237,6 +237,7 @@ contains
     integer                                 :: nXA, nXB, k, nodesperelem_tmp
     real(wp), allocatable, dimension(:,:,:) :: ug_tmp
     real(wp), allocatable, dimension(:)     ::  XA,  XB, tmpA, tmpB, tmpfieldA
+    real(wp), allocatable, dimension(:,:)   ::  Ext_XA2XB
 
     logical :: lexist
     character(120) :: file_name
@@ -484,13 +485,17 @@ contains
       call Gauss_Lobatto_Legendre_points(nXA,XA,tmpA)
       call Gauss_Lobatto_Legendre_points(nXB,XB,tmpB)
 
+      allocate(Ext_XA2XB(nXB,nXA))
+
+      call ComputeSolutiontoFluxExtrapolationMatrix(nXA,nXB, XA,XB, Ext_XA2XB)
+
       allocate(tmpfieldA( (nXA)**ndim ))
 
       do ielem = iell, ielh
 
         do k = 1,nequations
           tmpfieldA(:) = ug_tmp(k,:,ielem)
-          call ExtrpXA2XB(ndim,nXA,nXB,XA,XB,tmpfieldA(:),ug(k,:,ielem))
+          call ExtrpXA2XB_3D(nXA,nXB,XA,XB,tmpfieldA(:),ug(k,:,ielem),Ext_XA2XB)
         enddo
 
         call Negative_Density_Removal(nodesperelem,ielem,ug(:,:,ielem))

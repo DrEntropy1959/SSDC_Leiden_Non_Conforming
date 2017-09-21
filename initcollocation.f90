@@ -14,7 +14,8 @@ module initcollocation
   public Interpolate_GLL_2_GL
   public Intrpltnmatrix
   public Extrpltnmatrix
-  public ExtrpXA2XB
+  public ExtrpXA2XB_2D
+  public ExtrpXA2XB_3D
   public Filter_GLL_2_GLL
   public FilterMatrix
   public Get_Ext_SSSCE_S2F
@@ -22,6 +23,7 @@ module initcollocation
   public ComputeSolutionToFluxExtrapolationMatrix
   public compute_gsat_f2s_matrix
   public element_properties
+  public lagrange_basis_function_1d
 
 contains
 
@@ -807,47 +809,36 @@ contains
 
   end subroutine Extrpltnmatrix
 
-  subroutine ExtrpXA2XB(Ndim,NPtsA,NPtsB,XA,XB,fA,fB)
-  ! Extrapolate data from XA points to XB points
-  ! Assume tensor product distributions.  i.e. the same in each direction
-  !  
+!=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+  subroutine ExtrpXA2XB_2D(NPtsA,NPtsB,XA,XB,fA,fB,Extrp)
+
+  ! Extrapolate from Tensor product XA points to Tensor product XB points
 
   implicit none
 
-  integer,                    intent(in   )  :: Ndim, NPtsA, NPtsB
-  real(wp), dimension(NPtsA), intent(in   )  :: XA
-  real(wp), dimension(NPtsB), intent(in   )  :: XB
-  real(wp), dimension(:),     intent(in   )  :: fA
-  real(wp), dimension(:),     intent(inout)  :: fB
+  integer,                          intent(in   )  :: NPtsA, NPtsB
+  real(wp), dimension(NPtsA),       intent(in   )  :: XA
+  real(wp), dimension(NPtsB),       intent(in   )  :: XB
+  real(wp), dimension(NPtsB,NptsA), intent(in   )  :: Extrp
+  real(wp), dimension(:),           intent(in   )  :: fA
+  real(wp), dimension(:),           intent(inout)  :: fB
 
-  real(wp), dimension(NPtsB,NptsA)           :: Extrp
+  real(wp), allocatable, dimension(:,:)   :: F1
 
-  real(wp), allocatable, dimension(:,:,:)  :: F1
-  real(wp), allocatable, dimension(:,:,:)  :: F2
+  integer                                 :: i,j,m,n
+  integer                                 :: StrideY
 
-  integer                                 :: i,j,k,m,n
-  integer                                 :: StrideY, StrideZ
-
-  call ComputeSolutionToFluxExtrapolationMatrix(NPtsA, NPtsB, XA, XB, Extrp)
-
-  !     do i = 1,NPtsB
-  !       write(*,'(i5,3(e15.5,1x))')i,(Extrp(i,j),j=1,NPtsA)
-  !     enddo
-
-  select case(ndim)
-
-  case(2)
-
-    allocate(F1(NptsB,NptsA,1))
+    allocate(F1(NptsB,NptsA))
 
     ! Extrapolate in the xi direction;
     StrideY = NPtsA
-    F1(:,:,:) = 0.0_wp
+    F1(:,:) = 0.0_wp
     do j = 1,NPtsA
       do i = 1,NPtsB
         do m = 1,NPtsA
           n = + (j-1)*StrideY + m
-          F1(i,j,1) = F1(i,j,1) + Extrp(i,m)*FA(n)
+          F1(i,j) = F1(i,j) + Extrp(i,m)*FA(n)
         enddo
       enddo
     enddo
@@ -859,13 +850,87 @@ contains
       do i = 1,NPtsB
         do m = 1,NPtsA
           n = + (j-1)*StrideY + i
-          FB(n) = FB(n) + Extrp(j,m)*F1(i,m,1)
+          FB(n) = FB(n) + Extrp(j,m)*F1(i,m)
         enddo
       enddo
     enddo
+
     deallocate(F1)
 
-  case(3)
+  end subroutine ExtrpXA2XB_2D
+
+!=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+  subroutine ExtrpXA2XB_2D_neq(neq,NPtsA,NPtsB,XA,XB,fA,fB,Extrp)
+
+  ! Extrapolate from Tensor product XA points to Tensor product XB points
+
+  implicit none
+
+  integer,                          intent(in   )  :: neq, NPtsA, NPtsB
+  real(wp), dimension(NPtsA),       intent(in   )  :: XA
+  real(wp), dimension(NPtsB),       intent(in   )  :: XB
+  real(wp), dimension(NPtsB,NptsA), intent(in   )  :: Extrp
+  real(wp), dimension(:,:),         intent(in   )  :: fA
+  real(wp), dimension(:,:),         intent(inout)  :: fB
+
+  real(wp), allocatable, dimension(:,:,:) :: F1
+
+  integer                                 :: i,j,m,n
+  integer                                 :: StrideY
+
+    allocate(F1(neq,NptsB,NptsA))
+
+    ! Extrapolate in the xi direction;
+    StrideY = NPtsA
+    F1(:,:,:) = 0.0_wp
+    do j = 1,NPtsA
+      do i = 1,NPtsB
+        do m = 1,NPtsA
+          n = + (j-1)*StrideY + m
+          F1(:,i,j) = F1(:,i,j) + Extrp(i,m)*FA(:,n)
+        enddo
+      enddo
+    enddo
+
+    ! Extrapolate in the eta direction;
+    StrideY = NPtsB
+    FB(:,:) = 0.0_wp
+    do j = 1,NPtsB
+      do i = 1,NPtsB
+        do m = 1,NPtsA
+          n = + (j-1)*StrideY + i
+          FB(:,n) = FB(:,n) + Extrp(j,m)*F1(:,i,m)
+        enddo
+      enddo
+    enddo
+
+    deallocate(F1)
+
+  end subroutine ExtrpXA2XB_2D_neq
+
+!=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+  subroutine ExtrpXA2XB_3D(NPtsA,NPtsB,XA,XB,fA,fB,Extrp)
+
+  ! Extrapolate from Tensor product XA points to Tensor product XB points
+
+  implicit none
+
+  integer,                          intent(in   )  :: NPtsA, NPtsB
+  real(wp), dimension(NPtsA),       intent(in   )  :: XA
+  real(wp), dimension(NPtsB),       intent(in   )  :: XB
+  real(wp), dimension(NPtsB,NptsA), intent(in   )  :: Extrp
+  real(wp), dimension(:),           intent(in   )  :: fA
+  real(wp), dimension(:),           intent(inout)  :: fB
+
+
+  real(wp), allocatable, dimension(:,:,:)  :: F1
+  real(wp), allocatable, dimension(:,:,:)  :: F2
+
+  integer                                 :: i,j,k,m,n
+  integer                                 :: StrideY, StrideZ
+
 
     allocate(F1(NptsB,NptsA,NptsA))
     allocate(F2(NptsB,NptsB,NptsA))
@@ -912,19 +977,10 @@ contains
     deallocate(F1)
     deallocate(F2)
 
-  case default
-
-    write(*,*)'NDim must be either 2 or three'
-    write(*,*)'stopping'
-    stop
-  end select
-
-  return
-
-  end subroutine ExtrpXA2XB
+  end subroutine ExtrpXA2XB_3D
 
 !=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-!=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
 !   What follows is a HUGE amount of coefficient data
 !   All numbers were generated using Mathematica in N[*,30]  format.
 !=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -4524,5 +4580,36 @@ contains
 
     return
   end subroutine compute_gsat_f2s_matrix
+
+  !============================================================================
+
+  function lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
+
+    ! Nothing is implicitly defined
+    implicit none
+
+    integer, intent(in) :: n_lag, i_lag
+    real(wp), intent(in) :: x_in
+    real(wp), dimension(n_lag), intent(in) :: x_lag
+    integer :: i_term_lag
+    real(wp) :: lagrange_basis_function_1d
+
+    ! Initialize the Lagrange basis function to1
+
+    ! Compute the actaul value of the Lagrange basis function of the Lagrange
+    ! node i_lgl evaluated at the point give by x_gl 
+    lagrange_basis_function_1d = 1.0_wp
+    do i_term_lag = 1, n_lag
+      if(i_term_lag /= i_lag) then
+        lagrange_basis_function_1d = lagrange_basis_function_1d*&
+          & (x_in-x_lag(i_term_lag))/(x_lag(i_lag)-x_lag(i_term_lag))
+      endif
+    enddo
+
+    return
+  end function lagrange_basis_function_1d
+
+  !============================================================================
+
 
 end module initcollocation
