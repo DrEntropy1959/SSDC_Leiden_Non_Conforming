@@ -15,6 +15,8 @@ module initcollocation
   public Intrpltnmatrix
   public Extrpltnmatrix
   public ExtrpXA2XB_2D
+  public ExtrpXA2XB_2D_neq
+  public ExtrpXA2XB_2D_neq_k
   public ExtrpXA2XB_3D
   public Filter_GLL_2_GLL
   public FilterMatrix
@@ -24,6 +26,7 @@ module initcollocation
   public compute_gsat_f2s_matrix
   public element_properties
   public lagrange_basis_function_1d
+  public D_lagrange_basis_function_1d
 
 contains
 
@@ -911,6 +914,60 @@ contains
 
 !=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
+  subroutine ExtrpXA2XB_2D_neq_k(neq,NPtsA,NPtsB,ii,jj,XA,XB,fA,fB,Extrp)
+
+  ! Extrapolate from Tensor product XA points to Tensor product XB points
+
+  implicit none
+
+  integer,                          intent(in   )  :: neq, NPtsA, NPtsB
+  integer,                          intent(in   )  :: ii, jj
+  real(wp), dimension(NPtsA),       intent(in   )  :: XA
+  real(wp), dimension(NPtsB),       intent(in   )  :: XB
+  real(wp), dimension(NPtsB,NptsA), intent(in   )  :: Extrp
+  real(wp), dimension(:,:),         intent(in   )  :: fA
+  real(wp), dimension(:,:),         intent(inout)  :: fB
+
+  real(wp), allocatable, dimension(:,:,:) :: F1
+
+  integer                                 :: i,j,m,n
+  integer                                 :: StrideY
+
+    allocate(F1(neq,NptsB,NptsA))
+
+    ! Extrapolate in the xi direction;
+    StrideY = NPtsA
+    F1(:,:,:) = 0.0_wp
+    do j = 1,NPtsA
+!     do i = 1,NPtsB
+        i = ii
+        do m = 1,NPtsA
+          n = + (j-1)*StrideY + m
+          F1(:,i,j) = F1(:,i,j) + Extrp(i,m)*FA(:,n)
+        enddo
+!     enddo
+    enddo
+
+    ! Extrapolate in the eta direction;
+    StrideY = NPtsB
+    FB(:,:) = 0.0_wp
+!   do j = 1,NPtsB
+       j = jj
+!     do i = 1,NPtsB
+         i = ii
+        do m = 1,NPtsA
+          n = + (j-1)*StrideY + i
+          FB(:,n) = FB(:,n) + Extrp(j,m)*F1(:,i,m)
+        enddo
+!     enddo
+!   enddo
+
+    deallocate(F1)
+
+  end subroutine ExtrpXA2XB_2D_neq_k
+
+!=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
   subroutine ExtrpXA2XB_3D(NPtsA,NPtsB,XA,XB,fA,fB,Extrp)
 
   ! Extrapolate from Tensor product XA points to Tensor product XB points
@@ -1303,9 +1360,9 @@ contains
     case(07) !     P =  7 ;
       x( 1) = -0.949107912342758524526189684048_wp
       x( 2) = -0.741531185599394439863864773281_wp
-      x( 5) = -0.405845151377397166906606412077_wp
+      x( 3) = -0.405845151377397166906606412077_wp
       x( 4) = +0.000000000000000000000000000000_wp
-      x( 3) = +0.405845151377397166906606412077_wp
+      x( 5) = +0.405845151377397166906606412077_wp
       x( 6) = +0.741531185599394439863864773281_wp
       x( 7) = +0.949107912342758524526189684048_wp
 
@@ -1636,7 +1693,7 @@ contains
       w(18) = 0.0216160135264833103133427_wp
 
     case default
-      write(*,*)'only defined for p <= 18'
+      write(*,*)'Gau pts only defined for p <= 18'
       write(*,*)'stopping'
       stop
     end select
@@ -4610,6 +4667,32 @@ contains
   end function lagrange_basis_function_1d
 
   !============================================================================
+
+  function D_lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
+
+    ! Nothing is implicitly defined
+    implicit none
+
+    integer, intent(in) :: n_lag, i_lag
+    real(wp), intent(in) :: x_in
+    real(wp), dimension(n_lag), intent(in) :: x_lag
+    integer :: i_term_lag
+    real(wp) :: D_lagrange_basis_function_1d,weight
+
+    weight = 0.0_wp
+    do i_term_lag = 1, n_lag
+      if(i_term_lag /= i_lag) then
+        weight = weight+1.0_wp/(x_lag(i_lag)-x_lag(i_term_lag))
+      endif
+    enddo
+
+    D_lagrange_basis_function_1d = weight*lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
+   
+    return
+  end function D_lagrange_basis_function_1d
+
+  !============================================================================
+
 
 
 end module initcollocation
