@@ -16,6 +16,7 @@ contains
     use initcollocation
     use collocationvariables
     use SSWENO_Routines
+    use non_conforming, only: Rotate_xione_2_xitwo_and_back
 
     implicit none
     ! polynomial order
@@ -53,24 +54,26 @@ contains
     n_Gau_shell = nfacesperelem*n_Gau_2d_pH
 
     ! initialize collocation matrices
-    allocate(x_LGL_pts_1d_pL(n_LGL_1d_pL))
-    allocate(x_LGL_pts_1d_pH(n_LGL_1d_pH))
+    allocate(x_LGL_1d_pL(n_LGL_1d_pL))
+    allocate(x_LGL_1d_pH(n_LGL_1d_pH))
+    allocate(w_LGL_1d_pL(n_LGL_1d_pL))
+    allocate(w_LGL_1d_pH(n_LGL_1d_pH))
 
-    call JacobiP11(n_LGL_1D_pL-1,x_LGL_pts_1d_pL)
-    call JacobiP11(n_LGL_1D_pH-1,x_LGL_pts_1d_pH)
+    call JacobiP11(n_LGL_1D_pL-1,x_LGL_1d_pL)
+    call JacobiP11(n_LGL_1D_pH-1,x_LGL_1d_pH)
 
     allocate(pmat_pL(n_LGL_1d_pL))
     allocate(pinv_pL(n_LGL_1d_pL))
     allocate(qmat_pL(n_LGL_1d_pL,n_LGL_1d_pL))
     allocate(dmat_pL(n_LGL_1d_pL,n_LGL_1d_pL))
-    call Amat(x_LGL_pts_1d_pL,n_LGL_1d_pL,pmat_pL,pinv_pL,qmat_pL,dmat_pL) 
+    call Amat(x_LGL_1d_pL,n_LGL_1d_pL,pmat_pL,pinv_pL,qmat_pL,dmat_pL) 
 
 ! populate grad matrix
     allocate(pmat_pH(n_LGL_1d_pH))
     allocate(pinv_pH(n_LGL_1d_pH))
     allocate(qmat_pH(n_LGL_1d_pH,n_LGL_1d_pH))
     allocate(dmat_pH(n_LGL_1d_pH,n_LGL_1d_pH))
-    call Amat(x_LGL_pts_1d_pH,n_LGL_1d_pH,pmat_pH,pinv_pH,qmat_pH,dmat_pH) 
+    call Amat(x_LGL_1d_pH,n_LGL_1d_pH,pmat_pH,pinv_pH,qmat_pH,dmat_pH) 
 
     ! populate grad matrix
     call gradmatrix(n_LGL_1d_pL, n_LGL_2d_pL, n_LGL_3d_pL, nnzgrad_pL,   &
@@ -98,19 +101,31 @@ contains
 
     !  Interpolation matrices rotating LGL <-> Gau points of various orders
 
+    allocate(x_Gau_1d_pH(n_Gau_1d_pH))
+    allocate(w_Gau_1d_pH(n_Gau_1d_pH))
+!   call Gauss_Legendre_points(n_Gau_1d_pL,x_Gau_1d_pL,w_Gau_1d_pL)
+    call Gauss_Legendre_points(n_Gau_1d_pH,x_Gau_1d_pH,w_Gau_1d_pH)
+
+    w_LGL_1d_pL(:) = pmat_pL(:) ; w_LGL_1d_pH(:) = pmat_pH(:) ;
+
     allocate(Ext_LGL_p0_2_Gau_p1_1d(n_LGL_1d_pL,n_Gau_1d_pH)) ; Ext_LGL_p0_2_Gau_p1_1d = 0.0_wp ;
     allocate(Int_Gau_p1_2_LGL_p0_1d(n_Gau_1d_pH,n_LGL_1d_pL)) ; Int_Gau_p1_2_LGL_p0_1d = 0.0_wp ;
 
-    allocate(Rot_Gau_p1_2_LGL_p1_1d(n_Gau_1d_pH,n_LGL_1d_pH)) ; Rot_Gau_p1_2_LGL_p1_1d = 0.0_wp ;
     allocate(Rot_LGL_p1_2_Gau_p1_1d(n_LGL_1d_pH,n_Gau_1d_pH)) ; Rot_LGL_p1_2_Gau_p1_1d = 0.0_wp ;
+    allocate(Rot_Gau_p1_2_LGL_p1_1d(n_Gau_1d_pH,n_LGL_1d_pH)) ; Rot_Gau_p1_2_LGL_p1_1d = 0.0_wp ;
 
-!   call Rotate_LGL_H_2_Gau_H_2_LGL_H(n_Gau_1d_pH,n_LGL_1d_pH, Rot_LGL_p1_2_Gau_p1_1d , &
-!                                                            & Rot_Gau_p1_2_LGL_p1_1d )
+    call Rotate_xione_2_xitwo_and_back(n_LGL_1d_pH,n_Gau_1d_pH, &
+                                       x_LGL_1d_pH,x_Gau_1d_pH, &
+                                       w_LGL_1d_pH,w_Gau_1d_pH, &
+                                       Rot_LGL_p1_2_Gau_p1_1d,  &
+                                       Rot_Gau_p1_2_LGL_p1_1d )
 
-!   call Rotate_LGL_L_2_Gau_H_2_LGL_L(n_Gau_1d_pH,n_LGL_1d_pH, Ext_LGL_p0_2_Gau_p1_1d , &
-!                                                            & Int_Gau_p1_2_LGL_p0_1d )
-
-
+    call Rotate_xione_2_xitwo_and_back(n_LGL_1d_pL,n_Gau_1d_pH, &
+                                       x_LGL_1d_pL,x_Gau_1d_pH, &
+                                       w_LGL_1d_pL,w_Gau_1d_pH, &
+                                       Ext_LGL_p0_2_Gau_p1_1d,  &
+                                       Int_Gau_p1_2_LGL_p0_1d )
+                                       
 !   Filter Matrix
     allocate(Filter(nodesperedge,nodesperedge))
 

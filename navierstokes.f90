@@ -3532,75 +3532,120 @@ contains
 
         else  ! Adjoining element on iface differs in order
 
-          write(*,*)'I shouldnt be here'
-          kface       = ef2e(1,iface,ielem)
-          kelem       = ef2e(2,iface,ielem)
-          n_S_2d_On   = elem_props(2,ielem)
-          n_S_2d_Off  = ef2e(4,iface,ielem)
-          n_S_2d_mort = max(n_S_2D_On,n_S_2D_Off)
+!         write(*,*)'I shouldnt be here'
+!         kface       = ef2e(1,iface,ielem)
+!         kelem       = ef2e(2,iface,ielem)
+!         n_S_2d_On   = elem_props(2,ielem)
+!         n_S_2d_Off  = ef2e(4,iface,ielem)
+!         n_S_2d_mort = max(n_S_2D_On,n_S_2D_Off)
+!         x_S_1d_Mort = x_Gau_1d_pH
 
-          allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
-          allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
-          allocate(FC (nequations,n_S_2D_Mort))
-          
-          !-- interpolation and extrapolation operators
-          ! call Rotate_xione_2_xitwo_and_back(nxione,nxitwo,xione,xitwo,Bxione,Bxitwo,xione2xitwo,xitwo2xione)
-          do i = 1, n_S_2d_On
-        
-            ! Index in facial ordering
-            jnode =  n_S_2d_On*(iface-1)+i
-              
-            ! Volumetric node index corresponding to facial node index
-            inode = ifacenodes(jnode)
-              
-            ! On-element face data
-            vg_On(:)  = vg(:,inode,ielem)
-            phig_On (:,:) = phig(:,:,inode,ielem)
+!         allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
+!         allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
+!         allocate(FC (nequations,n_S_2D_Mort))
+!         allocate( wg_On_Mort(nequations,n_S_2d_Mort))
+!         allocate(wg_Off_Mort(nequations,n_S_2d_Mort))
 
-            do j = 1, n_S_2d_Off
+!         if(n_S_1d_On > n_S_1d_Off) then
+!           allocate(Extrp(n_S_1d_On ,n_S_1d_Off)) ;  Extrp_Off(:,:) = Ext_LGL_p0_2_Gau_p1_1d(:,:) ;
+!           allocate(Extrp(n_S_1d_On ,n_S_1d_Off)) ;  Extrp_On (:,:) = Rot_LGL_p1_2_Gau_p1_1d(:,:) ;
+!           allocate(Intrp(n_S_1d_On ,n_S_1d_On )) ;  Intrp_On (:,:) = Rot_Gau_p1_2_LGL_p1_1d(:,:) ;
+!           x_S_1d_on (:) = x_LGL_1d_pH(:)
+!           x_S_1d_Off(:) = x_LGL_1d_pL(:)
+!         else
+!           allocate(Extrp(n_S_1d_Off,n_S_1d_Off)) ;  Extrp_Off(:,:) = Rot_LGL_p1_2_Gau_p1_1d(:,:) ;
+!           allocate(Extrp(n_S_1d_Off,n_S_1d_Off)) ;  Extrp_On (:,:) = Ext_LGL_p0_2_Gau_p1_1d(:,:) ;
+!           allocate(Intrp(n_S_1d_On ,n_S_1d_Off)) ;  Intrp_On (:,:) = Int_Gau_p1_2_LGL_p0_1d(:,:) ;
+!           x_S_1d_on (:) = x_LGL_1d_pL(:)
+!           x_S_1d_Off(:) = x_LGL_1d_pH(:)
+!         endif
 
-              ! Index in facial ordering
-              knode =  n_S_2d_Off*(kface-1) + j
+!         do i = 1, n_S_2d_On
+!       
+!           ! Index in facial ordering
+!           jnode =  n_S_2d_On*(iface-1)+i
+!             
+!           ! Volumetric node index corresponding to facial node index
+!           inode = ifacenodes(jnode)
+!             
+!           ! On-element face data
+!           vg_On(:)  = vg(:,inode,ielem)
+!           phig_On (:,:) = phig(:,:,inode,ielem)
 
-              ! Volumetric index of partner node
-!             lnode = ifacenodes_poly(knode)
+!           call primitive_to_entropy(vg_On(:),wg_On_Vec(:,i),nequations)
 
-              vg_Off(:)  = vg(:,lnode,kelem)
+!           do j = 1, n_S_2d_Off
 
-              call EntropyConsistentFlux_Vectors(vg_On(:), vg_Off(:), nequations, FxA(:,j), FyA(:,j), FzA(:,j)) ! (Entropy Flux vectors)
+!             ! Index in facial ordering
+!             knode =  n_S_2d_Off*(kface-1) + j
 
-            end do
+!             ! Volumetric node index corresponding to facial node index
+!             lnode = ifacenodes(knode)
 
-!           call ExtrpXA2XB_2D_neq(neq,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FxA,FxB,Extrp)
-!           call ExtrpXA2XB_2D_neq(neq,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FyA,FyB,Extrp)
-!           call ExtrpXA2XB_2D_neq(neq,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FzA,FzB,Extrp)
+!               vg_Off(:)   =   vg(:,lnode,kelem)
+!             phig_Off(:,:) = phig(:,:,lnode,ielem)
 
-            do j = 1, n_S_2d_mort
+!             call EntropyConsistentFlux_Vectors(vg_On(:), vg_Off(:), nequations, FxA(:,j), FyA(:,j), FzA(:,j)) ! (Entropy Flux vectors)
 
-              ! Index in facial ordering
-              jnode =  n_S_2d_Mort*(kface-1)+j
+!           end do
 
-              ! Outward facing normal of facial node
-!             nx = Jx_facenodenormal(:,perm(jnode),ielem)
+!           call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FxA,FxB,Extrp_Off)
+!           call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FyA,FyB,Extrp_Off)
+!           call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FzA,FzB,Extrp_Off)
 
-              FC(:,j) = FxB(:,j)*nx(1) + FyB(:,j)*nx(2) + FzB(:,j)*nx(3)
-              
-            enddo
+!           do j = 1, n_S_2d_mort
 
-!           call ExtrpXA2XB_2D_neq_k(neq,n_S_1D_mort,n_S_1D_On,x_S_1D_mort,x_S_1D_On,FC,SAT_Pen,Extrp)
-    
-!           SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
-!                                         & vg_On,vg_Off,              &
-!                                         & phig_On,phig_Off,          &
-!                                         & nx,Jx_r(inode,ielem),      &
-!                                         & pinv(1), mut(inode,ielem))
-! 
-            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+!             ! Index in facial ordering
+!             jnode =  n_S_2d_Mort*(kface-1)+j
 
-          end do
-          deallocate(FxA,FyA,FzA)
-          deallocate(FxB,FyB,FzB)
-          deallocate(FC)
+!             ! Outward facing normal of facial node
+!             nx(:) = Jx_facenodenormal(:,efn2efn_Gau(jnode),ielem)
+
+!             FC(:,j) = FxB(:,j)*nx(1) + FyB(:,j)*nx(2) + FzB(:,j)*nx(3)
+!             
+!           enddo
+
+!           ival = mod(i,n_S_1d_On) ; jval = (i-ival) / n_S_1d_On ;
+
+!           call ExtrpXA2XB_2D_neq_k(nequations,n_S_1D_mort,n_S_1D_On,ival,jval,x_S_1D_mort,x_S_1D_On,FC,SAT_Pen,Intrp_On )
+!   
+!           gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+
+!         end do
+
+!         deallocate(FxA,FyA,FzA)
+!         deallocate(FxB,FyB,FzB)
+!         deallocate(FC)
+
+!         do j = 1, n_S_2d_Off
+
+!           ! Index in facial ordering
+!           knode =  n_S_2d_Off*(kface-1) + j
+
+!           ! Volumetric node index corresponding to facial node index
+!           lnode = ifacenodes(knode)
+
+!           vg_Off(:)   =   vg(:,lnode,kelem)
+!           call primitive_to_entropy(vg_Off(:),wg_Off_Vec(:,i),nequations)
+
+!         enddo
+
+!         call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Off,x_S_1D_Off,x_S_1D_Mort,wg_Off_Vec,wg_Off_Mort,Extrp_Off)
+!         call ExtrpXA2XB_2D_neq(nequations,n_S_1D_On ,n_S_1D_On ,x_S_1D_On ,x_S_1D_Mort, wg_On_Vec, wg_On_Mort,Extrp_On )
+!    
+!         do i = 1, n_S_2d_Mort
+!           ! Index in facial ordering
+!           jnode =  n_S_2d_Mort*(kface-1)+j
+
+!           ! Outward facing normal of facial node
+!           nx(:) = Jx_facenodenormal(:,efn2efn_Gau(jnode),ielem)
+
+!           ! build viscous penalty
+
+!         enddo
+
+!         call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Off,x_S_1D_Off,x_S_1D_Mort,wg_Off_Vec,wg_Off_Mort,Intrp_On )
+
         end if
       end if
     end do

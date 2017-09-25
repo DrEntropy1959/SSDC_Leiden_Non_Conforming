@@ -74,15 +74,22 @@ module collocationvariables
 
   integer, allocatable, dimension(:,:)    :: elem_props
 
+  !  grid info LGL
   integer :: n_LGL_1d_pL, n_LGL_2d_pL, n_LGL_3d_pL
   integer :: n_LGL_1d_pH, n_LGL_2d_pH, n_LGL_3d_pH
   
+  real(wp), allocatable, dimension(:)     :: x_LGL_1d_pL, x_LGL_1d_pH
+  real(wp), allocatable, dimension(:)     :: w_LGL_1d_pL, w_LGL_1d_pH
+
+  !  grid info Gau
   integer :: n_Gau_1d_pL, n_Gau_2d_pL, n_Gau_3d_pL
   integer :: n_Gau_1d_pH, n_Gau_2d_pH, n_Gau_3d_pH
 
+  real(wp), allocatable, dimension(:)     :: x_Gau_1d_pL, x_Gau_1d_pH
+  real(wp), allocatable, dimension(:)     :: w_Gau_1d_pL, w_Gau_1d_pH
+
   integer :: n_Gau_Shell
-  
-  real(wp), allocatable, dimension(:)     :: x_LGL_pts_1d_pL, x_LGL_pts_1d_pH
+
   real(wp), allocatable, dimension(:)     :: pmat_pL , pmat_pH
   real(wp), allocatable, dimension(:)     :: pinv_pL , pinv_pH
   real(wp), allocatable, dimension(:,:)   :: qmat_pL , qmat_pH

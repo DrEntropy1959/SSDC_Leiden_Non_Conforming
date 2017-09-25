@@ -29,6 +29,7 @@ module initgrid
   public facenodesetup_LGL_WENO
   public calculate_face_node_connectivity_LGL
   public calcfacenormals_LGL
+! public calcfacenormals_Gau
   public init_elem_type
   public create_ldg_flip_flop_sign
   public pert_int_vert
@@ -2064,10 +2065,8 @@ contains
             ! column/node from gradient operator in CSR format in
             ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
             jnode = jagrad(jdir,i)
-            ! update gradient. MP: Well, actually this is the Jacobian of the 
-            ! transformation
-            x_r(:,jdir,inode,ielem) = x_r(:,jdir,inode,ielem) &
-              + dagrad(jdir,i)*xg(:,jnode,ielem)
+            ! update gradient. MP: Well, actually this is the Jacobian of the transformation
+            x_r(:,jdir,inode,ielem) = x_r(:,jdir,inode,ielem) + dagrad(jdir,i)*xg(:,jnode,ielem)
           end do
         end do
       end do
@@ -2076,8 +2075,7 @@ contains
         Jx_r(inode,ielem) = determinant3(x_r(:,:,inode,ielem))
       end do
       if (ndim < 3) then
-        ! inverse metrics (note that in 3D this is not sufficient to satisfy
-        ! the GCL.
+        ! inverse metrics (note that in 3D this is not sufficient to satisfy the GCL.
         do inode = 1,nodesperelem
           r_x(1,1,inode,ielem) =  x_r(2,2,inode,ielem)/Jx_r(inode,ielem)
           r_x(2,1,inode,ielem) = -x_r(2,1,inode,ielem)/Jx_r(inode,ielem)
@@ -4972,6 +4970,95 @@ contains
 
     return
   end function LGL_pts_lexo_comp_hexa
+
+  !=================================================================================================
+
+  subroutine calc_Gau_shell_metrics_all_hexas()
+
+    ! Load module
+    use variables
+    use referencevariables
+    use collocationvariables
+    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points, JacobiP11
+    use initcollocation, only : D_lagrange_basis_function_1d
+
+    ! Nothing is implicitly defined
+    implicit none
+
+    real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_quad
+
+    integer  :: low_elem, high_elem
+    integer  :: i_elem, i_gauss, i_LGL, j_LGL, k_LGL, i_coord
+    real(wp) :: l_xi, l_eta, l_zeta
+    real(wp) :: xi_in, eta_in, zeta_in
+    real(wp),  dimension(n_Gau_1d_pH)    :: x_Gau_1d,w_Gau_1d
+    real(wp),  dimension(:), allocatable :: x_LGL_1d
+
+    integer :: l
+    integer :: n_Gau_shell_loc, n_Gau_1d, n_LGL_1d
+
+    continue
+
+    n_Gau_1d = n_Gau_1d_pH
+    call Gauss_Legendre_points(n_Gau_1d,x_Gau_1d,w_Gau_1d)
+
+    ! Set the coordinates of the 3D Gauss points in computational space
+    n_Gau_shell_loc = nfacesperelem*n_Gau_1d**2
+
+    Gau_pts_comp_shell_quad = Shell_pts_lexo_comp_quad(x_Gau_1d,n_Gau_1d)
+
+    ! Low and high element indices
+    low_elem  = ihelems(1)
+    high_elem = ihelems(2)
+
+    ! Allocate memory
+    allocate(xg_Gau_Shell(3,N_Gau_shell_loc,low_elem:high_elem))
+
+    ! Loop over volumetric elements
+    do i_elem = low_elem, high_elem
+
+      n_LGL_1d = elem_props(2,i_elem)
+      if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ; allocate(x_LGL_1d(n_LGL_1d))
+      call JacobiP11(n_LGL_1d,x_LGL_1d)
+
+      do i_gauss = 1, N_Gau_shell_loc
+        l = 0
+        xg_Gau_shell(:,i_gauss,i_elem) = 0.0_wp
+
+          xi_in = Gau_pts_comp_shell_quad(1,i_gauss)
+         eta_in = Gau_pts_comp_shell_quad(2,i_gauss)
+        zeta_in = Gau_pts_comp_shell_quad(3,i_gauss)
+
+        do k_LGL = 1, n_LGL_1d
+
+          l_zeta = lagrange_basis_function_1d(zeta_in,k_LGL,x_LGL_1d,n_LGL_1d)
+
+          do j_LGL = 1, n_LGL_1d
+
+            l_eta  = lagrange_basis_function_1d(eta_in, j_LGL,x_LGL_1d,n_LGL_1d)
+
+            do i_LGL = 1, n_LGL_1d
+              l = l + 1
+
+              l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d,n_LGL_1d)
+
+              do i_coord = 1, 3
+                xg_Gau_shell(i_coord,i_gauss,i_elem) = xg_Gau_shell(i_coord,i_gauss,i_elem) + &
+                  & xg(i_coord,l,i_elem)*l_xi*l_eta*l_zeta
+              end do
+
+            end do
+          end do
+        end do
+      end do
+
+    end do
+    if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ;
+
+    deallocate(Gau_pts_comp_shell_quad)
+
+  end subroutine calc_Gau_shell_metrics_all_hexas
+
 
   !=================================================================================================
 

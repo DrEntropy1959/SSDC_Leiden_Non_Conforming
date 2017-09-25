@@ -57,6 +57,7 @@ SRCS = precision_vars.f90\
        error_bc_no_slip_wall.f90\
        error_heat_entropy_flow_wall_bc.f90\
        timeinteg.f90\
+       non_conforming.f90\
        polyinit.f90\
        physicsindependent.f90\
        ssdcsolver.f90 
@@ -105,6 +106,7 @@ OBJS = precision_vars.o\
        error_bc_no_slip_wall.o\
        error_heat_entropy_flow_wall_bc.o\
        timeinteg.o\
+       non_conforming.o\
        polyinit.o\
        physicsindependent.o\
        ssdcsolver.o\
