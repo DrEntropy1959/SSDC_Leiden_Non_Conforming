@@ -914,7 +914,7 @@ contains
 
 !=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-  subroutine ExtrpXA2XB_2D_neq_k(neq,NPtsA,NPtsB,ii,jj,XA,XB,fA,fB,Extrp)
+  subroutine ExtrpXA2XB_2D_neq_k(neq,NPtsA,NPtsB,ii,jj,XA,XB,FA,FB,Extrp)
 
   ! Extrapolate from Tensor product XA points to Tensor product XB points
 
@@ -925,8 +925,8 @@ contains
   real(wp), dimension(NPtsA),       intent(in   )  :: XA
   real(wp), dimension(NPtsB),       intent(in   )  :: XB
   real(wp), dimension(NPtsB,NptsA), intent(in   )  :: Extrp
-  real(wp), dimension(:,:),         intent(in   )  :: fA
-  real(wp), dimension(:,:),         intent(inout)  :: fB
+  real(wp), dimension(:,:),         intent(in   )  :: FA
+  real(wp), dimension(:),           intent(inout)  :: FB
 
   real(wp), allocatable, dimension(:,:,:) :: F1
 
@@ -950,14 +950,14 @@ contains
 
     ! Extrapolate in the eta direction;
     StrideY = NPtsB
-    FB(:,:) = 0.0_wp
+    FB(:) = 0.0_wp
 !   do j = 1,NPtsB
        j = jj
 !     do i = 1,NPtsB
          i = ii
         do m = 1,NPtsA
-          n = + (j-1)*StrideY + i
-          FB(:,n) = FB(:,n) + Extrp(j,m)*F1(:,i,m)
+!         n = + (j-1)*StrideY + i
+          FB(:) = FB(:) + Extrp(j,m)*F1(:,i,m)
         enddo
 !     enddo
 !   enddo
@@ -4640,7 +4640,7 @@ contains
 
   !============================================================================
 
-  function lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
+  pure function lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
 
     ! Nothing is implicitly defined
     implicit none
@@ -4668,7 +4668,7 @@ contains
 
   !============================================================================
 
-  function D_lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
+  pure function D_lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
 
     ! Nothing is implicitly defined
     implicit none

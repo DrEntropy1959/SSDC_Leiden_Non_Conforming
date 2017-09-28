@@ -1,3 +1,4 @@
+THISHOST=$(hostname) ;
 cd ..
 #make clean
 make 
@@ -23,7 +24,13 @@ cp zerodat Supersonic_Vortex.Convergence.Study.csv
        fi
        echo "OverColl: $var0   Order: $var1   Grid: $var2   Grid: ${var3}  "
        cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g' | sed 's/XPT/'${var2}'/g' | sed 's/YPT/'${var3}'/g' > SSDCstartup
-       mpirun -np  4 nice -19 ./SSDCNSE > tmp88
+if [ "$THISHOST" == "tab16" ]; then
+       mpirun.actual -np  4 nice -19 ./SSDCNSE > tmp88 ;
+elif [ "$THISHOST" = "Leiden" ]; then
+       mpirun        -np  4 nice -19 ./SSDCNSE > tmp88 ;
+else
+echo "hostname does not exist" ;
+fi
        cp Supersonic_Vortex.Convergence.Study.csv tmp87
        cat tmp87 tmp88 > Supersonic_Vortex.Convergence.Study.csv
      done

@@ -3105,7 +3105,12 @@ contains
     use referencevariables
     use nsereferencevariables
     use controlvariables, only: heat_entropy_flow_wall_bc, Riemann_Diss_BC
-    use collocationvariables, only: l01, l00, Sfix, elem_props
+    use collocationvariables, only: l01, l00, Sfix, elem_props,                 &
+                                 Ext_LGL_p0_2_Gau_p1_1d, Rot_LGL_p1_2_Gau_p1_1d,&
+                                 Rot_Gau_p1_2_LGL_p1_1d, Rot_LGL_p1_2_Gau_p1_1d,&
+                                 Ext_LGL_p0_2_Gau_p1_1d, Int_Gau_p1_2_LGL_p0_1d,&
+                                 x_Gau_1d_pH, x_LGL_1d_pH, x_LGL_1d_pL, n_Gau_1d_pH
+    use initcollocation,  only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
     use initgrid
 
     ! Nothing is implicitly defined
@@ -3122,6 +3127,7 @@ contains
     integer :: kelem
     integer :: iface, kface
     integer :: i,j
+    integer :: ival,jval
 
     ! reconstructed flux
     real(wp), allocatable :: fstar(:), fstarV(:)
@@ -3142,9 +3148,18 @@ contains
     real(wp) :: evmax
 
     ! Flux vectors in the x,y,z directions
+    integer                              :: n_S_1d_On, n_S_1d_Off, n_S_1d_max, n_S_1d_Mort
+    real(wp), allocatable, dimension(:)  :: x_S_1d_On, x_S_1d_Off
+    real(wp), allocatable, dimension(:)  :: x_S_1d_Mort
+
+
     real(wp), allocatable, dimension(:,:) :: FxA, FyA, FzA
     real(wp), allocatable, dimension(:,:) :: FxB, FyB, FzB
     real(wp), allocatable, dimension(:,:) :: FC
+    real(wp), allocatable, dimension(:,:) :: Extrp_Off, Extrp_On
+    real(wp), allocatable, dimension(:,:) :: Intrp_Off, Intrp_On
+    real(wp), allocatable, dimension(:,:) :: wg_On_Mort, wg_Off_Mort
+    real(wp), allocatable, dimension(:,:) :: wg_On_Vec,  wg_Off_Vec
 
     logical,  parameter :: testing         = .false.
 
@@ -3163,8 +3178,10 @@ contains
 
     real(wp), dimension(nequations)    :: w_side_1, w_side_2
 
-    real(wp), dimension(nequations)    ::   vg_On,   vg_Off
     real(wp), dimension(nequations)    ::   ug_On,   ug_Off
+    real(wp), dimension(nequations)    ::   vg_On,   vg_Off
+    real(wp), dimension(nequations)    ::   wg_On,   wg_Off
+
     real(wp), dimension(nequations,3)  :: phig_On, phig_Off
     real(wp), dimension(nequations)    :: SAT_Pen
     real(wp), dimension(nequations)    :: f_viscous_normal_ghost
@@ -3532,90 +3549,107 @@ contains
 
         else  ! Adjoining element on iface differs in order
 
-!         write(*,*)'I shouldnt be here'
-!         kface       = ef2e(1,iface,ielem)
-!         kelem       = ef2e(2,iface,ielem)
-!         n_S_2d_On   = elem_props(2,ielem)
-!         n_S_2d_Off  = ef2e(4,iface,ielem)
-!         n_S_2d_mort = max(n_S_2D_On,n_S_2D_Off)
-!         x_S_1d_Mort = x_Gau_1d_pH
+          write(*,*)'I shouldnt be here'
+          kface       = ef2e(1,iface,ielem)
+          kelem       = ef2e(2,iface,ielem)
+          n_S_2d_On   = elem_props(2,ielem)
+          n_S_2d_Off  = ef2e(4,iface,ielem)
+          n_S_2d_mort = max(n_S_2D_On,n_S_2D_Off)
+          n_S_1d_Mort = n_Gau_1d_pH
+          x_S_1d_Mort = x_Gau_1d_pH
 
-!         allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
-!         allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
-!         allocate(FC (nequations,n_S_2D_Mort))
-!         allocate( wg_On_Mort(nequations,n_S_2d_Mort))
-!         allocate(wg_Off_Mort(nequations,n_S_2d_Mort))
+          allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
+          allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
+          allocate(FC (nequations,n_S_2D_Mort))
+          allocate( wg_On_Mort(nequations,n_S_2d_Mort))
+          allocate(wg_Off_Mort(nequations,n_S_2d_Mort))
+          allocate( wg_On_Vec(nequations,n_S_2d_On ))
+          allocate(wg_Off_Vec(nequations,n_S_2d_Off))
 
-!         if(n_S_1d_On > n_S_1d_Off) then
-!           allocate(Extrp(n_S_1d_On ,n_S_1d_Off)) ;  Extrp_Off(:,:) = Ext_LGL_p0_2_Gau_p1_1d(:,:) ;
-!           allocate(Extrp(n_S_1d_On ,n_S_1d_Off)) ;  Extrp_On (:,:) = Rot_LGL_p1_2_Gau_p1_1d(:,:) ;
-!           allocate(Intrp(n_S_1d_On ,n_S_1d_On )) ;  Intrp_On (:,:) = Rot_Gau_p1_2_LGL_p1_1d(:,:) ;
-!           x_S_1d_on (:) = x_LGL_1d_pH(:)
-!           x_S_1d_Off(:) = x_LGL_1d_pL(:)
-!         else
-!           allocate(Extrp(n_S_1d_Off,n_S_1d_Off)) ;  Extrp_Off(:,:) = Rot_LGL_p1_2_Gau_p1_1d(:,:) ;
-!           allocate(Extrp(n_S_1d_Off,n_S_1d_Off)) ;  Extrp_On (:,:) = Ext_LGL_p0_2_Gau_p1_1d(:,:) ;
-!           allocate(Intrp(n_S_1d_On ,n_S_1d_Off)) ;  Intrp_On (:,:) = Int_Gau_p1_2_LGL_p0_1d(:,:) ;
-!           x_S_1d_on (:) = x_LGL_1d_pL(:)
-!           x_S_1d_Off(:) = x_LGL_1d_pH(:)
-!         endif
+          if(n_S_1d_On > n_S_1d_Off) then
+            allocate(Extrp_Off(n_S_1d_On ,n_S_1d_Off)) ;  Extrp_Off(:,:) = Ext_LGL_p0_2_Gau_p1_1d(:,:) ;
+            allocate(Extrp_On (n_S_1d_On ,n_S_1d_Off)) ;  Extrp_On (:,:) = Rot_LGL_p1_2_Gau_p1_1d(:,:) ;
+            allocate(Intrp_On (n_S_1d_On ,n_S_1d_On )) ;  Intrp_On (:,:) = Rot_Gau_p1_2_LGL_p1_1d(:,:) ;
+            allocate(x_S_1d_On (n_S_1d_On ))
+            allocate(x_S_1d_Off(n_S_1d_Off))
+            x_S_1d_on (:) = x_LGL_1d_pH(:)
+            x_S_1d_Off(:) = x_LGL_1d_pL(:)
+          else
+            allocate(Extrp_Off(n_S_1d_Off,n_S_1d_Off)) ;  Extrp_Off(:,:) = Rot_LGL_p1_2_Gau_p1_1d(:,:) ;
+            allocate(Extrp_On (n_S_1d_Off,n_S_1d_Off)) ;  Extrp_On (:,:) = Ext_LGL_p0_2_Gau_p1_1d(:,:) ;
+            allocate(Intrp_On (n_S_1d_On ,n_S_1d_Off)) ;  Intrp_On (:,:) = Int_Gau_p1_2_LGL_p0_1d(:,:) ;
+            allocate(x_S_1d_On (n_S_1d_On ))
+            allocate(x_S_1d_Off(n_S_1d_Off))
+            x_S_1d_on (:) = x_LGL_1d_pL(:)
+            x_S_1d_Off(:) = x_LGL_1d_pH(:)
+          endif
 
-!         do i = 1, n_S_2d_On
-!       
-!           ! Index in facial ordering
-!           jnode =  n_S_2d_On*(iface-1)+i
-!             
-!           ! Volumetric node index corresponding to facial node index
-!           inode = ifacenodes(jnode)
-!             
-!           ! On-element face data
-!           vg_On(:)  = vg(:,inode,ielem)
-!           phig_On (:,:) = phig(:,:,inode,ielem)
+          do i = 1, n_S_2d_On
+        
+            ! Index in facial ordering
+            jnode =  n_S_2d_On*(iface-1)+i
+              
+            ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes(jnode)
+              
+            ! On-element face data
+              vg_On(:)   =   vg(:,inode,ielem)
+            phig_On(:,:) = phig(:,:,inode,ielem)
 
-!           call primitive_to_entropy(vg_On(:),wg_On_Vec(:,i),nequations)
+            call primitive_to_entropy(vg_On(:),wg_On_Vec(:,i),nequations)
 
-!           do j = 1, n_S_2d_Off
+            do j = 1, n_S_2d_Off
 
-!             ! Index in facial ordering
-!             knode =  n_S_2d_Off*(kface-1) + j
+              ! Index in facial ordering
+              knode =  n_S_2d_Off*(kface-1) + j
 
-!             ! Volumetric node index corresponding to facial node index
-!             lnode = ifacenodes(knode)
+              ! Volumetric node index corresponding to facial node index
+              lnode = ifacenodes(knode)
 
-!               vg_Off(:)   =   vg(:,lnode,kelem)
-!             phig_Off(:,:) = phig(:,:,lnode,ielem)
+                vg_Off(:)   =   vg(:,lnode,kelem)
+              phig_Off(:,:) = phig(:,:,lnode,ielem)
 
-!             call EntropyConsistentFlux_Vectors(vg_On(:), vg_Off(:), nequations, FxA(:,j), FyA(:,j), FzA(:,j)) ! (Entropy Flux vectors)
+              call EntropyConsistentFlux_Vectors(vg_On(:), vg_Off(:), nequations, FxA(:,j), FyA(:,j), FzA(:,j)) ! (Entropy Flux vectors)
 
-!           end do
+            end do
 
-!           call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FxA,FxB,Extrp_Off)
-!           call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FyA,FyB,Extrp_Off)
-!           call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FzA,FzB,Extrp_Off)
+            call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FxA,FxB,Extrp_Off)
+            call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FyA,FyB,Extrp_Off)
+            call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FzA,FzB,Extrp_Off)
 
-!           do j = 1, n_S_2d_mort
+            do j = 1, n_S_2d_mort
 
-!             ! Index in facial ordering
-!             jnode =  n_S_2d_Mort*(kface-1)+j
+              ! Index in facial ordering
+              jnode =  n_S_2d_Mort*(kface-1)+j
 
-!             ! Outward facing normal of facial node
-!             nx(:) = Jx_facenodenormal(:,efn2efn_Gau(jnode),ielem)
+              ! Outward facing normal of facial node
+!             nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)
+!             knode = efn2efn_Gau(4,jnode,ielem) - (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH
 
-!             FC(:,j) = FxB(:,j)*nx(1) + FyB(:,j)*nx(2) + FzB(:,j)*nx(3)
-!             
-!           enddo
+              FC(:,j) = FxB(:,knode)*nx(1) + FyB(:,knode)*nx(2) + FzB(:,knode)*nx(3)
+              
+            enddo
 
-!           ival = mod(i,n_S_1d_On) ; jval = (i-ival) / n_S_1d_On ;
+            ival = mod(i,n_S_1d_On) ; jval = (i-ival) / n_S_1d_On ;
 
-!           call ExtrpXA2XB_2D_neq_k(nequations,n_S_1D_mort,n_S_1D_On,ival,jval,x_S_1D_mort,x_S_1D_On,FC,SAT_Pen,Intrp_On )
-!   
-!           gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+            call ExtrpXA2XB_2D_neq_k(nequations,n_S_1D_mort,n_S_1D_On,ival,jval,x_S_1D_mort,x_S_1D_On,FC,SAT_Pen,Intrp_On )
+    
+            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
 
-!         end do
+          end do
 
-!         deallocate(FxA,FyA,FzA)
-!         deallocate(FxB,FyB,FzB)
-!         deallocate(FC)
+          deallocate(FxA,FyA,FzA)
+          deallocate(FxB,FyB,FzB)
+          deallocate(FC)
+          deallocate( wg_On_Mort,wg_Off_Mort)
+          deallocate( wg_On_Vec, wg_Off_Vec )
+          deallocate(Extrp_Off,Extrp_On)
+          deallocate(Intrp_On)
+          deallocate(x_S_1d_On,x_S_1d_Off)
+
+! ======================
+!         Viscous path to be implemented later
+! ======================
 
 !         do j = 1, n_S_2d_Off
 
@@ -3645,6 +3679,8 @@ contains
 !         enddo
 
 !         call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Off,x_S_1D_Off,x_S_1D_Mort,wg_Off_Vec,wg_Off_Mort,Intrp_On )
+! ======================
+! ======================
 
         end if
       end if

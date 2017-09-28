@@ -1,3 +1,4 @@
+THISHOST=$(hostname) ;
 cd ..
 #make clean
 make 
@@ -13,13 +14,31 @@ cp zerodat NS_Convergence.Data.VS.Pencil_Uniform_1x1_SSDC_GoldenRoeLF.csv
        cat SSDCstartup.ref    | sed 's/deltaf/'${var0}'/g' | sed 's/NPoly/'${var1}'/g' | sed 's/PTS/'${var2}'/g' > SSDCstartup
        if   [ $var2 -le 002 ] 
        then
-           mpirun -np  2 nice -19 ./SSDCNSE > tmp88
+if [ "$THISHOST" == "tab16" ]; then
+       mpirun.actual -np  1 nice -19 ./SSDCNSE > tmp88 ;
+elif [ "$THISHOST" = "Leiden" ]; then
+       mpirun        -np  1 nice -19 ./SSDCNSE > tmp88 ;
+else
+echo "hostname does not exist" ;
+fi
        elif [ $var2 -eq 004 ] 
        then
-           mpirun -np  2 nice -19 ./SSDCNSE > tmp88
+if [ "$THISHOST" == "tab16" ]; then
+       mpirun.actual -np  2 nice -19 ./SSDCNSE > tmp88 ;
+elif [ "$THISHOST" = "Leiden" ]; then
+       mpirun        -np  2 nice -19 ./SSDCNSE > tmp88 ;
+else
+echo "hostname does not exist" ;
+fi
        elif [ $var2 -ge 008 ] 
        then
-           mpirun -np  8 nice -19 ./SSDCNSE > tmp88
+if [ "$THISHOST" == "tab16" ]; then
+       mpirun.actual -np  8 nice -19 ./SSDCNSE > tmp88 ;
+elif [ "$THISHOST" = "Leiden" ]; then
+       mpirun        -np  4 nice -19 ./SSDCNSE > tmp88 ;
+else
+echo "hostname does not exist" ;
+fi
        fi
        cp NS_Convergence.Data.VS.Pencil_Uniform_1x1_SSDC_GoldenRoeLF.csv tmp87
        cat tmp87 tmp88 > NS_Convergence.Data.VS.Pencil_Uniform_1x1_SSDC_GoldenRoeLF.csv

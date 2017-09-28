@@ -168,7 +168,7 @@ contains
       write(*,*) '==============================================================='
     end if
 
-!   call calc_Gau_shell_pts_all_hexas()
+    call calc_Gau_shell_pts_all_hexas()
 
     ! Setup collocated nodes connectivity
     call facenodesetup_LGL()

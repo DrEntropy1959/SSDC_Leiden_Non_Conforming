@@ -1,7 +1,14 @@
+THISHOST=$(hostname) ;
 cd ..
 #make clean
 make 
 cp Scripts/Startup/SSDCstartup.NS_Cylinder_Stagnation_Curved_Elements_Study.ref SSDCstartup
-mpirun -np  4 nice -19 ./SSDCNSE > NS_Cylinder_Stagnation.csv
+if [ "$THISHOST" == "tab16" ]; then
+       mpirun.actual -np  4 nice -19 ./SSDCNSE > tmp88 ;
+elif [ "$THISHOST" = "Leiden" ]; then
+       mpirun        -np  4 nice -19 ./SSDCNSE > tmp88 ;
+else
+echo "hostname does not exist" ;
+fi
 #cp   NS_Cylinder_Stagnation.csv Scripts/Golden/NS_Cylinder_Stagnation.Golden.csv
  diff NS_Cylinder_Stagnation.csv Scripts/Golden/NS_Cylinder_Stagnation.Golden.csv
