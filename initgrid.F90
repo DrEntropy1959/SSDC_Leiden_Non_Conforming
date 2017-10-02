@@ -29,7 +29,7 @@ module initgrid
   public facenodesetup_LGL_WENO
   public calculate_face_node_connectivity_LGL
   public calcfacenormals_LGL
-! public calcfacenormals_Gau
+  public calcfacenormals_Gau
   public init_elem_type
   public create_ldg_flip_flop_sign
   public pert_int_vert
@@ -1986,6 +1986,86 @@ contains
 
   end subroutine calcfacenormals_LGL
 
+  !============================================================================
+  
+  subroutine calcfacenormals_Gau()
+    ! this subroutine calculates the outward facing normals
+    ! of each facial node
+    use referencevariables
+    use collocationvariables, only: n_Gau_1d_pH, x_Gau_1d_pH, n_Gau_2D_pH
+    use variables, only: kfacenodes_Gau, Jx_facenodenormal_Gau, ef2e, efn2efn_Gau, xg_Gau_Shell
+
+    implicit none
+
+    ! indices
+    integer :: ielem, kelem, inode, iface, idir, knode
+    integer :: i
+
+    real(wp) :: dx
+    real(wp), dimension(3) :: wrk
+    logical                :: testing = .false.
+
+    allocate(Jx_facenodenormal_Gau(3,nfacesperelem*n_Gau_2D_pH,ihelems(1):ihelems(2)))
+    Jx_facenodenormal_Gau = 0.0_wp
+
+    ! loop over elements
+    do ielem = ihelems(1), ihelems(2)
+      ! reset facial node index counter
+      knode = 0
+      ! compute outward facing normals
+      !
+      ! loop over faces
+      do iface = 1,nfacesperelem
+
+        call Shell_Metrics_Analytic(iface,n_Gau_1d_pH,x_Gau_1d_pH,      &
+                              xg_Gau_shell(:,:,ielem),Jx_facenodenormal_Gau(:,:,ielem))
+
+        ! loop over nodes on face
+        do inode = 1,nodesperface
+          ! update facial node index counter
+          knode = knode + 1
+          ! volumetric node index of facial node
+          i = kfacenodes_Gau(inode,iface)
+          ! unsigned direction of face in computational space
+          idir = abs(elfacedirections(iface))
+          ! sign so normal is facing outward
+          dx = sign(1.0_wp,real(elfacedirections(iface),wp))
+          ! outward facing normal using metrics
+          Jx_facenodenormal_Gau(:,knode,ielem) = dx*Jx_facenodenormal_Gau(:,knode,ielem)
+        end do
+      end do
+
+    end do
+
+    ! testing facenodenormal calculations
+
+!   if(testing) then
+!     do ielem = ihelems(1), ihelems(2)
+!       knode = 0
+!       ! loop over faces
+!       do iface = 1,nfacesperelem
+!         ! loop over nodes on face
+!         kelem = ef2e(2,iface,ielem)
+!         do inode = 1,nodesperface
+!           knode = knode + 1
+!           if(ef2e(1,iface,ielem) > 0)then
+!             i = (ef2e(1,iface,ielem)-1)*nodesperface+efn2efn(4,knode,ielem)
+!             wrk = facenodenormal(1:3,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem) &
+!                 + facenodenormal(1:3, i ,kelem)*Jx_r(efn2efn(1,knode,ielem),kelem)
+!             if(magnitude(wrk) >= 1.0e-10_wp) then
+!               write(*,*)'facenodenormals are incorrect'
+!               write(*,*)facenodenormal(1:2,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem) &
+!                       , facenodenormal(1:2, i ,kelem)*Jx_r(efn2efn(1,knode,ielem),kelem)
+!             endif
+!           endif
+!         end do
+!       end do
+!     end do
+!   endif
+
+  end subroutine calcfacenormals_Gau
+
+  !============================================================================
 
   pure function cross_product(a, b)
     
@@ -5514,12 +5594,10 @@ contains
           end if ! End if check periodic face in x1 direction
 
 
-          ! Loop through the elements that owns a periodic face in the x2
-          ! direction
+          ! Loop through the elements that owns a periodic face in the x2 direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x2(1,:)) /= 0) then
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
+            ! Check if the ielem owns a periodic face and if iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x2(1,:))
 
               if (periodic_elem_face_ids_x2(1,i_p_face) == jelems(ielem) .and. &
@@ -5614,8 +5692,7 @@ contains
           ! direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x3(1,:)) /= 0) then
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
+            ! Check if the ielem owns a periodic face and if iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))
 
               if (periodic_elem_face_ids_x3(1,i_p_face) == jelems(ielem) .and. &
@@ -5705,8 +5782,6 @@ contains
 
           end if ! End if check periodic face in x3 direction
 
-
-
           if (match_found .eqv. .false.) then
 
             ! Loop over the nodes on the face
@@ -5769,7 +5844,6 @@ contains
 
           if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
 
-            write(*,*)'periodic 1'
             ! Check if the ielem owns a periodic face and if the iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
 
@@ -5866,9 +5940,9 @@ contains
 
           ! If the iface is not a periodic face  in the x1 direction, check
           ! if it is a periodic face in the x2 direction
-          if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x2(1,:)) /= 0) then
+          if ((match_found .eqv. .false.) .and.              &
+             (size(periodic_elem_face_ids_x2(1,:)) /= 0)) then
 
-            write(*,*)'periodic 2'
             ! Check if the ielem owns a periodic face and if the iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x2(1,:))
 
@@ -5964,9 +6038,10 @@ contains
 
           ! If the iface is not a periodic face in the x2 direction, check
           ! if it is a periodic face in the x3 direction
-          if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x3(1,:)) /= 0) then
+          if ((match_found .eqv. .false.) .and.              &
+             (size(periodic_elem_face_ids_x3(1,:)) /= 0)) then
            
-            write(*,*)'periodic 3'
+!           write(*,*)'periodic 3'
             ! Check if the ielem owns a periodic face and if the iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))
 
@@ -6062,7 +6137,7 @@ contains
 
           if (match_found .eqv. .false.) then
 
-            write(*,*)'non-periodic path'
+!           write(*,*)'non-periodic path'
             
             ! Loop over the nodes on the face
             do inode = 1, n_Gau_2d_pH
@@ -6132,7 +6207,7 @@ contains
 
   !============================================================================
 
-  pure subroutine Shell_Metrics_Analytic(x_pts_1d,n_pts_1d,  &
+  pure subroutine Shell_Metrics_Analytic(iface,n_pts_1d,x_pts_1d,  &
                                          xg_Gau,Jx_facenodenormal_Gau)
 
     ! Nothing is implicitly defined
@@ -6143,14 +6218,14 @@ contains
 
     implicit none
 
-    integer,                       intent(in   ) :: n_pts_1d
+    integer,                       intent(in   ) :: iface, n_pts_1d
     real(wp), dimension(n_pts_1d), intent(in   ) :: x_pts_1d
     real(wp), dimension(:,:),      intent(in   ) :: xg_Gau
     real(wp), dimension(:,:),      intent(  out) :: Jx_facenodenormal_Gau
     real(wp) :: zeta, eta, xi
     real(wp) :: t1, t2, t3, t4
 
-    integer  :: i, j, k, node_id, iface
+    integer  :: i, j, k, node_id
     integer  :: ixL, ixH, iyL, iyH, izL, izH
     integer  :: n_Gau
     real(wp), dimension(:), allocatable  :: x_Gau
@@ -6165,7 +6240,6 @@ contains
     ! Set to zero the local node ID
     node_id = 0
 
-    do iface=1,nfacesperelem
           if(iface == 1) then
          ixL = 1   ;  ixH = n_pts_1d
          iyL = 1   ;  iyH = n_pts_1d
@@ -6419,7 +6493,6 @@ contains
           end do
         Jx_facenodenormal_Gau(:,:) =  Jx_facenodenormal_Gau(:,:) * zeta
       endif
-    enddo     !  face do loop 
 
     return
   end subroutine Shell_Metrics_Analytic
