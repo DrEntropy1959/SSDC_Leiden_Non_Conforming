@@ -6031,13 +6031,24 @@ contains
 
       subroutine viscous_gradients()
 
-        use variables
         use referencevariables
         use nsereferencevariables
+        use variables, only: xg, xghst_LGL, ef2e, efn2efn,        &
+          & jelems, periodic_elem_face_ids_x1,                    &
+          & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3, &
+          & kfacenodes_LGL_pL,ifacenodes_LGL_pL,                  &
+          & kfacenodes_LGL_pH,ifacenodes_LGL_pH,                  &
+          & phig, phig_err, grad_w_jacobian,                      &
+          & ug, vg, wg, ughst,                                    &
+          & r_x, facenodenormal
         use collocationvariables, only: iagrad,jagrad,dagrad,pinv,l10, &
-                                      & ldg_flip_flop_sign, alpha_ldg_flip_flop
+                                      & ldg_flip_flop_sign, alpha_ldg_flip_flop, &
+                                      & elem_props, n_LGL_1d_pL, n_LGL_1d_pH
 
         implicit none
+
+        integer, allocatable, dimension(:,:) :: kfacenodes
+        integer, allocatable, dimension(:)   :: ifacenodes
 
         ! temporary arrays for phi and delta phi
         real(wp), dimension(:),   allocatable :: dphi, vg_Off, wg_On, wg_Off
@@ -6054,6 +6065,7 @@ contains
         integer :: inode, jnode, knode, gnode
         integer :: kelem
         integer :: iface
+        integer :: n_LGL_1d, n_LGL_2d
 
         real(wp) :: l10_ldg_flip_flop
 
@@ -6067,6 +6079,20 @@ contains
     
         ! loop over all elements
         do ielem = iell, ielh
+
+          n_LGL_1d = elem_props(2,ielem)**1 
+          n_LGL_2d = elem_props(2,ielem)**2 
+
+          if(allocated(kfacenodes)) deallocate(kfacenodes) ; allocate(kfacenodes(1:n_LGL_2d,1:nfacesperelem))
+          if(allocated(ifacenodes)) deallocate(ifacenodes) ; allocate(ifacenodes(1:n_LGL_2d*nfacesperelem))
+
+          if(n_LGL_1d == n_LGL_1d_pL) then
+            kfacenodes(:,:) = kfacenodes_LGL_pL(:,:)
+            ifacenodes(:)   = ifacenodes_LGL_pL(:)
+          else
+            kfacenodes(:,:) = kfacenodes_LGL_pH(:,:)
+            ifacenodes(:)   = ifacenodes_LGL_pH(:)
+          endif
 
           ! compute computational gradients of the entropy variables
           ! initialize phi

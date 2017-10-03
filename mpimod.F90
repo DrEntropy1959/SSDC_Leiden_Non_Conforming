@@ -335,7 +335,10 @@ contains
     integer, allocatable, dimension(:) :: tmp_ef2etmp2, &
                                         & tmp_ldg_flip_flop_sign_tmp2
 
-    integer :: n_elems
+    integer            :: n_elems
+
+    integer, parameter :: qdim = 6   !  dimension of first array in ef2e see initgrid.F90 
+                                     !  for definitions of each of the qdim 
 
     continue
 
@@ -385,8 +388,7 @@ contains
         melemsonproc(i_proc) = melemsonproc(i_proc-1) + 1
       end do
 
-      ! Determine the mapping from the old element indices to the new element 
-      ! indices
+      ! Determine the mapping from the old element indices to the new element indices
       ! ========================================================================
 
       ! Allocate data for indices map
@@ -437,8 +439,7 @@ contains
           ! Get the global ID of the element that owns a periodic boundary face
           p_elem = periodic_face_data_x1(1,i_p_face)
 
-          ! Get the local (local for the element) ID of the periodic boundary 
-          ! face
+          ! Get the local (local for the element) ID of the periodic boundary face
           p_face = periodic_face_data_x1(2,i_p_face)
 
           ! Get the periodic direction of the face
@@ -497,7 +498,6 @@ contains
             p_data_x3(3+(cnt_p_faces_x3(i_proc)-1)*3,i_proc) = p_dir
           end if
         end do
-
 
         ! Original ID of the element which owns a "wall" face
         do i_w_face = 1, size(wall_face_data(1,:))
@@ -998,18 +998,14 @@ contains
       allocate(s_request_ldg_flip_flop_sign(nprocs))
       
       do i_proc = 0, nprocs-1
-        ! Allocate memory for temporary array for element-to-vertex connectivity
-        ! on the process
+        ! Allocate memory for temporary array for element-to-vertex connectivity on the process
         allocate(e2vtmp(2**ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1)))
         
-        ! Allocate memory for temporary array for face-to-face connectivity on 
-        ! the process
-        allocate(ef2etmp1(3,2*ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1))) 
+        ! Allocate memory for temporary array for face-to-face connectivity on the process
+        allocate(ef2etmp1(qdim,2*ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1))) 
 
-        ! Allocate memory for temporary array for the LDG flip-flop sign on the
-        ! process
+        ! Allocate memory for temporary array for the LDG flip-flop sign on the process
         allocate(ldg_flip_flop_sign_tmp1(2*ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1))) 
-
         
         ! Number of elements on the process
         npetmp = melemsonproc(2*i_proc+1)-melemsonproc(2*i_proc)+1
@@ -1035,33 +1031,24 @@ contains
         ! Loop over all elements on process
         do i = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
          
-        cnt_pack = cnt_pack + 1
+          cnt_pack = cnt_pack + 1
           
           ! Original element index
           ii = i2jelems(i)
 
-!        if (ii == 595) then
-!          write(*,*) i_proc, cnt_pack
-!          stop
-!        end if
-          
           ! Fill the e2v connectivity
           do j = 1, 2**ndim
             jj = iae2v(ii) + j - 1
             e2vtmp(j,i) = jae2v(jj)
-            
-!            if (i_proc == 1 .and. cnt_pack == 549) then
-!              write(*,*) 'needed indices', jj
-!              write(*,*) i, ii
-!              write(*,*) e2vtmp(j,i)
-!            end if
           end do
-
           
           ! Loop over all faces
           do j = 1, 2*ndim
             ! Face of neighbor
             ef2etmp1(1,j,i) = ef2e(1,j,ii)
+            ef2etmp1(4,j,i) = ef2e(4,j,ii)
+            ef2etmp1(5,j,i) = ef2e(5,j,ii)
+            ef2etmp1(6,j,i) = ef2e(6,j,ii)
             
             ! Original element index of neighbor
             jj = ef2e(2,j,ii)
@@ -1117,19 +1104,6 @@ contains
 
         end do ! En do loop over the element
 
-
-!          if (i_proc == 1) then
-!            do j = 1, 8
-!              write(*,*) 'e2vtmp 956', vx_master(:,e2vtmp(j,956))
-!            end do
-!
-!            do j = 1, 8
-!              write(*,*) 'e2vtmp 1297', vx_master(:,e2vtmp(j,1297))
-!            end do
-!            stop
-!          end if
-
-        
         ! Special treatment for the master node. There is no need to use mpi
         ! since the data are already available in memory.
         ! =====================================================================
@@ -1150,7 +1124,7 @@ contains
           e2v = e2vtmp
 
           ! Element-face-to-element connectivity (ef2e)
-          allocate(ef2etmp2(3,2*ndim,ihelems(1):ihelems(2)))
+          allocate(ef2etmp2(qdim,2*ndim,ihelems(1):ihelems(2)))
           ef2etmp2 = ef2etmp1
 
           ! Sign of the LDG flip-flop
@@ -1218,11 +1192,11 @@ contains
           ! Transfer ef2e data
           ! ===================================================================
           ! Prepare 1D vector
-          allocate(packed_ef2e(3*npetmp*(2*ndim)))
+          allocate(packed_ef2e(qdim*npetmp*(2*ndim)))
           cnt_pack = 0
           do ii = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
             do jj = 1, 2*ndim
-              do kk = 1, 3
+              do kk = 1, qdim
                 cnt_pack = cnt_pack + 1
                 packed_ef2e(cnt_pack) = ef2etmp1(kk,jj,ii)
               end do
@@ -1231,7 +1205,7 @@ contains
 
           ! Send 1D array
           s_tag = 200*nprocs + i_proc
-          m_size = npetmp*2*ndim*3
+          m_size = npetmp*2*ndim*qdim
           call mpi_send(packed_ef2e,m_size,mpi_integer,i_proc,s_tag, &
             & petsc_comm_world,s_request_ef2e(i_proc),i_err)
 
@@ -1373,12 +1347,12 @@ contains
 
       ! All the processes receive ef2etmp2
       ! =======================================================================
-      allocate(tmp_ef2etmp2(3*2*ndim*(ihelems(2)-ihelems(1)+1)))
+      allocate(tmp_ef2etmp2(qdim*2*ndim*(ihelems(2)-ihelems(1)+1)))
       tmp_ef2etmp2 = 0
 
       ! Receive the ordered-element face-to-face connectivity
       r_tag = 200*nprocs + myprocid
-      m_size = netmp*2*ndim*3
+      m_size = netmp*2*ndim*qdim
       call mpi_irecv(tmp_ef2etmp2,m_size,mpi_integer,0,r_tag,petsc_comm_world, &
         & r_request_ef2e,i_err)
 
@@ -1388,11 +1362,11 @@ contains
         & r_status,i_err)
 
       ! Unpack 1D array into the e2v 2D array
-      allocate(ef2etmp2(3,2*ndim,ihelems(1):ihelems(2)))
+      allocate(ef2etmp2(qdim,2*ndim,ihelems(1):ihelems(2)))
       cnt_unpack = 0
       do ii = ihelems(1),ihelems(2)
         do jj = 1, 2*ndim
-          do kk = 1, 3
+          do kk = 1, qdim
             cnt_unpack = cnt_unpack + 1
             ef2etmp2(kk,jj,ii) = tmp_ef2etmp2(cnt_unpack)
           end do
@@ -1439,7 +1413,7 @@ contains
     end if ! End if myprocid > 0
 
     ! Allocate memory for ef2e connectivity
-    allocate(ef2e(3,2*ndim,ihelems(1):ihelems(2)))
+    allocate(ef2e(qdim,2*ndim,ihelems(1):ihelems(2)))
     
     ! Assign ef2e to each processor
     ef2e = ef2etmp2

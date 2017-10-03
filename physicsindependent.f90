@@ -171,8 +171,9 @@ contains
     end if
 
     ! Setup collocated nodes connectivity
-    call facenodesetup_LGL()
+    call facenodesetup_LGL_Driver()
     call facenodesetup_Gau()
+
 
     if (myprocid == 0) then
       write(*,*) 'Each process finds the WENO partner node of each collocated node'

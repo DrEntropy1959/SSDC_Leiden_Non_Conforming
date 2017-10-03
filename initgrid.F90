@@ -24,6 +24,7 @@ module initgrid
 
   public calcnodes_LGL
   public calcmetrics_LGL
+  public facenodesetup_LGL_Driver
   public facenodesetup_LGL
   public facenodesetup_Gau
   public facenodesetup_LGL_WENO
@@ -713,9 +714,6 @@ contains
     return
   end subroutine pert_int_vert
 
-
-  !============================================================================
-  
   !============================================================================
 
   subroutine calcnodes_LGL()
@@ -726,14 +724,19 @@ contains
     use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
-    use collocationvariables, only: x_LGL_pts_1D
+    use collocationvariables, only: n_LGL_1d_pH, elem_props
+    use initcollocation, only: JacobiP11
     implicit none
     ! indices
     integer :: ielem, inode, idir, iface
     integer :: i,j,k
     integer :: nE
+    integer :: nodesperelem_max
     ! cartesian based grid coordinates
     real(wp), allocatable :: xl(:,:,:,:)
+
+    real(wp), allocatable :: x_LGL_1d(:)
+
     ! high and low indices for each direction
     integer :: il(2,3)
     ! local grid distance
@@ -742,29 +745,34 @@ contains
     real(wp), dimension(3)  :: dx
     real(wp), dimension(3)  :: x00,x01
 
-    ! nE is simply for convenience of presentation in the coding
-    nE = nodesperedge
     ! number of nodes in each element
-    nodesperelem = nE**ndim
-    ! total number of nodes
-    nnodes = nodesperelem*nelems
+    nodesperelem_max = n_LGL_1d_pH**ndim
 
     ! allocate global node matrix
-    allocate(xg(3,1:nodesperelem,ihelems(1):ihelems(2)))
+    allocate(xg(3,1:nodesperelem_max,ihelems(1):ihelems(2)))
     xg = 0.0_wp
-    ! allocate local nodes
-    allocate(xl(3,1:nE,1:nE,1:nE))
-    xl = 0.0_wp
-
-    ! low index is always 1
-    il = 1
-    ! set high index for each grid direction to nodesperedge
-    do idir = 1,ndim
-      il(2,idir) = nE
-    end do
 
     ! loop over volumetric elements
     do ielem = ihelems(1), ihelems(2)
+
+      ! nE is size of edge on element (varies with element)
+      nE = elem_props(2,ielem)
+
+      ! allocate local nodes
+
+      if(allocated(xl)) deallocate(xl) ; allocate(xl(3,1:nE,1:nE,1:nE)) ;  xl = 0.0_wp
+
+      if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ; allocate(x_LGL_1d(1:nE)) 
+
+      call JacobiP11(nE-1,x_LGL_1D)
+
+      ! low index is always 1
+      il = 1
+      ! set high index for each grid direction to nodesperedge
+      do idir = 1,ndim
+        il(2,idir) = nE
+      end do
+
       ! reset local grid coordinates
       xl = 0.0_wp
       ! initialize corners to vertex values
@@ -798,7 +806,7 @@ contains
 
         ! Build the ``Bird cage'': 12 bounding edge connectors that define the Hexahedral Element
         do i = 1,nE                                 ! loop over nodes on edge
-            dr = 0.5_wp*(x_LGL_pts_1D(i)+1.0_wp)    ! distance in computational space
+            dr = 0.5_wp*(x_LGL_1d(i)+1.0_wp)    ! distance in computational space
           if (ndim > 0) then
             dx = xl(:,nE, 1, 1)-xl(:, 1, 1, 1) ; xl(:, i, 1, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_2 = 0, xi_3 = 0
           endif
@@ -823,7 +831,7 @@ contains
 
         x00 = cylinder_x0 ; x01 = cylinder_x1 ;
 
-        xi(:) = 0.5_wp*(x_LGL_pts_1D(:)+1.0_wp)    ! distance in computational space
+        xi(:) = 0.5_wp*(x_LGL_1d(:)+1.0_wp)    ! distance in computational space
 
         if (ndim > 0) then
           xl(:, :, 1, 1) = curved_connector_cylinder(nE,x00,x01,xl(:, 1, 1, 1),xl(:,nE, 1, 1),xi) ! xi_2 = 0, xi_3 = 0
@@ -846,7 +854,7 @@ contains
 
         case ('parabola')
 
-        xi(:) = 0.5_wp*(x_LGL_pts_1D(:)+1.0_wp)    ! distance in computational space
+        xi(:) = 0.5_wp*(x_LGL_1d(:)+1.0_wp)    ! distance in computational space
 
         if (ndim > 0) then
           xl(:, :, 1, 1) = curved_connector_parabola(nE,xl(:, 1, 1, 1),xl(:,nE, 1, 1),xi) ! xi_2 = 0, xi_3 = 0
@@ -872,23 +880,23 @@ contains
       ! build faces
       if (ndim > 1) then
         ! xi_3 = 0
-        call TFI2D(xl(:, :, :, 1),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
       end if
       if (ndim > 2) then
         ! xi_3 = 1
-        call TFI2D(xl(:, :, :,nE),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:, :, :,nE),nE,x_LGL_1d)
         ! xi_2 = 0
-        call TFI2D(xl(:, :, 1, :),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
         ! xi_2 = 1
-        call TFI2D(xl(:, :,nE, :),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
         ! xi_1 = 0
-        call TFI2D(xl(:, 1, :, :),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
         ! xi_1 = 1
-        call TFI2D(xl(:,nE, :, :),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
       end if
       ! build volumes
       if (ndim > 2) then
-        call TFI3D(xl(:,:,:,:),nE,x_LGL_pts_1D)
+        call TFI3D(xl(:,:,:,:),nE,x_LGL_1d)
       end if
       ! populate global coordinate matrix simply by packing
       ! in the typical manner
@@ -908,7 +916,7 @@ contains
 
 ! =============================================================================
 
-  subroutine facenodesetup_LGL()
+  subroutine facenodesetup_LGL_Driver()
     ! This subroutine calculates the partner node of each facial
     ! node on every volumetric element. Partner nodes of boundary
     ! faces are set to themselves.
@@ -919,37 +927,78 @@ contains
     !   ifacenodes(nodesperface*nfacesperelem)  
     !      kfacenode flattened into a single vector
     !  
-    use referencevariables
+    use referencevariables, only: nfacesperelem
     use mpimod
-    use variables, only: kfacenodes, ifacenodes
+    use variables, only: kfacenodes_LGL_pH, ifacenodes_LGL_pH &
+                       , kfacenodes_LGL_pL, ifacenodes_LGL_pL &
+                       , kfacenodes, ifacenodes
+
+    use collocationvariables, only: n_LGL_1d_pL, n_LGL_1d_pH &
+                                  , n_LGL_2d_pL, n_LGL_2d_pH
+
+    implicit none
+
+    ! kfacenodes separates each face
+    ! ifacenodes includes all faces
+
+    allocate(kfacenodes_LGL_pL(1:n_LGL_2d_pL,1:nfacesperelem))
+    allocate(ifacenodes_LGL_pL(1:n_LGL_2d_pL*nfacesperelem))
+
+    allocate(kfacenodes_LGL_pH(n_LGL_2d_pH,nfacesperelem))
+    allocate(ifacenodes_LGL_pH(n_LGL_2d_pH*nfacesperelem))
+
+    call facenodesetup_LGL(n_LGL_1d_pL, n_LGL_2d_pL, kfacenodes_LGL_pL, ifacenodes_LGL_pL)
+    call facenodesetup_LGL(n_LGL_1d_pH, n_LGL_2d_pH, kfacenodes_LGL_pH, ifacenodes_LGL_pH)
+
+    allocate(kfacenodes(n_LGL_2d_pL,nfacesperelem))
+    allocate(ifacenodes(n_LGL_2d_pL*nfacesperelem))
+
+    kfacenodes(:,:) = kfacenodes_LGL_pL(:,:)
+    ifacenodes(:)   = ifacenodes_LGL_pL(:)
+
+    end subroutine facenodesetup_LGL_Driver
+
+! =============================================================================
+
+  subroutine facenodesetup_LGL(n_LGL_1d, n_LGL_2d, kfacenodes, ifacenodes)
+
+    ! This subroutine calculates the partner node of each facial
+    ! node on every volumetric element. Partner nodes of boundary
+    ! faces are set to themselves.
+    !  
+    !   kfacenodes(nodesperface,nfacesperelem)  
+    !      volumetric node index of face node  
+    !      
+    !   ifacenodes(nodesperface*nfacesperelem)  
+    !      kfacenode flattened into a single vector
+    !  
+    use referencevariables, only: nfacesperelem, ndim
+
     implicit none
 
     ! indices
+    integer,                   intent(in   ) :: n_LGL_1d, n_LGL_2d
+    integer,  dimension(:,:),  intent(inout) :: kfacenodes
+    integer,  dimension(:  ),  intent(inout) :: ifacenodes
+
     integer :: i,j,k
     integer :: stride, stride1, stride2, ioffset
 
     real(wp), parameter :: nodetol = 1.0e-8_wp
 
-    ! local facial masks
-    !
-    ! kfacenodes separates each face
-    allocate(kfacenodes(nodesperface,nfacesperelem))
-    ! ifacenodes includes all faces
-    allocate(ifacenodes(nodesperface*nfacesperelem))
-
     if (ndim == 2) then
       ! loop over every node on each face
-      do i = 1, nodesperedge
-        ! on face 1, the first nodesperface nodes are just
-        ! the first nodesperface
+      do i = 1, n_LGL_1d
+        ! on face 1, the first n_LGL_2d nodes are just
+        ! the first n_LGL_2d
         kfacenodes(i,1) = i
         ! on face 3 there is just an offset to where the
         ! counting starts
-        j = (nodesperedge-1)*nodesperedge+i
+        j = (n_LGL_1d-1)*n_LGL_1d+i
         kfacenodes(i,3) = j
         ! onface 2, a stride and offset are required
-        stride = nodesperedge
-        j = nodesperedge + (i-1)*stride
+        stride = n_LGL_1d
+        j = n_LGL_1d + (i-1)*stride
         kfacenodes(i,2) = j
         ! on face 4, a stride is needed
         j = 1 + (i-1)*stride
@@ -957,33 +1006,33 @@ contains
       end do
     else if (ndim == 3) then
       k = 0
-      do j = 1, nodesperedge
-        do i = 1, nodesperedge
+      do j = 1, n_LGL_1d
+        do i = 1, n_LGL_1d
           k = k+1
           ! face 1 does not require an offset or a stride
           kfacenodes(k,1) = k
           ! on face 2, a stride is required
           ioffset = 1
           stride1 = 1
-          stride2 = nodesperedge**2
+          stride2 = n_LGL_1d**2
           kfacenodes(k,2) = ioffset+stride1*(i-1)+stride2*(j-1)
           ! on face 3, offset and stride are needed
-          ioffset = nodesperedge
-          stride1 = nodesperedge
-          stride2 = nodesperedge**2
+          ioffset = n_LGL_1d
+          stride1 = n_LGL_1d
+          stride2 = n_LGL_1d**2
           kfacenodes(k,3) = ioffset+stride1*(i-1)+stride2*(j-1)
           ! face 4 requires an offset and a stride
-          ioffset = 1+(nodesperedge-1)*nodesperedge
+          ioffset = 1+(n_LGL_1d-1)*n_LGL_1d
           stride1 = 1
-          stride2 = nodesperedge**2
+          stride2 = n_LGL_1d**2
           kfacenodes(k,4) = ioffset+stride1*(i-1)+stride2*(j-1)
           ! on face 5 only a stride is required
           ioffset = 1
-          stride1 = nodesperedge
-          stride2 = nodesperedge**2
+          stride1 = n_LGL_1d
+          stride2 = n_LGL_1d**2
           kfacenodes(k,5) = ioffset+stride1*(i-1)+stride2*(j-1)
           ! on face 6 only an offset is required
-          ioffset = (nodesperedge-1)*nodesperedge*nodesperedge
+          ioffset = (n_LGL_1d-1)*n_LGL_1d*n_LGL_1d
           kfacenodes(k,6) = ioffset+k
         end do
       end do
@@ -996,7 +1045,7 @@ contains
     ! loop over faces
     do j = 1, nfacesperelem
       ! loop over nodes on each face
-      do i = 1, nodesperface
+      do i = 1, n_LGL_2d
         ! advance facial node index
         k = k+1
         ! map facial node index to volumetric node
@@ -1117,12 +1166,18 @@ contains
     ! Load modules
     use referencevariables
     use mpimod
-    use variables, only: xg, xghst_LGL, kfacenodes, ifacenodes, ef2e, efn2efn, &
-      & jelems, periodic_elem_face_ids_x1, &
-      & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
+    use variables, only: xg, xghst_LGL, ef2e, efn2efn,        &
+      & jelems, periodic_elem_face_ids_x1,                    &
+      & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3, &
+      & kfacenodes_LGL_pL,ifacenodes_LGL_pL,                  &
+      & kfacenodes_LGL_pH,ifacenodes_LGL_pH
+    use collocationvariables, only: elem_props, n_LGL_1d_pL, n_LGL_1d_pH
 
     ! Nothing is implicitly defined
     implicit none
+
+    integer, allocatable, dimension(:,:) :: kfacenodes
+    integer, allocatable, dimension(:)   :: ifacenodes
 
     integer ::  ielem, inode, jnode, iface, knode
     integer ::  i_low
@@ -1136,6 +1191,8 @@ contains
     real(wp), dimension(2) :: x1_p, x2_p
 
     integer :: cnt_debug
+    integer :: n_LGL_1d, n_LGL_2d, nodesperface_max
+
 
     continue
 
@@ -1144,9 +1201,11 @@ contains
     ! Low and High volumetric element index
     iell = ihelems(1) ; ielh = ihelems(2) ;
 
-    ! efn2efn contains the partner node information of every facenode in the 
-    ! domain
-    allocate(efn2efn(4,nfacesperelem*nodesperface,iell:ielh))
+    ! efn2efn contains the partner node information of every facenode in the domain
+
+    nodesperface_max = n_LGL_1d_pH**2
+
+    allocate(efn2efn(4,nfacesperelem*nodesperface_max,iell:ielh))
     efn2efn = -1000
 
     ! Initialize position of the ghost point in the stack
@@ -1155,6 +1214,20 @@ contains
     ! Loop over elements
     do ielem = iell, ielh
       
+      n_LGL_1d = elem_props(2,ielem)**1 
+      n_LGL_2d = elem_props(2,ielem)**2 
+
+      if(allocated(kfacenodes)) deallocate(kfacenodes) ; allocate(kfacenodes(1:n_LGL_2d,1:nfacesperelem))
+      if(allocated(ifacenodes)) deallocate(ifacenodes) ; allocate(ifacenodes(1:n_LGL_2d*nfacesperelem))
+
+      if(n_LGL_1d == n_LGL_1d_pL) then
+        kfacenodes(:,:) = kfacenodes_LGL_pL(:,:)
+        ifacenodes(:)   = ifacenodes_LGL_pL(:)
+      else
+        kfacenodes(:,:) = kfacenodes_LGL_pH(:,:)
+        ifacenodes(:)   = ifacenodes_LGL_pH(:)
+      endif
+
       ! Reset facial node index counter
       knode = 0
       
@@ -1165,7 +1238,7 @@ contains
         if (ef2e(1,iface,ielem) < 0) then
           
           ! Loop over nodes on the boundary face
-          do inode = 1, nodesperface
+          do inode = 1, n_LGL_2d
             
             ! Update facial node index counter
             knode = knode + 1
@@ -1176,7 +1249,7 @@ contains
           
           end do
 
-        else if (ef2e(3,iface,ielem) /= myprocid) then ! A parallel interface
+        else if ((ef2e(3,iface,ielem) /= myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem))) then ! A parallel interface
 
           ! Initialize match_found
           match_found = .false.
@@ -1199,7 +1272,7 @@ contains
                 p_dir = periodic_elem_face_ids_x1(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1221,7 +1294,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, nodesperface
+                  do jnode = 1, n_LGL_2d
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -1265,7 +1338,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + nodesperface
+                i_low = i_low + n_LGL_2d
 
               end if ! End if match found
 
@@ -1298,7 +1371,7 @@ contains
                 p_dir = periodic_elem_face_ids_x2(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1320,7 +1393,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, nodesperface
+                  do jnode = 1, n_LGL_2d
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -1364,7 +1437,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + nodesperface
+                i_low = i_low + n_LGL_2d
 
               end if ! End if match found
 
@@ -1397,7 +1470,7 @@ contains
                 p_dir = periodic_elem_face_ids_x3(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1419,7 +1492,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, nodesperface
+                  do jnode = 1, n_LGL_2d
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -1463,7 +1536,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + nodesperface
+                i_low = i_low + n_LGL_2d
 
               end if ! End if match found
 
@@ -1477,17 +1550,10 @@ contains
 
           end if ! End if check periodic face in x3 direction
 
-
-
           if (match_found .eqv. .false.) then
 
-!!!!!!!!!!!
-! NOTE: HERE WE WANT TO CHECK IF elem_props(2,ielem) == elem_props(2,ef2e(1,iface,ielem))
-!!!!!!!!!!!!!!
-
-
             ! Loop over the nodes on the face
-            do inode = 1, nodesperface
+            do inode = 1, n_LGL_2d
 
               ! Update the facial node index counter
               knode = knode + 1
@@ -1496,7 +1562,7 @@ contains
               x1 = xg(:,ifacenodes(knode),ielem)
               
               ! Search for the connected node on face of the connected element
-              do jnode = 1, nodesperface
+              do jnode = 1, n_LGL_2d
 
                 ! Coordinates of the jnode
                 ! ef2e(2) gives the element of the neighbor
@@ -1524,12 +1590,12 @@ contains
               
               ! Print information at screen if there is a problem and stop
               ! computation
-              if (jnode > nodesperface .and. myprocid==1) then
+              if (jnode > n_LGL_2d .and. myprocid==1) then
                 write(*,*) 'Connectivity error in face-node connectivity.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
                 write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
                 write(*,*) 'Node coordinates and ghost node coordinates'
-                write(*,*) x1, xghst_LGL(:,i_low + 1:i_low + nodesperface)
+                write(*,*) x1, xghst_LGL(:,i_low + 1:i_low + n_LGL_2d)
                 write(*,*) 'Exiting...'
                 stop
               end if
@@ -1537,11 +1603,11 @@ contains
             end do
 
             ! Update the position in the ghost stack
-            i_low = i_low + nodesperface
+            i_low = i_low + n_LGL_2d
           
           end if
 
-        else ! Not a parallel interface
+        else if (ef2e(4,iface,ielem) == elem_props(2,ielem)) then ! Not a parallel interface
 
           ! Initialize match_found
           match_found = .false.
@@ -1562,7 +1628,7 @@ contains
                 p_dir = periodic_elem_face_ids_x1(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1586,7 +1652,7 @@ contains
 
                   ! Search for the connected node on the face of the connected 
                   ! element
-                  do jnode = 1,nodesperface
+                  do jnode = 1,n_LGL_2d
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
@@ -1660,7 +1726,7 @@ contains
                 p_dir = periodic_elem_face_ids_x2(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1684,7 +1750,7 @@ contains
 
                   ! Search for the connected node on the face of the connected 
                   ! element
-                  do jnode = 1,nodesperface
+                  do jnode = 1,n_LGL_2d
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
@@ -1758,7 +1824,7 @@ contains
                 p_dir = periodic_elem_face_ids_x3(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1782,7 +1848,7 @@ contains
 
                   ! Search for the connected node on the face of the connected 
                   ! element
-                  do jnode = 1,nodesperface
+                  do jnode = 1,n_LGL_2d
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
@@ -1837,14 +1903,10 @@ contains
           
           end if ! End if periodic x3 direction
 
-
           if (match_found .eqv. .false.) then
-!!!!!!!!!!!
-! NOTE: HERE WE WANT TO CHECK IF elem_props(2,ielem) == elem_props(2,ef2e(1,iface,ielem))
-!!!!!!!!!!!!!!
 
             ! Loop over the nodes on the face
-            do inode = 1, nodesperface
+            do inode = 1, n_LGL_2d
 
               ! Update the facial node index counter
               knode = knode + 1
@@ -1854,7 +1916,7 @@ contains
               ! Search the for connected node on the face of the connected 
               ! element
               
-              do jnode = 1, nodesperface
+              do jnode = 1, n_LGL_2d
                 
                 ! Coordinates of the jnode
                 ! ef2e(1) gives the face on the neighboring element and
@@ -1890,7 +1952,7 @@ contains
                 write(*,*) x1
                 write(*,*) 'Possible partner node coordinates'
                 
-                do jnode = 1, nodesperface
+                do jnode = 1, n_LGL_2d
                   x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), &
                     & ef2e(2,iface,ielem))
                   write(*,*) x2
@@ -1920,22 +1982,31 @@ contains
     ! of each facial node
     use referencevariables
     use variables, only: kfacenodes, facenodenormal, r_x, ef2e, efn2efn, Jx_r
+    use collocationvariables, only: n_LGL_1d_pH, elem_props
+
     implicit none
 
     ! indices
     integer :: ielem, kelem, inode, iface, idir, knode
     integer :: i
+    integer :: n_LGL_2d, nodesperface_max
 
     real(wp) :: dx
     real(wp), dimension(3) :: wrk
     !real(wp), dimension(3) :: xg_target=(/1.5_wp,1.0_wp,0.0_wp/)
     logical                :: testing = .false.
 
-    allocate(facenodenormal(3,nfacesperelem*nodesperface,ihelems(1):ihelems(2)))
+    ! number of nodes in each element
+
+    nodesperface_max = n_LGL_1d_pH**2
+    allocate(facenodenormal(3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
     facenodenormal = 0.0_wp
 
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
+
+       n_LGL_2d = elem_props(2,ielem)**2
+
       ! reset facial node index counter
       knode = 0
       ! compute outward facing normals
@@ -1943,7 +2014,7 @@ contains
       ! loop over faces
       do iface = 1,nfacesperelem
         ! loop over nodes on face
-        do inode = 1,nodesperface
+        do inode = 1,n_LGL_2d
           ! update facial node index counter
           knode = knode + 1
           ! volumetric node index of facial node
@@ -1967,10 +2038,10 @@ contains
         do iface = 1,nfacesperelem
           ! loop over nodes on face
           kelem = ef2e(2,iface,ielem)
-          do inode = 1,nodesperface
+          do inode = 1,n_LGL_2d
             knode = knode + 1
             if(ef2e(1,iface,ielem) > 0)then
-              i = (ef2e(1,iface,ielem)-1)*nodesperface+efn2efn(4,knode,ielem)
+              i = (ef2e(1,iface,ielem)-1)*n_LGL_2d+efn2efn(4,knode,ielem)
               wrk = facenodenormal(1:3,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem) &
                   + facenodenormal(1:3, i ,kelem)*Jx_r(efn2efn(1,knode,ielem),kelem)
               if(magnitude(wrk) >= 1.0e-10_wp) then
@@ -2021,7 +2092,7 @@ contains
                               xg_Gau_shell(:,:,ielem),Jx_facenodenormal_Gau(:,:,ielem))
 
         ! loop over nodes on face
-        do inode = 1,nodesperface
+        do inode = 1,n_Gau_2d_pH
           ! update facial node index counter
           knode = knode + 1
           ! volumetric node index of facial node
@@ -2046,10 +2117,10 @@ contains
 !       do iface = 1,nfacesperelem
 !         ! loop over nodes on face
 !         kelem = ef2e(2,iface,ielem)
-!         do inode = 1,nodesperface
+!         do inode = 1,n_Gau_2d_pH
 !           knode = knode + 1
 !           if(ef2e(1,iface,ielem) > 0)then
-!             i = (ef2e(1,iface,ielem)-1)*nodesperface+efn2efn(4,knode,ielem)
+!             i = (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH+efn2efn(4,knode,ielem)
 !             wrk = facenodenormal(1:3,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem) &
 !                 + facenodenormal(1:3, i ,kelem)*Jx_r(efn2efn(1,knode,ielem),kelem)
 !             if(magnitude(wrk) >= 1.0e-10_wp) then
@@ -2432,7 +2503,8 @@ contains
 
     !integer, allocatable, dimension(:) :: list_partner_faces
 
-    real(wp), parameter :: diff_toll = 1e-8
+    real(wp), parameter  :: diff_toll = 1e-8
+    integer,  parameter  :: qdim = 6             !  dimension of ef2e array
 
     continue
 
@@ -2456,7 +2528,7 @@ contains
     !  nelems     :    elements  =  nhex in this case
     !
     !                   Dim,    Dim,         Dim
-    !  ef2e       :    ( 5 ,nfaceperelem, nelements) 
+    !  ef2e       :    ( 6 ,nfaceperelem, nelements) 
     !             :  Two situation occur.  The face is either an 
     !                  (Interior face 
     !                      :  (1,j,k) = Adjoining element face ID
@@ -2464,12 +2536,14 @@ contains
     !                      :  (3,j,k) = Adjoining element process ID
     !                      :  (4,j,k) = Adjoining element polynomial order
     !                      :  (5,j,k) = Number of Adjoining elements
+    !                      :  (6,j,k) = HACK self polynomial order assigned to each face
     !                  (Boundary face 
     !                      :  (1,j,k) = Set to -11 
     !                      :  (2,j,k) = -100000000
     !                      :  (3,j,k) = -100000000
     !                      :  (4,j,k) = -100000000
     !                      :  (5,j,k) = -100000000
+    !                      :  (6,j,k) = -100000000
     !
     ! iae2v,jae2v     :    Which vertices belong to each element
 
@@ -2537,7 +2611,7 @@ contains
 
 
       ! Calculate element-to-element connectivity using shared nodes
-      allocate(ef2e(5,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
+      allocate(ef2e(qdim,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
 
       allocate(ivtmp1(nverticesperface*bigN),ivtmp2(nverticesperface*bigN))
       allocate(ivtmp3(nverticesperface),     ivtmp4(nverticesperface))
@@ -4000,6 +4074,7 @@ contains
     nhex = size(ic2nh,2)
 
     if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,1:nhex))
+    elem_props(:,:) = -1000
 
     do ielem = 1,nhex
 
@@ -4013,13 +4088,14 @@ contains
 
     do ielem = 1,nhex
 
+      ef2e(6,:,ielem) = elem_props(2,ielem)
+
       do iface = 1,nfacesperelem
 
         if(ef2e(2,iface,ielem) > 0) ef2e(4,iface,ielem) = elem_props(2,ef2e(2,iface,ielem))
 
       enddo
     enddo
- 
 
     end subroutine set_element_orders_Serial    !  Serial Routine
 
@@ -4035,17 +4111,18 @@ contains
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: ielem, j
+    integer :: ielem, j, qdim
 
     if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,ihelems(1):ihelems(2)))
 
     do ielem = ihelems(1),ihelems(2)
 
+      qdim = size(ef2e(:,1,1))
       elem_props(1,ielem) = 1
-      elem_props(2,ielem) = npoly+1
-      do j=1,8
-        if(vx(1,e2v(j,ielem)) >= 100000.5_wp) elem_props(2,ielem) = npoly+2
-      enddo
+      if(sum(ef2e(6,:,ielem))/qdim /= ef2e(6,1,ielem)) then
+         write(*,*)'mpi bug in transfering ef2e'
+      endif
+      elem_props(2,ielem) = ef2e(6,1,ielem)
  
     enddo
 

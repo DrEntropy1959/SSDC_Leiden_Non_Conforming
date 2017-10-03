@@ -68,8 +68,16 @@ module variables
 
   integer,  allocatable, dimension(:,:,:)     :: efn2efn_LGL               ! ( 4,nshell,nelem)
   integer,  allocatable, dimension(:,:,:)     :: efn2efn_Gau               ! ( 4,nshell,nelem)
+
+  integer,  allocatable, dimension(:,:)       :: kfacenodes_LGL_pH
+  integer,  allocatable, dimension(:)         :: ifacenodes_LGL_pH
+
+  integer,  allocatable, dimension(:,:)       :: kfacenodes_LGL_pL
+  integer,  allocatable, dimension(:)         :: ifacenodes_LGL_pL
+
   integer,  allocatable, dimension(:,:)       :: kfacenodes_Gau
   integer,  allocatable, dimension(:)         :: ifacenodes_Gau
+
   real(wp), allocatable, dimension(:,:,:)     :: facenodenormal_LGL_shell
   real(wp), allocatable, dimension(:,:,:)     :: facenodenormal_Gau_shell
 
