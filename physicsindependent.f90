@@ -165,6 +165,8 @@ contains
     ! Calculate metrics
     call calcmetrics_LGL()
 
+    call Modify_Metrics_NonConforming()
+
     if (myprocid == 0) then
       write(*,*) 'Each process finds the partner node of each collocated node'
       write(*,*) '==============================================================='

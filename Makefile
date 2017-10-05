@@ -10,13 +10,22 @@ FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -fbounds-check -O3 $(INCLU
 CFLAGS  = -Ofast  $(INCLUDESDIR)
 LFLAGS  = -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/lib\
           -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/lib
-LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
 CC = gcc
 FC = mpif90
 else ifeq ($(hostname),Leiden)
+INCLUDESDIR = -I/home/carpentr/OpenSourceLib/Lib-Install/include\
+              -I/home/carpentr/OpenSourceLib/Lib-Install/petsc-3.5/include
+FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+CFLAGS = -Ofast  $(INCLUDESDIR)
+LFLAGS = -L/home/carpentr/OpenSourceLib/Lib-Install/lib\
+         -L/home/carpentr/OpenSourceLib/Lib-Install/petsc-3.5/lib
+CC = gcc
+FC = mpif90
 else
 $(info Hostname Not Found)
 endif
+LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
 
 
 SRCS = precision_vars.f90\
@@ -60,7 +69,8 @@ SRCS = precision_vars.f90\
        non_conforming.f90\
        polyinit.f90\
        physicsindependent.f90\
-       ssdcsolver.f90 
+       ssdcsolver.f90\
+       eispack_module.f90
 
 #OBJS1 = $(SRCS:.f90=.o)
 #OBJS2 = $(SRCS:.F90=.o)
@@ -110,6 +120,7 @@ OBJS = precision_vars.o\
        polyinit.o\
        physicsindependent.o\
        ssdcsolver.o\
+       eispack_module.o\
        metiselementpartition.o
 
 #LINK = gfortran

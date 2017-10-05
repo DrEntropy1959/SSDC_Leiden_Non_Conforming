@@ -4,9 +4,9 @@ cd ..
 make 
 cp Scripts/Startup/SSDCstartup.NS_Cylinder_Stagnation_Curved_Elements_Study.ref SSDCstartup
 if [ "$THISHOST" == "tab16" ]; then
-       mpirun.actual -np  4 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun.actual -np  4 nice -19 ./SSDCNSE > NS_Cylinder_Stagnation.csv ;
 elif [ "$THISHOST" = "Leiden" ]; then
-       mpirun        -np  4 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun        -np  4 nice -19 ./SSDCNSE > NS_Cylinder_Stagnation.csv ;
 else
 echo "hostname does not exist" ;
 fi

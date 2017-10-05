@@ -42,6 +42,7 @@ module initgrid
   public Boundary_Vertex_2_Vertex_Connectivity
   public calc_Gau_shell_pts_all_hexas
   public calculate_face_node_connectivity_Gau
+  public modify_metrics_nonconforming
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
@@ -2446,8 +2447,139 @@ contains
     return
   end subroutine calcmetrics_LGL
 
+  !============================================================================
+
+  subroutine modify_metrics_nonconforming()
+
+    use referencevariables
+    use collocationvariables
+    use initcollocation, only: GCL_Triple_Qmat_Transpose, element_properties
+    use eispack_module,  only: svd
+    use unary_mod,       only: qsortd
+
+    implicit none
+
+    logical, parameter :: matu = .True.
+    logical, parameter :: matv = .True.
+
+    real(wp), dimension(:,:),  allocatable :: Amat
+    real(wp), dimension(:,:),  allocatable :: bvec
+    real(wp), dimension(:,:),  allocatable :: u, v
+    real(wp), dimension(:),    allocatable :: w, work
+    real(wp), dimension(:,:),  allocatable :: eye, wrk, diag
+
+    integer,  dimension(:),    allocatable :: perm
+    integer :: ielem, ierr
+    integer :: i, j
+    integer :: n_pts_1d, n_pts_2d, n_pts_3d
+    integer :: nm, m, n
+
+    logical                                :: testing = .true.
+    real(wp)                               :: t1, t2
+    real(wp), parameter                    :: tol = 1.0e-12_wp
+
+    ! loop over volumetric elements
+    elloop:do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_1d, n_pts_2d, n_pts_3d, &
+                      pinv, qmat, dmat, iagrad, jagrad, dagrad,    &
+                      pmat, nnzgrad, pvol, p_surf)
+
+      m = 1*n_pts_3d ; n = 3*n_pts_3d ; nm = max(m,n) ;
+
+      if(allocated(Amat)) deallocate(Amat) ; allocate(Amat(nm,n)) ; Amat(:,:) = 0.0_wp
+      if(allocated(   v)) deallocate(   v) ; allocate(   v(nm,n)) ;    v(:,:) = 0.0_wp
+      if(allocated(   u)) deallocate(   u) ; allocate(   u(nm,n)) ;    u(:,:) = 0.0_wp
+      if(allocated(   w)) deallocate(   w) ; allocate(   w(nm))   ;    w(:)   = 0.0_wp
+      if(allocated(work)) deallocate(work) ; allocate(work(nm))   ; work(:)   = 0.0_wp
+
+      if(allocated(bvec)) deallocate(bvec) ; allocate(bvec(n_pts_3d,3)) ; bvec(:,:) = 0.0_wp
+
+      call GCL_Triple_Qmat_Transpose(n_pts_1d, n_pts_3d, qmat, Amat)
+
+      call SVD(nm,n,m,transpose(Amat),w,matu,u,matv,v,ierr,work)
+
+      if(testing) then
+        if(allocated( eye)) deallocate( eye) ; allocate( eye(m,m))  ;  eye(:,:) = 0.0_wp
+        if(allocated( wrk)) deallocate( wrk) ; allocate( wrk(m,m))  ;  wrk(:,:) = 0.0_wp
+        if(allocated(diag)) deallocate(diag) ; allocate(diag(m,m))  ; diag(:,:) = 0.0_wp
+        if(allocated(perm)) deallocate(perm) ; allocate(perm(m))    ; perm(:)   = 0
+        do i = 1,m
+          eye(i,i) = 1.0_wp
+        enddo
+          
+        do i = 1,m
+          diag(i,i) = w(i)
+        enddo
+        call qsortd(w(1:m),perm,m)
+        wrk(:,:) = matmul(transpose(v(1:m,1:m)),v(1:m,1:m)) &
+                 + matmul(v(1:m,1:m),transpose(v(1:m,1:m))) &
+                 + matmul(transpose(u(1:n,1:m)),u(1:n,1:m)) 
+        t1 = maxval(abs(3*eye(:,:) - wrk(:,:))) 
+        t2 = maxval(abs(transpose(amat)-matmul(u(1:n,1:m),matmul(diag(1:m,1:m),transpose(v(1:m,1:m))) )))
+        if(w(perm(2)) <= tol) write(*,*)'second singular mode',w(perm(1:2))
+        if(t1+t2 > tol) then
+          write(*,*)'error in u^T u', t1
+          write(*,*)'error in A - u S v^T', t2
+          write(*,*)'stopping'
+          stop
+         endif
+!       write(*,*)'Lambda',w(perm(1:m))
+!       write(*,*)'v' ;     do i = 1,m ;       write(*,*)i,(v(i,j),j=1,m) ;     enddo
+      endif
+
+!     call Load_Mortar_Metric_Data(ielem, n_pts_2d, n_pts_3d, p_surf, bvec)
+
+  !   call Pseudo_Inverse_Solve_GCL()
+
+     
+    end do elloop
+    deallocate(u,v,w,work,Amat)
+
+  end subroutine modify_metrics_nonConforming
 
   !============================================================================
+
+  subroutine Load_Mortar_Metric_Data(ielem,n_LGL_2d,n_LGL_3d,psurf,bvec)
+
+    use referencevariables
+    use variables, only: Jx_r, facenodenormal, ifacenodes
+    use collocationvariables
+
+    implicit none
+
+    integer,                   intent(in   ) :: ielem,n_LGL_2d,n_LGL_3d
+    real(wp),  dimension(:),   intent(in   ) :: psurf
+
+    real(wp), dimension(:,:),  intent(inout) :: bvec
+
+    integer                                  :: i, iface, inode, jnode
+
+    real(wp), dimension(3)                   :: nx
+
+    do iface = 1,nfacesperelem
+
+       do i = 1,n_LGL_2d
+
+            ! Index in facial ordering
+            jnode =  n_LGL_2d*(iface-1)+i
+              
+            ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes(jnode)
+              
+            ! Outward facing normal of facial node
+            nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+
+            bvec(inode,:) = bvec(inode,:) + psurf(i)*nx(:)
+
+       enddo
+
+    enddo
+
+  end subroutine Load_Mortar_Metric_Data
+
+  !============================================================================
+
   ! e2e_connectivity_aflr3 - Constructs the element-to-element connectivity
   ! starting from the information read from the AFLR3 grid.
 
@@ -4106,12 +4238,12 @@ contains
     ! Load modules
     use variables
     use collocationvariables
-    use referencevariables, only : npoly, ihelems
+    use referencevariables, only : ihelems
 
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: ielem, j, qdim
+    integer :: ielem, qdim
 
     if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,ihelems(1):ihelems(2)))
 
