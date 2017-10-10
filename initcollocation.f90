@@ -322,11 +322,6 @@ contains
 
     endif
 
-
-    kfacenodes(:,:) = kfacenodes_LGL_pL(:,:)
-    ifacenodes(:)   = ifacenodes_LGL_pL(:)
-
-
     end subroutine 
 
   ! ===================================================================================

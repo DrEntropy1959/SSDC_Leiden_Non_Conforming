@@ -2022,7 +2022,7 @@ contains
       !  Form the elementwise SAT_Penalties
 
       call SAT_Penalty(tin, ielem, n_pts_1d, n_pts_2d, pinv )
-         
+
       ! compute time derivative
         
       do inode = 1, n_pts_3d                                                 ! loop over all nodes in the element
@@ -2057,7 +2057,7 @@ contains
     end do
 
     if( entropy_viscosity .eqv. .true.) write(*,*)'max entropy error',maxval(abs(dudt_S(:,:)))
-
+         
     return
   end subroutine nse_calc_dudt_LSRK
 

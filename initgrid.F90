@@ -2487,12 +2487,12 @@ contains
 
       call element_properties(ielem,&
                               n_pts_1d=n_pts_1d,&
+                              n_pts_2d=n_pts_2d,&
                               n_pts_3d=n_pts_3d,&
                               qmat=qmat,&
-                              ifacenodes=ifacenodes,&
-                              p_surf = p_surf)
+                              p_surf = p_surf,&
+                              ifacenodes=ifacenodes)
                       
-
       m = 1*n_pts_3d ; n = 3*n_pts_3d ; nm = max(m,n) ;
 
       if(allocated(Amat)) deallocate(Amat) ; allocate(Amat(nm,n)) ; Amat(:,:) = 0.0_wp
