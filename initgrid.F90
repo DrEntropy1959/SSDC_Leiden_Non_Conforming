@@ -2452,7 +2452,7 @@ contains
   subroutine modify_metrics_nonconforming()
 
     use referencevariables
-    use collocationvariables
+!   use collocationvariables
     use initcollocation, only: GCL_Triple_Qmat_Transpose, element_properties
     use eispack_module,  only: svd
     use unary_mod,       only: qsortd
@@ -2461,6 +2461,10 @@ contains
 
     logical, parameter :: matu = .True.
     logical, parameter :: matv = .True.
+
+    integer,  dimension(:),    allocatable :: ifacenodes
+    real(wp), dimension(:,:),  allocatable :: qmat
+    real(wp), dimension(:),    allocatable :: p_surf
 
     real(wp), dimension(:,:),  allocatable :: Amat
     real(wp), dimension(:,:),  allocatable :: bvec
@@ -2481,9 +2485,13 @@ contains
     ! loop over volumetric elements
     elloop:do ielem = ihelems(1), ihelems(2)
 
-      call element_properties(ielem, n_pts_1d, n_pts_2d, n_pts_3d, &
-                      pinv, qmat, dmat, iagrad, jagrad, dagrad,    &
-                      pmat, nnzgrad, pvol, p_surf)
+      call element_properties(ielem,&
+                              n_pts_1d=n_pts_1d,&
+                              n_pts_3d=n_pts_3d,&
+                              qmat=qmat,&
+                              ifacenodes=ifacenodes,&
+                              p_surf = p_surf)
+                      
 
       m = 1*n_pts_3d ; n = 3*n_pts_3d ; nm = max(m,n) ;
 
@@ -2528,7 +2536,7 @@ contains
 !       write(*,*)'v' ;     do i = 1,m ;       write(*,*)i,(v(i,j),j=1,m) ;     enddo
       endif
 
-!     call Load_Mortar_Metric_Data(ielem, n_pts_2d, n_pts_3d, p_surf, bvec)
+      call Load_Mortar_Metric_Data(ielem, n_pts_2d, n_pts_3d, ifacenodes, p_surf, bvec)
 
   !   call Pseudo_Inverse_Solve_GCL()
 
@@ -2540,16 +2548,17 @@ contains
 
   !============================================================================
 
-  subroutine Load_Mortar_Metric_Data(ielem,n_LGL_2d,n_LGL_3d,psurf,bvec)
+  subroutine Load_Mortar_Metric_Data(ielem,n_LGL_2d,n_LGL_3d,ifacenodes,p_surf,bvec)
 
     use referencevariables
-    use variables, only: Jx_r, facenodenormal, ifacenodes
-    use collocationvariables
+    use variables, only: Jx_r, facenodenormal
+!   use collocationvariables
 
     implicit none
 
     integer,                   intent(in   ) :: ielem,n_LGL_2d,n_LGL_3d
-    real(wp),  dimension(:),   intent(in   ) :: psurf
+    integer,   dimension(:),   intent(in   ) :: ifacenodes
+    real(wp),  dimension(:),   intent(in   ) :: p_surf
 
     real(wp), dimension(:,:),  intent(inout) :: bvec
 
@@ -2570,7 +2579,7 @@ contains
             ! Outward facing normal of facial node
             nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
 
-            bvec(inode,:) = bvec(inode,:) + psurf(i)*nx(:)
+            bvec(inode,:) = bvec(inode,:) + p_surf(i)*nx(:)
 
        enddo
 

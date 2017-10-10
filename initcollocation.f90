@@ -213,90 +213,119 @@ contains
 
     subroutine element_properties(ielem, n_pts_1d, n_pts_2d, n_pts_3d, &
                       pinv, qmat, dmat, iagrad, jagrad, dagrad,        &
-                      pmat, nnzgrad, pvol, p_surf)
+                      pmat, nnzgrad, pvol, p_surf,                     &
+                      kfacenodes, ifacenodes)
 
     use collocationvariables, only : n_LGL_1d_pL, n_LGL_2d_pL, n_LGL_3d_pL, &
                                    & pinv_pL, pmat_pL, qmat_pL, dmat_pL, &
                                    & iagrad_pL, jagrad_pL, nnzgrad_pL, &
                                    & dagrad_pL, pvol_pL, p_surf_pL, &
+                                   &&
                                    & n_LGL_1d_pH, n_LGL_2d_pH, n_LGL_3d_pH, &
                                    & pinv_pH, pmat_pH, qmat_pH, dmat_pH, &
                                    & iagrad_pH, jagrad_pH, nnzgrad_pH, &
                                    & dagrad_pH, pvol_pH, p_surf_pH, &
-                                   & elem_props  !, &
-                                  ! & qagrad_pL, qagrad_pH
+                                   & elem_props  
+
+    use variables,            only : kfacenodes_LGL_pH, ifacenodes_LGL_pH, &
+                                     kfacenodes_LGL_pL, ifacenodes_LGL_pL
 
     use referencevariables
+
     implicit none
 
     integer,                                   intent(in   ) :: ielem
-    integer,                                   intent(  out) :: n_pts_1d, n_pts_2d, n_pts_3d
-    real(wp), dimension(:),      allocatable,  intent(  out) :: pinv
-    real(wp), dimension(:,:),    allocatable,  intent(  out) :: dmat, qmat
 
-!   real(wp), dimension(:,:,:),  allocatable,  intent(inout) :: gradmat
-    integer,  dimension(:),      allocatable,  intent(inout) :: iagrad
-    integer,  dimension(:,:),    allocatable,  intent(inout) :: jagrad
-!   real(wp), dimension(:,:),    allocatable,  intent(inout) :: dagrad, qagrad
-    real(wp), dimension(:,:),    allocatable,  intent(inout) :: dagrad
+    integer,                                  optional, intent(  out) :: n_pts_1d, n_pts_2d, n_pts_3d
+    real(wp), dimension(:,:),    allocatable, optional, intent(  out) :: dmat, qmat
 
+    integer,  dimension(:),      allocatable, optional, intent(inout) :: iagrad
+    integer,  dimension(:,:),    allocatable, optional, intent(inout) :: jagrad
+    real(wp), dimension(:,:),    allocatable, optional, intent(inout) :: dagrad
     integer,                                  optional, intent(  out) :: nnzgrad
+
+    real(wp), dimension(:),      allocatable, optional, intent(  out) :: pinv
     real(wp), dimension(:),      allocatable, optional, intent(  out) :: pmat
     real(wp), dimension(:),      allocatable, optional, intent(inout) :: pvol
     real(wp), dimension(:),      allocatable, optional, intent(inout) :: p_surf
+
+    integer,  dimension(:,:),    allocatable, optional, intent(inout) :: kfacenodes
+    integer,  dimension(:),      allocatable, optional, intent(inout) :: ifacenodes
  
     if((elem_props(1,ielem) == 1) .and. (elem_props(2,ielem) == npoly+1)) then
-      n_pts_1d = n_LGL_1d_pL
-      n_pts_2d = n_LGL_2d_pL
-      n_pts_3d = n_LGL_3d_pL
-      nnzgrad  = nnzgrad_pL
+      if(present(n_pts_1d))then; n_pts_1d = n_LGL_1d_pL ; endif
+      if(present(n_pts_2d))then; n_pts_2d = n_LGL_2d_pL ; endif
+      if(present(n_pts_3d))then; n_pts_3d = n_LGL_3d_pL ; endif
+      if(present(nnzgrad ))then; nnzgrad  = nnzgrad_pL  ; endif
     else
-      n_pts_1d = n_LGL_1d_pH
-      n_pts_2d = n_LGL_2d_pH
-      n_pts_3d = n_LGL_3d_pH
-      nnzgrad  = nnzgrad_pH
+      if(present(n_pts_1d))then; n_pts_1d = n_LGL_1d_pH ; endif
+      if(present(n_pts_2d))then; n_pts_2d = n_LGL_2d_pH ; endif
+      if(present(n_pts_3d))then; n_pts_3d = n_LGL_3d_pH ; endif
+      if(present(nnzgrad ))then; nnzgrad  = nnzgrad_pH  ; endif
     endif
 
-    if(allocated(pmat)) deallocate(pmat) ; allocate(pmat(n_pts_1d)) ;
-    if(allocated(pinv)) deallocate(pinv) ; allocate(pinv(n_pts_1d)) ;
-    if(allocated(qmat)) deallocate(qmat) ; allocate(qmat(n_pts_1d,n_pts_1d)) ;
-    if(allocated(dmat)) deallocate(dmat) ; allocate(dmat(n_pts_1d,n_pts_1d)) ;
+    if(present(n_pts_1d))then
+      if(present(pmat))then ; if(allocated(pmat)) deallocate(pmat) ; allocate(pmat(n_pts_1d))           ; endif
+      if(present(pinv))then ; if(allocated(pinv)) deallocate(pinv) ; allocate(pinv(n_pts_1d))           ; endif
+      if(present(qmat))then ; if(allocated(qmat)) deallocate(qmat) ; allocate(qmat(n_pts_1d,n_pts_1d))  ; endif
+      if(present(dmat))then ; if(allocated(dmat)) deallocate(dmat) ; allocate(dmat(n_pts_1d,n_pts_1d))  ; endif
+    endif
 
+    if(present(n_pts_2d))then
+      if(present(p_surf))then ; if(allocated(p_surf)) deallocate(p_surf) ; allocate(p_surf(n_pts_2d))   ; endif
+      if(present(kfacenodes))then; if(allocated(kfacenodes)) deallocate(kfacenodes) ; &
+                                                           allocate(kfacenodes(n_pts_2d,nfacesperelem)) ; endif
+      if(present(ifacenodes))then; if(allocated(ifacenodes)) deallocate(ifacenodes) ; &
+                                                           allocate(ifacenodes(n_pts_2d*nfacesperelem)) ; endif
+    endif
 
-    if(allocated(iagrad)) deallocate(iagrad) ; allocate(iagrad(n_pts_3d+1)) ;
-    if(allocated(jagrad)) deallocate(jagrad) ; allocate(jagrad(3,nnzgrad)) ;
-    if(allocated(dagrad)) deallocate(dagrad) ; allocate(dagrad(3,nnzgrad)) ;
-
-    if(allocated(pvol  )) deallocate(pvol  ) ; allocate(pvol(n_pts_3d)) ;
-    if(allocated(p_surf)) deallocate(p_surf) ; allocate(p_surf(n_pts_2d)) ;
+    if(present(n_pts_3d))then
+      if(present(iagrad))then ; if(allocated(iagrad)) deallocate(iagrad) ; allocate(iagrad(n_pts_3d+1)) ; endif
+      if(present(pvol  ))then ; if(allocated(pvol  )) deallocate(pvol  ) ; allocate(pvol(n_pts_3d))     ; endif
+    endif
+    if(present(nnzgrad))then
+      if(present(jagrad))then ; if(allocated(jagrad)) deallocate(jagrad) ; allocate(jagrad(3,nnzgrad )) ; endif
+      if(present(dagrad))then ; if(allocated(dagrad)) deallocate(dagrad) ; allocate(dagrad(3,nnzgrad )) ; endif
+    endif
 
     if((elem_props(1,ielem) == 1) .and. (elem_props(2,ielem) == npoly+1)) then
-      pmat(:)     = pmat_pL(:)
-      pinv(:)     = pinv_pL(:)
-      qmat(:,:)   = qmat_pL(:,:)
-      dmat(:,:)   = dmat_pL(:,:)
+      if(present(pmat  ))then; pmat(:)     = pmat_pL(:)     ; endif
+      if(present(pinv  ))then; pinv(:)     = pinv_pL(:)     ; endif
+      if(present(qmat  ))then; qmat(:,:)   = qmat_pL(:,:)   ; endif
+      if(present(dmat  ))then; dmat(:,:)   = dmat_pL(:,:)   ; endif
 
-      iagrad(:)   = iagrad_pL(:)
-      jagrad(:,:) = jagrad_pL(:,:)
-      dagrad(:,:) = dagrad_pL(:,:)
-!     qagrad(:,:) = qagrad_pL(:,:)
+      if(present(iagrad))then; iagrad(:)   = iagrad_pL(:)   ; endif
+      if(present(jagrad))then; jagrad(:,:) = jagrad_pL(:,:) ; endif
+      if(present(dagrad))then; dagrad(:,:) = dagrad_pL(:,:) ; endif
 
-      pvol(:)     = pvol_pL(:)
-      p_surf(:)   = p_surf_pL(:)
+      if(present(pvol  ))then ; pvol(:)     = pvol_pL(:)    ; endif
+      if(present(p_surf))then ; p_surf(:)   = p_surf_pL(:)  ; endif
+
+      if(present(kfacenodes))then ; kfacenodes(:,:) = kfacenodes_LGL_pL(:,:) ; endif
+      if(present(ifacenodes))then ; ifacenodes(:)   = ifacenodes_LGL_pL(:  ) ; endif
+
     else
-      pmat(:)     = pmat_pH(:)
-      pinv(:)     = pinv_pH(:)
-      qmat(:,:)   = qmat_pH(:,:)
-      dmat(:,:)   = dmat_pH(:,:)
+      if(present(pmat  ))then; pmat(:)     = pmat_pH(:)     ; endif
+      if(present(pinv  ))then; pinv(:)     = pinv_pH(:)     ; endif
+      if(present(qmat  ))then; qmat(:,:)   = qmat_pH(:,:)   ; endif
+      if(present(dmat  ))then; dmat(:,:)   = dmat_pH(:,:)   ; endif
 
-      iagrad(:)   = iagrad_pH(:)
-      jagrad(:,:) = jagrad_pH(:,:)
-      dagrad(:,:) = dagrad_pH(:,:)
-!     qagrad(:,:) = qagrad_pH(:,:)
+      if(present(iagrad))then; iagrad(:)   = iagrad_pH(:)   ; endif
+      if(present(jagrad))then; jagrad(:,:) = jagrad_pH(:,:) ; endif
+      if(present(dagrad))then; dagrad(:,:) = dagrad_pH(:,:) ; endif
 
-      pvol(:)     = pvol_pH(:)
-      p_surf(:)   = p_surf_pH(:)
+      if(present(pvol  ))then ; pvol(:)     = pvol_pH(:)    ; endif
+      if(present(p_surf))then ; p_surf(:)   = p_surf_pH(:)  ; endif
+
+      if(present(kfacenodes))then ; kfacenodes(:,:) = kfacenodes_LGL_pH(:,:) ; endif
+      if(present(ifacenodes))then ; ifacenodes(:)   = ifacenodes_LGL_pH(:  ) ; endif
+
     endif
+
+
+    kfacenodes(:,:) = kfacenodes_LGL_pL(:,:)
+    ifacenodes(:)   = ifacenodes_LGL_pL(:)
+
 
     end subroutine 
 
