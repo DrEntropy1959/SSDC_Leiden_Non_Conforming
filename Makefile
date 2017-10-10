@@ -1,9 +1,9 @@
 .SUFFIXES: .o .c .f90 .F90
 
-hostname = ${HOSTNAME}
+HOSTPC:=$(shell hostname)
 
-ifeq ($(hostname),tab16)
-$(info ${hostname})
+ifeq ($(HOSTPC),tab16)
+$(info ${HOSTPC})
 INCLUDESDIR = -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/include\
               -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/include
 FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -fbounds-check -O3 $(INCLUDESDIR)
@@ -12,7 +12,8 @@ LFLAGS  = -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/lib\
           -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/lib
 CC = gcc
 FC = mpif90
-else ifeq ($(hostname),Leiden)
+else ifeq ($(HOSTPC),Leiden)
+$(info ${HOSTPC})
 INCLUDESDIR = -I/home/carpentr/OpenSourceLib/Lib-Install/include\
               -I/home/carpentr/OpenSourceLib/Lib-Install/petsc-3.5/include
 FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
@@ -26,7 +27,6 @@ else
 $(info Hostname Not Found)
 endif
 LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
-
 
 SRCS = precision_vars.f90\
        datatypes.f90\
