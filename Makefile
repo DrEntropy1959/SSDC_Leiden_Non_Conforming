@@ -6,7 +6,7 @@ ifeq ($(HOSTPC),tab16)
 $(info ${HOSTPC})
 INCLUDESDIR = -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/include\
               -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/include
-FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -fbounds-check -O3 $(INCLUDESDIR)
+FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -fbounds-check -O1 $(INCLUDESDIR)
 CFLAGS  = -Ofast  $(INCLUDESDIR)
 LFLAGS  = -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/lib\
           -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/lib

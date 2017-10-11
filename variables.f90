@@ -54,6 +54,7 @@ module variables
 
   real(wp), allocatable, dimension(:,:)       :: Jx_r_Gau_Shell            ! (nGau_Shell,nelem)
   real(wp), allocatable, dimension(:,:,:)     :: Jx_facenodenormal_Gau     ! (3,nGau_Shell,nelem)
+  real(wp), allocatable, dimension(:,:,:)     :: Jx_facenodenormal_LGL     ! (3,nLGL_Shell,nelem)
 
   real(wp), allocatable, dimension(:,:,:)     :: wg_Gau_Shell              ! (nq,nShell,nelem)
   real(wp), allocatable, dimension(:,:,:)     :: wg_Gau_Shell_tmp          ! (nq,nShell,nelem)

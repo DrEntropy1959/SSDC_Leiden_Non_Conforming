@@ -2065,29 +2065,31 @@ contains
     ! of each facial node
     use referencevariables
     use collocationvariables, only: n_Gau_1d_pH, x_Gau_1d_pH, n_Gau_2D_pH
-    use variables, only: kfacenodes_Gau, Jx_facenodenormal_Gau, ef2e, efn2efn_Gau, xg_Gau_Shell
+    use variables, only: kfacenodes_Gau, Jx_facenodenormal_Gau, xg_Gau_Shell
+    use variables, only: Jx_facenodenormal_LGL
+!   use variables, only: ef2e, efn2efn_Gau
 
     implicit none
 
     ! indices
-    integer :: ielem, kelem, inode, iface, idir, knode
+    integer :: ielem, inode, iface, idir, knode
     integer :: i
 
     real(wp) :: dx
-    real(wp), dimension(3) :: wrk
     logical                :: testing = .false.
+!   real(wp), dimension(3) :: wrk
 
     allocate(Jx_facenodenormal_Gau(3,nfacesperelem*n_Gau_2D_pH,ihelems(1):ihelems(2)))
     Jx_facenodenormal_Gau = 0.0_wp
 
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
-      ! reset facial node index counter
-      knode = 0
+
+      knode = 0                                  !  reset facial node index counter
+
       ! compute outward facing normals
-      !
-      ! loop over faces
-      do iface = 1,nfacesperelem
+
+      do iface = 1,nfacesperelem                 ! loop over faces
 
         call Shell_Metrics_Analytic(iface,n_Gau_1d_pH,x_Gau_1d_pH,      &
                               xg_Gau_shell(:,:,ielem),Jx_facenodenormal_Gau(:,:,ielem))
@@ -2096,8 +2098,6 @@ contains
         do inode = 1,n_Gau_2d_pH
           ! update facial node index counter
           knode = knode + 1
-          ! volumetric node index of facial node
-          i = kfacenodes_Gau(inode,iface)
           ! unsigned direction of face in computational space
           idir = abs(elfacedirections(iface))
           ! sign so normal is facing outward
@@ -2107,11 +2107,16 @@ contains
         end do
       end do
 
+!     call ExtrpXA2XB_2D_neq(3,n_Gau_1d,n_LGL_1d,x_Gau_1d,x_LGL_1d,
+!          Jx_facenodenormal_Gau,Jx_facenodenormal_LGL,Extrp)
+!          ExtrpXA2XB_2D_neq(neq,NPtsA,NPtsB,XA,XB,fA,fB,Extrp)
+
+
     end do
 
     ! testing facenodenormal calculations
 
-!   if(testing) then
+    if(testing) then
 !     do ielem = ihelems(1), ihelems(2)
 !       knode = 0
 !       ! loop over faces
@@ -2133,7 +2138,7 @@ contains
 !         end do
 !       end do
 !     end do
-!   endif
+    endif
 
   end subroutine calcfacenormals_Gau
 
@@ -2468,17 +2473,20 @@ contains
 
     real(wp), dimension(:,:),  allocatable :: Amat
     real(wp), dimension(:,:),  allocatable :: bvec
+    real(wp), dimension(:,:),  allocatable :: a_t
     real(wp), dimension(:,:),  allocatable :: u, v
-    real(wp), dimension(:),    allocatable :: w, work
-    real(wp), dimension(:,:),  allocatable :: eye, wrk, diag
+    real(wp), dimension(:),    allocatable :: w, work, pmat
+    real(wp), dimension(:,:),  allocatable :: work3
+    real(wp), dimension(:,:),  allocatable :: eye, wrk, diag, wI
+    real(wp), dimension(:,:),  allocatable :: delta_a
 
     integer,  dimension(:),    allocatable :: perm
     integer :: ielem, ierr
-    integer :: i, j
+    integer :: i
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
     integer :: nm, m, n
 
-    logical                                :: testing = .true.
+    logical                                :: testing = .false.
     real(wp)                               :: t1, t2
     real(wp), parameter                    :: tol = 1.0e-12_wp
 
@@ -2489,10 +2497,11 @@ contains
                               n_pts_1d=n_pts_1d,&
                               n_pts_2d=n_pts_2d,&
                               n_pts_3d=n_pts_3d,&
-                              qmat=qmat,&
-                              p_surf = p_surf,&
-                              ifacenodes=ifacenodes)
-                      
+                                  qmat=qmat,&
+                                  pmat=pmat,&
+                                p_surf=p_surf,&
+                            ifacenodes=ifacenodes)
+                     
       m = 1*n_pts_3d ; n = 3*n_pts_3d ; nm = max(m,n) ;
 
       if(allocated(Amat)) deallocate(Amat) ; allocate(Amat(nm,n)) ; Amat(:,:) = 0.0_wp
@@ -2500,10 +2509,13 @@ contains
       if(allocated(   u)) deallocate(   u) ; allocate(   u(nm,n)) ;    u(:,:) = 0.0_wp
       if(allocated(   w)) deallocate(   w) ; allocate(   w(nm))   ;    w(:)   = 0.0_wp
       if(allocated(work)) deallocate(work) ; allocate(work(nm))   ; work(:)   = 0.0_wp
+      if(allocated(  wI)) deallocate(  wI) ; allocate(  wI(m,m))  ;   wI(:,:) = 0.0_wp
 
-      if(allocated(bvec)) deallocate(bvec) ; allocate(bvec(n_pts_3d,3)) ; bvec(:,:) = 0.0_wp
+      if(allocated(bvec)) deallocate(bvec) ; allocate( bvec(n_pts_3d,3)) ; bvec(:,:) = 0.0_wp
+      if(allocated( a_t)) deallocate( a_t) ; allocate(a_t(3*n_pts_3d,3)) ;  a_t(:,:) = 0.0_wp
+      if(allocated(delta_a)) deallocate(delta_a) ; allocate(delta_a(3*n_pts_3d,3)) ;  delta_a(:,:) = 0.0_wp
 
-      call GCL_Triple_Qmat_Transpose(n_pts_1d, n_pts_3d, qmat, Amat)
+      call GCL_Triple_Qmat_Transpose(n_pts_1d, n_pts_3d, pmat, qmat, Amat)
 
       call SVD(nm,n,m,transpose(Amat),w,matu,u,matv,v,ierr,work)
 
@@ -2518,6 +2530,7 @@ contains
           
         do i = 1,m
           diag(i,i) = w(i)
+          if(w(i) >= tol) wI(i,i) = 1.0_wp / w(i)
         enddo
         call qsortd(w(1:m),perm,m)
         wrk(:,:) = matmul(transpose(v(1:m,1:m)),v(1:m,1:m)) &
@@ -2532,40 +2545,54 @@ contains
           write(*,*)'stopping'
           stop
          endif
-!       write(*,*)'Lambda',w(perm(1:m))
-!       write(*,*)'v' ;     do i = 1,m ;       write(*,*)i,(v(i,j),j=1,m) ;     enddo
       endif
 
-      call Load_Mortar_Metric_Data(ielem, n_pts_2d, n_pts_3d, ifacenodes, p_surf, bvec)
+      call Load_Mortar_Metric_Data(ielem,n_pts_1d,n_pts_2d,n_pts_3d, ifacenodes, p_surf, a_t, bvec)
 
-  !   call Pseudo_Inverse_Solve_GCL()
+!     minimizing (a - a_t)(a - a_t) / 2 ; subject to M a = b
+!     "t" subscript denotes "target metric values' :  i.e., a_t
+!     a = a_t - M^* (M a_t - b)
+      
+      if(allocated(work3)) deallocate(work3) ; allocate(work3(1:m,1:3))   ; work3(:,:)   = 0.0_wp
+      work3(1:m,1:3) = matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)
+      t1 = maxval(abs(work3))
+      if(t1 >= tol) write(*,*)'A a_t - bvec', maxval(abs(work3))
 
+      delta_a = matmul( u(1:n,1:m),           &
+                  matmul(wI(1:m,1:m),           &
+                    matmul(transpose(v(1:m,1:m)), &
+                      matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3))))
+
+!     write(*,*)'perturbation magnitude',maxval(abs(delta_a))
+!     aa = a_t - delta_a
      
     end do elloop
-    deallocate(u,v,w,work,Amat)
+    deallocate(u,v,w,work,Amat,a_t,bvec,wI)
 
   end subroutine modify_metrics_nonConforming
 
   !============================================================================
 
-  subroutine Load_Mortar_Metric_Data(ielem,n_LGL_2d,n_LGL_3d,ifacenodes,p_surf,bvec)
+  subroutine Load_Mortar_Metric_Data(ielem,n_LGL_1d,n_LGL_2d,n_LGL_3d,ifacenodes,p_surf,a_t,bvec)
 
     use referencevariables
-    use variables, only: Jx_r, facenodenormal
-!   use collocationvariables
+    use variables, only: Jx_r, r_x, facenodenormal, Jx_facenodenormal_LGL, ef2e
+    use collocationvariables, only: elem_props
 
     implicit none
 
-    integer,                   intent(in   ) :: ielem,n_LGL_2d,n_LGL_3d
+    integer,                   intent(in   ) :: ielem,n_LGL_1d,n_LGL_2d,n_LGL_3d
     integer,   dimension(:),   intent(in   ) :: ifacenodes
     real(wp),  dimension(:),   intent(in   ) :: p_surf
 
+    real(wp), dimension(:,:),  intent(inout) :: a_t
     real(wp), dimension(:,:),  intent(inout) :: bvec
 
     integer                                  :: i, iface, inode, jnode
 
     real(wp), dimension(3)                   :: nx
 
+    bvec(:,:) = 0.0_wp
     do iface = 1,nfacesperelem
 
        do i = 1,n_LGL_2d
@@ -2577,12 +2604,33 @@ contains
             inode = ifacenodes(jnode)
               
             ! Outward facing normal of facial node
-            nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+            if (ef2e(4,iface,ielem) == elem_props(2,ielem)) then !    Conforming interface
+              nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+            else                                                 ! NonConforming interface
+              write(*,*)'ef2e(4)', iface, ef2e(1,iface,ielem),ef2e(4,iface,ielem), elem_props(2,ielem)
+!             nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+              nx(:) = Jx_facenodenormal_LGL(:,jnode,ielem)
+            endif
 
             bvec(inode,:) = bvec(inode,:) + p_surf(i)*nx(:)
 
        enddo
 
+    enddo
+
+!        Metric data is stored as follows
+!              --                                  --
+!              | dxi_1/dx_1, dxi_1/dx_2, dxi_1/dx_3 |
+!              |                                    |
+!        r_x = | dxi_2/dx_1, dxi_2/dx_2, dxi_2/dx_3 |
+!              |                                    |
+!              | dxi_3/dx_1, dxi_3/dx_2, dxi_3/dx_3 |
+!              --                                  --
+   
+    do inode = 1,n_LGL_3d
+      a_t((1-1)*n_LGL_3d + inode,1:3) =   Jx_r(inode,ielem)*r_x(1,1:3,inode,ielem)
+      a_t((2-1)*n_LGL_3d + inode,1:3) =   Jx_r(inode,ielem)*r_x(2,1:3,inode,ielem)
+      a_t((3-1)*n_LGL_3d + inode,1:3) =   Jx_r(inode,ielem)*r_x(3,1:3,inode,ielem)
     enddo
 
   end subroutine Load_Mortar_Metric_Data
@@ -4233,7 +4281,11 @@ contains
 
       do iface = 1,nfacesperelem
 
-        if(ef2e(2,iface,ielem) > 0) ef2e(4,iface,ielem) = elem_props(2,ef2e(2,iface,ielem))
+        if(ef2e(2,iface,ielem) > 0) then
+          ef2e(4,iface,ielem) = elem_props(2,ef2e(2,iface,ielem))
+        else
+          ef2e(4,iface,ielem) = elem_props(2,ielem)
+        endif
 
       enddo
     enddo

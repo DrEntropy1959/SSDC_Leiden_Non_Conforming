@@ -385,6 +385,7 @@ contains
     qagrad = 0.0_wp
 
     ! stride between columns in each direction
+!              | dxi_1/dx_1, dxi_1/dx_2, dxi_1/dx_3 |
     allocate(stride(1:ndim))
     do idir = 1,ndim
       stride(idir) = n_pts_1d**(idir-1)
@@ -517,18 +518,19 @@ contains
   ! for an already set dimension and polynomial approximation.
   ! ===================================================================================
 
-  subroutine GCL_Triple_Qmat_Transpose(n_pts_1d, n_pts_3d, qmat, qtran_3_mat)
+  subroutine GCL_Triple_Qmat_Transpose(n_pts_1d, n_pts_3d, pmat, qmat, qtran_3_mat)
 
     use referencevariables
 
     implicit none
 
     integer,                                   intent(in)    :: n_pts_1d, n_pts_3d
+    real(wp), dimension(:),                    intent(in)    :: pmat
     real(wp), dimension(:,:),                  intent(in)    :: qmat
     real(wp), dimension(:,:),                  intent(inout) :: qtran_3_mat
 
     integer :: i,j,k,jj,kk,inode, idir
-    integer :: il(2,3), ix(3)
+    integer :: il(2,3), ix(3),iy(3),iz(3)
     integer, allocatable, dimension(:) :: stride
     integer :: shift
 
@@ -557,6 +559,8 @@ contains
           do i = il(1,1), il(2,1)
             ! index vector
             ix = (/ i,j,k /)
+            iy = (/ j,k,i /)
+            iz = (/ k,i,j /)
             ! advance node counter by 1
             inode = inode+1
             ! loop over coefficients in gradient operator
@@ -565,8 +569,7 @@ contains
               jj = stride(idir)*(kk-ix(idir)) + inode
               ! set coefficient in larger gradient matrix
               shift = (idir-1) * n_pts_3d
-              qtran_3_mat(jj,shift+inode) = qmat(ix(idir),kk)
-
+              qtran_3_mat(jj,shift+inode) = qmat(ix(idir),kk) * pmat(iy(idir)) * pmat(iz(idir))
             end do
           end do
         end do
