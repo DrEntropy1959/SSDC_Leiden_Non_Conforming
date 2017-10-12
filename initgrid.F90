@@ -2064,7 +2064,11 @@ contains
     ! this subroutine calculates the outward facing normals
     ! of each facial node
     use referencevariables
-    use collocationvariables, only: n_Gau_1d_pH, x_Gau_1d_pH, n_Gau_2D_pH
+    use initcollocation,      only: JacobiP11, ExtrpXa2XB_2D_neq
+    use collocationvariables, only: n_Gau_1d_pH, x_Gau_1d_pH, n_Gau_2D_pH, &
+                                    Rot_Gau_p1_2_LGL_p1_1d, Int_Gau_p1_2_LGL_p0_1d,&
+                                    elem_props
+
     use variables, only: kfacenodes_Gau, Jx_facenodenormal_Gau, xg_Gau_Shell
     use variables, only: Jx_facenodenormal_LGL
 !   use variables, only: ef2e, efn2efn_Gau
@@ -2074,24 +2078,48 @@ contains
     ! indices
     integer :: ielem, inode, iface, idir, knode
     integer :: i
+    integer :: n_LGL_1d, n_Gau_1d
 
     real(wp) :: dx
-    logical                :: testing = .false.
+    logical                               :: testing = .false.
+    real(wp), dimension(:),   allocatable :: x_LGL_1d
+    real(wp), dimension(:),   allocatable :: x_Gau_1d
+    real(wp), dimension(:,:), allocatable :: Intrp
+
 !   real(wp), dimension(3) :: wrk
 
     allocate(Jx_facenodenormal_Gau(3,nfacesperelem*n_Gau_2D_pH,ihelems(1):ihelems(2)))
     Jx_facenodenormal_Gau = 0.0_wp
 
+    allocate(Jx_facenodenormal_LGL(3,nfacesperelem*n_Gau_2D_pH,ihelems(1):ihelems(2)))
+    Jx_facenodenormal_Gau = 0.0_wp
+
+    n_Gau_1d = n_Gau_1d_pH ;
+    allocate(x_Gau_1d(n_Gau_1d)) ;
+
+    x_Gau_1d = x_Gau_1d_pH ;
+
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
 
-      knode = 0                                  !  reset facial node index counter
+      n_LGL_1d = elem_props(2,ielem)
+      
+      if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ; allocate(x_LGL_1d(n_LGL_1d)) ; x_LGL_1d(:) = 0.0_wp
+      call JacobiP11(n_LGL_1d-1,x_LGL_1d)
+
+      if(allocated(Intrp)) deallocate(Intrp) ;
+      if(n_Gau_1d == n_LGL_1d) then
+        allocate(Intrp(n_LGL_1d ,n_Gau_1d)) ;  Intrp(:,:) = Rot_Gau_p1_2_LGL_p1_1d(:,:) ;
+      else
+        allocate(Intrp(n_LGL_1d ,n_Gau_1d)) ;  Intrp(:,:) = Int_Gau_p1_2_LGL_p0_1d(:,:) ;
+      endif
 
       ! compute outward facing normals
 
+      knode = 0                                  !  reset facial node index counter
       do iface = 1,nfacesperelem                 ! loop over faces
 
-        call Shell_Metrics_Analytic(iface,n_Gau_1d_pH,x_Gau_1d_pH,      &
+        call Shell_Metrics_Analytic(iface,n_Gau_1d,x_Gau_1d,      &
                               xg_Gau_shell(:,:,ielem),Jx_facenodenormal_Gau(:,:,ielem))
 
         ! loop over nodes on face
@@ -2105,12 +2133,11 @@ contains
           ! outward facing normal using metrics
           Jx_facenodenormal_Gau(:,knode,ielem) = dx*Jx_facenodenormal_Gau(:,knode,ielem)
         end do
+
+      call ExtrpXA2XB_2D_neq(3,n_Gau_1d,n_LGL_1d,x_Gau_1d,x_LGL_1d, &
+           Jx_facenodenormal_Gau(:,:,ielem),Jx_facenodenormal_LGL(:,:,ielem),Intrp)
+
       end do
-
-!     call ExtrpXA2XB_2D_neq(3,n_Gau_1d,n_LGL_1d,x_Gau_1d,x_LGL_1d,
-!          Jx_facenodenormal_Gau,Jx_facenodenormal_LGL,Extrp)
-!          ExtrpXA2XB_2D_neq(neq,NPtsA,NPtsB,XA,XB,fA,fB,Extrp)
-
 
     end do
 
