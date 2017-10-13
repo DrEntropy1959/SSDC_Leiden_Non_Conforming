@@ -747,7 +747,7 @@ contains
     real(wp), dimension(3)  :: x00,x01
 
     ! number of nodes in each element
-    nodesperelem_max = n_LGL_1d_pH**ndim
+    nodesperelem_max = (npoly_max+1)**ndim
 
     ! allocate global node matrix
     allocate(xg(3,1:nodesperelem_max,ihelems(1):ihelems(2)))
@@ -1204,7 +1204,7 @@ contains
 
     ! efn2efn contains the partner node information of every facenode in the domain
 
-    nodesperface_max = n_LGL_1d_pH**2
+    nodesperface_max = (npoly_max+1)**(ndim-1)
 
     allocate(efn2efn(4,nfacesperelem*nodesperface_max,iell:ielh))
     efn2efn = -1000
@@ -1999,7 +1999,7 @@ contains
 
     ! number of nodes in each element
 
-    nodesperface_max = n_LGL_1d_pH**2
+    nodesperface_max = (npoly_max+1)**(ndim-1)
     allocate(facenodenormal(3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
     facenodenormal = 0.0_wp
 
@@ -2064,9 +2064,12 @@ contains
     ! this subroutine calculates the outward facing normals
     ! of each facial node
     use referencevariables
-    use initcollocation,      only: JacobiP11, ExtrpXa2XB_2D_neq
-    use collocationvariables, only: n_Gau_1d_pH, x_Gau_1d_pH, n_Gau_2D_pH, &
-                                    Rot_Gau_p1_2_LGL_p1_1d, Int_Gau_p1_2_LGL_p0_1d,&
+    use initcollocation,      only: JacobiP11, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
+    use collocationvariables, only: n_Gau_1d_pH, x_Gau_1d_pH, &
+                                    n_LGL_1D_pL, n_LGL_1D_pH, n_Gau_2D_pH, &
+                                    Rot_Gau_p0_2_LGL_p0_1d,   &
+                                    Rot_Gau_p1_2_LGL_p1_1d,   &
+                                    Int_Gau_p1_2_LGL_p0_1d,   &
                                     elem_props
 
     use variables, only: kfacenodes_Gau, Jx_facenodenormal_Gau, xg_Gau_Shell
@@ -2078,26 +2081,31 @@ contains
     ! indices
     integer :: ielem, inode, iface, idir, knode
     integer :: i
-    integer :: n_LGL_1d, n_Gau_1d
+    integer :: n_LGL_1d, n_Gau_1d, n_pts_1d_max, n_pts_2d_max
 
     real(wp) :: dx
     logical                               :: testing = .false.
     real(wp), dimension(:),   allocatable :: x_LGL_1d
-    real(wp), dimension(:),   allocatable :: x_Gau_1d
+    real(wp), dimension(:),   allocatable :: x_Gau_1d, w_Gau_1d
     real(wp), dimension(:,:), allocatable :: Intrp
 
 !   real(wp), dimension(3) :: wrk
 
-    allocate(Jx_facenodenormal_Gau(3,nfacesperelem*n_Gau_2D_pH,ihelems(1):ihelems(2)))
+    n_pts_1d_max = (npoly_max+1)**1
+    n_pts_2d_max = (npoly_max+1)**2
+
+    allocate(Jx_facenodenormal_Gau(3,nfacesperelem*n_pts_2d_max,ihelems(1):ihelems(2)))
     Jx_facenodenormal_Gau = 0.0_wp
 
-    allocate(Jx_facenodenormal_LGL(3,nfacesperelem*n_Gau_2D_pH,ihelems(1):ihelems(2)))
+    allocate(Jx_facenodenormal_LGL(3,nfacesperelem*n_pts_2d_max,ihelems(1):ihelems(2)))
     Jx_facenodenormal_Gau = 0.0_wp
 
-    n_Gau_1d = n_Gau_1d_pH ;
+    n_Gau_1d = n_pts_1d_max
     allocate(x_Gau_1d(n_Gau_1d)) ;
+    allocate(w_Gau_1d(n_Gau_1d)) ;
 
-    x_Gau_1d = x_Gau_1d_pH ;
+    call Gauss_Legendre_points(n_pts_1d_max,x_Gau_1d,w_Gau_1d)
+
 
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
@@ -2108,9 +2116,11 @@ contains
       call JacobiP11(n_LGL_1d-1,x_LGL_1d)
 
       if(allocated(Intrp)) deallocate(Intrp) ;
-      if(n_Gau_1d == n_LGL_1d) then
+      if((n_Gau_1d == n_LGL_1d) .and. (n_LGL_1d == n_LGL_1d_pL)) then
+        allocate(Intrp(n_LGL_1d ,n_Gau_1d)) ;  Intrp(:,:) = Rot_Gau_p0_2_LGL_p0_1d(:,:) ;
+      elseif((n_Gau_1d == n_LGL_1d) .and. (n_LGL_1d == n_LGL_1d_pH)) then
         allocate(Intrp(n_LGL_1d ,n_Gau_1d)) ;  Intrp(:,:) = Rot_Gau_p1_2_LGL_p1_1d(:,:) ;
-      else
+      elseif((n_Gau_1d == n_Gau_1d_pH) .and. (n_LGL_1d == n_LGL_1d_pL)) then
         allocate(Intrp(n_LGL_1d ,n_Gau_1d)) ;  Intrp(:,:) = Int_Gau_p1_2_LGL_p0_1d(:,:) ;
       endif
 
@@ -2123,7 +2133,7 @@ contains
                               xg_Gau_shell(:,:,ielem),Jx_facenodenormal_Gau(:,:,ielem))
 
         ! loop over nodes on face
-        do inode = 1,n_Gau_2d_pH
+        do inode = 1,n_pts_2d_max
           ! update facial node index counter
           knode = knode + 1
           ! unsigned direction of face in computational space
@@ -2134,7 +2144,7 @@ contains
           Jx_facenodenormal_Gau(:,knode,ielem) = dx*Jx_facenodenormal_Gau(:,knode,ielem)
         end do
 
-      call ExtrpXA2XB_2D_neq(3,n_Gau_1d,n_LGL_1d,x_Gau_1d,x_LGL_1d, &
+        call ExtrpXA2XB_2D_neq(3,n_Gau_1d,n_LGL_1d,x_Gau_1d,x_LGL_1d, &
            Jx_facenodenormal_Gau(:,:,ielem),Jx_facenodenormal_LGL(:,:,ielem),Intrp)
 
       end do
@@ -2633,8 +2643,10 @@ contains
             ! Outward facing normal of facial node
             if (ef2e(4,iface,ielem) == elem_props(2,ielem)) then !    Conforming interface
               nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+!             write(*,*)'metric diffeences',maxval(abs(nx(:) - Jx_facenodenormal_LGL(:,jnode,ielem)))
+!             write(*,*)'metrics',nx(1),Jx_facenodenormal_LGL(1,jnode,ielem)
             else                                                 ! NonConforming interface
-              write(*,*)'ef2e(4)', iface, ef2e(1,iface,ielem),ef2e(4,iface,ielem), elem_props(2,ielem)
+!             write(*,*)'ef2e(4)', iface, ef2e(1,iface,ielem),ef2e(4,iface,ielem), elem_props(2,ielem)
 !             nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
               nx(:) = Jx_facenodenormal_LGL(:,jnode,ielem)
             endif
@@ -4280,12 +4292,16 @@ contains
     ! Load modules
     use variables
     use collocationvariables
-    use referencevariables, only : npoly, nfacesperelem
+    use referencevariables, only : npoly, npoly_max, nfacesperelem, myprocid
+    use mpimod
 
     ! Nothing is implicitly defined
     implicit none
    
     integer :: ielem, j, nhex, iface
+    integer :: ierr
+
+    npoly_max = -1000
 
     nhex = size(ic2nh,2)
 
@@ -4306,6 +4322,8 @@ contains
 
       ef2e(6,:,ielem) = elem_props(2,ielem)
 
+      if(elem_props(2,ielem) >= npoly_max + 1) npoly_max = elem_props(2,ielem) - 1
+
       do iface = 1,nfacesperelem
 
         if(ef2e(2,iface,ielem) > 0) then
@@ -4315,6 +4333,7 @@ contains
         endif
 
       enddo
+
     enddo
 
     end subroutine set_element_orders_Serial    !  Serial Routine
@@ -5376,7 +5395,7 @@ contains
 
     continue
 
-    n_Gau_1d = n_Gau_1d_pH
+    n_Gau_1d = (npoly_max+1)
     call Gauss_Legendre_points(n_Gau_1d,x_Gau_1d,w_Gau_1d)
 
     ! Set the coordinates of the 3D Gauss points in computational space
@@ -5464,7 +5483,7 @@ contains
 
     continue
 
-    n_Gau_1d = n_Gau_1d_pH
+    n_Gau_1d = (npoly_max+1)
     call Gauss_Legendre_points(n_Gau_1d,x_Gau_1d,w_Gau_1d)
 
     ! Set the coordinates of the 3D Gauss points in computational space
@@ -6504,14 +6523,17 @@ contains
 
   !============================================================================
 
-  pure subroutine Shell_Metrics_Analytic(iface,n_pts_1d,x_pts_1d,  &
-                                         xg_Gau,Jx_facenodenormal_Gau)
+  subroutine Shell_Metrics_Analytic(iface,n_pts_1d,x_pts_1d,  &
+                                    xg_Gau,Jx_facenodenormal_Gau)
 
     ! Nothing is implicitly defined
     use referencevariables
     use collocationvariables, only: n_Gau_1d_pH, x_Gau_1d_pH
     use initcollocation,      only: D_lagrange_basis_function_1d, &
-                                      lagrange_basis_function_1d
+                                      lagrange_basis_function_1d, &
+                                      JacobiP11
+
+    use variables, only:  Jx_r, facenodenormal, ifacenodes_LGL_pL
 
     implicit none
 
@@ -6522,17 +6544,19 @@ contains
     real(wp) :: zeta, eta, xi
     real(wp) :: t1, t2, t3, t4
 
-    integer  :: i, j, k, node_id
+    integer  :: i, j, k, node_id, i1, j1, k1
     integer  :: ixL, ixH, iyL, iyH, izL, izH
     integer  :: n_Gau
+    integer  :: jnode
     real(wp), dimension(:), allocatable  :: x_Gau
     
  
 
     continue
-    allocate(x_Gau(n_Gau_1d_pH))
 
-    n_Gau = n_Gau_1d_pH ; x_Gau = x_Gau_1d_pH ;
+    n_Gau = (npoly_max+1)
+
+    allocate(x_Gau(n_Gau)) ; call JacobiP11(npoly_max,x_Gau)
 
     ! Set to zero the local node ID
     node_id = 0
@@ -6547,35 +6571,53 @@ contains
             do k = ixL, ixH
               xi = x_pts_1d(k)
               node_id = node_id + 1
-              t1 =  ( D_lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                        lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(3,node_id)
-              t2 =  (   lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                      D_lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(2,node_id)
-              t3 =  (   lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                      D_lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(3,node_id)
-              t4 =  ( D_lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                        lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(2,node_id)
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                do k1 = 1, n_pts_1d
+                  t1 =  t1 + ( D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                            lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(3,node_id)
+                  t2 =  t2 + (   lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                        D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(2,node_id)
+                  t3 =  t3 + (   lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                        D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(3,node_id)
+                  t4 =  t4 + ( D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                        lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(2,node_id)
+                enddo
+              enddo   
               Jx_facenodenormal_Gau(1,node_id) =  t1*t2 - t3*t4
-
-              t1 =  ( D_lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                        lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(1,node_id)
-              t2 =  (   lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                      D_lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(3,node_id)
-              t3 =  (   lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                      D_lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(1,node_id)
-              t4 =  ( D_lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                        lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(3,node_id)
+!             write(*,*)node_id,t1,t2,t3,t4,Jx_facenodenormal_Gau(1,node_id)
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                do k1 = 1, n_pts_1d
+                  t1 = t1 + ( D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                        lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(1,node_id)
+                  t2 = t2 + (   lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                      D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(3,node_id)
+                  t3 = t3 + (   lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                      D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(1,node_id)
+                  t4 = t4 + ( D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                        lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(3,node_id)
+                enddo
+              enddo
               Jx_facenodenormal_Gau(2,node_id) =  t1*t2 - t3*t4
-
-              t1 =  ( D_lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                        lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(2,node_id)
-              t2 =  (   lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                      D_lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(1,node_id)
-              t3 =  (   lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                      D_lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(2,node_id)
-              t4 =  ( D_lagrange_basis_function_1d( eta,j,x_Gau,n_Gau) * & 
-                        lagrange_basis_function_1d(  xi,k,x_Gau,n_Gau) ) * xg_Gau(1,node_id)
+!             write(*,*)node_id,t1,t2,t3,t4,Jx_facenodenormal_Gau(2,node_id)
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                do k1 = 1, n_pts_1d
+                  t1 = t1+  ( D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                        lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(2,node_id)
+                  t2 = t2 + (   lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                      D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(1,node_id)
+                  t3 = t3 + (   lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                      D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(2,node_id)
+                  t4 = t4 + ( D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * & 
+                        lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) ) * xg_Gau(1,node_id)
+                enddo
+              enddo
               Jx_facenodenormal_Gau(3,node_id) =  t1*t2 - t3*t4
+!             write(*,*)node_id,t1,t2,t3,t4,Jx_facenodenormal_Gau(3,node_id)
+              jnode = ifacenodes_LGL_pL(node_id)
+!             write(*,*)'actual', Jx_r(node_id,1)*facenodenormal(:,jnode,1)
             end do
           end do
           Jx_facenodenormal_Gau(:,:) =  Jx_facenodenormal_Gau(:,:) * zeta

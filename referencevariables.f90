@@ -16,6 +16,7 @@ module referencevariables
   integer :: nvertices = 0
   integer :: nequations = 1
   integer :: npoly = 1
+  integer :: npoly_max = 1
   integer :: npoly_DeltaF = 0
   integer :: ndofperelem = 0
   integer :: nodesperelem = 0

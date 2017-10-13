@@ -134,6 +134,7 @@ contains
 
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()
+      call mpi_bcast(npoly_max,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)
 
       if (myprocid == 0) then
 !       write(*,*) 'read element polynomial orders'
@@ -154,9 +155,10 @@ contains
     ! ==============================================================
     ! call perturbvertices(0.1_wp)
     ! Collocation points
+
     call calcnodes_LGL()
 
-!   call calc_Gau_shell_pts_all_hexas()
+    call calc_Gau_shell_pts_all_hexas()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the metrics'
@@ -212,7 +214,7 @@ contains
 
     ! Calculate normals
     call calcfacenormals_LGL()
-!   call calcfacenormals_Gau()
+    call calcfacenormals_Gau()
 
     call Modify_Metrics_NonConforming()
 

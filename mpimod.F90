@@ -125,14 +125,11 @@ contains
     ! reach the same MPI_Barrier call. 
     call mpi_barrier(petsc_comm_world,ierr)
 
-
-    ! the lower and upper ordered-element bounds for each
-    ! process is communicated
+    ! the lower and upper ordered-element bounds for each process is communicated
     call mpi_scatter(melemsonproc, 2, mpi_integer, &
       ihelems, 2, mpi_integer, 0, PETSC_COMM_WORLD, ierr)
 
-    ! the original-to-ordered-element mapping is communicated
-    ! to each process
+    ! the original-to-ordered-element mapping is communicated to each process
     allocate(jelems(ihelems(1):ihelems(2)))
     netmp = ihelems(2)-ihelems(1)+1
     call mpi_scatterv(i2jelems, icnt, melemsonproc(0:2*(nprocs-1):2)-1, mpi_integer, &

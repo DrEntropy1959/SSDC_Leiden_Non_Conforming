@@ -47,6 +47,10 @@ contains
     n_LGL_2d_pH = n_LGL_1d_pH**2
     n_LGL_3d_pH = n_LGL_1d_pH**3
 
+    n_Gau_1d_pL = n_LGL_1d_pL
+    n_Gau_2d_pL = n_LGL_2d_pL
+    n_Gau_3d_pL = n_LGL_3d_pL
+
     n_Gau_1d_pH = n_LGL_1d_pH
     n_Gau_2d_pH = n_LGL_2d_pH
     n_Gau_3d_pH = n_LGL_3d_pH
@@ -101,9 +105,13 @@ contains
 
     !  Interpolation matrices rotating LGL <-> Gau points of various orders
 
+    allocate(x_Gau_1d_pL(n_Gau_1d_pL))
+    allocate(w_Gau_1d_pL(n_Gau_1d_pL))
+
     allocate(x_Gau_1d_pH(n_Gau_1d_pH))
     allocate(w_Gau_1d_pH(n_Gau_1d_pH))
-!   call Gauss_Legendre_points(n_Gau_1d_pL,x_Gau_1d_pL,w_Gau_1d_pL)
+
+    call Gauss_Legendre_points(n_Gau_1d_pL,x_Gau_1d_pL,w_Gau_1d_pL)
     call Gauss_Legendre_points(n_Gau_1d_pH,x_Gau_1d_pH,w_Gau_1d_pH)
 
     w_LGL_1d_pL(:) = pmat_pL(:) ; w_LGL_1d_pH(:) = pmat_pH(:) ;
@@ -111,8 +119,17 @@ contains
     allocate(Ext_LGL_p0_2_Gau_p1_1d(n_LGL_1d_pL,n_Gau_1d_pH)) ; Ext_LGL_p0_2_Gau_p1_1d = 0.0_wp ;
     allocate(Int_Gau_p1_2_LGL_p0_1d(n_Gau_1d_pH,n_LGL_1d_pL)) ; Int_Gau_p1_2_LGL_p0_1d = 0.0_wp ;
 
+    allocate(Rot_LGL_p0_2_Gau_p0_1d(n_LGL_1d_pL,n_Gau_1d_pL)) ; Rot_LGL_p0_2_Gau_p0_1d = 0.0_wp ;
+    allocate(Rot_Gau_p0_2_LGL_p0_1d(n_Gau_1d_pL,n_LGL_1d_pL)) ; Rot_Gau_p0_2_LGL_p0_1d = 0.0_wp ;
+
     allocate(Rot_LGL_p1_2_Gau_p1_1d(n_LGL_1d_pH,n_Gau_1d_pH)) ; Rot_LGL_p1_2_Gau_p1_1d = 0.0_wp ;
     allocate(Rot_Gau_p1_2_LGL_p1_1d(n_Gau_1d_pH,n_LGL_1d_pH)) ; Rot_Gau_p1_2_LGL_p1_1d = 0.0_wp ;
+
+    call Rotate_xione_2_xitwo_and_back(n_LGL_1d_pL,n_Gau_1d_pL, &
+                                       x_LGL_1d_pL,x_Gau_1d_pL, &
+                                       w_LGL_1d_pL,w_Gau_1d_pL, &
+                                       Rot_LGL_p0_2_Gau_p0_1d,  &
+                                       Rot_Gau_p0_2_LGL_p0_1d )
 
     call Rotate_xione_2_xitwo_and_back(n_LGL_1d_pH,n_Gau_1d_pH, &
                                        x_LGL_1d_pH,x_Gau_1d_pH, &
