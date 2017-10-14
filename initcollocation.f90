@@ -1377,6 +1377,7 @@ contains
   end subroutine JacobiP11
 
   subroutine Gauss_Legendre_points(p,x,w)
+
     ! Subroutine provides coefficients for 
     ! Gauss_Legendre Polynomials  where "p"
     ! is the number of GL points
@@ -4733,54 +4734,60 @@ contains
 
   !============================================================================
 
-  pure function lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
+  pure function lagrange_basis_function_1d(xval, j, xvec, N)
 
     ! Nothing is implicitly defined
     implicit none
 
-    integer, intent(in) :: n_lag, i_lag
-    real(wp), intent(in) :: x_in
-    real(wp), dimension(n_lag), intent(in) :: x_lag
-    integer :: i_term_lag
-    real(wp) :: lagrange_basis_function_1d
+    integer,                intent(in) :: j, N
+    real(wp),               intent(in) :: xval
+    real(wp), dimension(N), intent(in) :: xvec
 
-    ! Initialize the Lagrange basis function to1
+    integer  :: k
+    real(wp) :: t, lagrange_basis_function_1d
 
-    ! Compute the actaul value of the Lagrange basis function of the Lagrange
-    ! node i_lgl evaluated at the point give by x_gl 
-    lagrange_basis_function_1d = 1.0_wp
-    do i_term_lag = 1, n_lag
-      if(i_term_lag /= i_lag) then
-        lagrange_basis_function_1d = lagrange_basis_function_1d*&
-          & (x_in-x_lag(i_term_lag))/(x_lag(i_lag)-x_lag(i_term_lag))
+    ! Evaluate Lagrange basis function ``j'' at position xval 
+
+    t = 1.0_wp
+    do k = 1, N
+      if(k /= j) then
+        t = t * (xval-xvec(k)) / (xvec(j)-xvec(k))
       endif
     enddo
+    lagrange_basis_function_1d = t
 
     return
   end function lagrange_basis_function_1d
 
   !============================================================================
 
-  pure function D_lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
+  function D_lagrange_basis_function_1d(xval,j,xvec,N)
 
     ! Nothing is implicitly defined
     implicit none
 
-    integer, intent(in) :: n_lag, i_lag
-    real(wp), intent(in) :: x_in
-    real(wp), dimension(n_lag), intent(in) :: x_lag
-    integer :: i_term_lag
-    real(wp) :: D_lagrange_basis_function_1d,weight
+    integer,  intent(in) :: N, j
+    real(wp), intent(in) :: xval
+    real(wp), dimension(N), intent(in) :: xvec
+    integer :: m,i
+    real(wp) :: D_lagrange_basis_function_1d, weight, t
+    real(wp), parameter  :: tol = 1.0e-10_wp
 
     weight = 0.0_wp
-    do i_term_lag = 1, n_lag
-      if(i_term_lag /= i_lag) then
-        weight = weight+1.0_wp/(x_lag(i_lag)-x_lag(i_term_lag))
+    do i = 1, N
+      if(i /= j) then
+        t = 1.0_wp
+        do m = 1, N
+          if((m /= j) .and. (m /= i)) then
+            t = t * (xval-xvec(m)) / (xvec(j)-xvec(m))
+          endif
+        enddo
+        weight = weight + t / (xvec(j) - xvec(i)) 
       endif
     enddo
 
-    D_lagrange_basis_function_1d = weight*lagrange_basis_function_1d(x_in,i_lag,x_lag,n_lag)
-   
+    D_lagrange_basis_function_1d = weight
+    
     return
   end function D_lagrange_basis_function_1d
 

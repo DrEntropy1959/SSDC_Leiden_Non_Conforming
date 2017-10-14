@@ -3552,19 +3552,20 @@ contains
           write(*,*)'I shouldnt be here'
           kface       = ef2e(1,iface,ielem)
           kelem       = ef2e(2,iface,ielem)
-          n_S_2d_On   = elem_props(2,ielem)
-          n_S_2d_Off  = ef2e(4,iface,ielem)
-          n_S_2d_mort = max(n_S_2D_On,n_S_2D_Off)
-          n_S_1d_Mort = n_Gau_1d_pH
-          x_S_1d_Mort = x_Gau_1d_pH
+          n_S_1d_On   = elem_props(2,ielem)
+          n_S_1d_Off  = ef2e(4,iface,ielem)
+          n_S_1d_Mort = max(n_S_1D_On,n_S_1D_Off)
+          n_S_2d_On   = (n_S_1d_On  )**2
+          n_S_2d_Off  = (n_S_1d_Off )**2
+          n_S_2d_Mort = (n_S_1d_mort)**2
 
           allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
           allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
           allocate(FC (nequations,n_S_2D_Mort))
-          allocate( wg_On_Mort(nequations,n_S_2d_Mort))
+          allocate(wg_On_Mort (nequations,n_S_2d_Mort))
           allocate(wg_Off_Mort(nequations,n_S_2d_Mort))
-          allocate( wg_On_Vec(nequations,n_S_2d_On ))
-          allocate(wg_Off_Vec(nequations,n_S_2d_Off))
+          allocate(wg_On_Vec  (nequations,n_S_2d_On  ))
+          allocate(wg_Off_Vec (nequations,n_S_2d_Off ))
 
           if(n_S_1d_On > n_S_1d_Off) then
             allocate(Extrp_Off(n_S_1d_On ,n_S_1d_Off)) ;  Extrp_Off(:,:) = Ext_LGL_p0_2_Gau_p1_1d(:,:) ;
@@ -3613,9 +3614,9 @@ contains
 
             end do
 
-            call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FxA,FxB,Extrp_Off)
-            call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FyA,FyB,Extrp_Off)
-            call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_max,x_S_1D_Off,x_S_1D_Mort,FzA,FzB,Extrp_Off)
+            call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Mort,x_S_1D_Off,x_S_1D_Mort,FxA,FxB,Extrp_Off)
+            call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Mort,x_S_1D_Off,x_S_1D_Mort,FyA,FyB,Extrp_Off)
+            call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Mort,x_S_1D_Off,x_S_1D_Mort,FzA,FzB,Extrp_Off)
 
             do j = 1, n_S_2d_mort
 
@@ -3632,7 +3633,7 @@ contains
 
             ival = mod(i,n_S_1d_On) ; jval = (i-ival) / n_S_1d_On ;
 
-            call ExtrpXA2XB_2D_neq_k(nequations,n_S_1D_mort,n_S_1D_On,ival,jval,x_S_1D_mort,x_S_1D_On,FC,SAT_Pen,Intrp_On )
+            call ExtrpXA2XB_2D_neq_k(nequations,n_S_1D_Mort,n_S_1D_On,ival,jval,x_S_1D_Mort,x_S_1D_On,FC,SAT_Pen,Intrp_On )
     
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
 
