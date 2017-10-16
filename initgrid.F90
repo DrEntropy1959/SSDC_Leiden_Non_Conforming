@@ -30,6 +30,7 @@ module initgrid
   public facenodesetup_Gau
   public facenodesetup_LGL_WENO
   public calculate_face_node_connectivity_LGL
+  public calculate_face_node_connectivity_Gau
   public calcfacenormals_LGL
   public calcfacenormals_Gau
   public init_elem_type
@@ -42,7 +43,6 @@ module initgrid
   public WENO_Intrp_Face_Nodes
   public Boundary_Vertex_2_Vertex_Connectivity
   public calc_Gau_shell_pts_all_hexas
-  public calculate_face_node_connectivity_Gau
   public modify_metrics_nonconforming
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
@@ -5832,6 +5832,7 @@ contains
       & xg_Gau_shell, xgghst_Gau_Shell, efn2efn_Gau, &
       & jelems, periodic_elem_face_ids_x1, &
       & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
+    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points, JacobiP11
 
     ! Nothing is implicitly defined
     implicit none
@@ -5839,7 +5840,6 @@ contains
     integer ::  ielem, inode, jnode, iface, knode, kshell
     integer ::  i_low
 
-    integer :: low_elem, high_elem
     real(wp) :: x1(3), x2(3)
     real(wp), parameter :: nodetol = 1.0e-8_wp
 
@@ -5847,17 +5847,14 @@ contains
     logical :: match_found
     real(wp), dimension(2) :: x1_p, x2_p
 
+    integer :: n_Gau_1d_max , n_Gau_2d_max , n_Gau_shell_max
+    integer :: n_Gau_1d_Mort, n_Gau_2d_Mort
+    integer :: n_LGL_1d_On  , n_LGL_1d_Off
     integer :: cnt_debug
 
     continue
 
     cnt_debug = 0
-
-    ! Low volumetric element index
-    low_elem = ihelems(1)
-
-    ! High volumetric element index
-    high_elem = ihelems(2)
 
     ! efn2efn_Gau contains the partner node information of every facenode in the domain
 
@@ -5867,26 +5864,36 @@ contains
     ! efn2efn_Gau(4,k,m) = node value in shell coordinates of partner node (defined only if non-parallel interface)
     !  NOTE:  The definition of efn2efn_Gau(4) is different than efn2efn(4)
 
-    allocate(efn2efn_Gau(4,n_Gau_shell,low_elem:high_elem))
-    efn2efn_Gau = -1000
+    ! Set the maximum size of buckets for shell data 
+    n_Gau_1d_max = (npoly_max+1)**1
+    n_Gau_2d_max = (npoly_max+1)**2
+    n_Gau_shell_max = nfacesperelem * n_Gau_2d_max
+
+    allocate(efn2efn_Gau(4,n_Gau_shell_max,ihelems(1):ihelems(2))) ; efn2efn_Gau = -1000 ;
 
     ! Initialize position of the ghost point in the stack
     i_low = 0
 
     ! Loop over elements
-    do ielem = low_elem, high_elem
+    do ielem = ihelems(1), ihelems(2)
       
       ! Reset facial node index counter
-      knode = 0
+
+      n_LGL_1d_On   = elem_props(2,ielem)
       
       ! Loop over faces
       do iface = 1, nfacesperelem
-        
+
+        n_LGL_1d_Off  = ef2e(4,iface,ielem)
+        n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
+        n_Gau_2d_Mort = n_Gau_1d_Mort**2
+        knode = (iface-1) * n_Gau_2d_max
+
         ! If on boundary, connect to self
         if (ef2e(1,iface,ielem) < 0) then
           
           ! Loop over nodes on the boundary face
-          do inode = 1, n_Gau_2d_p1
+          do inode = 1, n_Gau_2d_Mort
             
             ! Update facial node index counter
             knode = knode + 1
@@ -5920,7 +5927,7 @@ contains
                 p_dir = periodic_elem_face_ids_x1(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_p1
+                do inode = 1, n_Gau_2d_Mort
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -5943,7 +5950,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, n_Gau_2d_p1
+                  do jnode = 1, n_Gau_2d_Mort
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -5984,7 +5991,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_p1
+                i_low = i_low + n_Gau_2d_Mort
 
               end if ! End if match found
 
@@ -6015,7 +6022,7 @@ contains
                 p_dir = periodic_elem_face_ids_x2(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_p1
+                do inode = 1, n_Gau_2d_Mort
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -6037,7 +6044,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, n_Gau_2d_p1
+                  do jnode = 1, n_Gau_2d_Mort
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -6078,7 +6085,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_p1
+                i_low = i_low + n_Gau_2d_Mort
 
               end if ! End if match found
 
@@ -6110,7 +6117,7 @@ contains
                 p_dir = periodic_elem_face_ids_x3(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_p1
+                do inode = 1, n_Gau_2d_Mort
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -6132,7 +6139,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, n_Gau_2d_p1
+                  do jnode = 1, n_Gau_2d_Mort
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -6173,7 +6180,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_p1
+                i_low = i_low + n_Gau_2d_Mort
 
               end if ! End if match found
 
@@ -6190,7 +6197,7 @@ contains
           if (match_found .eqv. .false.) then
 
             ! Loop over the nodes on the face
-            do inode = 1, n_Gau_2d_p1
+            do inode = 1, n_Gau_2d_Mort
 
               ! Update the facial node index counter
               knode = knode + 1
@@ -6199,7 +6206,7 @@ contains
               x1 = xg_Gau_shell(:,knode,ielem)
               
               ! Search for the connected node on face of the connected element
-              do jnode = 1, n_Gau_2d_p1
+              do jnode = 1, n_Gau_2d_Mort
 
                 ! Coordinates of the jnode
                 ! ef2e(2) gives the element of the neighbor
@@ -6225,12 +6232,12 @@ contains
               
               ! Print information at screen if there is a problem and stop
               ! computation
-              if (jnode > n_Gau_2d_p1 .and. myprocid==1) then
+              if (jnode > n_Gau_2d_Mort .and. myprocid==1) then
                 write(*,*) 'Connectivity error in face-node connectivity.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
                 write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
                 write(*,*) 'Node coordinates and ghost node coordinates'
-                write(*,*) x1, xgghst_Gau_Shell(:,i_low + 1:i_low + n_Gau_2d_p1)
+                write(*,*) x1, xgghst_Gau_Shell(:,i_low + 1:i_low + n_Gau_2d_Mort)
                 write(*,*) 'Exiting...'
                 stop
               end if
@@ -6238,7 +6245,7 @@ contains
             end do
 
             ! Update the position in the ghost stack
-            i_low = i_low + n_Gau_2d_p1
+            i_low = i_low + n_Gau_2d_Mort
           
           end if
 
@@ -6262,7 +6269,7 @@ contains
                 p_dir = periodic_elem_face_ids_x1(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_p1
+                do inode = 1, n_Gau_2d_Mort
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -6286,12 +6293,12 @@ contains
 
                   ! Search for the connected node on the face of the connected 
                   ! element
-                  do jnode = 1,n_Gau_2d_p1
+                  do jnode = 1,n_Gau_2d_Mort
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
 
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1 + jnode
+                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_Mort + jnode
                     x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
@@ -6361,7 +6368,7 @@ contains
                 p_dir = periodic_elem_face_ids_x2(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_p1
+                do inode = 1, n_Gau_2d_Mort
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -6385,11 +6392,11 @@ contains
 
                   ! Search for the connected node on the face of the connected 
                   ! element
-                  do jnode = 1,n_Gau_2d_p1
+                  do jnode = 1,n_Gau_2d_Mort
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1 + jnode
+                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_Mort + jnode
                     x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
@@ -6460,7 +6467,7 @@ contains
                 p_dir = periodic_elem_face_ids_x3(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_p1
+                do inode = 1, n_Gau_2d_Mort
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -6483,11 +6490,11 @@ contains
                   end do
 
                   ! Search for the connected node on the face of the connected element
-                  do jnode = 1,n_Gau_2d_p1
+                  do jnode = 1,n_Gau_2d_Mort
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1 + jnode
+                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_Mort + jnode
                     x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
@@ -6545,7 +6552,7 @@ contains
 !           write(*,*)'non-periodic path'
             
             ! Loop over the nodes on the face
-            do inode = 1, n_Gau_2d_p1
+            do inode = 1, n_Gau_2d_Mort
 
               ! Update the facial node index counter
               knode = knode + 1
@@ -6554,11 +6561,11 @@ contains
               x1 = xg_Gau_shell(:,knode,ielem)
               ! Search the for connected node on the face of the connected element
               
-              do jnode = 1, n_Gau_2d_p1
+              do jnode = 1, n_Gau_2d_Mort
                 
                 ! Coordinates of the jnode
                 ! ef2e(1) gives the face on the neighboring element and ef2e(2) gives the element
-                kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1 + jnode
+                kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_Mort + jnode
                 x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
                 
                 ! Check the distance between the two nodes
@@ -6588,7 +6595,7 @@ contains
 !               write(*,*) x1
 !               write(*,*) 'Possible partner node coordinates'
 !               
-!               do jnode = 1, n_Gau_2d_p1
+!               do jnode = 1, n_Gau_2d_Mort
 !                 x2 = xg(:,kfacenodes_Gau(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
 !                 write(*,*) x2
 !               end do 
