@@ -77,34 +77,36 @@ module collocationvariables
   !  grid info LGL
   integer :: n_LGL_1d_p0, n_LGL_2d_p0, n_LGL_3d_p0
   integer :: n_LGL_1d_p1, n_LGL_2d_p1, n_LGL_3d_p1
+  integer :: n_LGL_1d_p2, n_LGL_2d_p2, n_LGL_3d_p2
   
-  real(wp), allocatable, dimension(:)     :: x_LGL_1d_p0, x_LGL_1d_p1
-  real(wp), allocatable, dimension(:)     :: w_LGL_1d_p0, w_LGL_1d_p1
+  real(wp), allocatable, dimension(:)     :: x_LGL_1d_p0, x_LGL_1d_p1, x_LGL_1d_p2
+  real(wp), allocatable, dimension(:)     :: w_LGL_1d_p0, w_LGL_1d_p1, w_LGL_1d_p2
 
   !  grid info Gau
   integer :: n_Gau_1d_p0, n_Gau_2d_p0, n_Gau_3d_p0
   integer :: n_Gau_1d_p1, n_Gau_2d_p1, n_Gau_3d_p1
+  integer :: n_Gau_1d_p2, n_Gau_2d_p2, n_Gau_3d_p2
 
-  real(wp), allocatable, dimension(:)     :: x_Gau_1d_p0, x_Gau_1d_p1
-  real(wp), allocatable, dimension(:)     :: w_Gau_1d_p0, w_Gau_1d_p1
+  real(wp), allocatable, dimension(:)     :: x_Gau_1d_p0, x_Gau_1d_p1, x_Gau_1d_p2
+  real(wp), allocatable, dimension(:)     :: w_Gau_1d_p0, w_Gau_1d_p1, w_Gau_1d_p2
 
   integer :: n_Gau_Shell
 
-  real(wp), allocatable, dimension(:)     :: pmat_p0 , pmat_p1
-  real(wp), allocatable, dimension(:)     :: pinv_p0 , pinv_p1
-  real(wp), allocatable, dimension(:,:)   :: qmat_p0 , qmat_p1
-  real(wp), allocatable, dimension(:,:)   :: dmat_p0 , dmat_p1
-  real(wp), allocatable, dimension(:)     :: pvol_p0 , pvol_p1
-  real(wp), allocatable, dimension(:)     :: p_surf_p0 , p_surf_p1
+  real(wp), allocatable, dimension(:)     ::   pmat_p0,   pmat_p1,    pmat_p2
+  real(wp), allocatable, dimension(:)     ::   pinv_p0,   pinv_p1,    pinv_p2
+  real(wp), allocatable, dimension(:,:)   ::   qmat_p0,   qmat_p1,    qmat_p2
+  real(wp), allocatable, dimension(:,:)   ::   dmat_p0,   dmat_p1,    dmat_p2
+  real(wp), allocatable, dimension(:)     ::   pvol_p0,   pvol_p1,    pvol_p2
+  real(wp), allocatable, dimension(:)     :: p_surf_p0, p_surf_p1,  p_surf_p2
 
-  real(wp), allocatable, dimension(:,:,:) :: gradmat_p0, gradmat_p1
+  real(wp), allocatable, dimension(:,:,:) :: gradmat_p0, gradmat_p1, gradmat_p2
   
   ! Gradient matrix
-  integer,  allocatable, dimension(:)     :: iagrad_p0, iagrad_p1
-  integer,  allocatable, dimension(:,:)   :: jagrad_p0, jagrad_p1
-  real(wp), allocatable, dimension(:,:)   :: dagrad_p0, dagrad_p1
-  real(wp), allocatable, dimension(:,:)   :: qagrad_p0, qagrad_p1
-  integer :: nnzgrad_p0, nnzgrad_p1
+  integer,  allocatable, dimension(:)     :: iagrad_p0, iagrad_p1, iagrad_p2
+  integer,  allocatable, dimension(:,:)   :: jagrad_p0, jagrad_p1, jagrad_p2
+  real(wp), allocatable, dimension(:,:)   :: dagrad_p0, dagrad_p1, dagrad_p2
+  real(wp), allocatable, dimension(:,:)   :: qagrad_p0, qagrad_p1, qagrad_p2
+  integer :: nnzgrad_p0, nnzgrad_p1, nnzgrad_p2
 
   real(wp), allocatable, dimension(:,:)   :: Rot_Gau_p0_2_LGL_p0_1d
   real(wp), allocatable, dimension(:,:)   :: Rot_LGL_p0_2_Gau_p0_1d
@@ -114,5 +116,11 @@ module collocationvariables
 
   real(wp), allocatable, dimension(:,:)   :: Rot_Gau_p1_2_LGL_p1_1d
   real(wp), allocatable, dimension(:,:)   :: Rot_LGL_p1_2_Gau_p1_1d
+
+  real(wp), allocatable, dimension(:,:)   :: Ext_LGL_p1_2_Gau_p2_1d
+  real(wp), allocatable, dimension(:,:)   :: Int_Gau_p2_2_LGL_p1_1d
+
+  real(wp), allocatable, dimension(:,:)   :: Rot_Gau_p2_2_LGL_p2_1d
+  real(wp), allocatable, dimension(:,:)   :: Rot_LGL_p2_2_Gau_p2_1d
 
 end module collocationvariables
