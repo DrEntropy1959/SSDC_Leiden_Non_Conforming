@@ -2014,16 +2014,16 @@ contains
     use referencevariables
     use variables, only: xg_Gau_shell, xgghst_Gau_shell
     use petscvariables, only: xpetsc_shell, xlocpetsc_shell
-    use collocationvariables, only: n_Gau_2d_pH
+    use collocationvariables, only: n_Gau_2d_p1
     implicit none
 
     allocate(xgghst_Gau_shell(ndim,nghost_Gau_shell))
 
 !   call PetscComm1D_shell_DataSetup_Gau(xg_Gau_shell,xgghst_Gau_shell,xpetsc_shell,xlocpetsc_shell, &
-!                           & ndim, n_Gau_2d_pH, nelems, nghost_Gau_shell)
+!                           & ndim, n_Gau_2d_p1, nelems, nghost_Gau_shell)
 
 !   call UpdateComm1D_shell_GhostData_Gau(xg_Gau_shell,xgghst_Gau_shell,xpetsc_shell,xlocpetsc_shell, &
-!                           & ndim, n_Gau_2d_pH, ihelems, nghost_Gau_shell)
+!                           & ndim, n_Gau_2d_p1, ihelems, nghost_Gau_shell)
 
 
   end subroutine PetscGridLocations_Gau
@@ -2036,7 +2036,7 @@ contains
     ! It is run in parallel by all processes
     use referencevariables
     use variables, only: ef2e
-    use collocationvariables, only: n_Gau_2d_pH, elem_props
+    use collocationvariables, only: n_Gau_2d_p1, elem_props
     implicit none
 
     integer :: ielem, iface
@@ -2052,7 +2052,7 @@ contains
         if(ef2e(4,iface,ielem) /= elem_props(2,ielem)) then
            write(*,*)'found dissimilar element orders'
            ! if face neighbor is off process, then add ghost nodes
-           if (ef2e(3,iface,ielem) /= myprocid) nghost_Gau_shell = nghost_Gau_shell + n_Gau_2d_pH
+           if (ef2e(3,iface,ielem) /= myprocid) nghost_Gau_shell = nghost_Gau_shell + n_Gau_2d_p1
         endif
       end do
     end do

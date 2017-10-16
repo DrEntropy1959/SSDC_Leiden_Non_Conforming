@@ -725,7 +725,7 @@ contains
     use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
-    use collocationvariables, only: n_LGL_1d_pH, elem_props
+    use collocationvariables, only: n_LGL_1d_p1, elem_props
     use initcollocation, only: JacobiP11
     implicit none
     ! indices
@@ -930,32 +930,32 @@ contains
     !  
     use referencevariables, only: nfacesperelem
     use mpimod
-    use variables, only: kfacenodes_LGL_pH, ifacenodes_LGL_pH &
-                       , kfacenodes_LGL_pL, ifacenodes_LGL_pL &
+    use variables, only: kfacenodes_LGL_p1, ifacenodes_LGL_p1 &
+                       , kfacenodes_LGL_p0, ifacenodes_LGL_p0 &
                        , kfacenodes, ifacenodes
 
-    use collocationvariables, only: n_LGL_1d_pL, n_LGL_1d_pH &
-                                  , n_LGL_2d_pL, n_LGL_2d_pH
+    use collocationvariables, only: n_LGL_1d_p0, n_LGL_1d_p1 &
+                                  , n_LGL_2d_p0, n_LGL_2d_p1
 
     implicit none
 
     ! kfacenodes separates each face
     ! ifacenodes includes all faces
 
-    allocate(kfacenodes_LGL_pL(1:n_LGL_2d_pL,1:nfacesperelem))
-    allocate(ifacenodes_LGL_pL(1:n_LGL_2d_pL*nfacesperelem))
+    allocate(kfacenodes_LGL_p0(1:n_LGL_2d_p0,1:nfacesperelem))
+    allocate(ifacenodes_LGL_p0(1:n_LGL_2d_p0*nfacesperelem))
 
-    allocate(kfacenodes_LGL_pH(n_LGL_2d_pH,nfacesperelem))
-    allocate(ifacenodes_LGL_pH(n_LGL_2d_pH*nfacesperelem))
+    allocate(kfacenodes_LGL_p1(n_LGL_2d_p1,nfacesperelem))
+    allocate(ifacenodes_LGL_p1(n_LGL_2d_p1*nfacesperelem))
 
-    call facenodesetup_LGL(n_LGL_1d_pL, n_LGL_2d_pL, kfacenodes_LGL_pL, ifacenodes_LGL_pL)
-    call facenodesetup_LGL(n_LGL_1d_pH, n_LGL_2d_pH, kfacenodes_LGL_pH, ifacenodes_LGL_pH)
+    call facenodesetup_LGL(n_LGL_1d_p0, n_LGL_2d_p0, kfacenodes_LGL_p0, ifacenodes_LGL_p0)
+    call facenodesetup_LGL(n_LGL_1d_p1, n_LGL_2d_p1, kfacenodes_LGL_p1, ifacenodes_LGL_p1)
 
-    allocate(kfacenodes(n_LGL_2d_pL,nfacesperelem))
-    allocate(ifacenodes(n_LGL_2d_pL*nfacesperelem))
+    allocate(kfacenodes(n_LGL_2d_p0,nfacesperelem))
+    allocate(ifacenodes(n_LGL_2d_p0*nfacesperelem))
 
-    kfacenodes(:,:) = kfacenodes_LGL_pL(:,:)
-    ifacenodes(:)   = ifacenodes_LGL_pL(:)
+    kfacenodes(:,:) = kfacenodes_LGL_p0(:,:)
+    ifacenodes(:)   = ifacenodes_LGL_p0(:)
 
     end subroutine facenodesetup_LGL_Driver
 
@@ -1170,9 +1170,9 @@ contains
     use variables, only: xg, xghst_LGL, ef2e, efn2efn,        &
       & jelems, periodic_elem_face_ids_x1,                    &
       & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3, &
-      & kfacenodes_LGL_pL,ifacenodes_LGL_pL,                  &
-      & kfacenodes_LGL_pH,ifacenodes_LGL_pH
-    use collocationvariables, only: elem_props, n_LGL_1d_pL, n_LGL_1d_pH
+      & kfacenodes_LGL_p0,ifacenodes_LGL_p0,                  &
+      & kfacenodes_LGL_p1,ifacenodes_LGL_p1
+    use collocationvariables, only: elem_props, n_LGL_1d_p0, n_LGL_1d_p1
 
     ! Nothing is implicitly defined
     implicit none
@@ -1221,12 +1221,12 @@ contains
       if(allocated(kfacenodes)) deallocate(kfacenodes) ; allocate(kfacenodes(1:n_LGL_2d,1:nfacesperelem))
       if(allocated(ifacenodes)) deallocate(ifacenodes) ; allocate(ifacenodes(1:n_LGL_2d*nfacesperelem))
 
-      if(n_LGL_1d == n_LGL_1d_pL) then
-        kfacenodes(:,:) = kfacenodes_LGL_pL(:,:)
-        ifacenodes(:)   = ifacenodes_LGL_pL(:)
+      if(n_LGL_1d == n_LGL_1d_p0) then
+        kfacenodes(:,:) = kfacenodes_LGL_p0(:,:)
+        ifacenodes(:)   = ifacenodes_LGL_p0(:)
       else
-        kfacenodes(:,:) = kfacenodes_LGL_pH(:,:)
-        ifacenodes(:)   = ifacenodes_LGL_pH(:)
+        kfacenodes(:,:) = kfacenodes_LGL_p1(:,:)
+        ifacenodes(:)   = ifacenodes_LGL_p1(:)
       endif
 
       ! Reset facial node index counter
@@ -1983,7 +1983,7 @@ contains
     ! of each facial node
     use referencevariables
     use variables, only: kfacenodes, facenodenormal, r_x, ef2e, efn2efn, Jx_r
-    use collocationvariables, only: n_LGL_1d_pH, elem_props
+    use collocationvariables, only: n_LGL_1d_p1, elem_props
 
     implicit none
 
@@ -2065,8 +2065,8 @@ contains
     ! of each facial node
     use referencevariables
     use initcollocation,      only: JacobiP11, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
-    use collocationvariables, only: n_Gau_1d_pH, x_Gau_1d_pH, &
-                                    n_LGL_1D_pL, n_LGL_1D_pH, n_Gau_2D_pH, &
+    use collocationvariables, only: n_Gau_1d_p1, x_Gau_1d_p1, &
+                                    n_LGL_1D_p0, n_LGL_1D_p1, n_Gau_2D_p1, &
                                     Rot_Gau_p0_2_LGL_p0_1d,   &
                                     Rot_Gau_p1_2_LGL_p1_1d,   &
                                     Int_Gau_p1_2_LGL_p0_1d,   &
@@ -2159,10 +2159,10 @@ contains
 !       do iface = 1,nfacesperelem
 !         ! loop over nodes on face
 !         kelem = ef2e(2,iface,ielem)
-!         do inode = 1,n_Gau_2d_pH
+!         do inode = 1,n_Gau_2d_p1
 !           knode = knode + 1
 !           if(ef2e(1,iface,ielem) > 0)then
-!             i = (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH+efn2efn(4,knode,ielem)
+!             i = (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1+efn2efn(4,knode,ielem)
 !             wrk = facenodenormal(1:3,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem) &
 !                 + facenodenormal(1:3, i ,kelem)*Jx_r(efn2efn(1,knode,ielem),kelem)
 !             if(magnitude(wrk) >= 1.0e-10_wp) then
@@ -5715,16 +5715,16 @@ contains
     !  element volumetic ordering.  Implicit are that a subset of the volume nodes 
     !  are on the face of the element
     !  
-    !   kfacenodes(n_Gau_2d_pH,nfacesperelem)  
+    !   kfacenodes(n_Gau_2d_p1,nfacesperelem)  
     !      volumetric node index of face node  
     !      
-    !   ifacenodes(n_Gau_2d_pH*nfacesperelem)  
+    !   ifacenodes(n_Gau_2d_p1*nfacesperelem)  
     !      kfacenode flattened into a single vector
     !  
     use referencevariables
     use mpimod
     use variables, only: kfacenodes_Gau, ifacenodes_Gau
-    use collocationvariables, only: n_Gau_2d_pH
+    use collocationvariables, only: n_Gau_2d_p1
     implicit none
 
     ! indices
@@ -5735,20 +5735,20 @@ contains
     ! local facial masks
     !
     ! kfacenodes_Gau separates each face
-    allocate(kfacenodes_Gau(n_Gau_2d_pH,nfacesperelem))
+    allocate(kfacenodes_Gau(n_Gau_2d_p1,nfacesperelem))
     ! ifacenodes_Gau includes all faces
-    allocate(ifacenodes_Gau(n_Gau_2d_pH*nfacesperelem))
+    allocate(ifacenodes_Gau(n_Gau_2d_p1*nfacesperelem))
 
     if (ndim == 2) then
     else if (ndim == 3) then
-      do k = 1, n_Gau_2d_pH
+      do k = 1, n_Gau_2d_p1
           ! face 1 does not require an offset or a stride
-          kfacenodes_Gau(k,1) = (1-1)*n_Gau_2d_pH + k
-          kfacenodes_Gau(k,2) = (2-1)*n_Gau_2d_pH + k
-          kfacenodes_Gau(k,3) = (3-1)*n_Gau_2d_pH + k
-          kfacenodes_Gau(k,4) = (4-1)*n_Gau_2d_pH + k
-          kfacenodes_Gau(k,5) = (5-1)*n_Gau_2d_pH + k
-          kfacenodes_Gau(k,6) = (6-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,1) = (1-1)*n_Gau_2d_p1 + k
+          kfacenodes_Gau(k,2) = (2-1)*n_Gau_2d_p1 + k
+          kfacenodes_Gau(k,3) = (3-1)*n_Gau_2d_p1 + k
+          kfacenodes_Gau(k,4) = (4-1)*n_Gau_2d_p1 + k
+          kfacenodes_Gau(k,5) = (5-1)*n_Gau_2d_p1 + k
+          kfacenodes_Gau(k,6) = (6-1)*n_Gau_2d_p1 + k
       end do
     else
       write(*,*) 'error: unsupported dimension', ndim
@@ -5759,7 +5759,7 @@ contains
     ! loop over faces
     do j = 1, nfacesperelem
       ! loop over nodes on each face
-      do i = 1, n_Gau_2d_pH
+      do i = 1, n_Gau_2d_p1
         ! advance facial node index
         k = k+1
         ! map facial node index to volumetric node
@@ -5838,7 +5838,7 @@ contains
         if (ef2e(1,iface,ielem) < 0) then
           
           ! Loop over nodes on the boundary face
-          do inode = 1, n_Gau_2d_pH
+          do inode = 1, n_Gau_2d_p1
             
             ! Update facial node index counter
             knode = knode + 1
@@ -5872,7 +5872,7 @@ contains
                 p_dir = periodic_elem_face_ids_x1(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
+                do inode = 1, n_Gau_2d_p1
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -5895,7 +5895,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, n_Gau_2d_pH
+                  do jnode = 1, n_Gau_2d_p1
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -5936,7 +5936,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_pH
+                i_low = i_low + n_Gau_2d_p1
 
               end if ! End if match found
 
@@ -5967,7 +5967,7 @@ contains
                 p_dir = periodic_elem_face_ids_x2(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
+                do inode = 1, n_Gau_2d_p1
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -5989,7 +5989,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, n_Gau_2d_pH
+                  do jnode = 1, n_Gau_2d_p1
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -6030,7 +6030,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_pH
+                i_low = i_low + n_Gau_2d_p1
 
               end if ! End if match found
 
@@ -6062,7 +6062,7 @@ contains
                 p_dir = periodic_elem_face_ids_x3(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
+                do inode = 1, n_Gau_2d_p1
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -6084,7 +6084,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, n_Gau_2d_pH
+                  do jnode = 1, n_Gau_2d_p1
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -6125,7 +6125,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_pH
+                i_low = i_low + n_Gau_2d_p1
 
               end if ! End if match found
 
@@ -6142,7 +6142,7 @@ contains
           if (match_found .eqv. .false.) then
 
             ! Loop over the nodes on the face
-            do inode = 1, n_Gau_2d_pH
+            do inode = 1, n_Gau_2d_p1
 
               ! Update the facial node index counter
               knode = knode + 1
@@ -6151,7 +6151,7 @@ contains
               x1 = xg_Gau_shell(:,knode,ielem)
               
               ! Search for the connected node on face of the connected element
-              do jnode = 1, n_Gau_2d_pH
+              do jnode = 1, n_Gau_2d_p1
 
                 ! Coordinates of the jnode
                 ! ef2e(2) gives the element of the neighbor
@@ -6177,12 +6177,12 @@ contains
               
               ! Print information at screen if there is a problem and stop
               ! computation
-              if (jnode > n_Gau_2d_pH .and. myprocid==1) then
+              if (jnode > n_Gau_2d_p1 .and. myprocid==1) then
                 write(*,*) 'Connectivity error in face-node connectivity.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
                 write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
                 write(*,*) 'Node coordinates and ghost node coordinates'
-                write(*,*) x1, xgghst_Gau_Shell(:,i_low + 1:i_low + n_Gau_2d_pH)
+                write(*,*) x1, xgghst_Gau_Shell(:,i_low + 1:i_low + n_Gau_2d_p1)
                 write(*,*) 'Exiting...'
                 stop
               end if
@@ -6190,7 +6190,7 @@ contains
             end do
 
             ! Update the position in the ghost stack
-            i_low = i_low + n_Gau_2d_pH
+            i_low = i_low + n_Gau_2d_p1
           
           end if
 
@@ -6214,7 +6214,7 @@ contains
                 p_dir = periodic_elem_face_ids_x1(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
+                do inode = 1, n_Gau_2d_p1
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -6238,12 +6238,12 @@ contains
 
                   ! Search for the connected node on the face of the connected 
                   ! element
-                  do jnode = 1,n_Gau_2d_pH
+                  do jnode = 1,n_Gau_2d_p1
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
 
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH + jnode
+                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1 + jnode
                     x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
@@ -6313,7 +6313,7 @@ contains
                 p_dir = periodic_elem_face_ids_x2(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
+                do inode = 1, n_Gau_2d_p1
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -6337,11 +6337,11 @@ contains
 
                   ! Search for the connected node on the face of the connected 
                   ! element
-                  do jnode = 1,n_Gau_2d_pH
+                  do jnode = 1,n_Gau_2d_p1
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH + jnode
+                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1 + jnode
                     x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
@@ -6412,7 +6412,7 @@ contains
                 p_dir = periodic_elem_face_ids_x3(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
+                do inode = 1, n_Gau_2d_p1
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -6435,11 +6435,11 @@ contains
                   end do
 
                   ! Search for the connected node on the face of the connected element
-                  do jnode = 1,n_Gau_2d_pH
+                  do jnode = 1,n_Gau_2d_p1
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH + jnode
+                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1 + jnode
                     x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
@@ -6497,7 +6497,7 @@ contains
 !           write(*,*)'non-periodic path'
             
             ! Loop over the nodes on the face
-            do inode = 1, n_Gau_2d_pH
+            do inode = 1, n_Gau_2d_p1
 
               ! Update the facial node index counter
               knode = knode + 1
@@ -6506,11 +6506,11 @@ contains
               x1 = xg_Gau_shell(:,knode,ielem)
               ! Search the for connected node on the face of the connected element
               
-              do jnode = 1, n_Gau_2d_pH
+              do jnode = 1, n_Gau_2d_p1
                 
                 ! Coordinates of the jnode
                 ! ef2e(1) gives the face on the neighboring element and ef2e(2) gives the element
-                kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH + jnode
+                kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1 + jnode
                 x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
                 
                 ! Check the distance between the two nodes
@@ -6540,7 +6540,7 @@ contains
                 write(*,*) x1
                 write(*,*) 'Possible partner node coordinates'
                 
-                do jnode = 1, n_Gau_2d_pH
+                do jnode = 1, n_Gau_2d_p1
                   x2 = xg(:,kfacenodes_Gau(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
                   write(*,*) x2
                 end do 

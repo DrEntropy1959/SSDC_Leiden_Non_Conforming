@@ -3109,7 +3109,7 @@ contains
                                  Ext_LGL_p0_2_Gau_p1_1d, Rot_LGL_p1_2_Gau_p1_1d,&
                                  Rot_Gau_p1_2_LGL_p1_1d, Rot_LGL_p1_2_Gau_p1_1d,&
                                  Ext_LGL_p0_2_Gau_p1_1d, Int_Gau_p1_2_LGL_p0_1d,&
-                                 x_Gau_1d_pH, x_LGL_1d_pH, x_LGL_1d_pL, n_Gau_1d_pH
+                                 x_Gau_1d_p1, x_LGL_1d_p1, x_LGL_1d_p0, n_Gau_1d_p1
     use initcollocation,  only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
     use initgrid
 
@@ -3573,16 +3573,16 @@ contains
             allocate(Intrp_On (n_S_1d_On ,n_S_1d_On )) ;  Intrp_On (:,:) = Rot_Gau_p1_2_LGL_p1_1d(:,:) ;
             allocate(x_S_1d_On (n_S_1d_On ))
             allocate(x_S_1d_Off(n_S_1d_Off))
-            x_S_1d_on (:) = x_LGL_1d_pH(:)
-            x_S_1d_Off(:) = x_LGL_1d_pL(:)
+            x_S_1d_on (:) = x_LGL_1d_p1(:)
+            x_S_1d_Off(:) = x_LGL_1d_p0(:)
           else
             allocate(Extrp_Off(n_S_1d_Off,n_S_1d_Off)) ;  Extrp_Off(:,:) = Rot_LGL_p1_2_Gau_p1_1d(:,:) ;
             allocate(Extrp_On (n_S_1d_Off,n_S_1d_Off)) ;  Extrp_On (:,:) = Ext_LGL_p0_2_Gau_p1_1d(:,:) ;
             allocate(Intrp_On (n_S_1d_On ,n_S_1d_Off)) ;  Intrp_On (:,:) = Int_Gau_p1_2_LGL_p0_1d(:,:) ;
             allocate(x_S_1d_On (n_S_1d_On ))
             allocate(x_S_1d_Off(n_S_1d_Off))
-            x_S_1d_on (:) = x_LGL_1d_pL(:)
-            x_S_1d_Off(:) = x_LGL_1d_pH(:)
+            x_S_1d_on (:) = x_LGL_1d_p0(:)
+            x_S_1d_Off(:) = x_LGL_1d_p1(:)
           endif
 
           do i = 1, n_S_2d_On
@@ -3625,7 +3625,7 @@ contains
 
               ! Outward facing normal of facial node
 !             nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)
-!             knode = efn2efn_Gau(4,jnode,ielem) - (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH
+!             knode = efn2efn_Gau(4,jnode,ielem) - (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1
 
               FC(:,j) = FxB(:,knode)*nx(1) + FyB(:,knode)*nx(2) + FzB(:,knode)*nx(3)
               
@@ -6037,14 +6037,14 @@ contains
         use variables, only: xg, xghst_LGL, ef2e, efn2efn,        &
           & jelems, periodic_elem_face_ids_x1,                    &
           & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3, &
-          & kfacenodes_LGL_pL,ifacenodes_LGL_pL,                  &
-          & kfacenodes_LGL_pH,ifacenodes_LGL_pH,                  &
+          & kfacenodes_LGL_p0,ifacenodes_LGL_p0,                  &
+          & kfacenodes_LGL_p1,ifacenodes_LGL_p1,                  &
           & phig, phig_err, grad_w_jacobian,                      &
           & ug, vg, wg, ughst,                                    &
           & r_x, facenodenormal
         use collocationvariables, only: iagrad,jagrad,dagrad,pinv,l10, &
                                       & ldg_flip_flop_sign, alpha_ldg_flip_flop, &
-                                      & elem_props, n_LGL_1d_pL, n_LGL_1d_pH
+                                      & elem_props, n_LGL_1d_p0, n_LGL_1d_p1
 
         implicit none
 
@@ -6087,12 +6087,12 @@ contains
           if(allocated(kfacenodes)) deallocate(kfacenodes) ; allocate(kfacenodes(1:n_LGL_2d,1:nfacesperelem))
           if(allocated(ifacenodes)) deallocate(ifacenodes) ; allocate(ifacenodes(1:n_LGL_2d*nfacesperelem))
 
-          if(n_LGL_1d == n_LGL_1d_pL) then
-            kfacenodes(:,:) = kfacenodes_LGL_pL(:,:)
-            ifacenodes(:)   = ifacenodes_LGL_pL(:)
+          if(n_LGL_1d == n_LGL_1d_p0) then
+            kfacenodes(:,:) = kfacenodes_LGL_p0(:,:)
+            ifacenodes(:)   = ifacenodes_LGL_p0(:)
           else
-            kfacenodes(:,:) = kfacenodes_LGL_pH(:,:)
-            ifacenodes(:)   = ifacenodes_LGL_pH(:)
+            kfacenodes(:,:) = kfacenodes_LGL_p1(:,:)
+            ifacenodes(:)   = ifacenodes_LGL_p1(:)
           endif
 
           ! compute computational gradients of the entropy variables
