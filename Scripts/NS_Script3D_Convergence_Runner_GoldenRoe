@@ -33,7 +33,7 @@ fi
        elif [ $var2 -ge 008 ] 
        then
 if [ "$THISHOST" == "tab16" ]; then
-       mpirun.actual -np  8 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun.actual -np  4 nice -19 ./SSDCNSE > tmp88 ;
 elif [ "$THISHOST" = "Leiden" ]; then
        mpirun        -np  4 nice -19 ./SSDCNSE > tmp88 ;
 else

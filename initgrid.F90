@@ -5368,95 +5368,6 @@ contains
 
   !=================================================================================================
 
-  subroutine calc_Gau_shell_metrics_all_hexas()
-
-    ! Load module
-    use variables
-    use referencevariables
-    use collocationvariables
-    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points, JacobiP11
-    use initcollocation, only : D_lagrange_basis_function_1d
-
-    ! Nothing is implicitly defined
-    implicit none
-
-    real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_quad
-
-    integer  :: low_elem, high_elem
-    integer  :: i_elem, i_gauss, i_LGL, j_LGL, k_LGL, i_coord
-    real(wp) :: l_xi, l_eta, l_zeta
-    real(wp) :: xi_in, eta_in, zeta_in
-    real(wp),  dimension(n_Gau_1d_pH)    :: x_Gau_1d,w_Gau_1d
-    real(wp),  dimension(:), allocatable :: x_LGL_1d
-
-    integer :: l
-    integer :: n_Gau_shell_loc, n_Gau_1d, n_LGL_1d
-
-    continue
-
-    n_Gau_1d = (npoly_max+1)
-    call Gauss_Legendre_points(n_Gau_1d,x_Gau_1d,w_Gau_1d)
-
-    ! Set the coordinates of the 3D Gauss points in computational space
-    n_Gau_shell_loc = nfacesperelem*n_Gau_1d**2
-
-    Gau_pts_comp_shell_quad = Shell_pts_lexo_comp_quad(x_Gau_1d,n_Gau_1d)
-
-    ! Low and high element indices
-    low_elem  = ihelems(1)
-    high_elem = ihelems(2)
-
-    ! Allocate memory
-    allocate(xg_Gau_Shell(3,n_Gau_shell_loc,low_elem:high_elem))
-
-    ! Loop over volumetric elements
-    do i_elem = low_elem, high_elem
-
-      n_LGL_1d = elem_props(2,i_elem)
-      if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ; allocate(x_LGL_1d(n_LGL_1d))
-      call JacobiP11(n_LGL_1d,x_LGL_1d)
-
-      do i_gauss = 1, n_Gau_shell_loc
-        l = 0
-        xg_Gau_shell(:,i_gauss,i_elem) = 0.0_wp
-
-          xi_in = Gau_pts_comp_shell_quad(1,i_gauss)
-         eta_in = Gau_pts_comp_shell_quad(2,i_gauss)
-        zeta_in = Gau_pts_comp_shell_quad(3,i_gauss)
-
-        do k_LGL = 1, n_LGL_1d
-
-          l_zeta = lagrange_basis_function_1d(zeta_in,k_LGL,x_LGL_1d,n_LGL_1d)
-
-          do j_LGL = 1, n_LGL_1d
-
-            l_eta  = lagrange_basis_function_1d(eta_in, j_LGL,x_LGL_1d,n_LGL_1d)
-
-            do i_LGL = 1, n_LGL_1d
-              l = l + 1
-
-              l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d,n_LGL_1d)
-
-              do i_coord = 1, 3
-                xg_Gau_shell(i_coord,i_gauss,i_elem) = xg_Gau_shell(i_coord,i_gauss,i_elem) + &
-                  & xg(i_coord,l,i_elem)*l_xi*l_eta*l_zeta
-              end do
-
-            end do
-          end do
-        end do
-      end do
-
-    end do
-    if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ;
-
-    deallocate(Gau_pts_comp_shell_quad)
-
-  end subroutine calc_Gau_shell_metrics_all_hexas
-
-
-  !=================================================================================================
-
   subroutine calc_Gau_shell_pts_all_hexas()
 
     ! Load module
@@ -5468,78 +5379,86 @@ contains
     ! Nothing is implicitly defined
     implicit none
 
-    real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_quad
+    real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_one_face
 
-    integer  :: low_elem, high_elem
-    integer  :: i_elem, i_gauss, i_LGL, j_LGL, k_LGL, i_coord
+    integer  :: i_elem, i_Gau, i_LGL, j_LGL, k_LGL
     real(wp) :: l_xi, l_eta, l_zeta
     real(wp) :: xi_in, eta_in, zeta_in
-    real(wp),  dimension(n_Gau_1d_pH)    :: x_Gau_1d,w_Gau_1d
-    real(wp),  dimension(:), allocatable :: x_LGL_1d
+    real(wp),  dimension(:), allocatable :: x_Gau_1d_Mort,w_Gau_1d_Mort
+    real(wp),  dimension(:), allocatable :: x_LGL_1d_On
 
-    integer :: l
-    integer :: n_Gau_shell_loc, n_Gau_1d, n_LGL_1d
+    integer :: l, ishift, iface
+    integer :: n_Gau_shell_max, n_Gau_1d_max, n_Gau_2d_max, n_Gau_1d_Mort, n_Gau_2d_Mort
+    integer :: n_LGL_1d_On, n_LGL_1d_Off
 
     continue
 
-    n_Gau_1d = (npoly_max+1)
-    call Gauss_Legendre_points(n_Gau_1d,x_Gau_1d,w_Gau_1d)
-
-    ! Set the coordinates of the 3D Gauss points in computational space
-    n_Gau_shell_loc = nfacesperelem*n_Gau_1d**2
-
-    allocate(Gau_pts_comp_shell_quad(3,n_Gau_shell_loc))
-
-    Gau_pts_comp_shell_quad = Shell_pts_lexo_comp_quad(x_Gau_1d,n_Gau_1d)
-
-    ! Low and high element indices
-    low_elem  = ihelems(1)
-    high_elem = ihelems(2)
+    ! Set the maximum size of buckets for shell data 
+    n_Gau_1d_max = (npoly_max+1)**1
+    n_Gau_2d_max = (npoly_max+1)**2
+    n_Gau_shell_max = nfacesperelem * n_Gau_2d_max
 
     ! Allocate memory
-    allocate(xg_Gau_Shell(3,n_Gau_shell_loc,low_elem:high_elem))
+    allocate(xg_Gau_Shell(3,n_Gau_shell_max,ihelems(1):ihelems(2))) ;  xg_Gau_Shell(:,:,:) = 0.0_wp
+    allocate(Gau_pts_comp_shell_one_face(3,n_Gau_2d_max))           ;  Gau_pts_comp_shell_one_face(:,:) = 0.0_wp
 
     ! Loop over volumetric elements
-    do i_elem = low_elem, high_elem
+    do i_elem = ihelems(1), ihelems(2)
 
-      n_LGL_1d = elem_props(2,i_elem)
-      if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ; allocate(x_LGL_1d(n_LGL_1d))
-      call JacobiP11(n_LGL_1d-1,x_LGL_1d)
+      n_LGL_1d_On   = elem_props(2,i_elem)
+      if(allocated(x_LGL_1d_On)) deallocate(x_LGL_1d_On) ; allocate(x_LGL_1d_On(n_LGL_1d_On))
+      call JacobiP11(n_LGL_1d_On-1,x_LGL_1d_On)
 
-      do i_gauss = 1, n_Gau_shell_loc
-        l = 0
-        xg_Gau_shell(:,i_gauss,i_elem) = 0.0_wp
+      do iface = 1,nfacesperelem
 
-          xi_in = Gau_pts_comp_shell_quad(1,i_gauss)
-         eta_in = Gau_pts_comp_shell_quad(2,i_gauss)
-        zeta_in = Gau_pts_comp_shell_quad(3,i_gauss)
+        n_LGL_1d_Off  = ef2e(4,iface,i_elem)
+        n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
+        n_Gau_2d_Mort = n_Gau_1d_Mort**2
 
-        do k_LGL = 1, n_LGL_1d
+        if(allocated(x_Gau_1d_Mort)) deallocate(x_Gau_1d_Mort) ; allocate(x_Gau_1d_Mort(n_Gau_1d_Mort)) ;
+        if(allocated(w_Gau_1d_Mort)) deallocate(w_Gau_1d_Mort) ; allocate(w_Gau_1d_Mort(n_Gau_1d_Mort)) ;
 
-          l_zeta = lagrange_basis_function_1d(zeta_in,k_LGL,x_LGL_1d,n_LGL_1d)
+        call Gauss_Legendre_points(n_Gau_1d_Mort,x_Gau_1d_Mort,w_Gau_1d_Mort)
 
-          do j_LGL = 1, n_LGL_1d
+        Gau_pts_comp_shell_one_face = Shell_pts_lexo_comp_one_face(iface,n_Gau_2d_max, &
+                                                                   n_Gau_1d_mort,x_Gau_1d_Mort)
 
-            l_eta  = lagrange_basis_function_1d(eta_in, j_LGL,x_LGL_1d,n_LGL_1d)
+        do i_Gau = 1, n_Gau_2d_Mort
 
-            do i_LGL = 1, n_LGL_1d
-              l = l + 1
-
-              l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d,n_LGL_1d)
-
-              do i_coord = 1, 3
-                xg_Gau_shell(i_coord,i_gauss,i_elem) = xg_Gau_shell(i_coord,i_gauss,i_elem) + &
-                  & xg(i_coord,l,i_elem)*l_xi*l_eta*l_zeta
+          ishift = (iface-1) * n_Gau_2d_Mort + i_Gau
+          l = 0
+          xg_Gau_shell(:,ishift,i_elem) = 0.0_wp
+  
+            xi_in = Gau_pts_comp_shell_one_face(1,i_Gau)
+           eta_in = Gau_pts_comp_shell_one_face(2,i_Gau)
+          zeta_in = Gau_pts_comp_shell_one_face(3,i_Gau)
+  
+          do k_LGL = 1, n_LGL_1d_On
+  
+            l_zeta = lagrange_basis_function_1d(zeta_in,k_LGL,x_LGL_1d_On,n_LGL_1d_On)
+  
+            do j_LGL = 1, n_LGL_1d_On
+  
+              l_eta  = lagrange_basis_function_1d(eta_in, j_LGL,x_LGL_1d_On,n_LGL_1d_On)
+  
+              do i_LGL = 1, n_LGL_1d_On
+                l = l + 1
+  
+                l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d_On,n_LGL_1d_On)
+  
+                xg_Gau_shell(:,ishift,i_elem) = xg_Gau_shell(:,ishift,i_elem) + xg(:,l,i_elem)*l_xi*l_eta*l_zeta
+  
               end do
-
             end do
           end do
         end do
+
       end do
 
     end do
 
-    deallocate(x_LGL_1d) ; deallocate(Gau_pts_comp_shell_quad) ;
+    deallocate(x_LGL_1d_On,x_Gau_1d_Mort,w_Gau_1d_Mort) ; 
+    deallocate(Gau_pts_comp_shell_one_face) ;
 
   end subroutine calc_Gau_shell_pts_all_hexas
 
@@ -5665,6 +5584,129 @@ contains
 
     return
   end function Shell_pts_lexo_comp_quad
+
+  !============================================================================
+
+  pure function Shell_pts_lexo_comp_one_face(iface,n_max_2d,n_pts_1d,x_pts_1d)
+
+    ! Nothing is implicitly defined
+    use referencevariables
+
+    implicit none
+
+    integer,                       intent(in) :: iface,n_max_2d,n_pts_1d
+    real(wp), dimension(n_pts_1d), intent(in) :: x_pts_1d
+
+    real(wp), dimension(3,n_max_2d)           :: Shell_pts_lexo_comp_one_face
+
+    real(wp) :: zeta, eta, xi
+
+    integer :: i, j, k, node_id
+    integer :: ixL, ixH, iyL, iyH, izL, izH
+
+    continue
+
+    ! Initialize to zero the coordinates
+    Shell_pts_lexo_comp_one_face(:,:) = 0.0_wp
+
+    ! Set to zero the local node ID
+    node_id = 0
+
+      ! Set the coordinates of the Gauss points in computational space
+          if(iface == 1) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = 1
+        zeta = -1.0_wp
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+            end do
+          end do
+      elseif(iface == 2) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = 1
+         izL = 1   ;  izH = n_pts_1d
+         eta = -1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+            end do
+        end do
+      elseif(iface == 3) then
+         ixL = 1   ;  ixH = 1
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = n_pts_1d
+         xi  = +1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+          end do
+        end do
+      elseif(iface == 4) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = 1
+         izL = 1   ;  izH = n_pts_1d
+         eta = +1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+            end do
+        end do
+      elseif(iface == 5) then
+         ixL = 1   ;  ixH = 1
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = n_pts_1d
+          xi = -1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+          end do
+        end do
+      elseif(iface == 6) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = 1
+        zeta = +1.0_wp
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+            end do
+          end do
+        endif
+
+    return
+  end function Shell_pts_lexo_comp_one_face
 
   !============================================================================
 
@@ -6531,7 +6573,7 @@ contains
                                       lagrange_basis_function_1d, &
                                       JacobiP11
 
-    use variables, only:  Jx_r, facenodenormal, ifacenodes_LGL_pL
+!   use variables, only:  Jx_r, facenodenormal
 
     implicit none
 
