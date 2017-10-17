@@ -108,6 +108,9 @@ module collocationvariables
   real(wp), allocatable, dimension(:,:)   :: qagrad_p0, qagrad_p1, qagrad_p2
   integer :: nnzgrad_p0, nnzgrad_p1, nnzgrad_p2
 
+  real(wp), allocatable, dimension(:,:,:,:) :: Prolong_LGL_2_Gau_1d
+  real(wp), allocatable, dimension(:,:,:,:) :: Restrct_Gau_2_LGL_1d
+
   real(wp), allocatable, dimension(:,:)   :: Rot_Gau_p0_2_LGL_p0_1d
   real(wp), allocatable, dimension(:,:)   :: Rot_LGL_p0_2_Gau_p0_1d
 
