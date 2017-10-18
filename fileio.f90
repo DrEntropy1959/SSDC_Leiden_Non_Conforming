@@ -739,7 +739,7 @@ contains
     integer :: iunit, ierr
 
 
-    namelist /PreProcParameters/ ndim, nequations, nprocs, npoly, npoly_DeltaF, &
+    namelist /PreProcParameters/ ndim, nequations, nprocs, npoly, npoly_max, npoly_DeltaF, &
       &casefile, grid_format, viscous, crossterms, RK_Method, IMEX_element, &
       &IMEX_penalty, physics, discretization, filter_solution, l01, l10, l00, &
       &periodic, periodic_distance, Entropy_Correction, variable_viscosity, &

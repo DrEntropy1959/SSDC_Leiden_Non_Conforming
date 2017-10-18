@@ -3109,8 +3109,13 @@ contains
                                  Ext_LGL_p0_2_Gau_p1_1d, Rot_LGL_p1_2_Gau_p1_1d,&
                                  Rot_Gau_p1_2_LGL_p1_1d, Rot_LGL_p1_2_Gau_p1_1d,&
                                  Ext_LGL_p0_2_Gau_p1_1d, Int_Gau_p1_2_LGL_p0_1d,&
-                                 x_Gau_1d_p1, x_LGL_1d_p1, x_LGL_1d_p0, n_Gau_1d_p1
-    use initcollocation,  only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
+                                 x_Gau_1d_p1, x_LGL_1d_p1, x_LGL_1d_p0, n_Gau_1d_p1, &
+                                 Restrct_Gau_2_LGL_1d,     &
+                                 Prolong_LGL_2_Gau_1d
+
+    use initcollocation,  only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, &
+                                JacobiP11, Gauss_Legendre_points
+
     use initgrid
 
     ! Nothing is implicitly defined
@@ -3122,7 +3127,6 @@ contains
     real(wp), dimension(n_S_1d),  intent(in) :: pinv
 
     ! indices
-    integer :: n_S_2d_On , n_S_2d_Off, n_S_2D_Mort
     integer :: inode, jnode, knode, lnode, gnode
     integer :: kelem
     integer :: iface, kface
@@ -3148,9 +3152,12 @@ contains
     real(wp) :: evmax
 
     ! Flux vectors in the x,y,z directions
-    integer                              :: n_S_1d_On, n_S_1d_Off, n_S_1d_max, n_S_1d_Mort
+    integer                              :: n_S_1d_On , n_S_1d_Off, n_S_1d_Mort, n_S_1d_max
+    integer                              :: n_S_2d_On , n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
+    integer                              :: poly_val
+ 
     real(wp), allocatable, dimension(:)  :: x_S_1d_On, x_S_1d_Off
-    real(wp), allocatable, dimension(:)  :: x_S_1d_Mort
+    real(wp), allocatable, dimension(:)  :: x_S_1d_Mort, w_S_1d_Mort
 
 
     real(wp), allocatable, dimension(:,:) :: FxA, FyA, FzA
@@ -3550,14 +3557,26 @@ contains
         else  ! Adjoining element on iface differs in order
 
           write(*,*)'I shouldnt be here'
+          n_S_1d_max  = (npoly_max+1)**1
+          n_S_2d_max  = (npoly_max+1)**2
           kface       = ef2e(1,iface,ielem)
           kelem       = ef2e(2,iface,ielem)
+
           n_S_1d_On   = elem_props(2,ielem)
-          n_S_1d_Off  = ef2e(4,iface,ielem)
-          n_S_1d_Mort = max(n_S_1D_On,n_S_1D_Off)
           n_S_2d_On   = (n_S_1d_On  )**2
+          if(allocated(x_S_1d_On )) deallocate(x_S_1d_On ) ; allocate(x_S_1d_On (n_S_1d_On )) ; x_S_1d_On (:) = 0.0_wp
+          call JacobiP11(n_S_1d_On -1,x_S_1d_On )
+
+          n_S_1d_Off  = ef2e(4,iface,ielem)
           n_S_2d_Off  = (n_S_1d_Off )**2
+          if(allocated(x_S_1d_Off)) deallocate(x_S_1d_Off) ; allocate(x_S_1d_Off(n_S_1d_Off)) ; x_S_1d_Off(:) = 0.0_wp
+          call JacobiP11(n_S_1d_Off-1,x_S_1d_Off)
+
+          n_S_1d_Mort = max(n_S_1D_On,n_S_1D_Off)
           n_S_2d_Mort = (n_S_1d_mort)**2
+          if(allocated(x_S_1d_Mort)) deallocate(x_S_1d_Mort) ; allocate(x_S_1d_Mort(n_S_1d_Mort)) ;
+          if(allocated(w_S_1d_Mort)) deallocate(w_S_1d_Mort) ; allocate(w_S_1d_Mort(n_S_1d_Mort)) ;
+          call Gauss_Legendre_points(n_S_1d_Mort,x_S_1d_Mort,w_S_1d_Mort)
 
           allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
           allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
@@ -3567,24 +3586,30 @@ contains
           allocate(wg_On_Vec  (nequations,n_S_2d_On  ))
           allocate(wg_Off_Vec (nequations,n_S_2d_Off ))
 
-          if(n_S_1d_On > n_S_1d_Off) then
-            allocate(Extrp_Off(n_S_1d_On ,n_S_1d_Off)) ;  Extrp_Off(:,:) = Ext_LGL_p0_2_Gau_p1_1d(:,:) ;
-            allocate(Extrp_On (n_S_1d_On ,n_S_1d_Off)) ;  Extrp_On (:,:) = Rot_LGL_p1_2_Gau_p1_1d(:,:) ;
-            allocate(Intrp_On (n_S_1d_On ,n_S_1d_On )) ;  Intrp_On (:,:) = Rot_Gau_p1_2_LGL_p1_1d(:,:) ;
-            allocate(x_S_1d_On (n_S_1d_On ))
-            allocate(x_S_1d_Off(n_S_1d_Off))
-            x_S_1d_on (:) = x_LGL_1d_p1(:)
-            x_S_1d_Off(:) = x_LGL_1d_p0(:)
-          else
-            allocate(Extrp_Off(n_S_1d_Off,n_S_1d_Off)) ;  Extrp_Off(:,:) = Rot_LGL_p1_2_Gau_p1_1d(:,:) ;
-            allocate(Extrp_On (n_S_1d_Off,n_S_1d_Off)) ;  Extrp_On (:,:) = Ext_LGL_p0_2_Gau_p1_1d(:,:) ;
-            allocate(Intrp_On (n_S_1d_On ,n_S_1d_Off)) ;  Intrp_On (:,:) = Int_Gau_p1_2_LGL_p0_1d(:,:) ;
-            allocate(x_S_1d_On (n_S_1d_On ))
-            allocate(x_S_1d_Off(n_S_1d_Off))
-            x_S_1d_on (:) = x_LGL_1d_p0(:)
-            x_S_1d_Off(:) = x_LGL_1d_p1(:)
-          endif
+          if(allocated(Intrp_On  )) deallocate(Intrp_On  ) ;
+          if(allocated(Extrp_On  )) deallocate(Extrp_On  ) ;
+          if(allocated(Extrp_Off )) deallocate(Extrp_Off ) ;
 
+          if(n_S_1d_Mort == n_S_1d_On) then
+            poly_val = n_S_1d_Mort - npoly
+             allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
+                      Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,1) ;
+             allocate(Extrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
+                      Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,1) ;
+            poly_val = n_S_1d_Off  - npoly
+             allocate(Extrp_Off(n_S_1d_Off ,n_S_1d_Mort)) ; 
+                      Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,2) ;
+          else
+            poly_val = n_S_1d_On - npoly
+             allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
+                      Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,2) ;
+             allocate(Extrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
+                      Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,1) ;
+            poly_val = n_S_1d_Mort - npoly
+             allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
+                      Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
+          endif
+  
           do i = 1, n_S_2d_On
         
             ! Index in facial ordering
@@ -3621,11 +3646,12 @@ contains
             do j = 1, n_S_2d_mort
 
               ! Index in facial ordering
-              jnode =  n_S_2d_Mort*(kface-1)+j
+              jnode =  n_S_2d_max*(iface-1) + j
 
               ! Outward facing normal of facial node
-!             nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)
-!             knode = efn2efn_Gau(4,jnode,ielem) - (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1
+              nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)
+
+              knode = efn2efn_Gau(4,jnode,ielem)
 
               FC(:,j) = FxB(:,knode)*nx(1) + FyB(:,knode)*nx(2) + FzB(:,knode)*nx(3)
               

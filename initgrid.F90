@@ -2118,6 +2118,7 @@ contains
     use initcollocation,      only: JacobiP11, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
     use collocationvariables, only: n_Gau_1d_p1, x_Gau_1d_p1, &
                                     n_LGL_1D_p0, n_LGL_1D_p1, n_Gau_2D_p1, &
+                                    Restrct_Gau_2_LGL_1d,     &
                                     Rot_Gau_p0_2_LGL_p0_1d,   &
                                     Rot_Gau_p1_2_LGL_p1_1d,   &
                                     Int_Gau_p1_2_LGL_p0_1d,   &
@@ -2131,7 +2132,8 @@ contains
     ! indices
     integer :: ielem, inode, iface, idir, knode, node_id
     integer :: n_LGL_1d, n_Gau_1d, n_pts_1d_max, n_pts_2d_max
-    integer :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort
+    integer :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort, poly_val
+    integer :: istart, iend_Mort, iend_On
 
     real(wp) :: dx
     logical                               :: testing = .false.
@@ -2169,31 +2171,26 @@ contains
         if(allocated(w_S_1d_Mort)) deallocate(w_S_1d_Mort) ; allocate(w_S_1d_Mort(n_S_1d_Mort)) ;
         call Gauss_Legendre_points(n_S_1d_Mort,x_S_1d_Mort,w_S_1d_Mort)
       
-       ! compute outward facing normals on Mortar
+       ! compute OUTWARD FACING normals on mortars
         call Shell_Metrics_Analytic(iface,n_pts_1d_max,n_S_1d_Mort,x_S_1d_Mort,     &
                               xg_Gau_shell(:,:,ielem),Jx_facenodenormal_Gau(:,:,ielem))
 
-        ! loop over nodes on face
-        do inode = 1,n_pts_2d_max
-          ! update facial node index counter
-          knode = knode + 1
-          ! unsigned direction of face in computational space
-          idir = abs(elfacedirections(iface))
-          ! sign so normal is facing outward
-          dx = sign(1.0_wp,real(elfacedirections(iface),wp))
-          ! outward facing normal using metrics
-          Jx_facenodenormal_Gau(:,knode,ielem) = dx*Jx_facenodenormal_Gau(:,knode,ielem)
-        end do
-
+        ! Grab the correct restriction operator between mortar and on-element face
         if(allocated(Intrp)) deallocate(Intrp) ;
-!       if(n_S_1d_Mort == n_S_1d_On) then
-!         allocate(Intrp(n_S_1d_On,n_S_1d_Mort)) ;  Intrp(:,:) = Rot_Gau_p1_2_LGL_p1_1d(:,:) ;
-!       else
-!         allocate(Intrp(n_S_1d_On,n_S_1d_Mort)) ;  Intrp(:,:) = Int_Gau_p1_2_LGL_p0_1d(:,:) ;
-!       endif
+        if(n_S_1d_Mort == n_S_1d_On) then
+          poly_val = n_S_1d_Mort - npoly
+          allocate(Intrp(n_S_1d_On,n_S_1d_Mort)) ;  Intrp(:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On,1:n_S_1d_Mort,poly_val,1) ;
+        else
+          poly_val = n_S_1d_On - npoly
+          allocate(Intrp(n_S_1d_On,n_S_1d_Mort)) ;  Intrp(:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On,1:n_S_1d_Mort,poly_val,2) ;
+        endif
 
-!       call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-!          Jx_facenodenormal_Gau(:,:,ielem),Jx_facenodenormal_LGL(:,:,ielem),Intrp)
+        ! Restrict all metric data from mortar back to element face
+        istart    = (iface-1)*n_pts_2d_max  + 1
+        iend_Mort = istart + n_S_1d_Mort**2 - 1
+        iend_On   = istart + n_S_1d_On**2   - 1
+        call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
+           Jx_facenodenormal_Gau(:,istart:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart:iend_Mort,ielem),Intrp)
 
       end do
 
@@ -2546,6 +2543,7 @@ contains
     use initcollocation, only: GCL_Triple_Qmat_Transpose, element_properties
     use eispack_module,  only: svd
     use unary_mod,       only: qsortd
+    use variables, only: r_x, Jx_r
 
     implicit none
 
@@ -2566,7 +2564,7 @@ contains
     real(wp), dimension(:,:),  allocatable :: delta_a
 
     integer,  dimension(:),    allocatable :: perm
-    integer :: ielem, ierr
+    integer :: ielem, inode, ierr
     integer :: i
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
     integer :: nm, m, n
@@ -2648,8 +2646,19 @@ contains
                     matmul(transpose(v(1:m,1:m)), &
                       matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3))))
 
-!     write(*,*)'perturbation magnitude',maxval(abs(delta_a))
-!     aa = a_t - delta_a
+      t1 = maxval(abs(delta_a)) ; if(t1 >= 1.0e-10_wp) write(*,*)'Metric perturbation magnitude',t1
+
+      a_t(:,:) = a_t(:,:) - delta_a(:,:)
+
+!     New metric coefficients.  Assumes that the Jacobian (Jx_r) remains unchanged
+
+      do inode = 1,n_pts_3d
+
+         r_x(1,1:3,inode,ielem) = a_t((1-1)*n_pts_3d+inode,1:3) / Jx_r(inode,ielem)
+         r_x(2,1:3,inode,ielem) = a_t((2-1)*n_pts_3d+inode,1:3) / Jx_r(inode,ielem)
+         r_x(3,1:3,inode,ielem) = a_t((3-1)*n_pts_3d+inode,1:3) / Jx_r(inode,ielem)
+
+      enddo
      
     end do elloop
     deallocate(u,v,w,work,Amat,a_t,bvec,wI)
@@ -2673,15 +2682,18 @@ contains
     real(wp), dimension(:,:),  intent(inout) :: a_t
     real(wp), dimension(:,:),  intent(inout) :: bvec
 
-    integer                                  :: i, iface, inode, jnode
+    integer                                  :: i, iface, inode, jnode, knode
 
     real(wp), dimension(3)                   :: nx
+    real(wp)                                 :: t1
+
 
     bvec(:,:) = 0.0_wp
     do iface = 1,nfacesperelem
 
        do i = 1,n_LGL_2d
 
+            knode = (iface-1)*(npoly_max+1)**2 + i
             ! Index in facial ordering
             jnode =  n_LGL_2d*(iface-1)+i
               
@@ -2691,12 +2703,10 @@ contains
             ! Outward facing normal of facial node
             if (ef2e(4,iface,ielem) == elem_props(2,ielem)) then !    Conforming interface
               nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
-!             write(*,*)'metric diffeences',maxval(abs(nx(:) - Jx_facenodenormal_LGL(:,jnode,ielem)))
-!             write(*,*)'metrics',nx(1),Jx_facenodenormal_LGL(1,jnode,ielem)
+!             t1 = maxval(abs(nx(:) - Jx_facenodenormal_LGL(:,knode,ielem)))
+!             if(t1 >= 1.0e-10_wp) write(*,*)'metric differences: iface',iface, t1
             else                                                 ! NonConforming interface
-!             write(*,*)'ef2e(4)', iface, ef2e(1,iface,ielem),ef2e(4,iface,ielem), elem_props(2,ielem)
-!             nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
-              nx(:) = Jx_facenodenormal_LGL(:,jnode,ielem)
+              nx(:) = Jx_facenodenormal_LGL(:,knode,ielem)
             endif
 
             bvec(inode,:) = bvec(inode,:) + p_surf(i)*nx(:)
@@ -5473,7 +5483,7 @@ contains
 
         do i_Gau = 1, n_Gau_2d_Mort
 
-          ishift = (iface-1) * n_Gau_2d_Mort + i_Gau
+          ishift = (iface-1) * n_Gau_2d_max + i_Gau
           l = 0
           xg_Gau_shell(:,ishift,i_elem) = 0.0_wp
   
@@ -6298,7 +6308,7 @@ contains
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
 
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_Mort + jnode
+                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
                     x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
@@ -6396,7 +6406,7 @@ contains
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_Mort + jnode
+                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
                     x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
@@ -6494,7 +6504,7 @@ contains
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_Mort + jnode
+                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
                     x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
@@ -6565,7 +6575,7 @@ contains
                 
                 ! Coordinates of the jnode
                 ! ef2e(1) gives the face on the neighboring element and ef2e(2) gives the element
-                kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_Mort + jnode
+                kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
                 x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
                 
                 ! Check the distance between the two nodes
@@ -6644,6 +6654,7 @@ contains
     integer  :: n_Gau, node_id
     integer  :: ival, jval, kval
     integer  :: ishift, jshift, kshift, face_shift
+    integer  :: ll,mm,nn
 
     real(wp), dimension(:), allocatable  :: x_Gau
     
@@ -6651,7 +6662,7 @@ contains
 
     node_id = 0
     n_Gau = n_pts_1d
-    face_shift = (iface-1)*n_pts_1d_max
+    face_shift = (iface-1)*n_pts_1d_max**2
     allocate(x_Gau(n_pts_1d)) ; x_Gau(:) = x_pts_1d
 
     ! Set to zero the local node ID
@@ -6666,7 +6677,7 @@ contains
               xi = x_pts_1d(k)
 
               node_id = node_id + 1
-              kval = mod(node_id-1,n_Gau)+1 ; jval = 1 + (node_id-kval) / n_Gau ;
+              kval = mod(node_id-1,n_Gau)+1 ;
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
               do j1 = 1, n_pts_1d
@@ -6720,44 +6731,44 @@ contains
               xi = x_Gau(k)
 
               node_id = node_id + 1
-              kval = mod(node_id-1,n_Gau)+1 ; ival = 1 + (node_id-kval) / n_Gau ;
+              kval = mod(node_id-1,n_Gau)+1 ;
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
-              do i1 = 1, n_pts_1d
-                 ishift = (i1-1)*n_Gau + kval + face_shift
-                 t1 = t1 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
-                 t4 = t4 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
-              enddo
               do k1 = 1, n_pts_1d
                  kshift = node_id - kval + k1 + face_shift
-                 t2 = t2 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
-                 t3 = t3 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
               enddo
               Jx_facenodenormal_Gau(1,node_id+face_shift) =  t1*t2 - t3*t4
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
-              do i1 = 1, n_pts_1d
-                 ishift = (i1-1)*n_Gau + kval + face_shift
-                 t1 = t1 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
-                 t4 = t4 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
-              enddo
               do k1 = 1, n_pts_1d
                  kshift = node_id - kval + k1 + face_shift
-                 t2 = t2 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
-                 t3 = t3 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
               enddo
               Jx_facenodenormal_Gau(2,node_id+face_shift) =  t1*t2 - t3*t4
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
-              do i1 = 1, n_pts_1d
-                 ishift = (i1-1)*n_Gau + kval + face_shift
-                 t1 = t1 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
-                 t4 = t4 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
-              enddo
               do k1 = 1, n_pts_1d
                  kshift = node_id - kval + k1 + face_shift
-                 t2 = t2 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
-                 t3 = t3 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
               enddo
               Jx_facenodenormal_Gau(3,node_id+face_shift) =  t1*t2 - t3*t4
             end do
@@ -6774,16 +6785,16 @@ contains
               eta = x_Gau(j)
 
               node_id = node_id + 1
-              ival = mod(node_id-1,n_Gau)+1 ; jval = 1 + (node_id-ival) / n_Gau ;
+              ival = mod(node_id-1,n_Gau)+1 ;
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
               do j1 = 1, n_pts_1d
-                 jshift = (j1-1)*n_Gau + ival + face_shift
+                 jshift = node_id - ival + j1 + face_shift
                  t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
                  t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
               enddo
               do i1 = 1, n_pts_1d
-                 ishift = node_id - ival + i1 + face_shift
+                 ishift = (i1-1)*n_Gau + ival + face_shift
                  t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
                  t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
               enddo
@@ -6791,12 +6802,12 @@ contains
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
               do j1 = 1, n_pts_1d
-                 jshift = (j1-1)*n_Gau + ival + face_shift
+                 jshift = node_id - ival + j1 + face_shift
                  t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
                  t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
               enddo
               do i1 = 1, n_pts_1d
-                 ishift = node_id - ival + i1 + face_shift
+                 ishift = (i1-1)*n_Gau + ival + face_shift
                  t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
                  t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
               enddo
@@ -6804,12 +6815,12 @@ contains
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
               do j1 = 1, n_pts_1d
-                 jshift = (j1-1)*n_Gau + ival + face_shift
+                 jshift = node_id - ival + j1 + face_shift
                  t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
                  t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
               enddo
               do i1 = 1, n_pts_1d
-                 ishift = node_id - ival + i1 + face_shift
+                 ishift = (i1-1)*n_Gau + ival + face_shift
                  t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
                  t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
               enddo
@@ -6828,44 +6839,44 @@ contains
               xi = x_pts_1d(k)
 
               node_id = node_id + 1
-              kval = mod(node_id-1,n_Gau)+1 ; ival = 1 + (node_id-kval) / n_Gau ;
+              kval = mod(node_id-1,n_Gau)+1 ;
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
-              do i1 = 1, n_pts_1d
-                 ishift = (i1-1)*n_Gau + kval + face_shift
-                 t1 = t1 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
-                 t4 = t4 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
-              enddo
               do k1 = 1, n_pts_1d
                  kshift = node_id - kval + k1 + face_shift
-                 t2 = t2 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
-                 t3 = t3 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
               enddo
               Jx_facenodenormal_Gau(1,node_id+face_shift) =  t1*t2 - t3*t4
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
-              do i1 = 1, n_pts_1d
-                 ishift = (i1-1)*n_Gau + kval + face_shift
-                 t1 = t1 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
-                 t4 = t4 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
-              enddo
               do k1 = 1, n_pts_1d
                  kshift = node_id - kval + k1 + face_shift
-                 t2 = t2 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
-                 t3 = t3 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
               enddo
               Jx_facenodenormal_Gau(2,node_id+face_shift) =  t1*t2 - t3*t4
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
-              do i1 = 1, n_pts_1d
-                 ishift = (i1-1)*n_Gau + kval + face_shift
-                 t1 = t1 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
-                 t4 = t4 + D_lagrange_basis_function_1d(  xi,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
-              enddo
               do k1 = 1, n_pts_1d
                  kshift = node_id - kval + k1 + face_shift
-                 t2 = t2 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
-                 t3 = t3 + D_lagrange_basis_function_1d(zeta,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
               enddo
               Jx_facenodenormal_Gau(3,node_id+face_shift) =  t1*t2 - t3*t4
             end do
@@ -6882,16 +6893,16 @@ contains
             eta = x_pts_1d(j)
 
               node_id = node_id + 1
-              ival = mod(node_id-1,n_Gau)+1 ; jval = 1 + (node_id-ival) / n_Gau ;
+              ival = mod(node_id-1,n_Gau)+1 ;
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
               do j1 = 1, n_pts_1d
-                 jshift = (j1-1)*n_Gau + ival + face_shift
+                 jshift = node_id - ival + j1 + face_shift
                  t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
                  t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
               enddo
               do i1 = 1, n_pts_1d
-                 ishift = node_id - ival + i1 + face_shift
+                 ishift = (i1-1)*n_Gau + ival + face_shift
                  t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
                  t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
               enddo
@@ -6899,12 +6910,12 @@ contains
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
               do j1 = 1, n_pts_1d
-                 jshift = (j1-1)*n_Gau + ival + face_shift
+                 jshift = node_id - ival + j1 + face_shift
                  t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
                  t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
               enddo
               do i1 = 1, n_pts_1d
-                 ishift = node_id - ival + i1 + face_shift
+                 ishift = (i1-1)*n_Gau + ival + face_shift
                  t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
                  t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
               enddo
@@ -6912,19 +6923,19 @@ contains
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
               do j1 = 1, n_pts_1d
-                 jshift = (j1-1)*n_Gau + ival + face_shift
+                 jshift = node_id - ival + j1 + face_shift
                  t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
                  t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
               enddo
               do i1 = 1, n_pts_1d
-                 ishift = node_id - ival + i1 + face_shift
+                 ishift = (i1-1)*n_Gau + ival + face_shift
                  t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
                  t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
               enddo
               Jx_facenodenormal_Gau(3,node_id+face_shift) =  t1*t2 - t3*t4
           end do
         end do
-        Jx_facenodenormal_Gau(:,:) =  Jx_facenodenormal_Gau(:,:) * xi
+         Jx_facenodenormal_Gau(:,:) =  Jx_facenodenormal_Gau(:,:) * xi
       elseif(iface == 6) then
          ixL = 1   ;  ixH = n_pts_1d
          iyL = 1   ;  iyH = n_pts_1d
@@ -6936,46 +6947,46 @@ contains
               xi = x_pts_1d(k)
 
               node_id = node_id + 1
-              kval = mod(node_id-1,n_Gau)+1 ; jval = 1 + (node_id-kval) / n_Gau ;
+              kval = mod(node_id-1,n_Gau)+1 ;
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
               do j1 = 1, n_pts_1d
-                 jshift = (j1-1)*n_Gau + kval
+                 jshift = (j1-1)*n_Gau + kval + face_shift
                  t1 =  t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
                  t4 =  t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
                 enddo
               do k1 = 1, n_pts_1d
-                 kshift = node_id - kval + k1
+                 kshift = node_id - kval + k1 + face_shift
                  t2 =  t2 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
                  t3 =  t3 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
               enddo   
-              Jx_facenodenormal_Gau(1,node_id) =  t1*t2 - t3*t4
+              Jx_facenodenormal_Gau(1,node_id+face_shift) =  t1*t2 - t3*t4
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
               do j1 = 1, n_pts_1d
-                 jshift = (j1-1)*n_Gau + kval
+                 jshift = (j1-1)*n_Gau + kval + face_shift
                  t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
                  t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
               enddo
               do k1 = 1, n_pts_1d
-                 kshift = node_id - kval + k1
+                 kshift = node_id - kval + k1 + face_shift
                  t2 = t2 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
                  t3 = t3 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
               enddo
-              Jx_facenodenormal_Gau(2,node_id) =  t1*t2 - t3*t4
+              Jx_facenodenormal_Gau(2,node_id+face_shift) =  t1*t2 - t3*t4
 
               t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
               do j1 = 1, n_pts_1d
-                 jshift = (j1-1)*n_Gau + kval
+                 jshift = (j1-1)*n_Gau + kval + face_shift
                  t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
                  t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
               enddo
               do k1 = 1, n_pts_1d
-                 kshift = node_id - kval + k1
+                 kshift = node_id - kval + k1 + face_shift
                  t2 = t2 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
                  t3 = t3 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
               enddo
-              Jx_facenodenormal_Gau(3,node_id) =  t1*t2 - t3*t4
+              Jx_facenodenormal_Gau(3,node_id+face_shift) =  t1*t2 - t3*t4
             end do
           end do
         Jx_facenodenormal_Gau(:,:) =  Jx_facenodenormal_Gau(:,:) * zeta

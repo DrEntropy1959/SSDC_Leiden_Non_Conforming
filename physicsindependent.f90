@@ -43,13 +43,13 @@ contains
     continue
 
     ! Initialize collocation approximation
-    i_err = rmapInit(npoly,ndim)
+!   i_err = rmapInit(npoly,ndim)
 
-    if (i_err > 0) then
-      write(*,*) 'An error occured in the function rmapInit!'
-      write(*,*) 'Exiting'
-      stop
-    end if
+!   if (i_err > 0) then
+!     write(*,*) 'An error occured in the function rmapInit!'
+!     write(*,*) 'Exiting'
+!     stop
+!   end if
 
     ! Here we specify the qualities of each element type according to the CGNS
     ! standard. Such features are also used for all the other grid format
@@ -134,17 +134,22 @@ contains
 
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()
-      call mpi_bcast(npoly_max,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)
-
-      if (myprocid == 0) then
-!       write(*,*) 'read element polynomial orders'
-!       write(*,*) '==============================================================='
-      endif
-
-      ! Assign element orders
-      call set_element_orders()      
 
     end if
+
+    call mpi_bcast(npoly_max,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)
+
+    ! Initialize collocation approximation
+    i_err = rmapInit(npoly,ndim)
+
+    if (i_err > 0) then
+      write(*,*) 'An error occured in the function rmapInit!'
+      write(*,*) 'Exiting'
+      stop
+    end if
+
+    ! Assign element orders
+    call set_element_orders()      
     
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the coordinates of the collocated nodes'
