@@ -3165,7 +3165,7 @@ contains
     real(wp), allocatable, dimension(:,:) :: FC
     real(wp), allocatable, dimension(:,:) :: Extrp_Off, Extrp_On
     real(wp), allocatable, dimension(:,:) :: Intrp_Off, Intrp_On
-    real(wp), allocatable, dimension(:,:) :: wg_On_Mort,wg_Off_Mort
+    real(wp), allocatable, dimension(:,:) :: wg_Mort_On,wg_Mort_Off
     real(wp), allocatable, dimension(:,:) :: wg_2d_On,  wg_2d_Off
     real(wp), allocatable, dimension(:,:) :: SAT_Pen_Mort, SAT_Pen_On
 
@@ -3582,12 +3582,12 @@ contains
           allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
           allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
           allocate(FC (nequations,n_S_2D_Mort))
-          allocate(wg_On_Mort  (nequations,n_S_2d_Mort))
-          allocate(wg_Off_Mort (nequations,n_S_2d_Mort))
+          allocate(wg_Mort_On  (nequations,n_S_2d_Mort))
+          allocate(wg_Mort_Off (nequations,n_S_2d_Mort))
           allocate(wg_2d_On    (nequations,n_S_2d_On  ))
           allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
-          allocate(SAT_Pen_Mort(nequations,n_S_2d_Mort))
           allocate(SAT_Pen_On  (nequations,n_S_2d_On  ))
+          allocate(SAT_Pen_Mort(nequations,n_S_2d_Mort))
 
           if(allocated(Intrp_On  )) deallocate(Intrp_On  ) ;
           if(allocated(Extrp_On  )) deallocate(Extrp_On  ) ;
@@ -3624,21 +3624,19 @@ contains
             inode = ifacenodes(jnode)
               
             ! On-element face data
-              vg_On(:)   =   vg(:,inode,ielem)
-            phig_On(:,:) = phig(:,:,inode,ielem)
+            vg_On(:) =   vg(:,inode,ielem)
 
             call primitive_to_entropy(vg_On(:),wg_2d_On(:,i),nequations)
 
             do j = 1, n_S_2d_Off
 
               ! Index in facial ordering
-              knode =  n_S_2d_Off*(kface-1) + j
+              knode = n_S_2d_Off*(kface-1) + j
 
               ! Volumetric node index corresponding to facial node index
               lnode = ifacenodes(knode)
 
-                vg_Off(:)   =   vg(:,lnode,kelem)
-              phig_Off(:,:) = phig(:,:,lnode,ielem)
+              vg_Off(:) = vg(:,lnode,kelem)
 
               call EntropyConsistentFlux_Vectors(vg_On(:), vg_Off(:), nequations, FxA(:,j), FyA(:,j), FzA(:,j)) ! (Entropy Flux vectors)
 
@@ -3680,27 +3678,30 @@ contains
             ! Volumetric node index corresponding to facial node index
             lnode = ifacenodes(knode)
 
-              vg_Off(:)   =   vg(:  ,lnode,kelem)
+            vg_Off(:) = vg(:,lnode,kelem)
 
             call primitive_to_entropy(vg_Off(:),wg_2d_Off(:,i),nequations)
 
           enddo
 
-          call ExtrpXA2XB_2D_neq(nequations,n_S_1D_On ,n_S_1D_Mort,x_S_1D_On ,x_S_1D_Mort,wg_2d_On ,wg_On_Mort, Extrp_On )
-          call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Mort,x_S_1D_Off,x_S_1D_Mort,wg_2d_Off,wg_Off_Mort,Extrp_Off)
+          call ExtrpXA2XB_2D_neq(nequations,n_S_1D_On ,n_S_1D_Mort,x_S_1D_On ,x_S_1D_Mort,wg_2d_On ,wg_Mort_On ,Extrp_On )
+          call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Mort,x_S_1D_Off,x_S_1D_Mort,wg_2d_Off,wg_Mort_Off,Extrp_Off)
 
           SAT_Pen_Mort(:,:) = 0.0_wp
           do j = 1, n_S_2d_Mort
 
            ishift = (iface-1) * n_S_2d_max + j
+
            nx(:)  = Jx_facenodenormal_Gau(:,ishift,ielem)
-           call entropy_to_primitive(wg_On_Mort (:,j),vg_On (:),nequations)
-           call entropy_to_primitive(wg_Off_Mort(:,j),vg_Off(:),nequations)
+
+           call entropy_to_primitive(wg_Mort_On (:,j),vg_On (:),nequations)
+           call entropy_to_primitive(wg_Mort_Off(:,j),vg_Off(:),nequations)
+
            SAT_Pen_Mort(:,j) = SAT_Vis_Diss(nequations,vg_On(:),vg_Off(:),nx)
 
           enddo
 
-          !  Prolong data onto Mortar
+          !  Prolongate data onto Mortar
           call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Mort ,n_S_1D_On ,x_S_1D_Mort ,x_S_1D_On,SAT_Pen_Mort,SAT_Pen_On, Intrp_On )
 
           do i = 1, n_S_2d_On
@@ -3718,7 +3719,7 @@ contains
           deallocate(FxA,FyA,FzA)
           deallocate(FxB,FyB,FzB)
           deallocate(FC)
-          deallocate( wg_On_Mort,wg_Off_Mort)
+          deallocate( wg_Mort_On,wg_Mort_Off)
           deallocate( wg_2d_On, wg_2d_Off   )
           deallocate(Extrp_Off,Extrp_On)
           deallocate(Intrp_On)

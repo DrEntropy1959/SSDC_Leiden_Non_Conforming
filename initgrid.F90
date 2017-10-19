@@ -4299,9 +4299,9 @@ contains
       ! Cosntruct iae2v and jae2v
       ! =========================
       nnze2v = nverticesperelem*nelems
-      allocate(iae2v(nelems+1))  ; iae2v = 0
+      allocate(iae2v(nelems+1))      ; iae2v = 0
       allocate(iae2v_tmp(nelems+1))  ; iae2v_tmp = 0
-      allocate(jae2v(nnze2v))    ; jae2v = 0
+      allocate(jae2v(nnze2v))        ; jae2v = 0
       allocate(jae2v_tmp(nnze2v))    ; jae2v_tmp = 0
 
       iae2v(1) = 1
@@ -5916,15 +5916,17 @@ contains
 
         else if (ef2e(3,iface,ielem) /= myprocid) then ! A parallel interface
 
+!  HUGE HACK
+        go to 10090
+!  HUGE HACK
+
           ! Initialize match_found
           match_found = .false.
           
-          ! Loop through the elements that owns a periodic face in the x1
-          ! direction
+          ! Loop through the elements that owns a periodic face in the x1 direction
           if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
+            ! Check if the ielem owns a periodic face and if iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
 
               if (periodic_elem_face_ids_x1(1,i_p_face) == jelems(ielem) .and. &
@@ -5963,7 +5965,6 @@ contains
                   do jnode = 1, n_Gau_2d_Mort
                     
                     ! Coordinates of the jnode
-                    ! ef2e(2) gives the element of the neighbor
                     x2 = xgghst_Gau_Shell(:,i_low + jnode)
                 
                     ! Extract from x2 the two invaraint coordinates
@@ -5987,6 +5988,7 @@ contains
                       efn2efn_Gau(1,knode,ielem) = -1000 
 
                       ! Set the element of the connected node
+                      ! ef2e(2) gives the element of the neighbor
                       efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
 
                       ! Set the node index in the ghost array
@@ -6255,6 +6257,8 @@ contains
             i_low = i_low + n_Gau_2d_Mort
           
           end if
+
+ 10090  continue 
 
         else ! Not a parallel interface
 
