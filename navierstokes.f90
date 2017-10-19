@@ -3154,7 +3154,7 @@ contains
     ! Flux vectors in the x,y,z directions
     integer                              :: n_S_1d_On , n_S_1d_Off, n_S_1d_Mort, n_S_1d_max
     integer                              :: n_S_2d_On , n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
-    integer                              :: poly_val
+    integer                              :: poly_val, ishift
  
     real(wp), allocatable, dimension(:)  :: x_S_1d_On, x_S_1d_Off
     real(wp), allocatable, dimension(:)  :: x_S_1d_Mort, w_S_1d_Mort
@@ -3165,8 +3165,9 @@ contains
     real(wp), allocatable, dimension(:,:) :: FC
     real(wp), allocatable, dimension(:,:) :: Extrp_Off, Extrp_On
     real(wp), allocatable, dimension(:,:) :: Intrp_Off, Intrp_On
-    real(wp), allocatable, dimension(:,:) :: wg_On_Mort, wg_Off_Mort
-    real(wp), allocatable, dimension(:,:) :: wg_On_Vec,  wg_Off_Vec
+    real(wp), allocatable, dimension(:,:) :: wg_On_Mort,wg_Off_Mort
+    real(wp), allocatable, dimension(:,:) :: wg_2d_On,  wg_2d_Off
+    real(wp), allocatable, dimension(:,:) :: SAT_Pen_Mort, SAT_Pen_On
 
     logical,  parameter :: testing         = .false.
 
@@ -3581,10 +3582,12 @@ contains
           allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
           allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
           allocate(FC (nequations,n_S_2D_Mort))
-          allocate(wg_On_Mort (nequations,n_S_2d_Mort))
-          allocate(wg_Off_Mort(nequations,n_S_2d_Mort))
-          allocate(wg_On_Vec  (nequations,n_S_2d_On  ))
-          allocate(wg_Off_Vec (nequations,n_S_2d_Off ))
+          allocate(wg_On_Mort  (nequations,n_S_2d_Mort))
+          allocate(wg_Off_Mort (nequations,n_S_2d_Mort))
+          allocate(wg_2d_On    (nequations,n_S_2d_On  ))
+          allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
+          allocate(SAT_Pen_Mort(nequations,n_S_2d_Mort))
+          allocate(SAT_Pen_On  (nequations,n_S_2d_On  ))
 
           if(allocated(Intrp_On  )) deallocate(Intrp_On  ) ;
           if(allocated(Extrp_On  )) deallocate(Extrp_On  ) ;
@@ -3610,6 +3613,8 @@ contains
                       Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
           endif
   
+!         Calculate the Inviscid Entropy fluxes:
+
           do i = 1, n_S_2d_On
         
             ! Index in facial ordering
@@ -3622,7 +3627,7 @@ contains
               vg_On(:)   =   vg(:,inode,ielem)
             phig_On(:,:) = phig(:,:,inode,ielem)
 
-            call primitive_to_entropy(vg_On(:),wg_On_Vec(:,i),nequations)
+            call primitive_to_entropy(vg_On(:),wg_2d_On(:,i),nequations)
 
             do j = 1, n_S_2d_Off
 
@@ -3665,11 +3670,56 @@ contains
 
           end do
 
+!         Calculate the upwinding dissipation at the interfaces
+
+          do j = 1, n_S_2d_Off
+
+            ! Index in facial ordering
+            knode =  n_S_2d_Off*(kface-1) + j
+
+            ! Volumetric node index corresponding to facial node index
+            lnode = ifacenodes(knode)
+
+              vg_Off(:)   =   vg(:  ,lnode,kelem)
+
+            call primitive_to_entropy(vg_Off(:),wg_2d_Off(:,i),nequations)
+
+          enddo
+
+          call ExtrpXA2XB_2D_neq(nequations,n_S_1D_On ,n_S_1D_Mort,x_S_1D_On ,x_S_1D_Mort,wg_2d_On ,wg_On_Mort, Extrp_On )
+          call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Mort,x_S_1D_Off,x_S_1D_Mort,wg_2d_Off,wg_Off_Mort,Extrp_Off)
+
+          SAT_Pen_Mort(:,:) = 0.0_wp
+          do j = 1, n_S_2d_Mort
+
+           ishift = (iface-1) * n_S_2d_max + j
+           nx(:)  = Jx_facenodenormal_Gau(:,ishift,ielem)
+           call entropy_to_primitive(wg_On_Mort (:,j),vg_On (:),nequations)
+           call entropy_to_primitive(wg_Off_Mort(:,j),vg_Off(:),nequations)
+           SAT_Pen_Mort(:,j) = SAT_Vis_Diss(nequations,vg_On(:),vg_Off(:),nx)
+
+          enddo
+
+          !  Prolong data onto Mortar
+          call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Mort ,n_S_1D_On ,x_S_1D_Mort ,x_S_1D_On,SAT_Pen_Mort,SAT_Pen_On, Intrp_On )
+
+          do i = 1, n_S_2d_On
+        
+            ! Index in facial ordering
+            jnode =  n_S_2d_On*(iface-1)+i
+              
+            ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes(jnode)
+              
+            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen_On(:,i)
+
+          end do
+
           deallocate(FxA,FyA,FzA)
           deallocate(FxB,FyB,FzB)
           deallocate(FC)
           deallocate( wg_On_Mort,wg_Off_Mort)
-          deallocate( wg_On_Vec, wg_Off_Vec )
+          deallocate( wg_2d_On, wg_2d_Off   )
           deallocate(Extrp_Off,Extrp_On)
           deallocate(Intrp_On)
           deallocate(x_S_1d_On,x_S_1d_Off)
@@ -6034,13 +6084,16 @@ contains
       real(wp),  dimension(neq)                 :: vav, ev, evabs
       real(wp)                                  :: evmax
 
-      real(wp),  dimension(neq)                 ::   ug_On,   ug_Off
+!     real(wp),  dimension(neq)                 ::   ug_On, ug_Off
+      real(wp),  dimension(neq)                 ::   wg_On, wg_Off
  
 
       real(wp),  dimension(neq)                 :: SAT_Vis_Diss
 
-         call primitive_to_conserved(vg_On (:),ug_On (:),neq)
-         call primitive_to_conserved(vg_Off(:),ug_Off(:),neq)
+!        call primitive_to_conserved(vg_On (:),ug_On (:),neq)
+!        call primitive_to_conserved(vg_Off(:),ug_Off(:),neq)
+         call primitive_to_entropy(vg_On (:),wg_On (:),neq)
+         call primitive_to_entropy(vg_Off(:),wg_Off(:),neq)
 
          call roeavg( vg_On (:), vg_Off(:), Vav, neq )   
 
@@ -6048,8 +6101,8 @@ contains
 
          evmax = maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax)
 
-         SAT_Vis_Diss = half * matmul(smat,evabs*matmul(          sinv , ug_On (:)-ug_Off(:)) )
-!                     = half * matmul(smat,evabs*matmul(transpose(smat), wg_On (:)-wg_Off(:)) )
+!        SAT_Vis_Diss = half * matmul(smat,evabs*matmul(          sinv , ug_On (:)-ug_Off(:)) )
+         SAT_Vis_Diss = half * matmul(smat,evabs*matmul(transpose(smat), wg_On (:)-wg_Off(:)) )
 
           return
      end function

@@ -6015,7 +6015,6 @@ contains
 
           end if ! End if check periodic face in x1 direction
 
-
           ! Loop through the elements that owns a periodic face in the x2 direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x2(1,:)) /= 0) then
 
@@ -6109,9 +6108,7 @@ contains
 
           end if ! End if check periodic face in x2 direction
 
-
-          ! Loop through the elements that owns a periodic face in the x3
-          ! direction
+          ! Loop through the elements that owns a periodic face in the x3  direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x3(1,:)) /= 0) then
 
             ! Check if the ielem owns a periodic face and if iface is a periodic face
