@@ -331,6 +331,7 @@ contains
     vertexcount = 1
     do kzone = 1, nvolumesections
       izone = isectionvolume(kzone)
+
       do ielem = boundaryelems(izone)%ielstart, boundaryelems(izone)%ielend
         k = k+1
         iae2v(k) = vertexcount
@@ -588,20 +589,17 @@ contains
     integer,parameter :: seed = 86456
     real(wp) :: rand
     
-    integer :: iell, ielh
-
     real(wp) :: diff_x, diff_y, diff_z
     real(wp), parameter :: toll = 1e-6
     real :: tmp
     
     continue
   
-    iell = ihelems(1)
-    ielh = ihelems(2)
-
     call srand(seed)
 
-    do ielem = iell, ielh
+    ! loop over volumetric elements
+    do ielem = ihelems(1), ihelems(2)
+
       do i = 1, nverticesperelem
         ! Compute the difference between each coordinate and pi.
         ! The domain of computation for the Taylor-Green vortex goes from 
@@ -1236,7 +1234,6 @@ contains
     integer ::  ielem, inode, jnode, iface, knode
     integer ::  i_low
 
-    integer :: iell, ielh
     real(wp) :: x1(3), x2(3)
     real(wp), parameter :: nodetol = 1.0e-8_wp
 
@@ -1251,43 +1248,24 @@ contains
 
     cnt_debug = 0
 
-    ! Low and High volumetric element index
-    iell = ihelems(1) ; ielh = ihelems(2) ;
-
     ! efn2efn contains the partner node information of every facenode in the domain
 
     nodesperface_max = (npoly_max+1)**(ndim-1)
 
-    allocate(efn2efn(4,nfacesperelem*nodesperface_max,iell:ielh))
+    allocate(efn2efn(4,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
     efn2efn = -1000
 
     ! Initialize position of the ghost point in the stack
     i_low = 0
 
-    ! Loop over elements
-    do ielem = iell, ielh
+    ! loop over volumetric elements
+    do ielem = ihelems(1), ihelems(2)
       
       call element_properties(ielem,&
                               n_pts_1d=n_LGL_1d,  &
                               n_pts_2d=n_LGL_2d,  &
                             kfacenodes=kfacenodes,&
                             ifacenodes=ifacenodes )
-!     n_LGL_1d = elem_props(2,ielem)**1 
-!     n_LGL_2d = elem_props(2,ielem)**2 
-
-!     if(allocated(kfacenodes)) deallocate(kfacenodes) ; allocate(kfacenodes(1:n_LGL_2d,1:nfacesperelem))
-!     if(allocated(ifacenodes)) deallocate(ifacenodes) ; allocate(ifacenodes(1:n_LGL_2d*nfacesperelem))
-
-!     if    (n_LGL_1d == n_LGL_1d_p0) then
-!       kfacenodes(:,:) = kfacenodes_LGL_p0(:,:)
-!       ifacenodes(:)   = ifacenodes_LGL_p0(:)
-!     elseif(n_LGL_1d == n_LGL_1d_p1) then
-!       kfacenodes(:,:) = kfacenodes_LGL_p1(:,:)
-!       ifacenodes(:)   = ifacenodes_LGL_p1(:)
-!     elseif(n_LGL_1d == n_LGL_1d_p2) then
-!       kfacenodes(:,:) = kfacenodes_LGL_p2(:,:)
-!       ifacenodes(:)   = ifacenodes_LGL_p2(:)
-!     endif
 
       ! Reset facial node index counter
       knode = 0
@@ -2044,6 +2022,7 @@ contains
     use referencevariables
     use variables, only: kfacenodes, facenodenormal, r_x, ef2e, efn2efn, Jx_r
     use collocationvariables, only: n_LGL_1d_p1, elem_props
+    use initcollocation,      only: element_properties
 
     implicit none
 
@@ -2066,7 +2045,9 @@ contains
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
 
-       n_LGL_2d = elem_props(2,ielem)**2
+       call element_properties(ielem,             &
+                              n_pts_2d=n_LGL_2d,  &
+                            kfacenodes=kfacenodes )
 
       ! reset facial node index counter
       knode = 0
@@ -2094,6 +2075,11 @@ contains
 
     if(testing) then
       do ielem = ihelems(1), ihelems(2)
+
+       call element_properties(ielem,             &
+                              n_pts_2d=n_LGL_2d,  &
+                            kfacenodes=kfacenodes )
+
         knode = 0
         ! loop over faces
         do iface = 1,nfacesperelem
@@ -2292,8 +2278,7 @@ contains
     allocate(Jx_r(1:nodesperelem_max,ihelems(1):ihelems(2)))
     Jx_r = 0.0_wp
 
-    allocate(dx_min_elem(ihelems(1):ihelems(2)))
-    dx_min_elem(:) = 0.0_wp
+    allocate(dx_min_elem(ihelems(1):ihelems(2))) ; dx_min_elem(:) = 0.0_wp ;
 
     ! Initialize metrics error norms
     err_L2 = 0.0_wp
@@ -2302,7 +2287,11 @@ contains
     ! loop over volumetric elements
     elloop:do ielem = ihelems(1), ihelems(2)
 
-      call element_properties(ielem,n_pts_3d=n_LGL_3d)
+      call element_properties(ielem,         &
+                          n_pts_3d=n_LGL_3d, &
+                            iagrad=iagrad,   &
+                            jagrad=jagrad,   &
+                            dagrad=dagrad)
 
       ! initialize dx/dr to identity and dr/dx to identity
       do idir = 1,3

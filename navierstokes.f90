@@ -190,6 +190,7 @@ contains
     allocate(phitmp(nequations,ndim))
 
     if (new .eqv. .true.) then
+
       ! Loop over elements
       do ielem = ihelems(1),ihelems(2)
 
@@ -1661,23 +1662,19 @@ contains
     use nsereferencevariables, only : viscous
     implicit none
 
-    integer :: iell, ielh
     integer :: nshell, nodesperelem_max
 
     nodesperelem_max = (npoly_max+1)**ndim
 
-    ! low and high volumetric element index
-    iell = ihelems(1) ; ielh = ihelems(2) ;
-
     ! ghost cells for solution
-    allocate(ughst(1:nequations,nghost)) ; ughst = 0.0_wp
+    allocate(ughst(1:nequations,1:nghost)) ; ughst = 0.0_wp
     
     if(discretization == 'SSWENO') then
-      allocate(ughstWENO(1:nequations,nghost))             ; ughstWENO          = 0.0_wp
-      allocate(ughstWENO_partner(1:nequations,nghost))     ; ughstWENO_partner  = 0.0_wp
+      allocate(ughstWENO(1:nequations,1:nghost))             ; ughstWENO          = 0.0_wp
+      allocate(ughstWENO_partner(1:nequations,1:nghost))     ; ughstWENO_partner  = 0.0_wp
 
       nshell  = nfacesperelem*nodesperface
-      allocate(ugWENO_partner(1:nequations,nshell,iell:ielh))  ; ugWENO_partner = 0.0_wp
+      allocate(ugWENO_partner(1:nequations,nshell,ihelems(1):ihelems(2)))  ; ugWENO_partner = 0.0_wp
     endif
     
     if (IMEX_penalty == 'implicit')  then
@@ -1692,52 +1689,52 @@ contains
         welemghst = 0.0_wp
 
         ! ghost points for exchanging r_x at the parallel interfaces
-        allocate(r_x_ghst(3,3,nghost))
+        allocate(r_x_ghst(3,3,1:nghost))
         r_x_ghst = 0.0_wp
       endif
     endif
 
     ! stores solution at T^n only used if step is rejected 
-    allocate(uold(1:nequations,1:nodesperelem_max,iell:ielh))
+    allocate(uold(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
     uold = 0.0_wp
     ! used in RK error estimation
-    allocate(uhat(1:nequations,1:nodesperelem_max,iell:ielh))
+    allocate(uhat(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
     uhat = 0.0_wp
 
 
     ! penalty terms
-    allocate(gsat(1:nequations,1:nodesperelem_max,iell:ielh))
+    allocate(gsat(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
     gsat = 0.0_wp
     ! flux divergence vectors -- one for each direction
-    allocate(divf(1:nequations,ndim,1:nodesperelem_max,iell:ielh))
+    allocate(divf(1:nequations,ndim,1:nodesperelem_max,ihelems(1):ihelems(2)))
     divf = 0.0_wp
 
     ! entropy flux divergence used for error estimation
-    allocate(divf_S(ndim,1:nodesperelem_max,iell:ielh))
+    allocate(divf_S(ndim,1:nodesperelem_max,ihelems(1):ihelems(2)))
     divf_S = 0.0_wp
 
     ! convective flux in each computational direction
-    allocate(fg(1:nequations,ndim,1:nodesperelem_max,iell:ielh))
+    allocate(fg(1:nequations,ndim,1:nodesperelem_max,ihelems(1):ihelems(2)))
     fg = 0.0_wp
     ! viscous flux in each computational direction
-    allocate(fvg(1:nequations,ndim,1:nodesperelem_max,iell:ielh))
+    allocate(fvg(1:nequations,ndim,1:nodesperelem_max,ihelems(1):ihelems(2)))
     fvg = 0.0_wp
     ! variable gradients used for LDC/LDG approximation
-    allocate(phig(1:nequations,3,1:nodesperelem_max,iell:ielh))
+    allocate(phig(1:nequations,3,1:nodesperelem_max,ihelems(1):ihelems(2)))
     phig = 0.0_wp
-    allocate(phig_err(1:nequations,3,1:nodesperelem_max,iell:ielh))
+    allocate(phig_err(1:nequations,3,1:nodesperelem_max,ihelems(1):ihelems(2)))
     phig_err = 0.0_wp
 
     ! Gradient of the entropy variables in computational space for the
     ! calculation of the residual Jacobian matrix
-    allocate(grad_w_jacobian(1:nequations,3,1:nodesperelem_max,iell:ielh))
+    allocate(grad_w_jacobian(1:nequations,3,1:nodesperelem_max,ihelems(1):ihelems(2)))
     grad_w_jacobian = 0.0_wp
     
     ! ghost points for LDC/LDG approximation
-    allocate(phighst(1:nequations,3,nghost))
+    allocate(phighst(1:nequations,3,1:nghost))
     phighst = 0.0_wp
     ! shock sensor
-    allocate(chig(1:nodesperelem_max,iell:ielh))
+    allocate(chig(1:nodesperelem_max,ihelems(1):ihelems(2)))
     chig = 0.0_wp
     ! artificial viscosity
 
@@ -1746,43 +1743,43 @@ contains
     case('Williamson_Low_Storage_45')
 
       ! Stores update
-      allocate(du(1:nequations,1:nodesperelem_max,iell:ielh))
+      allocate(du(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
       du   = 0.0_wp
       ! local time derivative of conserved variables
-      allocate(dudt(1:nequations,1:nodesperelem_max,iell:ielh))
+      allocate(dudt(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
       dudt = 0.0_wp
 
       ! local time derivative of entropy equation
-      allocate(dudt_S(1:nodesperelem_max,iell:ielh))
+      allocate(dudt_S(1:nodesperelem_max,ihelems(1):ihelems(2)))
       dudt_S = 0.0_wp
 
     case('Kraaij_LS_RK_35')
 
       ! Stores update
-      allocate(du(1:nequations,1:nodesperelem_max,iell:ielh))
+      allocate(du(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
       du   = 0.0_wp
       ! local time derivative of conserved variables
-      allocate(dudt(1:nequations,1:nodesperelem_max,iell:ielh))
+      allocate(dudt(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
       dudt = 0.0_wp
 
     case ('heun_method')
       ! Stores update
-      allocate(du(1:nequations,1:nodesperelem_max,iell:ielh))
+      allocate(du(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
       du   = 0.0_wp
       ! local time derivative of conserved variables
-      allocate(dudt(1:nequations,1:nodesperelem_max,iell:ielh))
+      allocate(dudt(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
       dudt = 0.0_wp
 
     case('IMEX_RK_46')
-      allocate(Fimp(1:nequations,1:nodesperelem_max,iell:ielh,6))
-      allocate(Fexp(1:nequations,1:nodesperelem_max,iell:ielh,6))
-      allocate(uexp(1:nequations,1:nodesperelem_max,iell:ielh))
-      allocate(non_lin_res(1:nequations,1:nodesperelem_max,iell:ielh))
+      allocate(Fimp(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2),6))
+      allocate(Fexp(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2),6))
+      allocate(uexp(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
+      allocate(non_lin_res(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
     case('IMEX_RK_34')
-      allocate(Fimp(1:nequations,1:nodesperelem_max,iell:ielh,4))
-      allocate(Fexp(1:nequations,1:nodesperelem_max,iell:ielh,4))
-      allocate(uexp(1:nequations,1:nodesperelem_max,iell:ielh))
-      allocate(non_lin_res(1:nequations,1:nodesperelem_max,iell:ielh))
+      allocate(Fimp(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2),4))
+      allocate(Fexp(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2),4))
+      allocate(uexp(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
+      allocate(non_lin_res(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
     case default
       write(*,*)'Not a valid Temporal Scheme'
       write(*,*)'Check RK_Method in setup file'
@@ -3943,6 +3940,7 @@ contains
     return
   end subroutine nse_calcrhsimplicit
 
+  !============================================================================
 
   subroutine set_Flow_parameters()
 
@@ -5361,6 +5359,7 @@ contains
     use referencevariables
     use nsereferencevariables
     use collocationvariables, only: iagrad, jagrad, dagrad
+    use initcollocation,      only: element_properties
     
     ! Nothing is implicitly defined
     implicit none
@@ -5370,22 +5369,22 @@ contains
     integer :: inode, jnode
     integer :: i
 
-    ! low and high volumetric element indices
-    integer :: iell, ielh
-    
     ! Temporary arrays for phi
     real(wp), allocatable :: phitmp(:,:)
 
     ! phitmp is calculated in computational space
     allocate(phitmp(nequations,ndim))
 
-    ! Low and high volumetric element index
-    iell = ihelems(1) ; ielh = ihelems(2) ;
-    
     ! loop over all elements
-    do ielem = iell, ielh
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem,        &
+                      n_pts_3d=nodesperelem,&
+                        iagrad=iagrad,      &
+                        jagrad=jagrad,      &
+                        dagrad=dagrad) 
+
     ! compute computational gradients of the entropy variables
-    !
     ! initialize phi
     phig(:,:,:,ielem) = 0.0_wp
     ! loop over every node in element
@@ -5406,10 +5405,10 @@ contains
       ! transform to physical space using dxi_jdir/dx_idir
       do jdir = 1,ndim
         do idir = 1,ndim
-          phig(:,idir,inode,ielem) = phig(:,idir,inode,ielem) &
-            + phitmp(:,jdir)*r_x(jdir,idir,inode,ielem)
+          phig(:,idir,inode,ielem) = phig(:,idir,inode,ielem) + phitmp(:,jdir)*r_x(jdir,idir,inode,ielem)
         end do
       end do
+
     end do
       
     end do
@@ -5916,19 +5915,19 @@ contains
       use referencevariables
       use variables
       use interpolation
+      use initcollocation,      only: element_properties
 
       implicit none
 
-      integer    :: iell, ielh, ielem, iface, ipen, jnode
+      integer    :: ielem, iface, ipen, jnode
       integer    :: elem_face_nodes
 
       elem_face_nodes = nodesperface*nfacesperelem
 
-      ! low and high volumetric element index
-      iell = ihelems(1) ; ielh = ihelems(2) ;
-
       ! loop over all elements
-      do ielem = iell, ielh
+      do ielem = ihelems(1), ihelems(2)
+
+        call element_properties(ielem, n_pts_3d=nodesperelem)
 
         do iface = 1,nfacesperelem
 
@@ -5962,6 +5961,7 @@ contains
       use referencevariables
       use variables
       use interpolation
+      use initcollocation,      only: element_properties
 
       real(wp), parameter :: c1 = 0.5_wp   !  Guermond's magic constant number one
       real(wp), parameter :: c2 = 1.0_wp   !  Guermond's magic constant number one
@@ -5969,13 +5969,12 @@ contains
       real(wp) :: ev, evmax
 
       real(wp) :: t1,t2
-      integer  :: ielem, iell, ielh, inode
-
-      ! low and high volumetric element index
-      iell = ihelems(1) ; ielh = ihelems(2) ;
+      integer  :: ielem, inode
 
       ! loop over all elements
-      do ielem = iell, ielh
+      do ielem = ihelems(1), ihelems(2)
+
+        call element_properties(ielem, n_pts_3d=nodesperelem)
 
         ! calcualte the max - max eigenvalue on element (times density)
         evmax = 0.0_wp
@@ -6152,26 +6151,20 @@ contains
         use variables, only: xg, xghst_LGL, ef2e, efn2efn,        &
           & jelems, periodic_elem_face_ids_x1,                    &
           & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3, &
-          & kfacenodes_LGL_p0,ifacenodes_LGL_p0,                  &
-          & kfacenodes_LGL_p1,ifacenodes_LGL_p1,                  &
           & phig, phig_err, grad_w_jacobian,                      &
           & ug, vg, wg, ughst,                                    &
           & r_x, facenodenormal
         use collocationvariables, only: iagrad,jagrad,dagrad,pinv,l10, &
-                                      & ldg_flip_flop_sign, alpha_ldg_flip_flop, &
-                                      & elem_props, n_LGL_1d_p0, n_LGL_1d_p1
+                                      & ldg_flip_flop_sign, alpha_ldg_flip_flop
+        use initcollocation,      only: element_properties
 
         implicit none
 
-        integer, allocatable, dimension(:,:) :: kfacenodes
         integer, allocatable, dimension(:)   :: ifacenodes
 
         ! temporary arrays for phi and delta phi
         real(wp), dimension(:),   allocatable :: dphi, vg_Off, wg_On, wg_Off
         real(wp), dimension(:,:), allocatable :: phig_tmp1, phig_tmp2, phig_err1
-
-        ! low and high volumetric element indices
-        integer :: iell, ielh
 
         ! normal direction at face
         real(wp) :: nx(3)
@@ -6181,7 +6174,6 @@ contains
         integer :: inode, jnode, knode, gnode
         integer :: kelem
         integer :: iface
-        integer :: n_LGL_1d, n_LGL_2d
 
         real(wp) :: l10_ldg_flip_flop
 
@@ -6190,31 +6182,23 @@ contains
         ! tmp variables: dphi, vg_Off, wg_On and wg_Off
         allocate(dphi(nequations),vg_Off(nequations),wg_On(nequations),wg_Off(nequations))
 
-        ! low and high volumetric element index
-        iell = ihelems(1) ; ielh = ihelems(2) ;
-    
         ! loop over all elements
-        do ielem = iell, ielh
+        do ielem = ihelems(1), ihelems(2)
 
-          n_LGL_1d = elem_props(2,ielem)**1 
-          n_LGL_2d = elem_props(2,ielem)**2 
-
-          if(allocated(kfacenodes)) deallocate(kfacenodes) ; allocate(kfacenodes(1:n_LGL_2d,1:nfacesperelem))
-          if(allocated(ifacenodes)) deallocate(ifacenodes) ; allocate(ifacenodes(1:n_LGL_2d*nfacesperelem))
-
-          if(n_LGL_1d == n_LGL_1d_p0) then
-            kfacenodes(:,:) = kfacenodes_LGL_p0(:,:)
-            ifacenodes(:)   = ifacenodes_LGL_p0(:)
-          else
-            kfacenodes(:,:) = kfacenodes_LGL_p1(:,:)
-            ifacenodes(:)   = ifacenodes_LGL_p1(:)
-          endif
+          call element_properties(ielem,              &
+                                n_pts_2d=nodesperface,&
+                                n_pts_3d=nodesperelem,&
+                                  iagrad=iagrad,      &
+                                  jagrad=jagrad,      &
+                                  dagrad=dagrad,      &
+                              ifacenodes=ifacenodes)
 
           ! compute computational gradients of the entropy variables
           ! initialize phi
-          phig    (:,:,:,ielem) = 0.0_wp
-          phig_err(:,:,:,ielem) = 0.0_wp
+                 phig    (:,:,:,ielem) = 0.0_wp
+                 phig_err(:,:,:,ielem) = 0.0_wp
           grad_w_jacobian(:,:,:,ielem) = 0.0_wp
+
           ! loop over every node in element
           do inode = 1, nodesperelem
 
@@ -6323,6 +6307,7 @@ contains
         use nsereferencevariables
         use collocationvariables, only: iagrad,jagrad,dagrad,pinv,l10, &
                                       & ldg_flip_flop_sign, alpha_ldg_flip_flop
+        use initcollocation,      only: element_properties
 
         implicit none
 
@@ -6330,9 +6315,6 @@ contains
         real(wp), dimension(:),    allocatable :: dphi, vg_Off, wg_On, wg_Off
         real(wp), dimension(:,:),  allocatable :: phig_tmp1, phig_tmp2, phig_err1
         real(wp), dimension(:,:,:),allocatable :: phig_tmp3, phig_test
-
-        ! low and high volumetric element indices
-        integer :: iell, ielh
 
         ! normal direction at face
         real(wp) :: nx(3)
@@ -6355,11 +6337,16 @@ contains
         allocate(phig_tmp3(nequations,ndim,nodesperelem))
         allocate(phig_test(nequations,ndim,nodesperelem))
 
-        ! low and high volumetric element index
-        iell = ihelems(1) ; ielh = ihelems(2) ;
-    
         ! loop over all elements
-        do ielem = iell, ielh
+        do ielem = ihelems(1), ihelems(2)
+
+          call element_properties(ielem,              &
+                                n_pts_2d=nodesperface,&
+                                n_pts_3d=nodesperelem,&
+                                  iagrad=iagrad,      &
+                                  jagrad=jagrad,      &
+                                  dagrad=dagrad,      &
+                              ifacenodes=ifacenodes)
 
           ! compute computational gradients of the entropy variables
           ! initialize phi

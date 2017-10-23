@@ -18,14 +18,12 @@ contains
     use collocationvariables, only: pvol
     use controlvariables
     use referencevariables
+    use initcollocation, only: element_properties
     use mpimod
     implicit none
 
     ! indices
     integer :: inode, ielem
-
-    ! low and high volumetric element indices
-    integer :: iell, ielh
 
     ! different error estimates
     real(wp) :: l2(2), linf
@@ -36,16 +34,14 @@ contains
 
     allocate(ex(nequations))
 
-    ! low volumetric element index
-    iell = ihelems(1)
-    ! high volumetric element index
-    ielh = ihelems(2)
-
     ! initialize errors to zero
     l2 = 0.0_wp
     linf = 0.0_wp
-    ! loop over elements
-    do ielem = iell, ielh
+    ! loop over all elements
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem, pvol=pvol)
+
       ! loop over each index in the element
       do inode = 1, nodesperelem
         ! compute the local embedded error
@@ -86,13 +82,11 @@ contains
     use controlvariables
     use referencevariables
     use mpimod
+    use initcollocation, only: element_properties
     implicit none
 
     ! indices
     integer :: inode, ielem
-
-    ! low and high volumetric element indices
-    integer :: iell, ielh
 
     ! different error estimates
     real(wp) :: l2, linf
@@ -103,17 +97,15 @@ contains
 
     allocate(ex(nequations))
 
-    ! low volumetric element index
-    iell = ihelems(1)
-    ! high volumetric element index
-    ielh = ihelems(2)
-
     ! initialize errors to zero
     l2 = 0.0_wp
     linf = 0.0_wp
-    ! loop over elements
-    do ielem = iell, ielh
-      ! loop over each index in the element
+
+    ! loop over all elements
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem, pvol=pvol)
+
       do inode = 1, nodesperelem
         ! compute the local embedded error
         ex = ug(:,inode,ielem) - uhat(:,inode,ielem)

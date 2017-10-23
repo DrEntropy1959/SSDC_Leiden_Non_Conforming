@@ -472,18 +472,21 @@ contains
     use variables,          only: ug, uhat, du, dudt
     use referencevariables, only: ihelems, nodesperelem
     use controlvariables,   only: timestep
+    use initcollocation,    only: element_properties
     
     ! Nothing is implicitly defined
     implicit none
 
     integer,  intent(in) :: nstep
     
-    integer              :: iell, ielh, inode, ielem
+    integer              :: inode, ielem
 
-    ! Low and High volumetric element index
-    iell = ihelems(1) ; ielh = ihelems(2) ;
+    
+    ! loop over all elements
+    do ielem = ihelems(1), ihelems(2)
 
-    do ielem = iell, ielh
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
        do inode = 1, nodesperelem
           dU(:,inode,ielem) = alsrk(nstep)*dU(:,inode,ielem) + timestep   * dUdt(:,inode,ielem)
           ug(:,inode,ielem) =              ug(:,inode,ielem) + brk (nstep)* dU  (:,inode,ielem)
@@ -491,6 +494,7 @@ contains
        enddo
 
       call Negative_Density_Removal(nodesperelem,ielem,ug(:,:,ielem))
+
     end do
 
   end subroutine LSRK

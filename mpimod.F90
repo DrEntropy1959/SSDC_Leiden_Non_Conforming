@@ -1880,6 +1880,7 @@ contains
     ! loop over elements
   
     do ielem = ihelems(1), ihelems(2)
+
       ! loop over faces
       do iface = 1, nfacesperelem
         ! if face neighbor is off process, then add ghost nodes
