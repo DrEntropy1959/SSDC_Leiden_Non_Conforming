@@ -1225,6 +1225,7 @@ contains
       & kfacenodes_LGL_p1,ifacenodes_LGL_p1,                  &
       & kfacenodes_LGL_p2,ifacenodes_LGL_p2
     use collocationvariables, only: elem_props, n_LGL_1d_p0, n_LGL_1d_p1, n_LGL_1d_p2
+    use initcollocation,      only: element_properties
 
     ! Nothing is implicitly defined
     implicit none
@@ -1266,22 +1267,27 @@ contains
     ! Loop over elements
     do ielem = iell, ielh
       
-      n_LGL_1d = elem_props(2,ielem)**1 
-      n_LGL_2d = elem_props(2,ielem)**2 
+      call element_properties(ielem,&
+                              n_pts_1d=n_LGL_1d,  &
+                              n_pts_2d=n_LGL_2d,  &
+                            kfacenodes=kfacenodes,&
+                            ifacenodes=ifacenodes )
+!     n_LGL_1d = elem_props(2,ielem)**1 
+!     n_LGL_2d = elem_props(2,ielem)**2 
 
-      if(allocated(kfacenodes)) deallocate(kfacenodes) ; allocate(kfacenodes(1:n_LGL_2d,1:nfacesperelem))
-      if(allocated(ifacenodes)) deallocate(ifacenodes) ; allocate(ifacenodes(1:n_LGL_2d*nfacesperelem))
+!     if(allocated(kfacenodes)) deallocate(kfacenodes) ; allocate(kfacenodes(1:n_LGL_2d,1:nfacesperelem))
+!     if(allocated(ifacenodes)) deallocate(ifacenodes) ; allocate(ifacenodes(1:n_LGL_2d*nfacesperelem))
 
-      if    (n_LGL_1d == n_LGL_1d_p0) then
-        kfacenodes(:,:) = kfacenodes_LGL_p0(:,:)
-        ifacenodes(:)   = ifacenodes_LGL_p0(:)
-      elseif(n_LGL_1d == n_LGL_1d_p1) then
-        kfacenodes(:,:) = kfacenodes_LGL_p1(:,:)
-        ifacenodes(:)   = ifacenodes_LGL_p1(:)
-      elseif(n_LGL_1d == n_LGL_1d_p2) then
-        kfacenodes(:,:) = kfacenodes_LGL_p2(:,:)
-        ifacenodes(:)   = ifacenodes_LGL_p2(:)
-      endif
+!     if    (n_LGL_1d == n_LGL_1d_p0) then
+!       kfacenodes(:,:) = kfacenodes_LGL_p0(:,:)
+!       ifacenodes(:)   = ifacenodes_LGL_p0(:)
+!     elseif(n_LGL_1d == n_LGL_1d_p1) then
+!       kfacenodes(:,:) = kfacenodes_LGL_p1(:,:)
+!       ifacenodes(:)   = ifacenodes_LGL_p1(:)
+!     elseif(n_LGL_1d == n_LGL_1d_p2) then
+!       kfacenodes(:,:) = kfacenodes_LGL_p2(:,:)
+!       ifacenodes(:)   = ifacenodes_LGL_p2(:)
+!     endif
 
       ! Reset facial node index counter
       knode = 0

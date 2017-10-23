@@ -95,6 +95,7 @@ contains
     use variables, only: vg, wg, ug, xg, omega, &
                          specific_entropy, mean_vg, time_ave_prod_vel_comp, &
                          reynolds_stress, mut
+    use initcollocation, only: element_properties
     use referencevariables
     use nsereferencevariables
     use controlvariables
@@ -108,9 +109,7 @@ contains
     ! Local Variables
     ! ===============
     ! Indices
-    integer :: inode,ielem
-    ! High and low element indices for volume elements
-    integer :: iell, ielh
+    integer :: inode,ielem, nodesperelem_max
     ! Output unit
     integer, allocatable, dimension(:) :: iunit
     ! Normals are needed in the call to InitialSubroutine 
@@ -124,16 +123,13 @@ contains
 
     integer :: i_err
 
+    nodesperelem_max = (npoly_max+1)**(ndim)
+
     ! Arbitrary value for normals
     ctmp = 0.0_wp
 
-    ! low and high volumetric element index
-    iell = ihelems(1) ; ielh = ihelems(2) ;
-
     ! We are limited to the calorically perfect Navier-Stokes equations
     nequations = 5
-    ! Total degrees of freedom
-    ndof = nequations*nnodes
 
     ! Set the flow parameters
     call set_Flow_parameters()
@@ -144,41 +140,41 @@ contains
     ! Allocate memory for flow state data
     !
     ! Conserved variables (denisty, momentum, total energy)
-    allocate(ug(1:nequations,nodesperelem,iell:ielh))
+    allocate(ug(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
     ug = 0.0_wp
     
     ! Primitive variables (density, velocity, temperature)
-    allocate(vg(1:nequations,nodesperelem,iell:ielh))
+    allocate(vg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
     vg = 0.0_wp
     
     ! Entropy variables (see primitive_to_entropy subroutine)
-    allocate(wg(1:nequations,nodesperelem,iell:ielh))
+    allocate(wg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
     wg = 0.0_wp
     
     ! Vorticity field (\nabla \times velocity)
-    allocate(omega(1:3,nodesperelem,iell:ielh))
+    allocate(omega(1:3,1:nodesperelem_max,ihelems(1):ihelems(2)))
     omega = 0.0_wp
 
     ! Entropy field
-    allocate(specific_entropy(nodesperelem,iell:ielh))
+    allocate(specific_entropy(1:nodesperelem_max,ihelems(1):ihelems(2)))
     specific_entropy = 0.0_wp
 
-    allocate(mut(nodesperelem,iell:ielh))
+    allocate(mut(1:nodesperelem_max,ihelems(1):ihelems(2)))
     mut = 0.0_wp
 
     ! Allocate memory if time averaging is required
     if (time_averaging) then
 
       ! Time-average of primitive variables
-      allocate(mean_vg(1:nequations,nodesperelem,iell:ielh))
+      allocate(mean_vg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
       mean_vg = 0.0_wp
 
       ! Time-average of the product of the velocity components
-      allocate(time_ave_prod_vel_comp(6,nodesperelem,iell:ielh))
+      allocate(time_ave_prod_vel_comp(6,1:nodesperelem_max,ihelems(1):ihelems(2)))
       time_ave_prod_vel_comp = 0.0_wp
 
       ! Reynolds stresses
-      allocate(reynolds_stress(6,nodesperelem,iell:ielh))
+      allocate(reynolds_stress(6,1:nodesperelem_max,ihelems(1):ihelems(2)))
       reynolds_stress = 0.0_wp
     
     endif
@@ -195,7 +191,10 @@ contains
 
     if (new .eqv. .true.) then
       ! Loop over elements
-      do ielem = iell, ielh
+      do ielem = ihelems(1),ihelems(2)
+
+        call element_properties(ielem, n_pts_3d=nodesperelem)
+
         ! Loop over nodes in each element
         do inode = 1, nodesperelem
           ! Use exact solution routine to initialize data
@@ -223,17 +222,16 @@ contains
         end do
       end do
 
-
-
-      !1000 FORMAT(8(e25.15,1x))
-      !stop
     else
 
       ! Read solution from restart file
       call read_restart_file()
  
       ! Loop over elements
-      do ielem = iell, ielh
+      do ielem = ihelems(1),ihelems(2)
+
+        call element_properties(ielem, n_pts_3d=nodesperelem)
+
         ! Loop over nodes in each element
         do inode = 1, nodesperelem
           ! Calculate primitive variables from conservative variables
@@ -1664,7 +1662,9 @@ contains
     implicit none
 
     integer :: iell, ielh
-    integer :: nshell
+    integer :: nshell, nodesperelem_max
+
+    nodesperelem_max = (npoly_max+1)**ndim
 
     ! low and high volumetric element index
     iell = ihelems(1) ; ielh = ihelems(2) ;
@@ -1698,46 +1698,46 @@ contains
     endif
 
     ! stores solution at T^n only used if step is rejected 
-    allocate(uold(1:nequations,nodesperelem,iell:ielh))
+    allocate(uold(1:nequations,1:nodesperelem_max,iell:ielh))
     uold = 0.0_wp
     ! used in RK error estimation
-    allocate(uhat(1:nequations,nodesperelem,iell:ielh))
+    allocate(uhat(1:nequations,1:nodesperelem_max,iell:ielh))
     uhat = 0.0_wp
 
 
     ! penalty terms
-    allocate(gsat(1:nequations,nodesperelem,iell:ielh))
+    allocate(gsat(1:nequations,1:nodesperelem_max,iell:ielh))
     gsat = 0.0_wp
     ! flux divergence vectors -- one for each direction
-    allocate(divf(1:nequations,ndim,nodesperelem,iell:ielh))
+    allocate(divf(1:nequations,ndim,1:nodesperelem_max,iell:ielh))
     divf = 0.0_wp
 
     ! entropy flux divergence used for error estimation
-    allocate(divf_S(ndim,nodesperelem,iell:ielh))
+    allocate(divf_S(ndim,1:nodesperelem_max,iell:ielh))
     divf_S = 0.0_wp
 
     ! convective flux in each computational direction
-    allocate(fg(1:nequations,ndim,nodesperelem,iell:ielh))
+    allocate(fg(1:nequations,ndim,1:nodesperelem_max,iell:ielh))
     fg = 0.0_wp
     ! viscous flux in each computational direction
-    allocate(fvg(1:nequations,ndim,nodesperelem,iell:ielh))
+    allocate(fvg(1:nequations,ndim,1:nodesperelem_max,iell:ielh))
     fvg = 0.0_wp
     ! variable gradients used for LDC/LDG approximation
-    allocate(phig(1:nequations,3,nodesperelem,iell:ielh))
+    allocate(phig(1:nequations,3,1:nodesperelem_max,iell:ielh))
     phig = 0.0_wp
-    allocate(phig_err(1:nequations,3,nodesperelem,iell:ielh))
+    allocate(phig_err(1:nequations,3,1:nodesperelem_max,iell:ielh))
     phig_err = 0.0_wp
 
     ! Gradient of the entropy variables in computational space for the
     ! calculation of the residual Jacobian matrix
-    allocate(grad_w_jacobian(1:nequations,3,nodesperelem,iell:ielh))
+    allocate(grad_w_jacobian(1:nequations,3,1:nodesperelem_max,iell:ielh))
     grad_w_jacobian = 0.0_wp
     
     ! ghost points for LDC/LDG approximation
     allocate(phighst(1:nequations,3,nghost))
     phighst = 0.0_wp
     ! shock sensor
-    allocate(chig(nodesperelem,iell:ielh))
+    allocate(chig(1:nodesperelem_max,iell:ielh))
     chig = 0.0_wp
     ! artificial viscosity
 
@@ -1746,43 +1746,43 @@ contains
     case('Williamson_Low_Storage_45')
 
       ! Stores update
-      allocate(du(1:nequations,nodesperelem,iell:ielh))
+      allocate(du(1:nequations,1:nodesperelem_max,iell:ielh))
       du   = 0.0_wp
       ! local time derivative of conserved variables
-      allocate(dudt(1:nequations,nodesperelem,iell:ielh))
+      allocate(dudt(1:nequations,1:nodesperelem_max,iell:ielh))
       dudt = 0.0_wp
 
       ! local time derivative of entropy equation
-      allocate(dudt_S(nodesperelem,iell:ielh))
+      allocate(dudt_S(1:nodesperelem_max,iell:ielh))
       dudt_S = 0.0_wp
 
     case('Kraaij_LS_RK_35')
 
       ! Stores update
-      allocate(du(1:nequations,nodesperelem,iell:ielh))
+      allocate(du(1:nequations,1:nodesperelem_max,iell:ielh))
       du   = 0.0_wp
       ! local time derivative of conserved variables
-      allocate(dudt(1:nequations,nodesperelem,iell:ielh))
+      allocate(dudt(1:nequations,1:nodesperelem_max,iell:ielh))
       dudt = 0.0_wp
 
     case ('heun_method')
       ! Stores update
-      allocate(du(1:nequations,nodesperelem,iell:ielh))
+      allocate(du(1:nequations,1:nodesperelem_max,iell:ielh))
       du   = 0.0_wp
       ! local time derivative of conserved variables
-      allocate(dudt(1:nequations,nodesperelem,iell:ielh))
+      allocate(dudt(1:nequations,1:nodesperelem_max,iell:ielh))
       dudt = 0.0_wp
 
     case('IMEX_RK_46')
-      allocate(Fimp(1:nequations,nodesperelem,iell:ielh,6))
-      allocate(Fexp(1:nequations,nodesperelem,iell:ielh,6))
-      allocate(uexp(1:nequations,nodesperelem,iell:ielh))
-      allocate(non_lin_res(1:nequations,nodesperelem,iell:ielh))
+      allocate(Fimp(1:nequations,1:nodesperelem_max,iell:ielh,6))
+      allocate(Fexp(1:nequations,1:nodesperelem_max,iell:ielh,6))
+      allocate(uexp(1:nequations,1:nodesperelem_max,iell:ielh))
+      allocate(non_lin_res(1:nequations,1:nodesperelem_max,iell:ielh))
     case('IMEX_RK_34')
-      allocate(Fimp(1:nequations,nodesperelem,iell:ielh,4))
-      allocate(Fexp(1:nequations,nodesperelem,iell:ielh,4))
-      allocate(uexp(1:nequations,nodesperelem,iell:ielh))
-      allocate(non_lin_res(1:nequations,nodesperelem,iell:ielh))
+      allocate(Fimp(1:nequations,1:nodesperelem_max,iell:ielh,4))
+      allocate(Fexp(1:nequations,1:nodesperelem_max,iell:ielh,4))
+      allocate(uexp(1:nequations,1:nodesperelem_max,iell:ielh))
+      allocate(non_lin_res(1:nequations,1:nodesperelem_max,iell:ielh))
     case default
       write(*,*)'Not a valid Temporal Scheme'
       write(*,*)'Check RK_Method in setup file'
@@ -1847,6 +1847,7 @@ contains
     use referencevariables
     use nsereferencevariables
     use collocationvariables, only: iagrad,jagrad,dagrad
+    use initcollocation, only: element_properties
     implicit none
 
     ! loop indices
@@ -1854,8 +1855,6 @@ contains
     integer :: jnode
     integer :: i
 
-    ! low and high volumetric element indices
-    integer :: iell, ielh
     ! LDC/LDG coefficient
     ! temporary arrays for phi and delta phi
     real(wp), allocatable :: phitmp(:,:)
@@ -1871,11 +1870,10 @@ contains
      mut = 0.0_wp
     chig = 0.0_wp
 
-    ! low and high volumetric element index
-    iell = ihelems(1) ; ielh = ihelems(2) ;
-
     ! loop over all elements
-    do ielem = iell, ielh
+    do ielem = ihelems(1),ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem)
 
       delta = 0.0_wp
       ! loop over every node in element
@@ -1921,6 +1919,7 @@ contains
     use variables
     use SSWENOvariables,      only: WENO_type
     use controlvariables,     only: discretization
+    use initcollocation,      only: element_properties
     use referencevariables
     use nsereferencevariables
 
@@ -1935,9 +1934,6 @@ contains
     integer :: ielem
     integer :: inode
     integer :: nshell
-
-    ! low and high volumetric element indices
-    integer :: iell, ielh
 
     call UpdateComm1DGhostData(ug, ughst, upetsc, ulocpetsc, &
       nequations, nodesperelem, ihelems, nghost)
@@ -1957,14 +1953,16 @@ contains
 
     endif
 
-    ! low and high volumetric element index
-    iell = ihelems(1) ; ielh = ihelems(2) ;
+    ! loop over all elements
+    do ielem = ihelems(1),ihelems(2)
 
-    do ielem = iell, ielh         ! loop over all elements
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       do inode = 1,nodesperelem   ! loop over nodes and compute primitive and entropy variables
         call conserved_to_primitive(ug(:,inode,ielem), vg(:,inode,ielem), nequations ) ! (navierstokes)
         call primitive_to_entropy  (vg(:,inode,ielem), wg(:,inode,ielem), nequations ) ! (navierstokes)
       end do
+
     end do
 
     if (viscous) then
@@ -2001,14 +1999,8 @@ contains
     integer :: inode,ielem, jdir
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
 
-    ! low and high volumetric element indices
-    integer :: iell, ielh
-
-    ! low : high volumetric element index
-    iell = ihelems(1) ;  ielh = ihelems(2)
-
     ! loop over all elements
-    do ielem = iell, ielh
+    do ielem = ihelems(1), ihelems(2)
 
       call element_properties(ielem, n_pts_1d, n_pts_2d, n_pts_3d, &
                       pinv, qmat, dmat, iagrad, jagrad, dagrad,    &
@@ -2016,7 +2008,7 @@ contains
           
       !  Calculate the elementwise Divergence  \/ * (F - Fv)
 
-      call Flux_Divergence(tin, n_pts_1d, n_pts_2d, n_pts_3d,  &
+      call Flux_Divergence(tin, n_pts_1d, n_pts_2d, n_pts_3d,  &             !  result returned in divf(:,:,:,:)
                            pinv, qmat, dmat, iagrad, jagrad, dagrad, ielem)
 
       !  Form the elementwise SAT_Penalties
@@ -2067,15 +2059,13 @@ contains
     use variables, only: gsat, Jx_r
     use collocationvariables, only: pvol
     use controlvariables, only: verbose
+    use initcollocation, only: element_properties
     use referencevariables
     use mpimod
     implicit none
 
     ! indices
     integer :: inode,ielem
-
-    ! low and high volumetric element indices
-    integer :: iell, ielh
 
     ! different error estimates
     real(wp) :: l2(2), linf
@@ -2093,11 +2083,11 @@ contains
       l2 = 0.0_wp
     linf = 0.0_wp
 
-    ! low : high volumetric element index
-    iell = ihelems(1) ;  ielh = ihelems(2)
-
     ! loop over all elements
-    do ielem = iell, ielh
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem, pvol=pvol)
+          
       ! loop over each index in the element
       do inode = 1, nodesperelem
         ! compute the local embedded error
@@ -2135,15 +2125,13 @@ contains
     use variables, only: ug,uhat,vg,Jx_r
     use collocationvariables, only: pvol
     use controlvariables, only: verbose
+    use initcollocation,  only: element_properties
     use referencevariables
     use mpimod
     implicit none
 
     ! indices
     integer :: inode,ielem
-
-    ! low and high volumetric element indices
-    integer :: iell, ielh
 
     ! different error estimates
     real(wp) :: l2(2) 
@@ -2161,16 +2149,14 @@ contains
     ! initialize errors to zero
     l2 = 0.0_wp
 
-    ! low : high volumetric element index
-    iell = ihelems(1) ;  ielh = ihelems(2)
-
     ! loop over all elements
-    do ielem = iell, ielh
-      ! loop over each index in the element
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem, pvol=pvol)
+
       do inode = 1, nodesperelem
         ! compute the local embedded error
-        ex = ug(:,inode,ielem) &
-          - uhat(:,inode,ielem)
+        ex = ug(:,inode,ielem) - uhat(:,inode,ielem)
         ! calculate linf contribution
         linf = max(linf,maxval(abs(ex)))
         ! calculate the integral contribution of l2 error. pvol*J is the volumetric
@@ -2207,6 +2193,7 @@ contains
     ! when the exact solution is known.
     use variables, only: ug, vg, xg, Jx_r, phig, mut
     use collocationvariables, only: pvol
+    use initcollocation,  only: element_properties
     use referencevariables
     use mpimod
     implicit none
@@ -2215,9 +2202,6 @@ contains
     real(wp), intent(in) :: tin
     ! Indices
     integer :: inode,ielem, i
-
-    ! Low and high volumetric element indices
-    integer :: iell, ielh
 
     ! Errors
     real(wp) :: l1(2),    l2(2),    linf
@@ -2249,11 +2233,11 @@ contains
     ! Initialize error to zero
     l2 = 0.0_wp; l2sum = 0.0_wp ; linf = 0.0_wp ;
 
-    ! low : high volumetric element index
-    iell = ihelems(1) ;  ielh = ihelems(2)
-
     ! Loop over all elements
-    do ielem = iell, ielh
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem, pvol=pvol)
+
       ! Loop over every node in the element
       do inode = 1, nodesperelem
         ! Compute the exact solution
@@ -3843,6 +3827,7 @@ contains
     use variables
     use referencevariables
     use controlvariables
+    use initcollocation, only: element_properties
     use mpimod
     implicit none
     ! local time of evaluation (for RK schemes, this is the stage time)
@@ -3852,20 +3837,17 @@ contains
     ! indices
     integer :: inode,ielem, jdir
 
-    ! low and high volumetric element indices
-    integer :: iell, ielh
-
 !   integer :: i_err
 
     ! update the primitive and entropy variables and
     ! the LDG/LDC gradients
     call nse_reconcilestates() ! (navierstokes)
 
-    ! low : high volumetric element index
-    iell = ihelems(1) ;  ielh = ihelems(2)
-
     ! loop over all elements
-    do ielem = iell, ielh
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       !                                        __
       !  Calculate the elementwise Divergence  \/ * (F - Fv)
        
@@ -3900,6 +3882,7 @@ contains
     return
   end subroutine nse_calcrhsexplicit
 
+  !============================================================================
 
   subroutine nse_calcrhsimplicit(irk,tin)
     ! This subroutine calculates the time derivative of the
@@ -3907,6 +3890,7 @@ contains
     use variables
     use referencevariables
     use controlvariables
+    use initcollocation, only: element_properties
 
     implicit none
     ! local time of evaluation (for RK schemes, this is the stage time)
@@ -3916,18 +3900,15 @@ contains
     ! indices
     integer :: inode,ielem, jdir
 
-    ! low and high volumetric element indices
-    integer :: iell, ielh
-
     ! update the primitive and entropy variables and
     ! the LDG/LDC gradients
     call nse_reconcilestates() ! (navierstokes)
 
-    ! low : high volumetric element index
-    iell = ihelems(1) ;  ielh = ihelems(2)
-
     ! loop over all elements
-    do ielem = iell, ielh
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       !                                        __
       !  Calculate the elementwise Divergence  \/ * (F - Fv)
        
@@ -4414,6 +4395,7 @@ contains
     use referencevariables
     use nsereferencevariables
     use collocationvariables, only: pvol
+    use initcollocation, only: element_properties
     use mpimod 
 
     implicit none
@@ -4428,7 +4410,7 @@ contains
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
 
-    integer :: ielem, i_node
+    integer :: ielem,  inode
     integer :: m
 
     real(wp)               :: Lngth, a0, dt0, dt_min, dt_global_max
@@ -4446,20 +4428,23 @@ contains
     iell  = ihelems(1) ;  ielh = ihelems(2)
 
     ! loop over all elements
-    do ielem = iell, ielh
-      do i_node = 1, nodesperelem
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem,pvol=pvol)
+
+      do  inode = 1, nodesperelem
                 
-          Lngth = pvol(i_node)**(third)
+          Lngth = pvol( inode)**(third)
 
-          a0  = sqrt(abs(gamma0*vg(5,i_node,ielem)/gM2))
+          a0  = sqrt(abs(gamma0*vg(5, inode,ielem)/gM2))
 
-          sq(1) = magnitude(r_x(1,:,i_node,ielem))
-          sq(2) = magnitude(r_x(2,:,i_node,ielem))
-          sq(3) = magnitude(r_x(3,:,i_node,ielem))
+          sq(1) = magnitude(r_x(1,:, inode,ielem))
+          sq(2) = magnitude(r_x(2,:, inode,ielem))
+          sq(3) = magnitude(r_x(3,:, inode,ielem))
 
-          ucon(1) = dot_product(r_x(1,:,i_node,ielem),vg(2:4,i_node,ielem))
-          ucon(2) = dot_product(r_x(2,:,i_node,ielem),vg(2:4,i_node,ielem))
-          ucon(3) = dot_product(r_x(3,:,i_node,ielem),vg(2:4,i_node,ielem))
+          ucon(1) = dot_product(r_x(1,:, inode,ielem),vg(2:4, inode,ielem))
+          ucon(2) = dot_product(r_x(2,:, inode,ielem),vg(2:4, inode,ielem))
+          ucon(3) = dot_product(r_x(3,:, inode,ielem),vg(2:4, inode,ielem))
 
           tI  =  sum(abs(ucon(:))) + a0 * ( sum(sq) )
           tV  =  Re0Inv * magnitude(sq)
@@ -4511,11 +4496,10 @@ contains
     return
   end subroutine compute_explicit_timestep
 
-  !============================================================================
   
-  !============================================================================
-  ! compute_vorticity_field_elements - Computes the vorticity field for all the
-  ! elements
+!============================================================================
+    ! compute_vorticity_field_elements - Computes the vorticity field for all the elements
+!============================================================================
 
   subroutine compute_vorticity_field_elements()
     ! This subroutine computes the vorticity field given the velocity field.
@@ -4524,41 +4508,40 @@ contains
     ! Load modules
     use variables
     use referencevariables
+    use initcollocation, only: element_properties
 
     ! Nothing is implicitly defined
     implicit none
 
     real(wp), dimension(5,3) :: GradV
 
-    integer :: iell, ielh
-    
-    integer :: ielem, i_node
+    integer :: ielem,  inode
 
     continue
     
     ! Compute gradient of the velocity components
     ! ===========================================
 
-    ! Low and high  volumetric element index
-    iell  = ihelems(1) ;  ielh = ihelems(2)
+    ! loop over all elements
+    do ielem = ihelems(1), ihelems(2)
 
-    do ielem = iell, ielh
+      call element_properties(ielem, n_pts_3d=nodesperelem)
 
       ! loop over all elements
-      do i_node = 1, nodesperelem
+      do  inode = 1, nodesperelem
 
         !  __           __
         !  \/ V  = dVdW \/ W  = dVdW phi
         !  
-        GradV(:,:)    = MatMul(dVdW(vg(:,i_node,ielem),nequations),phig(:,:,i_node,ielem))
+        GradV(:,:)    = MatMul(dVdW(vg(:, inode,ielem),nequations),phig(:,:, inode,ielem))
 
         ! Compute the vorticity
-        omega(:,i_node,ielem) = 0.0_wp 
+        omega(:, inode,ielem) = 0.0_wp 
 
         ! Note:  GradV(1,:) is gradient of density
-        omega(1,i_node,ielem) = GradV(4,2) - GradV(3,3)
-        omega(2,i_node,ielem) = GradV(2,3) - GradV(4,1)
-        omega(3,i_node,ielem) = GradV(3,1) - GradV(2,2)
+        omega(1, inode,ielem) = GradV(4,2) - GradV(3,3)
+        omega(2, inode,ielem) = GradV(2,3) - GradV(4,1)
+        omega(3, inode,ielem) = GradV(3,1) - GradV(2,2)
       
       end do
     end do
@@ -4571,7 +4554,7 @@ contains
   !============================================================================
   ! kinetic_energy_element - Computes the kinetic energy for one element
 
-  pure function kinetic_energy_element(elem_id)
+  pure function kinetic_energy_element(ielem)
     ! This subroutine computes the kinetic energy in one element given the 
     ! velocity field. This means that the primitive variable must be already computed.
 
@@ -4584,26 +4567,24 @@ contains
 
     real(wp), dimension(nodesperelem) :: kinetic_energy_element
 
-    integer, intent(in) :: elem_id
+    integer, intent(in) :: ielem
     
-    integer :: i_node
+    integer :: inode
 
     continue 
 
     ! Compute kinetic energy
     ! ======================
-    do i_node = 1, nodesperelem
+    do inode = 1, nodesperelem
 
-      kinetic_energy_element(i_node) = 0.0_wp 
+      kinetic_energy_element(inode) = 0.0_wp 
 
-      kinetic_energy_element(i_node) = 0.5_wp*dot_product(vg(2:4,i_node,elem_id),vg(2:4,i_node,elem_id))
+      kinetic_energy_element(inode) = 0.5_wp*dot_product(vg(2:4,inode,ielem),vg(2:4,inode,ielem))
       
     end do
 
     return
   end function kinetic_energy_element
-
-  !============================================================================
 
   !============================================================================
   ! compute_primitive_variables_elements - Computes the primitive variables for
@@ -4615,23 +4596,23 @@ contains
     ! Load modules
     use variables
     use referencevariables
+    use initcollocation, only: element_properties
 
     ! Nothing is defined implicitly
     implicit none
 
-    integer :: iell, ielh
-    integer :: ielem, i_node
+    integer :: ielem, inode
 
-    ! Low and high  volumetric element index
-    iell  = ihelems(1) ;  ielh = ihelems(2)
+    ! loop over all elements
+    do ielem = ihelems(1), ihelems(2)
 
-    ! Loop over elements
-    do ielem = iell, ielh
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       ! Loop over nodes in each element
-      do i_node = 1, nodesperelem
+      do inode = 1, nodesperelem
 
         ! Calculate primitive variables from conservative variables
-        call conserved_to_primitive(ug(:,i_node,ielem),vg(:,i_node,ielem),nequations)
+        call conserved_to_primitive(ug(:,inode,ielem),vg(:,inode,ielem),nequations)
       
       enddo
     enddo
@@ -4651,25 +4632,26 @@ contains
     ! Load modules
     use variables
     use referencevariables
+    use initcollocation, only: element_properties
 
     ! Nothing is defined implicitly
     implicit none
 
     integer :: iell, ielh
-    integer :: ielem, i_node
+    integer :: ielem, inode
 
-    ! Low and high  volumetric element index
-    iell  = ihelems(1) ;  ielh = ihelems(2)
+    ! loop over all elements
+    do ielem = ihelems(1), ihelems(2)
 
-    ! Loop over elements
-    do ielem = iell, ielh
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       ! Loop over nodes in each element
-      do i_node = 1, nodesperelem
+      do inode = 1, nodesperelem
             
         ! Calculate entropy variables from primitive variables
         call primitive_to_entropy( &
-        vin = vg(:,i_node,ielem), &
-        wout = wg(:,i_node,ielem), &
+        vin = vg(:,inode,ielem), &
+        wout = wg(:,inode,ielem), &
         nq = nequations )
 
       enddo
@@ -4677,8 +4659,6 @@ contains
 
     return
   end subroutine compute_entropy_variables_elements
-
-  !============================================================================
 
   !============================================================================
   ! compute_specific_entropy_elements - Computes the specific entropy using the 
@@ -4689,24 +4669,23 @@ contains
     ! Load modules
     use variables
     use referencevariables
+    use initcollocation, only: element_properties
 
     ! Nothing is defined implicitly
     implicit none
 
-    integer :: iell, ielh
-    integer :: ielem, i_node
+    integer :: ielem, inode
 
-    ! Low and high volumetric element index
-    iell = ihelems(1) ; ielh = ihelems(2) ;
+    ! loop over all elements
+    do ielem = ihelems(1), ihelems(2)
 
-    ! Loop over elements
-    do ielem = iell, ielh
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       ! Loop over nodes in each element
-      do i_node = 1, nodesperelem
+      do inode = 1, nodesperelem
             
         ! Calculate specific entropy
-        specific_entropy(i_node,ielem) = specificentropy(vg(:,i_node,ielem),&
-                                                      nequations)
+        specific_entropy(inode,ielem) = specificentropy(vg(:,inode,ielem),nequations)
 
       enddo
     enddo
@@ -4722,13 +4701,13 @@ contains
     use referencevariables
     use controlvariables
     use collocationvariables, only: ia_Filter,ja_Filter,aa_Filter
+    use initcollocation, only: element_properties
+
     implicit none
     ! local time of evaluation (for RK schemes, this is the stage time)
 
     ! indices
-    ! high and low element indices for volume elements
-    integer :: iell, ielh
-    integer :: inode, jdir, ielem
+    integer :: inode, jdir, ielem, nodesperelem_max
     integer :: jnode
     integer :: i
 
@@ -4738,16 +4717,18 @@ contains
 
     one_al = 1.0_wp - al
 
-    allocate(tmp88(1:nequations,1:nodesperelem))
-    allocate(tmp89(1:nequations,1:nodesperelem))
-
-    ! Low and high volumetric element index
-    iell = ihelems(1) ; ielh = ihelems(2) ;
+    nodesperelem_max = (npoly_max+1)**ndim
+    
+    allocate(tmp88(1:nequations,1:nodesperelem_max))
+    allocate(tmp89(1:nequations,1:nodesperelem_max))
 
     ! loop over all elements
-    do ielem = iell, ielh
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       ! loop over all nodes in the element
-      tmp89(:,:) = ug(:,:,ielem)
+      tmp89(:,1:nodesperelem) = ug(:,1:nodesperelem,ielem)
       ! loop over each direction
       do jdir = 1,ndim
         tmp88(:,:) = 0.0_wp
@@ -4758,15 +4739,17 @@ contains
             tmp88(:,inode) = tmp88(:,inode) + aa_Filter(jdir,i) * tmp89(:,jnode)
           end do
         end do
-        tmp89(:,:) = tmp88(:,:)
+        tmp89(:,1:nodesperelem) = tmp88(:,1:nodesperelem)
       end do
-      ug(:,:,ielem) = one_al * ug(:,:,ielem)  + al*tmp88(:,:)
+      ug(:,1:nodesperelem,ielem) = one_al * ug(:,1:nodesperelem,ielem)  + al*tmp88(:,1:nodesperelem)
     end do
     deallocate(tmp88) ; deallocate(tmp89)
 
     return
   end subroutine Solution_Filter
  
+!============================================================================
+
   subroutine Flux_Div_Pencil(ielem, N_S, N_S_2d, pinv, qmat, dmat)
 
     ! This subroutine calculates elementwise the Divergence of the Conservative Flux
@@ -4879,9 +4862,9 @@ contains
 
            if     (ef2e(1,faceLR(1),ielem) < 0) then            ! Partner is a BC (i.e. no partner) 
              inb   = -1
-            i_node = Pencil_Coord(N_S,jdir,ipen,1)  
-             uL(:) = ug(:,i_node,ielem)
-            uLL(:) = ug(:,i_node,ielem)
+             inode = Pencil_Coord(N_S,jdir,ipen,1)  
+             uL(:) = ug(:, inode,ielem)
+            uLL(:) = ug(:, inode,ielem)
 
           else if (ef2e(3,faceLR(1),ielem) /= myprocid) then    ! Partner is off-process
             jnode  = nodesperface*(faceLR(1)-1)+ipen
@@ -4892,7 +4875,7 @@ contains
             uLL(:) = ughstWENO_partner(:,gnode)
 
           else                                              ! Partner is  on-process
-             call data_partner_element_serial(ipen,faceLR(1),ielem,k_node,k_elem,k_face,i_node)
+             call data_partner_element_serial(ipen,faceLR(1),ielem,k_node,k_elem,k_face, inode)
             gnode  = nodesperface*(k_face-1) + ipen
 
              uL(:) = ug(:,k_node,k_elem)
@@ -4906,9 +4889,9 @@ contains
 
           if     (ef2e(1,faceLR(2),ielem) < 0) then            ! Partner is a BC (no partner) 
              inb   = +1
-            i_node = Pencil_Coord(N_S,jdir,ipen,N_S)  
-             uR(:) = ug(:,i_node,ielem)
-            uRR(:) = ug(:,i_node,ielem)
+             inode = Pencil_Coord(N_S,jdir,ipen,N_S)  
+             uR(:) = ug(:, inode,ielem)
+            uRR(:) = ug(:, inode,ielem)
 
           else if (ef2e(3,faceLR(2),ielem) /= myprocid) then    ! Partner is off-process
             jnode  = nodesperface*(faceLR(2)-1)+ipen
@@ -4919,7 +4902,7 @@ contains
             uRR(:) = ughstWENO_partner(:,gnode)
 
           else                                              ! Partner is  on-process
-             call data_partner_element_serial(ipen,faceLR(2),ielem,k_node,k_elem,k_face,i_node)
+             call data_partner_element_serial(ipen,faceLR(2),ielem,k_node,k_elem,k_face, inode)
             gnode  = nodesperface*(k_face-1) + ipen
 
              uR(:) = ug(:,k_node,k_elem)
@@ -5369,8 +5352,6 @@ contains
     return
   end function
 
-  !============================================================================
-  
   !============================================================================
 
   subroutine compute_gradient_entropy_variables()

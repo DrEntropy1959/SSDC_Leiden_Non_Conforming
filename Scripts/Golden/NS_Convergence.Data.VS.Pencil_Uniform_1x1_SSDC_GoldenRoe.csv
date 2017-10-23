@@ -18,7 +18,7 @@
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 8 partitions
+ Metis is attempting to divide the domain into 4 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -41,10 +41,10 @@
  Start actual computation
  ===============================================================
  P           3
- L1   error:    1.1915379706901678E-004
- L2   error:    3.1912627853180849E-004
+ L1   error:    1.1915379706901682E-004
+ L2   error:    3.1912627853180855E-004
  Linf error:    3.2239966845173385E-003
- CPU time:          5.0328
+ CPU time:          7.4794
 
  Solution files written in solution                                                                                                                
 
@@ -67,7 +67,7 @@
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 8 partitions
+ Metis is attempting to divide the domain into 4 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -90,10 +90,10 @@
  Start actual computation
  ===============================================================
  P           3
- L1   error:    7.0246713852604479E-006
- L2   error:    1.9877986734600047E-005
+ L1   error:    7.0246713852604395E-006
+ L2   error:    1.9877986734600037E-005
  Linf error:    2.6729495171107231E-004
- CPU time:         11.6158
+ CPU time:         17.0751
 
  Solution files written in solution                                                                                                                
 
@@ -116,7 +116,7 @@
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 8 partitions
+ Metis is attempting to divide the domain into 4 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -139,10 +139,10 @@
  Start actual computation
  ===============================================================
  P           3
- L1   error:    4.6291164037896802E-007
- L2   error:    1.2795775320112158E-006
+ L1   error:    4.6291164037896776E-007
+ L2   error:    1.2795775320112171E-006
  Linf error:    1.7718173711323004E-005
- CPU time:         29.4026
+ CPU time:         46.4846
 
  Solution files written in solution                                                                                                                
 
