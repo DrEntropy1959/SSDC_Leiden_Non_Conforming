@@ -1222,8 +1222,9 @@ contains
       & jelems, periodic_elem_face_ids_x1,                    &
       & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3, &
       & kfacenodes_LGL_p0,ifacenodes_LGL_p0,                  &
-      & kfacenodes_LGL_p1,ifacenodes_LGL_p1
-    use collocationvariables, only: elem_props, n_LGL_1d_p0, n_LGL_1d_p1
+      & kfacenodes_LGL_p1,ifacenodes_LGL_p1,                  &
+      & kfacenodes_LGL_p2,ifacenodes_LGL_p2
+    use collocationvariables, only: elem_props, n_LGL_1d_p0, n_LGL_1d_p1, n_LGL_1d_p2
 
     ! Nothing is implicitly defined
     implicit none
@@ -1244,7 +1245,6 @@ contains
 
     integer :: cnt_debug
     integer :: n_LGL_1d, n_LGL_2d, nodesperface_max
-
 
     continue
 
@@ -1272,12 +1272,15 @@ contains
       if(allocated(kfacenodes)) deallocate(kfacenodes) ; allocate(kfacenodes(1:n_LGL_2d,1:nfacesperelem))
       if(allocated(ifacenodes)) deallocate(ifacenodes) ; allocate(ifacenodes(1:n_LGL_2d*nfacesperelem))
 
-      if(n_LGL_1d == n_LGL_1d_p0) then
+      if    (n_LGL_1d == n_LGL_1d_p0) then
         kfacenodes(:,:) = kfacenodes_LGL_p0(:,:)
         ifacenodes(:)   = ifacenodes_LGL_p0(:)
-      else
+      elseif(n_LGL_1d == n_LGL_1d_p1) then
         kfacenodes(:,:) = kfacenodes_LGL_p1(:,:)
         ifacenodes(:)   = ifacenodes_LGL_p1(:)
+      elseif(n_LGL_1d == n_LGL_1d_p2) then
+        kfacenodes(:,:) = kfacenodes_LGL_p2(:,:)
+        ifacenodes(:)   = ifacenodes_LGL_p2(:)
       endif
 
       ! Reset facial node index counter
@@ -2248,12 +2251,15 @@ contains
     use referencevariables
     use variables, only: xg, x_r, r_x, Jx_r, dx_min_elem
     use collocationvariables, only: iagrad, jagrad, dagrad, pvol
+    use initcollocation, only: element_properties
     use mpimod
 
     implicit none
     ! indices
     integer :: ielem, inode, jnode, idir, jdir
     integer :: i,j,k,l,ii
+    integer :: nodesperelem_max, n_LGL_3d
+
 
     real(wp) :: test(3)
     real(wp) :: err,err_L2,err_Linf
@@ -2267,14 +2273,17 @@ contains
 
     continue 
 
+    ! number of nodes in each element
+    nodesperelem_max = (npoly_max+1)**ndim
+
     ! dx/dr
-    allocate(x_r(3,3,1:nodesperelem,ihelems(1):ihelems(2)))
+    allocate(x_r(3,3,1:nodesperelem_max,ihelems(1):ihelems(2)))
     x_r = 0.0_wp
     ! dr/dx
-    allocate(r_x(3,3,1:nodesperelem,ihelems(1):ihelems(2)))
+    allocate(r_x(3,3,1:nodesperelem_max,ihelems(1):ihelems(2)))
     r_x = 0.0_wp
     ! J = |dx/dr|
-    allocate(Jx_r(1:nodesperelem,ihelems(1):ihelems(2)))
+    allocate(Jx_r(1:nodesperelem_max,ihelems(1):ihelems(2)))
     Jx_r = 0.0_wp
 
     allocate(dx_min_elem(ihelems(1):ihelems(2)))
@@ -2286,17 +2295,20 @@ contains
 
     ! loop over volumetric elements
     elloop:do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem,n_pts_3d=n_LGL_3d)
+
       ! initialize dx/dr to identity and dr/dx to identity
       do idir = 1,3
-        x_r(idir,idir,:,ielem) = 1.0_wp
-        r_x(idir,idir,:,ielem) = 1.0_wp
+        x_r(idir,idir,1:n_LGL_3d,ielem) = 1.0_wp
+        r_x(idir,idir,1:n_LGL_3d,ielem) = 1.0_wp
       end do
       ! calculate dx/dr
       !
       ! initialize to zero
-      x_r(:,1:ndim,:,ielem) = 0.0_wp
+      x_r(:,1:ndim,1:n_LGL_3d,ielem) = 0.0_wp
       ! loop over every node in element
-      do inode = 1, nodesperelem
+      do inode = 1, n_LGL_3d
         ! loop over dimension of gradient
         do jdir = 1,ndim
           ! loop over number of dependent nodes in gradient
@@ -2310,12 +2322,12 @@ contains
         end do
       end do
       ! calculate determinant
-      do inode = 1,nodesperelem
+      do inode = 1,n_LGL_3d
         Jx_r(inode,ielem) = determinant3(x_r(:,:,inode,ielem))
       end do
       if (ndim < 3) then
         ! inverse metrics (note that in 3D this is not sufficient to satisfy the GCL.
-        do inode = 1,nodesperelem
+        do inode = 1,n_LGL_3d
           r_x(1,1,inode,ielem) =  x_r(2,2,inode,ielem)/Jx_r(inode,ielem)
           r_x(2,1,inode,ielem) = -x_r(2,1,inode,ielem)/Jx_r(inode,ielem)
           r_x(1,2,inode,ielem) = -x_r(1,2,inode,ielem)/Jx_r(inode,ielem)
@@ -2336,7 +2348,7 @@ contains
 !
 
         ! Special formulas are used to ensure that GCLs are satisfied in each direction
-        do inode = 1, nodesperelem
+        do inode = 1, n_LGL_3d
           ! dxi_1/dx_1
           j = 1 ; k = 1 ;
           r_x(j,k,inode,ielem) = 0.0_wp
@@ -2473,7 +2485,7 @@ contains
 !     \frac{\partial}{\partial \xi^j} \left( J \frac{\partial \xi^j}{\partial x^i} \right) == 0 ; i,j = 1,3
 !     ( Assumes Einstein Convention on ``j'' )
 !
-      do inode = 1,nodesperelem
+      do inode = 1,n_LGL_3d
         do i = 1, ndim
           test(i) = 0.0_wp
           do l = 1, ndim
@@ -2492,7 +2504,7 @@ contains
       !  element.  Needs further refinement
 
       dx_min_elem(ielem) = 0.0_wp
-      do inode = 1,nodesperelem
+      do inode = 1,n_LGL_3d
         dx_min_elem(ielem) = dx_min_elem(ielem) + pvol(inode)*Jx_r(inode,ielem)
       end do
 
@@ -6464,7 +6476,6 @@ contains
           if ((match_found .eqv. .false.) .and.              &
              (size(periodic_elem_face_ids_x3(1,:)) /= 0)) then
            
-!           write(*,*)'periodic 3'
             ! Check if the ielem owns a periodic face and if the iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))
 
@@ -6560,8 +6571,6 @@ contains
 
           if (match_found .eqv. .false.) then
 
-!           write(*,*)'non-periodic path'
-            
             ! Loop over the nodes on the face
             do inode = 1, n_Gau_2d_Mort
 
@@ -6622,6 +6631,10 @@ contains
         end if ! End if type of face (boundary, off processor or on processor)
       
       end do ! End do loop over faces of the element
+
+!     write(*,*)'ielem',ielem
+!     write(*,*)'shape',shape(efn2efn_Gau)
+!     write(*,*)'efn2efn_Gau',efn2efn_Gau(4,:,ielem)
     
     end do ! End do loop elements owned by the processor
 

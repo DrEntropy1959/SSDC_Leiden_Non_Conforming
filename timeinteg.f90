@@ -204,7 +204,7 @@ contains
       call timestepcontroller(itimestep)
 
       ! Compute time-averaged quantities and write output if needed
-!     call post_process_ts(itimestep,timeglobal)
+      call post_process_ts(itimestep,timeglobal)
 
       ! Call Solution filter to clip highest mode
       if (filter_solution) call Solution_Filter()
@@ -860,7 +860,7 @@ contains
     ! Write solution file if needed
     if (write_solution .eqv. .true.) then
       if (MOD(time_step_cnt,write_solution_frequency)==0 .or. &
-        & global_time == timemaximum) then
+        & global_time >= timemaximum) then
 
         ! Compute gradient of the entropy variables without LFG penalty
         ! This is used to compute the vorticity below

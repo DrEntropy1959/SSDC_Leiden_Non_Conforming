@@ -234,7 +234,7 @@ contains
 
     implicit none
 
-    integer,                                   intent(in   ) :: ielem
+    integer,                                            intent(in   ) :: ielem
 
     integer,                                  optional, intent(  out) :: n_pts_1d, n_pts_2d, n_pts_3d
     real(wp), dimension(:,:),    allocatable, optional, intent(  out) :: dmat, qmat
