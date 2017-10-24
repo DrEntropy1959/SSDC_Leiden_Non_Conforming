@@ -725,7 +725,7 @@ contains
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
     use collocationvariables, only: n_LGL_1d_p1, elem_props
-    use initcollocation, only: JacobiP11
+    use initcollocation, only: element_properties
     implicit none
     ! indices
     integer :: ielem, inode, idir, iface
@@ -755,16 +755,13 @@ contains
     ! loop over volumetric elements
     do ielem = ihelems(1), ihelems(2)
 
-      ! nE is size of edge on element (varies with element)
-      nE = elem_props(2,ielem)
-
-      ! allocate local nodes
+!     ! nE is size of edge on element (varies with element)
+      call element_properties(ielem,       &
+                              n_pts_1d=nE, &
+                              x_pts_1d=x_LGL_1d)
 
       if(allocated(xl)) deallocate(xl) ; allocate(xl(3,1:nE,1:nE,1:nE)) ;  xl = 0.0_wp
 
-      if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ; allocate(x_LGL_1d(1:nE)) 
-
-      call JacobiP11(nE-1,x_LGL_1D)
 
       ! low index is always 1
       il = 1
@@ -2110,7 +2107,7 @@ contains
     ! this subroutine calculates the outward facing normals
     ! of each facial node
     use referencevariables
-    use initcollocation,      only: JacobiP11, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
+    use initcollocation,      only: element_properties, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
     use collocationvariables, only: n_Gau_1d_p1, x_Gau_1d_p1, &
                                     n_LGL_1D_p0, n_LGL_1D_p1, n_Gau_2D_p1, &
                                     Restrct_Gau_2_LGL_1d,     &
@@ -2151,9 +2148,9 @@ contains
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
 
-      n_S_1d_On   = elem_props(2,ielem)
-      if(allocated(x_S_1d_On )) deallocate(x_S_1d_On ) ; allocate(x_S_1d_On (n_S_1d_On )) ; x_S_1d_On (:) = 0.0_wp
-      call JacobiP11(n_S_1d_On -1,x_S_1d_On)
+      call element_properties(ielem,              &
+                              n_pts_1d=n_S_1d_On, &
+                              x_pts_1d=x_S_1d_On)
 
       knode = 0                                  !  reset facial node index counter
       node_id = 0
@@ -2268,21 +2265,14 @@ contains
     ! number of nodes in each element
     nodesperelem_max = (npoly_max+1)**ndim
 
-    ! dx/dr
-    allocate(x_r(3,3,1:nodesperelem_max,ihelems(1):ihelems(2)))
-    x_r = 0.0_wp
-    ! dr/dx
-    allocate(r_x(3,3,1:nodesperelem_max,ihelems(1):ihelems(2)))
-    r_x = 0.0_wp
-    ! J = |dx/dr|
-    allocate(Jx_r(1:nodesperelem_max,ihelems(1):ihelems(2)))
-    Jx_r = 0.0_wp
+    allocate(x_r(3,3,1:nodesperelem_max,ihelems(1):ihelems(2))) ;  x_r = 0.0_wp     ! dx/dr
+    allocate(r_x(3,3,1:nodesperelem_max,ihelems(1):ihelems(2))) ;  r_x = 0.0_wp     ! dr/dx
+    allocate(Jx_r(   1:nodesperelem_max,ihelems(1):ihelems(2))) ; Jx_r = 0.0_wp     ! J = |dx/dr|
 
     allocate(dx_min_elem(ihelems(1):ihelems(2))) ; dx_min_elem(:) = 0.0_wp ;
 
     ! Initialize metrics error norms
-    err_L2 = 0.0_wp
-    err_Linf = 0.0_wp
+    err_L2 = 0.0_wp ; err_Linf = 0.0_wp
 
     ! loop over volumetric elements
     elloop:do ielem = ihelems(1), ihelems(2)
@@ -5439,7 +5429,8 @@ contains
     use variables
     use referencevariables
     use collocationvariables
-    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points, JacobiP11
+    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points
+    use initcollocation, only : element_properties
 
     ! Nothing is implicitly defined
     implicit none
@@ -5470,9 +5461,9 @@ contains
     ! Loop over volumetric elements
     do i_elem = ihelems(1), ihelems(2)
 
-      n_LGL_1d_On   = elem_props(2,i_elem)
-      if(allocated(x_LGL_1d_On)) deallocate(x_LGL_1d_On) ; allocate(x_LGL_1d_On(n_LGL_1d_On))
-      call JacobiP11(n_LGL_1d_On-1,x_LGL_1d_On)
+      call element_properties(i_elem,               &
+                              n_pts_1d=n_LGL_1d_On, &
+                              x_pts_1d=x_LGL_1d_On)
 
       do iface = 1,nfacesperelem
 
@@ -5849,7 +5840,7 @@ contains
       & xg_Gau_shell, xgghst_Gau_Shell, efn2efn_Gau, &
       & jelems, periodic_elem_face_ids_x1, &
       & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
-    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points, JacobiP11
+    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points
 
     ! Nothing is implicitly defined
     implicit none
@@ -6644,8 +6635,7 @@ contains
     ! Nothing is implicitly defined
     use referencevariables
     use initcollocation,      only: D_lagrange_basis_function_1d, &
-                                      lagrange_basis_function_1d, &
-                                      JacobiP11
+                                      lagrange_basis_function_1d
 
 !   use variables, only:  Jx_r, facenodenormal
 

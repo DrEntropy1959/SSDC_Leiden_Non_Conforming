@@ -1999,9 +1999,20 @@ contains
     ! loop over all elements
     do ielem = ihelems(1), ihelems(2)
 
-      call element_properties(ielem, n_pts_1d, n_pts_2d, n_pts_3d, &
-                      pinv, qmat, dmat, iagrad, jagrad, dagrad,    &
-                      pmat, nnzgrad, pvol, p_surf)
+      call element_properties(ielem,           &
+                           n_pts_1d=n_pts_1d,  &
+                           n_pts_2d=n_pts_2d,  &
+                           n_pts_3d=n_pts_3d,  &
+                               pinv=pinv,      &
+                               qmat=qmat,      &
+                               dmat=dmat,      &
+                             iagrad=iagrad,    &
+                             jagrad=jagrad,    &
+                             dagrad=dagrad,    &
+                               pmat=pmat,      &
+                            nnzgrad=nnzgrad,   &
+                               pvol=pvol,      &
+                             p_surf=p_surf)
           
       !  Calculate the elementwise Divergence  \/ * (F - Fv)
 
