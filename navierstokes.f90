@@ -929,7 +929,10 @@ contains
 
 !===================================================================================================
 
-  pure subroutine EntropyConsistentFlux_vectors(vl,vr,neqin,fx,fy,fz)
+  subroutine EntropyConsistentFlux_Vectors(vl,vr,neqin,fx,fy,fz)
+
+    !  Checked for accuracy :  10/25/2017
+
     ! this function calculates the normal entropy consistent
     ! flux based on left and right states of primitive variables.
     ! it is consistent with the nondimensionalization employed
@@ -946,8 +949,7 @@ contains
 
     ! left and right states
     real(wp), intent(out), dimension(neqin) :: fx,fy,fz
-  
-  
+
     ! Local Variables
     ! ===============
     ! temporary variables (dimension is legacy from different code)
@@ -1015,17 +1017,17 @@ contains
     fx(4) = vhat(1)*vhat(2)*vhat(4)
     fx(5) = vhat(1)*vhat(2)*vhat(5)
 
-    fy(1) = vhat(1)*vhat(2)
-    fy(2) = vhat(1)*vhat(2)*vhat(2)
-    fy(3) = vhat(1)*vhat(2)*vhat(3) + P * gM2I
-    fy(4) = vhat(1)*vhat(2)*vhat(4)
-    fy(5) = vhat(1)*vhat(2)*vhat(5)
+    fy(1) = vhat(1)*vhat(3)
+    fy(2) = vhat(1)*vhat(3)*vhat(2)
+    fy(3) = vhat(1)*vhat(3)*vhat(3) + P * gM2I
+    fy(4) = vhat(1)*vhat(3)*vhat(4)
+    fy(5) = vhat(1)*vhat(3)*vhat(5)
 
-    fz(1) = vhat(1)*vhat(2)
-    fz(2) = vhat(1)*vhat(2)*vhat(2)
-    fz(3) = vhat(1)*vhat(2)*vhat(3)
-    fz(4) = vhat(1)*vhat(2)*vhat(4) + P * gM2I
-    fz(5) = vhat(1)*vhat(2)*vhat(5)
+    fz(1) = vhat(1)*vhat(4)
+    fz(2) = vhat(1)*vhat(4)*vhat(2)
+    fz(3) = vhat(1)*vhat(4)*vhat(3)
+    fz(4) = vhat(1)*vhat(4)*vhat(4) + P * gM2I
+    fz(5) = vhat(1)*vhat(4)*vhat(5)
 
   end subroutine EntropyConsistentFlux_vectors
 
@@ -2006,11 +2008,11 @@ contains
                                pinv=pinv,      &
                                qmat=qmat,      &
                                dmat=dmat,      &
+                            nnzgrad=nnzgrad,   &
                              iagrad=iagrad,    &
                              jagrad=jagrad,    &
                              dagrad=dagrad,    &
                                pmat=pmat,      &
-                            nnzgrad=nnzgrad,   &
                                pvol=pvol,      &
                              p_surf=p_surf)
           
@@ -2239,7 +2241,7 @@ contains
     allocate(ftmp(nequations))
 
     ! Initialize error to zero
-    l2 = 0.0_wp; l2sum = 0.0_wp ; linf = 0.0_wp ;
+    l1 = 0.0_wp; l1sum = 0.0_wp ; l2 = 0.0_wp; l2sum = 0.0_wp ; linf = 0.0_wp ;
 
     ! Loop over all elements
     do ielem = ihelems(1), ihelems(2)
@@ -2271,6 +2273,7 @@ contains
     ! Sum all the L1 terms across all the processes
     call mpi_allreduce(l1,l1sum,2, &
       & MPI_DEFAULT_WP,MPI_SUM,petsc_comm_world,ierr)
+
 
     ! Complete L1 norm
     l1sum(1) = l1sum(1)/l1sum(2)
@@ -3144,11 +3147,15 @@ contains
     ! Lax-Freidrich max Eigenvalue
     real(wp) :: evmax
     real(wp)                               :: l01_ldg_flip_flop
+    real(wp)                               :: t1,t2
+    real(wp)                               :: Jx_r_On, Jx_r_Off
 
     ! Flux vectors in the x,y,z directions
     integer                              :: n_S_1d_On , n_S_1d_Off, n_S_1d_Mort, n_S_1d_max
     integer                              :: n_S_2d_On , n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
     integer                              :: poly_val, ishift
+    integer                              :: ii, iinode, jjnode
+    integer                              :: istart,iend
  
     real(wp), allocatable, dimension(:)  :: x_S_1d_On, x_S_1d_Off
     real(wp), allocatable, dimension(:)  :: x_S_1d_Mort, w_S_1d_Mort
@@ -3156,15 +3163,18 @@ contains
 
     real(wp), allocatable, dimension(:,:) :: FxA, FyA, FzA
     real(wp), allocatable, dimension(:,:) :: FxB, FyB, FzB
-    real(wp), allocatable, dimension(:,:) :: FC
+    real(wp), allocatable, dimension(:,:) :: FC_On, FC_Off
+    real(wp), allocatable, dimension(:,:) :: FC, FC_Mort_On, FC_Mort_Off
     real(wp), allocatable, dimension(:,:) :: Extrp_Off, Extrp_On
     real(wp), allocatable, dimension(:,:) :: Intrp_Off, Intrp_On
     real(wp), allocatable, dimension(:,:) :: wg_Mort_On,wg_Mort_Off
+    real(wp), allocatable, dimension(:,:) :: vg_2d_On
     real(wp), allocatable, dimension(:,:) :: wg_2d_On,  wg_2d_Off
     real(wp), allocatable, dimension(:,:) :: fV_2d_On,  fV_2d_Off, fV_2d_Mort, IP_2d_On
     real(wp), allocatable, dimension(:,:) :: SAT_Pen_Mort, SAT_Pen_On
     integer,  allocatable, dimension(:,:) :: kfacenodes_On, kfacenodes_Off
     integer,  allocatable, dimension(:)   :: ifacenodes_On, ifacenodes_Off
+    real(wp), allocatable, dimension(:,:) :: test_Mort, test_Off, test_Mort_On
 
     logical,  parameter :: testing         = .false.
 
@@ -3189,7 +3199,7 @@ contains
     real(wp), dimension(nequations)    ::   wg_On,   wg_Off
 
     real(wp), dimension(nequations,3)  :: phig_On, phig_Off
-    real(wp), dimension(nequations)    :: SAT_Pen
+    real(wp), dimension(nequations)    :: SAT_Pen, FN_k
     real(wp), dimension(nequations)    :: f_viscous_normal_ghost
 
     real(wp), dimension(nequations)    :: prim_ghost_adiabatic
@@ -3198,6 +3208,7 @@ contains
     
     real(wp), dimension(nequations,3)  :: grad_prim_int, grad_entr_ghost
     real(wp), dimension(nequations,3)  :: grad_entr_int_normal,grad_entr_int_tangent
+    real(wp), dimension(3)             :: XG_Pen
 
 
     real(wp), dimension(3)             :: unit_normal, normal_vel, tangent_vel, ref_vel_vector
@@ -3229,7 +3240,7 @@ contains
                 ifacenodes= ifacenodes_On)
        
     ! Loop over each face
-    do iface = 1,nfacesperelem
+    faceloop:do iface = 1,nfacesperelem
 
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 !       Boundary Contribution to gsat
@@ -3511,12 +3522,14 @@ contains
 
         if(elem_props(2,ielem) == elem_props(2,ef2e(2,iface,ielem))) then
 
+!         write(*,*)'on process, conforming, face',iface
+
           n_S_2d_On  = (elem_props(2,ielem))**2
 
           do i = 1, n_S_2d_On
         
             ! Index in facial ordering
-            jnode =  n_S_2d_On*(iface-1)+i
+            jnode =  n_S_2d_On*(iface-1) + i
               
             ! Volumetric node index corresponding to facial node index
             inode = ifacenodes_On(jnode)
@@ -3548,25 +3561,25 @@ contains
 
         else  ! Adjoining element on iface differs in order
 
-          write(*,*)'I shouldnt be here'
           n_S_1d_max  = (npoly_max+1)**1
           n_S_2d_max  = (npoly_max+1)**2
           kface       = ef2e(1,iface,ielem)
           kelem       = ef2e(2,iface,ielem)
+!         write(*,*)'Nonconforming interface SAT: ielem, iface, kelem, kface,', ielem, iface, kelem, kface
+
+          call element_properties(ielem,&
+                         n_pts_1d=n_S_1d_On,&
+                         n_pts_2d=n_S_2d_On,&
+                         x_pts_1d=x_S_1d_On,&
+                       kfacenodes=kfacenodes_On, &
+                       ifacenodes=ifacenodes_On)
 
           call element_properties(kelem,&
-                      kfacenodes = kfacenodes_Off, &
-                      ifacenodes = ifacenodes_Off)
-
-          n_S_1d_On   = elem_props(2,ielem)
-          n_S_2d_On   = (n_S_1d_On  )**2
-          if(allocated(x_S_1d_On )) deallocate(x_S_1d_On ) ; allocate(x_S_1d_On (n_S_1d_On )) ; x_S_1d_On (:) = 0.0_wp
-          call JacobiP11(n_S_1d_On -1,x_S_1d_On )
-
-          n_S_1d_Off  = ef2e(4,iface,ielem)
-          n_S_2d_Off  = (n_S_1d_Off )**2
-          if(allocated(x_S_1d_Off)) deallocate(x_S_1d_Off) ; allocate(x_S_1d_Off(n_S_1d_Off)) ; x_S_1d_Off(:) = 0.0_wp
-          call JacobiP11(n_S_1d_Off-1,x_S_1d_Off)
+                         n_pts_1d=n_S_1d_Off,&
+                         n_pts_2d=n_S_2d_Off,&
+                         x_pts_1d=x_S_1d_Off,&
+                       kfacenodes=kfacenodes_Off, &
+                       ifacenodes=ifacenodes_Off)
 
           n_S_1d_Mort = max(n_S_1D_On,n_S_1D_Off)
           n_S_2d_Mort = (n_S_1d_mort)**2
@@ -3577,32 +3590,40 @@ contains
           allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
           allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
           allocate(FC (nequations,n_S_2D_Mort))
+          allocate(FC_On (nequations,n_S_2D_On))
+          allocate(FC_Off(nequations,n_S_2D_Off))
+          allocate(FC_Mort_On (nequations,n_S_2D_Mort))
+          allocate(FC_Mort_Off(nequations,n_S_2D_Mort))
           allocate(wg_Mort_On  (nequations,n_S_2d_Mort))
           allocate(wg_Mort_Off (nequations,n_S_2d_Mort))
+          allocate(vg_2d_On    (nequations,n_S_2d_On  ))
           allocate(wg_2d_On    (nequations,n_S_2d_On  ))
           allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
           allocate(SAT_Pen_On  (nequations,n_S_2d_On  ))
           allocate(SAT_Pen_Mort(nequations,n_S_2d_Mort))
-
-          if(allocated(Intrp_On  )) deallocate(Intrp_On  ) ;
-          if(allocated(Extrp_On  )) deallocate(Extrp_On  ) ;
-          if(allocated(Extrp_Off )) deallocate(Extrp_Off ) ;
+          allocate(fV_2d_On  (nequations,n_S_2d_On  ))
+          allocate(fV_2d_Off (nequations,n_S_2d_Off ))
+          allocate(fV_2d_Mort(nequations,n_S_2d_Mort))
+          allocate(IP_2d_On  (nequations,n_S_2d_On  ))
+          allocate(test_Mort(3,n_S_2d_Mort))
+          allocate(test_Mort_On(3,n_S_2d_Mort))
+          allocate(test_Off (3,n_S_2d_Off ))
 
           if(n_S_1d_Mort == n_S_1d_On) then
             poly_val = n_S_1d_Mort - npoly
              allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
                       Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,1) ;
-             allocate(Extrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
+             allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
                       Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,1) ;
             poly_val = n_S_1d_Off  - npoly
-             allocate(Extrp_Off(n_S_1d_Off ,n_S_1d_Mort)) ; 
+             allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
                       Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,2) ;
           else
             poly_val = n_S_1d_On - npoly
              allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
                       Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,2) ;
-             allocate(Extrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
-                      Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,1) ;
+             allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
+                      Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,2) ;
             poly_val = n_S_1d_Mort - npoly
              allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
                       Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
@@ -3611,10 +3632,10 @@ contains
 !=========
 !         Inviscid interface SATS
 !=========
-          do i = 1, n_S_2d_On
+          do ii = 1, n_S_2d_On
         
             ! Index in facial ordering
-            jnode =  n_S_2d_On*(iface-1)+i
+            jnode =  n_S_2d_On*(iface-1) + ii
               
             ! Volumetric node index corresponding to facial node index
             inode = ifacenodes_On(jnode)
@@ -3622,7 +3643,14 @@ contains
             ! On-element face data
             vg_On(:) =   vg(:,inode,ielem)
 
-            call primitive_to_entropy(vg_On(:),wg_2d_On(:,i),nequations)
+            call primitive_to_entropy(vg_On(:),wg_2d_On(:,ii),nequations)
+
+            ! Outward facing normal of facial node
+            nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+
+            fn(:) = normalflux(vg_On(:), nx(:), nequations)
+
+!           FC_On(:,ii) = normalflux(vg_On(:), nx(:), nequations)
 
             do j = 1, n_S_2d_Off
 
@@ -3632,37 +3660,41 @@ contains
               ! Volumetric node index corresponding to facial node index
               lnode = ifacenodes_Off(knode)
 
+              ! Off-element face data
               vg_Off(:) = vg(:,lnode,kelem)
 
-              call EntropyConsistentFlux_Vectors(vg_On(:), vg_Off(:), nequations, FxA(:,j), FyA(:,j), FzA(:,j)) ! (Entropy Flux vectors)
+!             ! Outward facing normal of facial node
+!             nx = Jx_r(lnode,kelem)*facenodenormal(:,knode,kelem)
 
-            end do
+              call EntropyConsistentFlux_Vectors(vg_On (:), vg_Off(:), nequations, FxA(:,j), FyA(:,j), FzA(:,j)) ! (Entropy Flux vectors)
+
+            enddo
 
             call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Mort,x_S_1D_Off,x_S_1D_Mort,FxA,FxB,Extrp_Off)
             call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Mort,x_S_1D_Off,x_S_1D_Mort,FyA,FyB,Extrp_Off)
             call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Mort,x_S_1D_Off,x_S_1D_Mort,FzA,FzB,Extrp_Off)
 
             do j = 1, n_S_2d_mort
-
+  
               ! Index in facial ordering
               jnode =  n_S_2d_max*(iface-1) + j
-
+  
               ! Outward facing normal of facial node
               nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)
 
               knode = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
 
-              FC(:,j) = FxB(:,knode)*nx(1) + FyB(:,knode)*nx(2) + FzB(:,knode)*nx(3)
-              
+              FC_Mort_On(:,j) = FxB(:,knode)*nx(1) + FyB(:,knode)*nx(2) + FzB(:,knode)*nx(3)
+
             enddo
 
-            ival = mod(i-1,n_S_1d_On) + 1 ; jval = (i-ival) / n_S_1d_On + 1 ;
+            ival = mod(ii-1,n_S_1d_On) + 1 ; jval = (ii-ival) / n_S_1d_On + 1 ;
 
-            call ExtrpXA2XB_2D_neq_k(nequations,n_S_1D_Mort,n_S_1D_On,ival,jval,x_S_1D_Mort,x_S_1D_On,FC,SAT_Pen,Intrp_On )
-    
-            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+            call ExtrpXA2XB_2D_neq_k(nequations,n_S_1D_Mort,n_S_1D_On,ival,jval,x_S_1D_Mort,x_S_1D_On,FC_Mort_On,fstar,Intrp_On)
 
-          end do
+            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar) 
+
+          enddo
 
 !=========
 !         Inviscid interface dissipation (Upwinding of SATs)
@@ -3678,7 +3710,7 @@ contains
 
             vg_Off(:) = vg(:,lnode,kelem)
 
-            call primitive_to_entropy(vg_Off(:),wg_2d_Off(:,i),nequations)
+            call primitive_to_entropy(vg_Off(:),wg_2d_Off(:,j),nequations)
 
           enddo
 
@@ -3686,22 +3718,24 @@ contains
           call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_Mort,x_S_1D_Off,x_S_1D_Mort,wg_2d_Off,wg_Mort_Off,Extrp_Off)
 
           SAT_Pen_Mort(:,:) = 0.0_wp
-          do jnode = 1, n_S_2d_Mort
+          do j = 1, n_S_2d_mort
+  
+            ! Index in facial ordering
+            jnode =  n_S_2d_max*(iface-1) + j
+  
+            ! Outward facing normal of facial node
+            nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)
 
-           ishift = (iface-1) * n_S_2d_max + jnode
+            knode = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
 
-           knode = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
-
-           nx(:)  = Jx_facenodenormal_Gau(:,ishift,ielem)
-
-           call entropy_to_primitive(wg_Mort_On (:,jnode),vg_On (:),nequations)
+           call entropy_to_primitive(wg_Mort_On (:,j    ),vg_On (:),nequations)
            call entropy_to_primitive(wg_Mort_Off(:,knode),vg_Off(:),nequations)
 
-           SAT_Pen_Mort(:,jnode) = SAT_Vis_Diss(nequations,vg_On(:),vg_Off(:),nx)
+           SAT_Pen_Mort(:,j) = SAT_Vis_Diss(nequations,vg_On(:),vg_Off(:),nx)
 
           enddo
 
-          !  Prolongate data onto Mortar
+          !  Restrict data back from Mortar
           call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Mort ,n_S_1D_On ,x_S_1D_Mort ,x_S_1D_On,SAT_Pen_Mort,SAT_Pen_On, Intrp_On )
 
           do i = 1, n_S_2d_On
@@ -3720,48 +3754,59 @@ contains
 !         Viscous interface SATs 
 ! ========
 
+          !  =======
           !  LDG viscous dissipation: Connects Off with On interfaces directly
-          do j = 1, n_S_2d_Off
+          !  =======
+          do jnode = 1, n_S_2d_Off
 
             ! Index in facial ordering
-            lnode =  n_S_2d_Off*(kface-1) + j
+            lnode =  n_S_2d_Off*(kface-1) + jnode
 
             ! Volumetric node index corresponding to facial node index
-            knode = ifacenodes_Off(lnode)
+            inode = ifacenodes_Off(lnode)
 
             ! Outward facing normal of facial node
-            nx(:) = Jx_r(knode,kelem)*facenodenormal(:,knode,kelem)
+            nx(:) = Jx_r(inode,kelem)*facenodenormal(:,lnode,kelem)
 
-              vg_Off(:  ) =   vg(:,  knode,kelem)
-            phig_Off(:,:) = phig(:,:,knode,kelem)
+              vg_Off(:  ) =   vg(:,  inode,kelem)
+            phig_Off(:,:) = phig(:,:,inode,kelem)
 
-            fV_2d_Off(:,j) = normalviscousflux(vg_Off(:), phig_Off(:,:), nx, nequations, mut(inode,ielem))
+            fV_2d_Off(:,jnode) = normalviscousflux(vg_Off(:), phig_Off(:,:), nx, nequations, mut(knode,kelem))
 
           enddo
 
           call ExtrpXA2XB_2D_neq(nequations,n_S_1D_Off,n_S_1D_On,x_S_1D_Off,x_S_1D_On, &
                                  fV_2d_Off(:,:),fV_2d_On(:,:),matmul(Intrp_On,Extrp_Off))
           
+          !  =======
           !  IP dissipation: formed on the common mortar between element interfaces
-
+          !  =======
           SAT_Pen_Mort(:,:) = 0.0_wp
-          do jnode = 1, n_S_2d_Mort
+          do j = 1, n_S_2d_mort
+  
+            ! Index in facial ordering
+            jnode =  n_S_2d_max*(iface-1) + j
+  
+            ! Outward facing normal of facial node
+            nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)
 
-           ishift = (iface-1) * n_S_2d_max + jnode
+            lnode = efn2efn_Gau(4,jnode,ielem)
+            knode = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
 
-           knode = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
+            call entropy_to_primitive(wg_Mort_On (:,j    ),vg_On (:),nequations)
+            call entropy_to_primitive(wg_Mort_Off(:,knode),vg_Off(:),nequations)
 
-           nx(:)  = Jx_facenodenormal_Gau(:,ishift,ielem)
+            hatc_On  = matrix_hatc_node(vg_On (:),nx,nx,nequations)
+            hatc_Off = matrix_hatc_node(vg_Off(:),nx,nx,nequations)
 
-           call entropy_to_primitive(wg_Mort_On (:,jnode),vg_On (:),nequations)
-           call entropy_to_primitive(wg_Mort_Off(:,knode),vg_Off(:),nequations)
+            Jx_r_On  = Jx_r_Gau_shell(jnode,ielem)
+            Jx_r_Off = Jx_r_Gau_shell(lnode,kelem)
 
-           hatc_On  = matrix_hatc_node(vg_On (:),nx,nx,nequations)
-           hatc_Off = matrix_hatc_node(vg_Off(:),nx,nx,nequations)
-
+           matrix_ip = (hatc_On + hatc_Off) * pinv(1) / (Jx_r_On + Jx_r_Off)
 !          matrix_ip = 0.5_wp*(hatc_On + hatc_Off) * pinv / Jx_r
+!          matrix_ip = 0.5_wp*(hatc_On/Jx_r_On + hatc_Off/Jx_r_Off) * pinv 
 
-           fV_2d_Mort(:,j) = - l00*matmul(matrix_ip,wg_Mort_On(:,jnode)-wg_Mort_Off(:,knode))
+           fV_2d_Mort(:,j) = - l00*matmul(matrix_ip,wg_Mort_On(:,j)-wg_Mort_Off(:,knode))
               
           enddo
 
@@ -3769,10 +3814,10 @@ contains
                                  fV_2d_Mort(:,:),IP_2d_On(:,:),Intrp_On)
 
           !  Onface sweep 
-          do i = 1, n_S_2d_On
+          do jnode = 1, n_S_2d_On
 
-            ! Index in facial ordering
-            inode =  n_S_2d_On*(kface-1)+j
+            ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes_On(jnode)
 
             ! On-element face data
               vg_On (:  ) =   vg(:,  inode,ielem)
@@ -3783,9 +3828,10 @@ contains
 
             l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
 
-            fstarV(:) = normalviscousflux(vg_On (:), phig_On (:,:), nx, nequations, mut(inode,ielem)) - IP_2d_On(:,i)
+            fstarV(:) = normalviscousflux(vg_On (:), phig_On (:,:), nx, nequations, mut(inode,ielem)) &
+                      - FV_2d_On(:,jnode)
 
-            SAT_Pen(:) = + l01_ldg_flip_flop*fstarV(:)  + IP_2d_On(:,i)
+            SAT_Pen(:) = + l01_ldg_flip_flop*fstarV(:)  + IP_2d_On(:,jnode)
 
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
 
@@ -3794,18 +3840,23 @@ contains
           deallocate(FxA,FyA,FzA)
           deallocate(FxB,FyB,FzB)
           deallocate(FC)
+          deallocate(FC_On, FC_Off, FC_Mort_On, FC_Mort_Off)
           deallocate(wg_Mort_On,wg_Mort_Off)
+          deallocate(vg_2d_On)
           deallocate(wg_2d_On,  wg_2d_Off  )
+          deallocate(SAT_Pen_On,SAT_Pen_Mort)
+          deallocate(fV_2d_On, fV_2d_Off, fV_2d_Mort)
+          deallocate(IP_2d_On)
           deallocate(Extrp_Off,Extrp_On)
           deallocate(Intrp_On)
-          deallocate(x_S_1d_On,x_S_1d_Off)
+          deallocate(x_S_1d_On,x_S_1d_Off,x_S_1d_Mort)
+          deallocate(test_Off,test_Mort,test_Mort_On)
 
         end if
 
       end if
 
-    end do
-    
+    end do faceloop
     
     ! Deallocate memory
     deallocate(ustar)
@@ -3823,6 +3874,7 @@ contains
     deallocate(ev)
     deallocate(evabs)
     deallocate(vav)
+!   write(*,*)'ielem finished SAT', ielem
 
     return
   end subroutine SAT_Penalty
@@ -5369,7 +5421,7 @@ contains
     use variables
     use referencevariables
     use nsereferencevariables
-    use collocationvariables, only: iagrad, jagrad, dagrad
+    use collocationvariables, only: nnzgrad, iagrad, jagrad, dagrad
     use initcollocation,      only: element_properties
     
     ! Nothing is implicitly defined
@@ -5391,6 +5443,7 @@ contains
 
       call element_properties(ielem,        &
                       n_pts_3d=nodesperelem,&
+                       nnzgrad=nnzgrad,     &
                         iagrad=iagrad,      &
                         jagrad=jagrad,      &
                         dagrad=dagrad) 
@@ -6165,7 +6218,7 @@ contains
           & phig, phig_err, grad_w_jacobian,                      &
           & ug, vg, wg, ughst,                                    &
           & r_x, facenodenormal
-        use collocationvariables, only: iagrad,jagrad,dagrad,pinv,l10, &
+        use collocationvariables, only: nnzgrad,iagrad,jagrad,dagrad,pinv,l10, &
                                       & ldg_flip_flop_sign, alpha_ldg_flip_flop
         use initcollocation,      only: element_properties
 
@@ -6199,6 +6252,7 @@ contains
           call element_properties(ielem,              &
                                 n_pts_2d=nodesperface,&
                                 n_pts_3d=nodesperelem,&
+                                 nnzgrad=nnzgrad,     &
                                   iagrad=iagrad,      &
                                   jagrad=jagrad,      &
                                   dagrad=dagrad,      &
@@ -6316,7 +6370,7 @@ contains
         use variables
         use referencevariables
         use nsereferencevariables
-        use collocationvariables, only: iagrad,jagrad,dagrad,pinv,l10, &
+        use collocationvariables, only: nnzgrad,iagrad,jagrad,dagrad,pinv,l10, &
                                       & ldg_flip_flop_sign, alpha_ldg_flip_flop
         use initcollocation,      only: element_properties
 
@@ -6354,6 +6408,7 @@ contains
           call element_properties(ielem,              &
                                 n_pts_2d=nodesperface,&
                                 n_pts_3d=nodesperelem,&
+                                 nnzgrad=nnzgrad,     &
                                   iagrad=iagrad,      &
                                   jagrad=jagrad,      &
                                   dagrad=dagrad,      &

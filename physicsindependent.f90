@@ -176,6 +176,7 @@ contains
     end if
 
     call calc_Gau_shell_pts_all_hexas()
+    call calc_Jacobian_Gau_shell_all_hexas()
 
     ! Setup collocated nodes connectivity
     call facenodesetup_LGL_Driver()
@@ -221,7 +222,7 @@ contains
     call calcfacenormals_LGL()
     call calcfacenormals_Gau()
 
-    call Modify_Metrics_NonConforming()
+!   call Modify_Metrics_NonConforming()
 
     if (myprocid == 0) then
       write(*,*) 'Start actual computation'
