@@ -45,6 +45,7 @@ module initgrid
   public calc_Gau_shell_pts_all_hexas
   public calc_Jacobian_Gau_shell_all_hexas
   public modify_metrics_nonconforming
+  public perturb_vertices_tg_vortex_1
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
@@ -725,7 +726,6 @@ contains
     use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
-    use collocationvariables, only: n_LGL_1d_p1, elem_props
     use initcollocation, only: element_properties
     implicit none
     ! indices
@@ -979,8 +979,7 @@ contains
     use mpimod
     use variables, only: kfacenodes_Gau_p0, ifacenodes_Gau_p0 &
                        , kfacenodes_Gau_p1, ifacenodes_Gau_p1 &
-                       , kfacenodes_Gau_p2, ifacenodes_Gau_p2 &
-                       , kfacenodes, ifacenodes
+                       , kfacenodes_Gau_p2, ifacenodes_Gau_p2 
 
     use collocationvariables, only: n_Gau_1d_p0, n_Gau_2d_p0 &
                                   , n_Gau_1d_p1, n_Gau_2d_p1 &
@@ -1216,11 +1215,8 @@ contains
     use mpimod
     use variables, only: xg, xghst_LGL, ef2e, efn2efn,        &
       & jelems, periodic_elem_face_ids_x1,                    &
-      & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3, &
-      & kfacenodes_LGL_p0,ifacenodes_LGL_p0,                  &
-      & kfacenodes_LGL_p1,ifacenodes_LGL_p1,                  &
-      & kfacenodes_LGL_p2,ifacenodes_LGL_p2
-    use collocationvariables, only: elem_props, n_LGL_1d_p0, n_LGL_1d_p1, n_LGL_1d_p2
+      & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
+    use collocationvariables, only: elem_props
     use initcollocation,      only: element_properties
 
     ! Nothing is implicitly defined
@@ -2024,7 +2020,6 @@ contains
     ! of each facial node
     use referencevariables
     use variables, only: kfacenodes, facenodenormal, r_x, ef2e, efn2efn, Jx_r
-    use collocationvariables, only: n_LGL_1d_p1, elem_props
     use initcollocation,      only: element_properties
 
     implicit none
@@ -2114,13 +2109,7 @@ contains
     ! of each facial node
     use referencevariables
     use initcollocation,      only: element_properties, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
-    use collocationvariables, only: n_Gau_1d_p1, x_Gau_1d_p1, &
-                                    n_LGL_1D_p0, n_LGL_1D_p1, n_Gau_2D_p1, &
-                                    Restrct_Gau_2_LGL_1d,     &
-                                    Rot_Gau_p0_2_LGL_p0_1d,   &
-                                    Rot_Gau_p1_2_LGL_p1_1d,   &
-                                    Int_Gau_p1_2_LGL_p0_1d,   &
-                                    elem_props
+    use collocationvariables, only: Restrct_Gau_2_LGL_1d
 
     use variables, only: Jx_facenodenormal_Gau, xg_Gau_Shell
     use variables, only: Jx_facenodenormal_LGL, ef2e
@@ -2128,15 +2117,12 @@ contains
     implicit none
 
     ! indices
-    integer :: ielem, inode, iface, idir, knode, node_id
-    integer :: n_LGL_1d, n_Gau_1d, n_pts_1d_max, n_pts_2d_max
+    integer :: ielem, iface, knode, node_id
+    integer :: n_pts_1d_max, n_pts_2d_max
     integer :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort, poly_val
     integer :: istart, iend_Mort, iend_On
 
-    real(wp) :: dx
     logical                               :: testing = .false.
-    real(wp), dimension(:),   allocatable :: x_LGL_1d
-    real(wp), dimension(:),   allocatable :: x_Gau_1d, w_Gau_1d
     real(wp), dimension(:),   allocatable :: x_S_1d_Mort, x_S_1d_On, w_S_1d_Mort
     real(wp), dimension(:,:), allocatable :: Intrp
 
@@ -2690,7 +2676,6 @@ contains
     integer                                  :: i, iface, inode, jnode, knode
 
     real(wp), dimension(3)                   :: nx
-    real(wp)                                 :: t1
 
 
     bvec(:,:) = 0.0_wp
@@ -4380,6 +4365,10 @@ contains
  
     enddo
 
+!   do ielem = 1,nhex,3
+!     elem_props(2,ielem) = npoly+2
+!   enddo
+
 !   elem_props(2,2) = npoly+2 
 
 
@@ -5959,7 +5948,7 @@ contains
     use referencevariables
     use collocationvariables
     use mpimod
-    use variables, only: xg, ef2e,  &
+    use variables, only: ef2e,  &
       & xg_Gau_shell, xgghst_Gau_Shell, efn2efn_Gau, &
       & jelems, periodic_elem_face_ids_x1, &
       & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
@@ -6774,9 +6763,8 @@ contains
     integer  :: i, j, k, i1, j1, k1
     integer  :: ixL, ixH, iyL, iyH, izL, izH
     integer  :: n_Gau, node_id
-    integer  :: ival, jval, kval
+    integer  :: ival, kval
     integer  :: ishift, jshift, kshift, face_shift
-    integer  :: ll,mm,nn
 
     real(wp), dimension(:), allocatable  :: x_Gau
     
