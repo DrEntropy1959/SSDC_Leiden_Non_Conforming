@@ -4365,9 +4365,9 @@ contains
  
     enddo
 
-!   do ielem = 1,nhex,3
-!     elem_props(2,ielem) = npoly+2
-!   enddo
+    do ielem = 1,nhex,3
+      elem_props(2,ielem) = npoly+2
+    enddo
 
 !   elem_props(2,2) = npoly+2 
 

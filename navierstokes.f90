@@ -865,7 +865,7 @@ contains
     real(wp) :: tinvav, tinvavinv
 
     ! prevent division by zero
-    real(wp), parameter :: sdiv = 1e-015_wp, sdiv2 = 1e-030_wp
+    real(wp), parameter :: sdiv2 = 1e-030_wp
     ! log degenerates in multiple cases (see reference for use)
     real(wp), parameter :: seps = 1.0e-04_wp
     real(wp) :: xi, gs, us, ut, ftmp
@@ -961,7 +961,7 @@ contains
     real(wp) :: tinvav, tinvavinv
 
     ! prevent division by zero
-    real(wp), parameter :: sdiv = 1e-015_wp, sdiv2 = 1e-030_wp
+    real(wp), parameter :: sdiv2 = 1e-030_wp
     ! log degenerates in multiple cases (see reference for use)
     real(wp), parameter :: seps = 1.0e-04_wp
     real(wp) :: xi, gs, us, ut, ftmp
@@ -1163,8 +1163,6 @@ contains
       real(wp),                intent(in) :: nx(3)
       real(wp), dimension(nq), intent(in) :: vL,vR
       real(wp), dimension(nq), intent(in) :: wL,wR
-      real(wp), parameter                 ::    ep = 1.0e-10_wp
-      real(wp), parameter                 :: third = 1.0_wp/3.0_wp
 
       real(wp), dimension(nq)             :: diabolical_flux
 
@@ -3532,6 +3530,10 @@ contains
         kface       = ef2e(1,iface,ielem)
         kelem       = ef2e(2,iface,ielem)
 
+        ! Flip sign when appropriate so that sign so normal is facing outward
+        flip_sign = sign(1.0_wp,real(facenormalcoordinate(iface),wp)) * &
+                    sign(1.0_wp,real(facenormalcoordinate(kface),wp))
+
         call element_properties(kelem,&
                        n_pts_1d=n_S_1d_Off,&
                        n_pts_2d=n_S_2d_Off,&
@@ -3556,11 +3558,7 @@ contains
         allocate(  fV_2d_Mort(nequations,n_S_2d_Mort))
         allocate(fV_2d_Mort_Off(nequations,n_S_2d_Mort))
         allocate(fV_2d_Mort_On (nequations,n_S_2d_Mort))
-<<<<<<< HEAD
-        allocate(  IP_2d_Mort(nequations,n_S_2d_On  ))
-=======
         allocate(  IP_2d_Mort(nequations,n_S_2d_Mort))
->>>>>>> 68963d99ea703f45e0ccaf5f43131424378be43c
 
         allocate(FC_On       (nequations,n_S_2D_On  ))
         allocate(wg_2d_On    (nequations,n_S_2d_On  ))
@@ -3595,7 +3593,7 @@ contains
 !=========
 !         Inviscid interface SATs (skew-symmetric portion)
 !=========
-          On_Element:do i = 1, n_S_2d_On
+          On_Element_1:do i = 1, n_S_2d_On
         
             ! Index in facial ordering
             jnode =  n_S_2d_On*(iface-1) + i
@@ -3615,7 +3613,7 @@ contains
             ! One point flux based on vg_On and nx
             fn(:) = normalflux(vg_On(:), nx(:), nequations)
 
-            Off_Element:do k = 1, n_S_2d_Off
+            Off_Element_1:do k = 1, n_S_2d_Off
 
               ! Index in facial ordering
               knode = n_S_2d_Off*(kface-1) + k
@@ -3628,13 +3626,13 @@ contains
 
               call EntropyConsistentFlux_Vectors(vg_On (:), vg_Off(:), nequations, FxA(:,k), FyA(:,k), FzA(:,k)) ! (Entropy Flux vectors)
 
-            enddo Off_Element
+            enddo Off_Element_1
 
             call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FxA,FxB,Extrp_Off)
             call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FyA,FyB,Extrp_Off)
             call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FzA,FzB,Extrp_Off)
 
-            On_Mortar:do j = 1, n_S_2d_Mort
+            On_Mortar_1:do j = 1, n_S_2d_Mort
   
               ! Index in facial ordering
               jnode =  n_S_2d_max*(iface-1) + j
@@ -3646,7 +3644,7 @@ contains
 
               FC_Mort_On(:,j) = FxB(:,l)*nx(1) + FyB(:,l)*nx(2) + FzB(:,l)*nx(3)
 
-            enddo On_Mortar
+            enddo On_Mortar_1
 
             ival = mod(i-1,n_S_1d_On) + 1 ; jval = (i-ival) / n_S_1d_On + 1 ;
 
@@ -3654,12 +3652,12 @@ contains
 
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar) 
 
-          enddo On_Element
+          enddo On_Element_1
 
 !=========
 !         Inviscid interface dissipation (Upwinding of SATs)
 !=========
-          do k = 1, n_S_2d_Off
+          Off_Elem_2:do k = 1, n_S_2d_Off
 
             ! Index in facial ordering
             knode =  n_S_2d_Off*(kface-1) + k
@@ -3673,13 +3671,14 @@ contains
             ! Rotate into entropy variables and store as face plane data
             call primitive_to_entropy(vg_Off(:),wg_2d_Off(:,k),nequations)
 
-          enddo
+          enddo Off_Elem_2
+
           !  rotate entropy variables onto the mortar from both sides (_On and _Off)
           call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Mort,x_S_1d_On ,x_S_1d_Mort,wg_2d_On ,wg_Mort_On ,Extrp_On )
           call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,wg_2d_Off,wg_Mort_Off,Extrp_Off)
 
           Up_diss_Mort(:,:) = 0.0_wp
-          do j = 1, n_S_2d_Mort
+          On_Mortar_2:do j = 1, n_S_2d_Mort
   
             ! Index in facial ordering
             jnode =  n_S_2d_max*(iface-1) + j
@@ -3695,12 +3694,12 @@ contains
 
            Up_diss_Mort(:,j) = SAT_Vis_Diss(nequations,vg_On(:),vg_Off(:),nx(:))
 
-          enddo
+          enddo On_Mortar_2
 
           !  Restrict data plane from Mortar to on-face plane
           call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort ,n_S_1d_On ,x_S_1d_Mort ,x_S_1d_On,Up_diss_Mort,Up_diss_On, Intrp_On )
 
-          do i = 1, n_S_2d_On
+          On_Elem_2: do i = 1, n_S_2d_On
         
             ! Index in facial ordering
             jnode =  n_S_2d_On*(iface-1) + i
@@ -3710,7 +3709,7 @@ contains
               
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * Up_diss_On(:,i)
 
-          end do
+          end do On_Elem_2
 
 ! ========
 !         Viscous interface SATs 
@@ -3719,7 +3718,7 @@ contains
           !  =======
           !  LDG viscous dissipation: Connects Off with On interfaces directly
           !  =======
-          do k = 1, n_S_2d_Off
+          Off_Elem_3:do k = 1, n_S_2d_Off
 
             ! Index in facial ordering
             lnode =  n_S_2d_Off*(kface-1) + k
@@ -3735,51 +3734,30 @@ contains
 
             fV_2d_Off(:,k) = normalviscousflux(vg_Off(:), phig_Off(:,:), nx, nequations, mut(knode,kelem))
 
-          enddo
+          enddo Off_Elem_3
 
-<<<<<<< HEAD
-          call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On, &
-=======
           call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
->>>>>>> 68963d99ea703f45e0ccaf5f43131424378be43c
                                  fV_2d_Off(:,:),fV_2d_Mort_Off(:,:),Extrp_Off)
           
-          do j = 1, n_S_2d_Mort
+          On_Mortar_3:do j = 1, n_S_2d_Mort
   
             ! Index in facial ordering
             jnode =  n_S_2d_max*(iface-1) + j
   
-<<<<<<< HEAD
-            ! Outward facing normal of facial node
-            nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)
-
-            ! Index in off-element local facial ordering
-                l = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
-=======
             ! Index in off-element local facial ordering
             l     = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
->>>>>>> 68963d99ea703f45e0ccaf5f43131424378be43c
 
-           fV_2d_Mort_On(:,j) = fv_2d_Mort_Off(:,l)
+           fV_2d_Mort_On(:,j) = flip_sign * fv_2d_Mort_Off(:,l)
 
-          enddo
+          enddo On_Mortar_3
 
           call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
                                  fV_2d_Mort_On(:,:),fV_2d_On(:,:),Intrp_On)
 
-<<<<<<< HEAD
-=======
-          ! sign so normal is facing outward
-          flip_sign = sign(1.0_wp,real(facenormalcoordinate(iface),wp)) * &
-                      sign(1.0_wp,real(facenormalcoordinate(kface),wp))
-          fV_2d_On(:,:) = flip_sign * fV_2d_On(:,:)
-
->>>>>>> 68963d99ea703f45e0ccaf5f43131424378be43c
           !  =======
           !  IP dissipation: formed on the common mortar between element interfaces
           !  =======
-          Up_diss_Mort(:,:) = 0.0_wp
-          do j = 1, n_S_2d_Mort
+          On_Mortar_4:do j = 1, n_S_2d_Mort
   
             ! Index in facial ordering
             jnode =  n_S_2d_max*(iface-1) + j
@@ -3788,28 +3766,29 @@ contains
             nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)
 
             lnode = efn2efn_Gau(4,jnode,ielem)
-            knode = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
+            l     = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
 
-            call entropy_to_primitive(wg_Mort_On (:,j    ),vg_On (:),nequations)
-            call entropy_to_primitive(wg_Mort_Off(:,knode),vg_Off(:),nequations)
+            call entropy_to_primitive(wg_Mort_On (:,j),vg_On (:),nequations)
+            call entropy_to_primitive(wg_Mort_Off(:,l),vg_Off(:),nequations)
 
             hatc_On  = matrix_hatc_node(vg_On (:),nx,nx,nequations)
             hatc_Off = matrix_hatc_node(vg_Off(:),nx,nx,nequations)
 
             Jx_r_On  = Jx_r_Gau_shell(jnode,ielem)
             Jx_r_Off = Jx_r_Gau_shell(lnode,kelem)
+          
+            matrix_ip = (hatc_On + hatc_Off) * pinv(1) / (Jx_r_On + Jx_r_Off)
 
-           matrix_ip = (hatc_On + hatc_Off) * pinv(1) / (Jx_r_On + Jx_r_Off)
-
-           IP_2d_Mort(:,j) = - l00*matmul(matrix_ip,wg_Mort_On(:,j)-wg_Mort_Off(:,knode))
+            IP_2d_Mort(:,j) = - l00*matmul(matrix_ip,wg_Mort_On(:,j)-wg_Mort_Off(:,l))
               
-          enddo
+          enddo On_Mortar_4
+
 
           call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                                 IP_2d_Mort(:,:),IP_2d_On(:,:),Intrp_On)
+                                    IP_2d_Mort(:,:),IP_2d_On(:,:),Intrp_On)
 
           !  Onface sweep 
-          do i = 1, n_S_2d_On
+          On_Elem_4:do i = 1, n_S_2d_On
         
             ! Index in facial ordering
             jnode =  n_S_2d_On*(iface-1) + i
@@ -3829,13 +3808,11 @@ contains
             fstarV(:) = normalviscousflux(vg_On (:), phig_On (:,:), nx, nequations, mut(inode,ielem)) &
                       - fV_2d_On(:,i)
 
-!  HACK ALERT
-            SAT_Pen(:) = + l01_ldg_flip_flop*fstarV(:) !+ IP_2d_On(:,i)
-!  HACK ALERT
+            SAT_Pen(:) = + l01_ldg_flip_flop*fstarV(:) + IP_2d_On(:,i)
 
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
 
-          enddo
+          enddo On_Elem_4
 
           deallocate(FxA,FyA,FzA)
           deallocate(FxB,FyB,FzB)
@@ -6231,11 +6208,7 @@ contains
         real(wp), dimension(:),   allocatable :: dphi, vg_On, vg_Off, wg_On, wg_Off
         real(wp), dimension(:,:), allocatable :: phig_tmp1, phig_tmp2, phig_err1
         real(wp), dimension(:),   allocatable :: x_S_1d_Mort, w_S_1d_Mort
-<<<<<<< HEAD
-        real(wp), dimension(:),   allocatable :: x_S_1d_Off , x_S_1d_On
-=======
         real(wp), dimension(:),   allocatable :: x_S_1d_On , x_S_1d_Off
->>>>>>> 68963d99ea703f45e0ccaf5f43131424378be43c
         real(wp), dimension(:,:), allocatable :: wg_2d_Mort_On, wg_2d_Mort_Off, wg_2d_On, wg_2d_Off
 
         real(wp), allocatable, dimension(:,:) :: Extrp_Off, Extrp_On
@@ -6270,11 +6243,8 @@ contains
         element_Loop:do ielem = ihelems(1), ihelems(2)
 
           call element_properties(ielem,              &
-<<<<<<< HEAD
-=======
                                 n_pts_1d=n_S_1d_On,   &
                                 x_pts_1d=x_S_1d_On,   &
->>>>>>> 68963d99ea703f45e0ccaf5f43131424378be43c
                                 n_pts_2d=n_S_2d_On,   &
                                 n_pts_3d=n_S_3d_On,   &
                                  nnzgrad=nnzgrad,     &
@@ -6365,12 +6335,8 @@ contains
 
                 !  On-process and conforming
                 do i = 1,n_S_2d_On
-<<<<<<< HEAD
-                  jnode = n_S_2d_On*(iface-1)+i
-=======
 
                   jnode = n_S_2d_On*(iface-1) + i
->>>>>>> 68963d99ea703f45e0ccaf5f43131424378be43c
                   ! corresponding volumetric node for face node
                   inode = ifacenodes_On(jnode)
                   ! volumetric node of partner node
@@ -6386,18 +6352,16 @@ contains
                   ! LDC/LDG penalty value
                   l10_ldg_flip_flop = l10*(1.0_wp + ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
                   dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg_On(:) - wg_Off(:))
-<<<<<<< HEAD
-=======
 
->>>>>>> 68963d99ea703f45e0ccaf5f43131424378be43c
                   ! add LDC/LDG penalty to each physical gradient using the normal
                   do jdir = 1,ndim
                     phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
                   end do
                 end do
-<<<<<<< HEAD
 
                 else
+
+                  !  On-process and NONconforming
 
                   n_S_1d_max  = (npoly_max+1)**1
                   n_S_2d_max  = (npoly_max+1)**2
@@ -6442,114 +6406,7 @@ contains
                               Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
                   endif
 
-                  !  On-process and NONconforming
-                  do k = 1, n_S_2d_Off
-    
-                    ! Index in facial ordering
-                    lnode =  n_S_2d_Off*(kface-1) + k
-        
-                    ! Volumetric node index corresponding to facial node index
-                    knode = ifacenodes_Off(lnode)
-        
-                    vg_Off(:  ) =   vg(:,knode,kelem)
-                    call primitive_to_entropy(vg_Off,wg_Off,nequations)
-        
-                    wg_2d_Off(:,k) = wg_Off(:)
-        
-                  enddo
-
-                  call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On, &
-                                         wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off)
-              
-                  do j = 1, n_S_2d_Mort
-          
-                    ! Index in facial ordering
-                    jnode =  n_S_2d_max*(iface-1) + j
-          
-                    ! Index in off-element local facial ordering
-                    l = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
-    
-                   wg_2d_Mort_On(:,j) = wg_2d_Mort_Off(:,l)
-        
-                  enddo
-
-                  call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                                         wg_2d_Mort_On(:,:),wg_2d_On(:,:),Intrp_On)
-
-                  !  On-process and conforming
-                  do i = 1,n_S_2d_On
-    
-                    jnode = n_S_2d_On*(iface-1) + i
-                    ! corresponding volumetric node for face node
-                    inode = ifacenodes_On(jnode)
-    
-                    ! outward facing normal of facial node
-                    nx = facenodenormal(:,jnode,ielem)
-      
-                    ! LDC/LDG penalty value
-                    l10_ldg_flip_flop = l10*(1.0_wp + ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
-                    dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg_On(:) - wg_2d_On(:,i))
-    
-                    ! add LDC/LDG penalty to each physical gradient using the normal
-                    do jdir = 1,ndim
-                      phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
-                    end do
-                  end do
-
-              end if
-            end if
-          end do
-        end do
-=======
->>>>>>> 68963d99ea703f45e0ccaf5f43131424378be43c
-
-                else
-
-                  n_S_1d_max  = (npoly_max+1)**1
-                  n_S_2d_max  = (npoly_max+1)**2
-                  kface       = ef2e(1,iface,ielem)
-                  kelem       = ef2e(2,iface,ielem)
-
-                  call element_properties(kelem,&
-                                 n_pts_1d=n_S_1d_Off,&
-                                 n_pts_2d=n_S_2d_Off,&
-                                 x_pts_1d=x_S_1d_Off,&
-                               ifacenodes=ifacenodes_Off)
-
-                  n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
-                  n_S_2d_Mort = (n_S_1d_Mort)**2
-                  if(allocated(x_S_1d_Mort)) deallocate(x_S_1d_Mort) ; allocate(x_S_1d_Mort(n_S_1d_Mort)) ;
-                  if(allocated(w_S_1d_Mort)) deallocate(w_S_1d_Mort) ; allocate(w_S_1d_Mort(n_S_1d_Mort)) ;
-                  call Gauss_Legendre_points(n_S_1d_Mort,x_S_1d_Mort,w_S_1d_Mort)
-
-                  allocate(wg_2d_Mort_On (nequations,n_S_2d_Mort))
-                  allocate(wg_2d_Mort_Off(nequations,n_S_2d_Mort))
-
-                  allocate(wg_2d_On      (nequations,n_S_2d_On  ))
-                  allocate(wg_2d_Off     (nequations,n_S_2d_Off ))
-
-                  if(n_S_1d_Mort == n_S_1d_On) then
-                    poly_val = n_S_1d_Mort - npoly
-                     allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
-                              Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,1) ;
-                     allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
-                              Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,1) ;
-                    poly_val = n_S_1d_Off  - npoly
-                     allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
-                              Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,2) ;
-                  else
-                    poly_val = n_S_1d_On - npoly
-                     allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
-                              Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,2) ;
-                     allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
-                              Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,2) ;
-                    poly_val = n_S_1d_Mort - npoly
-                     allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
-                              Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
-                  endif
-
-                  !  On-process and NONconforming
-                  do k = 1, n_S_2d_Off
+                  Off_Elem:do k = 1, n_S_2d_Off
     
                     ! Index in facial ordering
                     lnode =  n_S_2d_Off*(kface-1) + k
@@ -6562,12 +6419,12 @@ contains
         
                     wg_2d_Off(:,k) = wg_Off(:)
         
-                  enddo
+                  enddo Off_Elem
 
                   call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
                                          wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off)
               
-                  do j = 1, n_S_2d_Mort
+                  On_Mortar:do j = 1, n_S_2d_Mort
           
                     ! Index in facial ordering
                     jnode =  n_S_2d_max*(iface-1) + j
@@ -6577,13 +6434,13 @@ contains
     
                    wg_2d_Mort_On(:,j) = wg_2d_Mort_Off(:,l)
         
-                  enddo
+                  enddo On_Mortar
 
                   call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
                                          wg_2d_Mort_On(:,:),wg_2d_On(:,:),Intrp_On)
 
-                  !  On-process and conforming
-                  do i = 1,n_S_2d_On
+                  !  On-Element face loop
+                  On_Elem:do i = 1,n_S_2d_On
     
                     ! Index in facial ordering
                     jnode = n_S_2d_On*(iface-1) + i
@@ -6605,7 +6462,8 @@ contains
                     do jdir = 1,ndim
                       phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
                     end do
-                  end do
+
+                  end do On_Elem
 
                   deallocate(x_S_1d_Mort, w_S_1d_Mort)
                   deallocate(wg_2d_Mort_On, wg_2d_Mort_Off)
