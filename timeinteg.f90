@@ -493,7 +493,7 @@ contains
         uhat(:,inode,ielem) =            uhat(:,inode,ielem) + brkh(nstep)* dU  (:,inode,ielem)
        enddo
 
-      call Negative_Density_Removal(nodesperelem,ielem,ug(:,:,ielem))
+!     call Negative_Density_Removal(nodesperelem,ielem,ug(:,:,ielem))
 
     end do
 
@@ -903,7 +903,7 @@ contains
     ! Write restart file for each processor if needed
     if (write_restart .eqv. .true.) then
       if (MOD(time_step_cnt,write_restart_frequency)==0 .or. &
-        & global_time == timemaximum) then
+        & global_time >= timemaximum) then
       
       ! Write restart file
       call write_restart_file()        
