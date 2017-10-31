@@ -4365,9 +4365,9 @@ contains
  
     enddo
 
-    do ielem = 1,nhex,3
-      elem_props(2,ielem) = npoly+2
-    enddo
+!   do ielem = 1,nhex,3
+!     elem_props(2,ielem) = npoly+2
+!   enddo
 
 !   elem_props(2,2) = npoly+2 
 
@@ -4661,8 +4661,8 @@ contains
     return
   end subroutine data_partner_element_serial     !   SERIAL Routine
 
-  pure function WENO_Adjoining_Data(k_node,k_face)     !   PARALLEL Routine
-! function WENO_Adjoining_Data(k_node,k_face)
+! pure function WENO_Adjoining_Data(k_node,k_face)     !   PARALLEL Routine
+  function WENO_Adjoining_Data(k_node,k_face)
      !  Grab the data that lives at the first point off the surface of the
      !  adjoining element
 
@@ -4683,6 +4683,9 @@ contains
          WENO_Adjoining_Data = k_node + 1
      elseif(k_face == 6) then
          WENO_Adjoining_Data = k_node - nodesperface
+     else 
+         write(*,*)'invalid face. Stopping'
+         stop
      endif
 
   end function WENO_Adjoining_Data     !   PARALLEL Routine
@@ -4779,6 +4782,7 @@ contains
       enddo
 
     enddo
+
 
     call UpdateComm1DGhostDataWENOGeom(xgWENO_self, xghstWENO_partner, &
                  xpetscWENO_partner, xlocpetscWENO_partner, 3, nodespershell, ihelems, nghost)

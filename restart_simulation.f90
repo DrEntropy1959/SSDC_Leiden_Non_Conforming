@@ -71,7 +71,7 @@ contains
     character(120) :: file_name
     character(120) :: tag_proc
     character(120) :: tag_time
-    integer :: ielem, i_node
+    integer :: ielem, inode
     integer :: i_unit, io_status
     integer :: max_unit
     character(120) :: message
@@ -118,8 +118,8 @@ contains
       do ielem = ihelems(1), ihelems(2)
         call element_properties(ielem,n_pts_3d=nodesperelem)
         write(i_unit,*) ielem
-        do i_node = 1, nodesperelem
-          write(i_unit,*) ug(:,i_node,ielem)
+        do inode = 1, nodesperelem
+          write(i_unit,*) ug(:,inode,ielem)
         enddo
       enddo
 
@@ -128,16 +128,16 @@ contains
         do ielem = ihelems(1), ihelems(2)
           call element_properties(ielem,n_pts_3d=nodesperelem)
           write(i_unit,*) ielem
-          do i_node = 1, nodesperelem
-            write(i_unit,*) mean_vg(:,i_node,ielem)
+          do inode = 1, nodesperelem
+            write(i_unit,*) mean_vg(:,inode,ielem)
           enddo
         enddo
 
         do ielem = ihelems(1), ihelems(2)
           call element_properties(ielem,n_pts_3d=nodesperelem)
           write(i_unit,*) ielem
-          do i_node = 1, nodesperelem
-            write(i_unit,*) time_ave_prod_vel_comp(:,i_node,ielem)
+          do inode = 1, nodesperelem
+            write(i_unit,*) time_ave_prod_vel_comp(:,inode,ielem)
           enddo
         enddo
 
@@ -173,8 +173,8 @@ contains
       do ielem = ihelems(1), ihelems(2)
         call element_properties(ielem,n_pts_3d=nodesperelem)
         write(i_unit) ielem
-        do i_node = 1, nodesperelem
-          write(i_unit) ug(:,i_node,ielem)
+        do inode = 1, nodesperelem
+          write(i_unit) ug(:,inode,ielem)
         enddo
       enddo
 
@@ -184,16 +184,16 @@ contains
         do ielem = ihelems(1), ihelems(2)
           call element_properties(ielem,n_pts_3d=nodesperelem)
           write(i_unit) ielem
-          do i_node = 1, nodesperelem
-            write(i_unit) mean_vg(:,i_node,ielem)
+          do inode = 1, nodesperelem
+            write(i_unit) mean_vg(:,inode,ielem)
           enddo
         enddo
 
         do ielem = ihelems(1), ihelems(2)
           call element_properties(ielem,n_pts_3d=nodesperelem)
           write(i_unit) ielem
-          do i_node = 1, nodesperelem
-            write(i_unit) time_ave_prod_vel_comp(:,i_node,ielem)
+          do inode = 1, nodesperelem
+            write(i_unit) time_ave_prod_vel_comp(:,inode,ielem)
           enddo
         enddo
 
@@ -243,7 +243,7 @@ contains
     logical :: lexist
     character(120) :: file_name
     character(120) :: tag_proc
-    integer :: ielem, i_node
+    integer :: ielem, inode
     integer :: i_unit, io_status
     integer :: elem_ID
     integer :: max_unit
@@ -320,8 +320,8 @@ contains
           stop
         endif
 
-        do i_node = 1, nodesperelem_tmp
-          read(i_unit,*) ug_tmp(:,i_node,ielem)
+        do inode = 1, nodesperelem_tmp
+          read(i_unit,*) ug_tmp(:,inode,ielem)
         enddo
       enddo
 
@@ -341,8 +341,8 @@ contains
             stop
           endif
 
-          do i_node = 1, nodesperelem
-            read(i_unit,*) mean_vg(:,i_node,ielem)
+          do inode = 1, nodesperelem
+            read(i_unit,*) mean_vg(:,inode,ielem)
           enddo
         enddo
 
@@ -358,8 +358,8 @@ contains
             stop
           endif
 
-          do i_node = 1, nodesperelem
-            read(i_unit,*) time_ave_prod_vel_comp(:,i_node,ielem)
+          do inode = 1, nodesperelem
+            read(i_unit,*) time_ave_prod_vel_comp(:,inode,ielem)
           enddo
         enddo
 
@@ -412,8 +412,8 @@ contains
           stop
         endif
 
-        do i_node = 1, nodesperelem_tmp
-          read(i_unit) ug_tmp(:,i_node,ielem)
+        do inode = 1, nodesperelem_tmp
+          read(i_unit) ug_tmp(:,inode,ielem)
         enddo
       enddo
 
@@ -441,8 +441,8 @@ contains
             stop
           endif
 
-          do i_node = 1, nodesperelem
-            read(i_unit) mean_vg(:,i_node,ielem)
+          do inode = 1, nodesperelem
+            read(i_unit) mean_vg(:,inode,ielem)
           enddo
         enddo
 
@@ -459,8 +459,8 @@ contains
             stop
           endif
 
-          do i_node = 1, nodesperelem
-            read(i_unit) time_ave_prod_vel_comp(:,i_node,ielem)
+          do inode = 1, nodesperelem
+            read(i_unit) time_ave_prod_vel_comp(:,inode,ielem)
           enddo
         enddo
 

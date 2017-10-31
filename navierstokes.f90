@@ -79,6 +79,7 @@ contains
     call nse_initializesemidiscretization() !(navierstokes)
     ! set up parallel communication
     call nse_communicationsetup()
+
     ! set up extrapolation points from adjoining elements to bridge the interfaces
     if(discretization == 'SSWENO') call WENO_Intrp_Face_Nodes()
 
@@ -3153,14 +3154,14 @@ contains
 
     real(wp), allocatable, dimension(:,:) :: FxA, FyA, FzA
     real(wp), allocatable, dimension(:,:) :: FxB, FyB, FzB
-    real(wp), allocatable, dimension(:,:) :: FC_On, FC_Off
-    real(wp), allocatable, dimension(:,:) :: FC_Mort_On, FC_Mort_Off
+    real(wp), allocatable, dimension(:,:) :: FC_On
+    real(wp), allocatable, dimension(:,:) :: FC_Mort_On
     real(wp), allocatable, dimension(:,:) :: Extrp_Off, Extrp_On
     real(wp), allocatable, dimension(:,:) ::            Intrp_On
     real(wp), allocatable, dimension(:,:) :: wg_Mort_On,wg_Mort_Off
     real(wp), allocatable, dimension(:,:) :: wg_2d_On,  wg_2d_Off
     real(wp), allocatable, dimension(:,:) :: fV_2d_On,  fV_2d_Off, fV_2d_Mort
-    real(wp), allocatable, dimension(:,:) :: fV_2d_Mort_On, fV_2d_Mort_Off
+    real(wp), allocatable, dimension(:,:) :: fV_Mort_On, fV_Mort_Off
     real(wp), allocatable, dimension(:,:) :: IP_2d_On, IP_2d_Mort
     real(wp), allocatable, dimension(:,:) :: Up_diss_Mort, Up_diss_On
     integer,  allocatable, dimension(:,:) :: kfacenodes_On, kfacenodes_Off
@@ -3525,70 +3526,68 @@ contains
 
         else  ! Adjoining element on iface differs in order
 
-        n_S_1d_max  = (npoly_max+1)**1
-        n_S_2d_max  = (npoly_max+1)**2
-        kface       = ef2e(1,iface,ielem)
-        kelem       = ef2e(2,iface,ielem)
+          n_S_1d_max  = (npoly_max+1)**1
+          n_S_2d_max  = (npoly_max+1)**2
+          kface       = ef2e(1,iface,ielem)
+          kelem       = ef2e(2,iface,ielem)
 
-        ! Flip sign when appropriate so that sign so normal is facing outward
-        flip_sign = sign(1.0_wp,real(facenormalcoordinate(iface),wp)) * &
-                    sign(1.0_wp,real(facenormalcoordinate(kface),wp))
+          ! Flip sign when appropriate so that sign so normal is facing outward
+          flip_sign = sign(1.0_wp,real(facenormalcoordinate(iface),wp)) * &
+                      sign(1.0_wp,real(facenormalcoordinate(kface),wp))
+  
+          call element_properties(kelem,&
+                         n_pts_1d=n_S_1d_Off,&
+                         n_pts_2d=n_S_2d_Off,&
+                         x_pts_1d=x_S_1d_Off,&
+                       kfacenodes=kfacenodes_Off,&
+                       ifacenodes=ifacenodes_Off)
 
-        call element_properties(kelem,&
-                       n_pts_1d=n_S_1d_Off,&
-                       n_pts_2d=n_S_2d_Off,&
-                       x_pts_1d=x_S_1d_Off,&
-                     kfacenodes=kfacenodes_Off,&
-                     ifacenodes=ifacenodes_Off)
-
-        n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
-        n_S_2d_Mort = (n_S_1d_Mort)**2
-        if(allocated(x_S_1d_Mort)) deallocate(x_S_1d_Mort) ; allocate(x_S_1d_Mort(n_S_1d_Mort)) ;
-        if(allocated(w_S_1d_Mort)) deallocate(w_S_1d_Mort) ; allocate(w_S_1d_Mort(n_S_1d_Mort)) ;
-        call Gauss_Legendre_points(n_S_1d_Mort,x_S_1d_Mort,w_S_1d_Mort)
-
-        allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
-        allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
-
-        allocate( FC_Mort_On (nequations,n_S_2D_Mort))
-        allocate( FC_Mort_Off(nequations,n_S_2D_Mort))
-        allocate( wg_Mort_On (nequations,n_S_2d_Mort))
-        allocate( wg_Mort_Off(nequations,n_S_2d_Mort))
-        allocate(Up_diss_Mort(nequations,n_S_2d_Mort))
-        allocate(  fV_2d_Mort(nequations,n_S_2d_Mort))
-        allocate(fV_2d_Mort_Off(nequations,n_S_2d_Mort))
-        allocate(fV_2d_Mort_On (nequations,n_S_2d_Mort))
-        allocate(  IP_2d_Mort(nequations,n_S_2d_Mort))
-
-        allocate(FC_On       (nequations,n_S_2D_On  ))
-        allocate(wg_2d_On    (nequations,n_S_2d_On  ))
-        allocate(Up_diss_On  (nequations,n_S_2d_On  ))
-        allocate(IP_2d_On    (nequations,n_S_2d_On  ))
-        allocate(fV_2d_On    (nequations,n_S_2d_On  ))
-
-        allocate(FC_Off      (nequations,n_S_2D_Off ))
-        allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
-        allocate(fV_2d_Off   (nequations,n_S_2d_Off ))
-
-        if(n_S_1d_Mort == n_S_1d_On) then
-          poly_val = n_S_1d_Mort - npoly
-           allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
-                    Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,1) ;
-           allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
-                    Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,1) ;
-          poly_val = n_S_1d_Off  - npoly
-           allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
-                    Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,2) ;
-        else
-          poly_val = n_S_1d_On - npoly
-           allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
-                    Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,2) ;
-           allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
-                    Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,2) ;
-          poly_val = n_S_1d_Mort - npoly
-           allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
-                    Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
-        endif
+          n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
+          n_S_2d_Mort = (n_S_1d_Mort)**2
+          if(allocated(x_S_1d_Mort)) deallocate(x_S_1d_Mort) ; allocate(x_S_1d_Mort(n_S_1d_Mort)) ;
+          if(allocated(w_S_1d_Mort)) deallocate(w_S_1d_Mort) ; allocate(w_S_1d_Mort(n_S_1d_Mort)) ;
+          call Gauss_Legendre_points(n_S_1d_Mort,x_S_1d_Mort,w_S_1d_Mort)
+  
+          allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
+          allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
+  
+          allocate( FC_Mort_On (nequations,n_S_2D_Mort))
+          allocate( wg_Mort_On (nequations,n_S_2d_Mort))
+          allocate( wg_Mort_Off(nequations,n_S_2d_Mort))
+          allocate(Up_diss_Mort(nequations,n_S_2d_Mort))
+          allocate(  fV_2d_Mort(nequations,n_S_2d_Mort))
+          allocate(fV_Mort_Off(nequations,n_S_2d_Mort))
+          allocate(fV_Mort_On (nequations,n_S_2d_Mort))
+          allocate(  IP_2d_Mort(nequations,n_S_2d_Mort))
+  
+          allocate(FC_On       (nequations,n_S_2D_On  ))
+          allocate(wg_2d_On    (nequations,n_S_2d_On  ))
+          allocate(Up_diss_On  (nequations,n_S_2d_On  ))
+          allocate(IP_2d_On    (nequations,n_S_2d_On  ))
+          allocate(fV_2d_On    (nequations,n_S_2d_On  ))
+  
+          allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
+          allocate(fV_2d_Off   (nequations,n_S_2d_Off ))
+  
+          if(n_S_1d_Mort == n_S_1d_On) then
+            poly_val = n_S_1d_Mort - npoly
+             allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
+                      Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,1) ;
+             allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
+                      Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,1) ;
+            poly_val = n_S_1d_Off  - npoly
+             allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
+                      Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,2) ;
+          else
+            poly_val = n_S_1d_On - npoly
+             allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
+                      Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,2) ;
+             allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
+                      Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,2) ;
+            poly_val = n_S_1d_Mort - npoly
+             allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
+                      Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
+          endif
   
 !=========
 !         Inviscid interface SATs (skew-symmetric portion)
@@ -3716,7 +3715,7 @@ contains
 ! ========
 
           !  =======
-          !  LDG viscous dissipation: Connects Off with On interfaces directly
+          !  LDG viscous dissipation: Connects Off with On interfaces through mortar
           !  =======
           Off_Elem_3:do k = 1, n_S_2d_Off
 
@@ -3737,7 +3736,7 @@ contains
           enddo Off_Elem_3
 
           call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                                 fV_2d_Off(:,:),fV_2d_Mort_Off(:,:),Extrp_Off)
+                                 fV_2d_Off(:,:),fV_Mort_Off(:,:),Extrp_Off)
           
           On_Mortar_3:do j = 1, n_S_2d_Mort
   
@@ -3747,12 +3746,13 @@ contains
             ! Index in off-element local facial ordering
             l     = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
 
-           fV_2d_Mort_On(:,j) = flip_sign * fv_2d_Mort_Off(:,l)
+!          fV_Mort_On(:,j) = flip_sign * fV_Mort_Off(:,l)
+           fV_Mort_On(:,j) = - fV_Mort_Off(:,l)
 
           enddo On_Mortar_3
 
           call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                                 fV_2d_Mort_On(:,:),fV_2d_On(:,:),Intrp_On)
+                                 fV_Mort_On(:,:),fV_2d_On(:,:),Intrp_On)
 
           !  =======
           !  IP dissipation: formed on the common mortar between element interfaces
@@ -3816,12 +3816,12 @@ contains
 
           deallocate(FxA,FyA,FzA)
           deallocate(FxB,FyB,FzB)
-          deallocate(FC_On, FC_Off, FC_Mort_On, FC_Mort_Off)
+          deallocate(FC_On, FC_Mort_On)
+          deallocate(fV_Mort_Off, fV_Mort_On)
           deallocate(wg_Mort_On,wg_Mort_Off)
           deallocate(wg_2d_On,  wg_2d_Off  )
           deallocate(Up_diss_On,Up_diss_Mort)
           deallocate(fV_2d_On, fV_2d_Off, fV_2d_Mort)
-          deallocate(fV_2d_Mort_Off, fV_2d_Mort_On)
           deallocate(IP_2d_On,IP_2d_Mort)
           deallocate(Extrp_Off,Extrp_On)
           deallocate(Intrp_On)
