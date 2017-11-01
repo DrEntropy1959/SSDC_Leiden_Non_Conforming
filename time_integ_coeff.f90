@@ -93,7 +93,7 @@ contains
     implicit none
 
     real(wp) :: b1, b2, b3, b4, b5, b6
-    integer, parameter  :: method = 1
+    integer, parameter  :: method = 0
 
     ! Williamson
     ! ==========

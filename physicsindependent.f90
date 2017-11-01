@@ -114,7 +114,7 @@ contains
         ! Create connectivity from the original grid
         call e2e_connectivity_aflr3()  
 
-!       write(*,*) 'Master node builds element orders'
+!       write(*,*) 'Master node builds element orders if non-conforming'
 !       write(*,*) '==============================================================='
         call set_element_orders_serial()      
 
@@ -222,7 +222,7 @@ contains
     call calcfacenormals_LGL()
     call calcfacenormals_Gau()
 
-!   call Modify_Metrics_NonConforming()
+    if(non_conforming .eqv. .true.) call Modify_Metrics_NonConforming()
 
     if (myprocid == 0) then
       write(*,*) 'Start actual computation'
