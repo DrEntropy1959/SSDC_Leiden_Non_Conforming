@@ -92,55 +92,109 @@ contains
     ! Nothing is implicitly defined
     implicit none
 
-    real(wp) :: b1, b2, b3, b4, b5
+    real(wp) :: b1, b2, b3, b4, b5, b6
+    integer, parameter  :: method = 1
 
     ! Williamson
     ! ==========
 
-    ! Number of stages
-    rksteps = 5
+    select case(method)
 
-    ! Allocate memory for coefficients and initialize them
-    allocate(alsrk(rksteps),brk(rksteps),brkh(rksteps),crk(rksteps))
-    alsrk = zero
-    brk = zero
-    brkh = zero
-    crk = zero
+      case(0)
 
-    ! Stage coefficients
-    alsrk(1) =  0._wp
-    alsrk(2) = -0.4801594388478_wp
-    alsrk(3) = -1.4042471952_wp
-    alsrk(4) = -2.016477077503_wp
-    alsrk(5) = -1.056444269767_wp
+        rksteps = 5                ! Number of stages
 
-    ! Weights
-    brk(1) = 0.1028639988105_wp
-    brk(2) = 0.7408540575767_wp
-    brk(3) = 0.7426530946684_wp
-    brk(4) = 0.4694937902358_wp
-    brk(5) = 0.1881733382888_wp
+        ! Allocate memory for coefficients and initialize them
+        allocate(alsrk(rksteps),brk(rksteps),brkh(rksteps),crk(rksteps))
+        alsrk = zero
+        brk   = zero
+        brkh  = zero
+        crk   = zero
 
-    ! Helping variables
-    b1 = 1150667._wp/35155867._wp
-    b2 = 12453995._wp/50501979._wp
-    b3 = 6259373._wp/22243429._wp
-    b4 = 18446371._wp/66784475._wp
-    b5 = 9499292._wp/58258297._wp
+        ! Stage coefficients
+        alsrk(1) =  0.0_wp
+        alsrk(2) = -0.4801594388478_wp
+        alsrk(3) = -1.4042471952_wp
+        alsrk(4) = -2.016477077503_wp
+        alsrk(5) = -1.056444269767_wp
 
-    ! Weights of the embedded method for the error estimation
-    brkh(5) = b5
-    brkh(4) = b4 - alsrk(5)*b5
-    brkh(3) = b3 - alsrk(4)*b4
-    brkh(2) = b2 - alsrk(3)*b3
-    brkh(1) = b1 - alsrk(2)*b2
+        ! Weights
+        brk(1) = 0.1028639988105_wp
+        brk(2) = 0.7408540575767_wp
+        brk(3) = 0.7426530946684_wp
+        brk(4) = 0.4694937902358_wp
+        brk(5) = 0.1881733382888_wp
 
-    ! Nodes
-    crk(1) = 0._wp
-    crk(2) = 0.1028639988105_wp
-    crk(3) = 0.487989987833_wp
-    crk(4) = 0.6885177231562_wp
-    crk(5) = 0.9023816453077_wp
+        ! Helping variables
+        b1 = 1150667._wp/35155867._wp
+        b2 = 12453995._wp/50501979._wp
+        b3 = 6259373._wp/22243429._wp
+        b4 = 18446371._wp/66784475._wp
+        b5 = 9499292._wp/58258297._wp
+  
+        ! Weights of the embedded method for the error estimation
+        brkh(5) = b5
+        brkh(4) = b4 - alsrk(5)*b5
+        brkh(3) = b3 - alsrk(4)*b4
+        brkh(2) = b2 - alsrk(3)*b3
+        brkh(1) = b1 - alsrk(2)*b2
+
+        ! Nodes
+        crk(1) = 0._wp
+        crk(2) = 0.1028639988105_wp
+        crk(3) = 0.487989987833_wp
+        crk(4) = 0.6885177231562_wp
+        crk(5) = 0.9023816453077_wp
+
+      case(1)
+
+        rksteps = 6                ! Number of stages
+
+        ! Allocate memory for coefficients and initialize them
+        allocate(alsrk(rksteps),brk(rksteps),brkh(rksteps),crk(rksteps))
+        alsrk = zero
+        brk   = zero
+        brkh  = zero
+        crk   = zero
+
+        ! Stage coefficients
+        alsrk(2) = -56022528.0_wp/ 150050353.0_wp
+        alsrk(3) = -96646469.0_wp/ 120630563.0_wp
+        alsrk(4) = -144992129.0_wp/ 98109555.0_wp
+        alsrk(5) = -79666811.0_wp/ 37868774.0_wp
+        alsrk(6) = -85387295.0_wp/ 44036756.0_wp
+
+        ! Weights of main mathod
+        brk(1)  = 10764601.0_wp/ 113944427.0_wp
+        brk(2)  = 36150543.0_wp/ 139452415.0_wp
+        brk(3)  = 182008983.0_wp/ 504724679.0_wp
+        brk(4)  = 92067757.0_wp/ 111839021.0_wp
+        brk(5)  = 46859183.0_wp/ 63300472.0_wp
+        brk(6)  = 47126472.0_wp/ 380443417.0_wp
+
+        b1      = -5062502208571.0_wp/10831071574082.0_wp
+        b2      =  7350684609029.0_wp/8562057514121.0_wp
+        b3      =  -18221243228277.0_wp/40554070092353.0_wp
+        b4      =  129818982301.0_wp/4807233560427.0_wp
+        b5      =  253026190555.0_wp/10259350328147.0_wp
+        b6      =  15875538881.0_wp/2432482339802.0_wp
+
+        ! Weights of embedded mathod
+        brkh(1) = brk(1) - b1
+        brkh(2) = brk(2) - b2
+        brkh(3) = brk(3) - b3
+        brkh(4) = brk(4) - b4
+        brkh(5) = brk(5) - b5
+        brkh(6) = brk(6) - b6
+
+        crk(1)  = 0.0_wp
+        crk(2)  = 10764601.0_wp/113944427.0_wp
+        crk(3)  = 1122593674877.0_wp/4369462009356.0_wp
+        crk(4)  = 4914898956286.0_wp/11260214860537.0_wp
+        crk(5)  = 2210250771543.0_wp/3380123205067.0_wp
+        crk(6)  = 34536188621667.0_wp/ 35138252455445.0_wp
+
+    end select
 
     return
   end subroutine ls_rk_initialization
