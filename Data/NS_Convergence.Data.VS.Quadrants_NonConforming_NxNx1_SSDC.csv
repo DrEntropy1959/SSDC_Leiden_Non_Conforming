@@ -1,0 +1,44 @@
+;;;;;;
+ P           1 L1   error:   0.10429945477738700     L2   error:   0.16493121535581948     Linf error:   0.51753007719789945     CPU time:          0.2458
+ P           1 L1   error:    5.9350544507627535E-002 L2   error:   0.10976444702848687     Linf error:   0.43488339580011681     CPU time:          0.4006
+ P           1 L1   error:    3.4290353209834187E-002 L2   error:    7.0035562585971975E-002 Linf error:   0.38472171828531554     CPU time:          0.4784
+ P           1 L1   error:    2.0261719338712868E-002 L2   error:    4.4570631195359339E-002 Linf error:   0.30350644051698072     CPU time:          0.8310
+ P           1 L1   error:    1.0171066969683595E-002 L2   error:    2.2227268268144855E-002 Linf error:   0.17502681426657807     CPU time:          1.7505
+ P           1 L1   error:    6.1749060936928382E-003 L2   error:    1.4181499372985547E-002 Linf error:   0.12221567430602143     CPU time:          3.4022
+ P           1 L1   error:    3.0156771152737780E-003 L2   error:    6.8889199776720660E-003 Linf error:    6.8602225832255392E-002 CPU time:          8.7682
+ P           1 L1   error:    1.7787849173249856E-003 L2   error:    4.0867851793077135E-003 Linf error:    5.0243954187803475E-002 CPU time:         17.5201
+ P           1 L1   error:    8.4308118070196270E-004 L2   error:    2.0448075618076985E-003 Linf error:    3.3444810087855714E-002 CPU time:         48.3004
+ P           1 L1   error:    5.0791789135066763E-004 L2   error:    1.3215879235189574E-003 Linf error:    2.6850180579598870E-002 CPU time:        107.9267
+
+ P           2 L1   error:    6.5884192625313656E-002 L2   error:   0.11297638763005927     Linf error:   0.35217205619430425     CPU time:          0.5391
+ P           2 L1   error:    1.9846771964290508E-002 L2   error:    4.2136540483332770E-002 Linf error:   0.28987343402276844     CPU time:          1.1160
+ P           2 L1   error:    8.8301854908068439E-003 L2   error:    2.0119312415128467E-002 Linf error:   0.17912997723247903     CPU time:          1.5232
+ P           2 L1   error:    4.5729222494314981E-003 L2   error:    1.1535636088459813E-002 Linf error:   0.16422314109992753     CPU time:          2.8755
+ P           2 L1   error:    1.4578299399700359E-003 L2   error:    3.9856694980048646E-003 Linf error:    8.0033201589118974E-002 CPU time:          7.7138
+ P           2 L1   error:    8.2214302944463174E-004 L2   error:    2.1955332233032352E-003 Linf error:    3.6802102394134728E-002 CPU time:         16.6493
+ P           2 L1   error:    2.6167855791527870E-004 L2   error:    7.7656217409387534E-004 Linf error:    1.4672151679244294E-002 CPU time:         48.9187
+ P           2 L1   error:    1.1508003654365730E-004 L2   error:    3.4173052516050731E-004 Linf error:    7.8151059216065022E-003 CPU time:        107.1391
+ P           2 L1   error:    3.5301993876941866E-005 L2   error:    1.0694811002806768E-004 Linf error:    2.5015713289811004E-003 CPU time:        331.1868
+ P           2 L1   error:                        NaN L2   error:                        NaN Linf error:    0.0000000000000000     CPU time:        218.6792
+
+ P           3 L1   error:    3.8616846942637867E-002 L2   error:    6.8505788817954077E-002 Linf error:   0.28198635707213882     CPU time:          1.3170
+ P           3 L1   error:    7.6305793600272244E-003 L2   error:    1.7357081586373432E-002 Linf error:   0.25243680831691906     CPU time:          3.2033
+ P           3 L1   error:    1.6231358964302978E-003 L2   error:    4.2336536829503165E-003 Linf error:    8.2688402688719798E-002 CPU time:          4.7562
+ P           3 L1   error:    7.0815933235283686E-004 L2   error:    2.1394184160213564E-003 Linf error:    2.4646279226932855E-002 CPU time:          9.7690
+ P           3 L1   error:    1.6841949209889638E-004 L2   error:    5.4607353787431833E-004 Linf error:    9.9002063587381173E-003 CPU time:         28.9036
+ P           3 L1   error:    5.7873292645956858E-005 L2   error:    1.8907553656586783E-004 Linf error:    5.4685703582491030E-003 CPU time:         62.8979
+ P           3 L1   error:    1.0297779070957426E-005 L2   error:    3.6844660788044170E-005 Linf error:    1.1142374578811953E-003 CPU time:        190.2401
+ P           3 L1   error:    3.0272958617915874E-006 L2   error:    1.0919588098973491E-005 Linf error:    4.2819600480736852E-004 CPU time:        434.7586
+ P           3 L1   error:                        NaN L2   error:                        NaN Linf error:    0.0000000000000000     CPU time:        176.1350
+ P           3 L1   error:                        NaN L2   error:                        NaN Linf error:    0.0000000000000000     CPU time:        290.6565
+
+ P           4 L1   error:    2.3300897879485992E-002 L2   error:    4.2464327637017477E-002 Linf error:   0.34261683854332592     CPU time:          3.3093
+ P           4 L1   error:    2.1114965834484849E-003 L2   error:    4.9779359831652386E-003 Linf error:    4.6088248616444449E-002 CPU time:          8.7677
+ P           4 L1   error:    4.2475623659020206E-004 L2   error:    1.2981695530049151E-003 Linf error:    4.0574787878377983E-002 CPU time:         13.8147
+ P           4 L1   error:    1.3981435737739486E-004 L2   error:    4.2406355959203625E-004 Linf error:    1.7277073822331346E-002 CPU time:         29.4464
+ P           4 L1   error:    1.9766255676380766E-005 L2   error:    7.3121127295142248E-005 Linf error:    2.1268133160692315E-003 CPU time:         88.4968
+ P           4 L1   error:    4.6296947015228295E-006 L2   error:    1.7973176919309917E-005 Linf error:    4.0074745413232193E-004 CPU time:        208.8121
+ P           4 L1   error:    7.1082784875011623E-007 L2   error:    2.7613051069803879E-006 Linf error:    9.8829933014243920E-005 CPU time:        630.9014
+ P           4 L1   error:                        NaN L2   error:                        NaN Linf error:    0.0000000000000000     CPU time:        298.6692
+ P           4 L1   error:                        NaN L2   error:                        NaN Linf error:    0.0000000000000000     CPU time:        265.5671
+ P           4 L1   error:                        NaN L2   error:                        NaN Linf error:    0.0000000000000000     CPU time:        479.3743
