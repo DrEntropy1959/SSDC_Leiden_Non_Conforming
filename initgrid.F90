@@ -2530,11 +2530,11 @@ contains
   subroutine modify_metrics_nonconforming()
 
     use referencevariables
-!   use collocationvariables
-    use initcollocation, only: GCL_Triple_Qmat_Transpose, element_properties
-    use eispack_module,  only: svd
-    use unary_mod,       only: qsortd
-    use variables, only: r_x, Jx_r
+    use collocationvariables, only: elem_props
+    use initcollocation,      only: GCL_Triple_Qmat_Transpose, element_properties
+    use eispack_module,       only: svd
+    use unary_mod,            only: qsortd
+    use variables,            only: r_x, Jx_r, ef2e
 
     implicit none
 
@@ -2555,18 +2555,36 @@ contains
     real(wp), dimension(:,:),  allocatable :: delta_a
 
     integer,  dimension(:),    allocatable :: perm
-    integer :: ielem, inode, ierr
-    integer :: i
+    integer :: ielem, inode, ierr, mod_cnt
+    integer :: i, iface
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
-    integer :: nm, m, n
+    integer :: nm, m, n, icnt
 
     logical                                :: testing = .false.
+    logical                                :: modify_metrics = .false.
     real(wp)                               :: t1, t2
     real(wp), parameter                    :: tol = 1.0e-12_wp
 
+    mod_cnt = 0
     ! loop over volumetric elements
     elloop:do ielem = ihelems(1), ihelems(2)
 
+   
+      modify_metrics = .false.
+      icnt = 0
+      do iface = 1,nfacesperelem
+!        write(*,*)ielem,iface,ef2e(4,iface,ielem),elem_props(2,ielem)
+         if (ef2e(4,iface,ielem) /= elem_props(2,ielem)) then
+            modify_metrics = .true.
+            exit
+         endif
+      enddo
+
+      if(modify_metrics .eqv. .false.) cycle  ! don't modify metrics if element is fully conforming
+
+!     write(*,*)'modifying metrics on element',ielem
+      mod_cnt = mod_cnt + 1
+      
       call element_properties(ielem,&
                               n_pts_1d=n_pts_1d,&
                               n_pts_2d=n_pts_2d,&
@@ -2652,6 +2670,8 @@ contains
       enddo
      
     end do elloop
+    write(*,*)'modified metrics',mod_cnt
+
     deallocate(u,v,w,work,Amat,a_t,bvec,wI)
 
   end subroutine modify_metrics_nonConforming
@@ -4340,13 +4360,15 @@ contains
     ! Load modules
     use variables
     use collocationvariables
+    use controlvariables,   only : non_conforming
     use referencevariables, only : npoly, npoly_max, nfacesperelem
     use mpimod
 
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: ielem, j, nhex, iface
+    integer :: ielem, j, nhex, iface, icnt
+    real(wp), parameter  :: tol = 1.0e-9_wp
 
     npoly_max = -1000
 
@@ -4355,37 +4377,41 @@ contains
     if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,1:nhex))
     elem_props(:,:) = -1000
 
-    do ielem = 1,nhex
+    elem_props(1,:) = 1
+    elem_props(2,:) = npoly+1
 
-      elem_props(1,ielem) = 1
-      elem_props(2,ielem) = npoly+1
-      do j=1,8
-        if(vx_master(1,ic2nh(j,ielem)) >= 100000.5_wp) elem_props(2,ielem) = npoly+2
+
+    !  adjust the element polynomials as per directives
+    if(non_conforming .eqv. .true.) then
+
+      do ielem = 1,nhex
+  
+        ! NW quad  x <= +tol ; y >= -tol
+        icnt = 0
+        do j=1,8
+          if((vx_master(1,ic2nh(j,ielem)) <= +tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
+        enddo
+        if(icnt == 8) elem_props(2,ielem) = npoly+2
+        ! SE quad  x >= -tol ; y <= +tol
+        icnt = 0
+        do j=1,8
+          if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) <= +tol)) icnt = icnt + 1
+        enddo
+        if(icnt == 8) elem_props(2,ielem) = npoly+2
+        ! NE quad  x, y >= -tol
+        icnt = 0
+        do j=1,8
+          if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
+        enddo
+        if(icnt == 8) elem_props(2,ielem) = npoly+3
+   
       enddo
- 
-    enddo
 
-!   do ielem = 1,nhex,3
-!     elem_props(2,ielem) = npoly+2
-!   enddo
+!     do ielem = 1,nhex,3
+!       elem_props(2,ielem) = npoly+2
+!     enddo
 
-!   elem_props(2,2) = npoly+2 
-
-
-!   write(*,*)'element1'
-!   do j=1,8
-!     write(*,*)vx_master(:,ic2nh(j,1))
-!   enddo
-!   write(*,*)'element2'
-!   do j=1,8
-!     write(*,*)vx_master(:,ic2nh(j,2))
-!   enddo
-!   write(*,*)'element3'
-!   do j=1,8
-!     write(*,*)vx_master(:,ic2nh(j,3))
-!   enddo
-
-!   write(*,*)'elem_props',elem_props(:,:)
+    endif
 
     do ielem = 1,nhex
 
