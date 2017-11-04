@@ -1,5 +1,4 @@
 module fileio
-test
   use precision_vars
   implicit none
 

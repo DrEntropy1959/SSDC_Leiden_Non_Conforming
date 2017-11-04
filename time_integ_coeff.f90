@@ -92,7 +92,7 @@ contains
     ! Nothing is implicitly defined
     implicit none
 
-    real(wp) :: b1, b2, b3, b4, b5, b6
+    real(wp) :: b1, b2, b3, b4, b5!, b6
     real(wp) :: AA1, AA2, AA3, AA4, AA5, AA6 
     real(wp) :: BB1, BB2, BB3, BB4, BB5, BB6 
     real(wp) :: BH1, BH2, BH3, BH4, BH5, BH6 

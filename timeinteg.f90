@@ -553,7 +553,11 @@ contains
       & ((err_time_tm1/tol)**be) * ((tol/err_time_tm2)**ga)
     
     ! Select the appropriate time-step
-    timestep = min(predicted_time_step,1.2*timestep)
+    if(predicted_time_step < 0.9_wp*timestep) then
+      timestep = predicted_time_step
+    else
+      timestep = min(predicted_time_step,1.1*timestep)
+    endif
 
     ! Shuffle time data to get ready for next time step
     err_time_tm2 = err_time_tm1
