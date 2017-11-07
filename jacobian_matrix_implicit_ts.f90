@@ -46,8 +46,7 @@ contains
     integer :: i
 
     ! Exchange conservative variables of at the ineterfaces
-    call UpdateComm1DGhostData(ug,ughst,upetsc,ulocpetsc,nequations, &
-      & nodesperelem,ihelems,nghost)
+    call UpdateComm1DGhostData(ug,ughst,upetsc,ulocpetsc,size(ug,1),size(ug,2),size(ughst,2))
     
     if (IMEX_penalty == 'implicit')  then
       if (viscous) then
