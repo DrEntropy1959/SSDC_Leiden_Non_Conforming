@@ -1433,8 +1433,7 @@ contains
     ! =========================================================================
     ! Construct the local e2v array (local for each process)
     ! =========================================================================
-    if(allocated(vert_list_proc)) deallocate(vert_list_proc)
-    allocate(vert_list_proc(nvertices))
+    if(allocated(vert_list_proc)) deallocate(vert_list_proc) ; allocate(vert_list_proc(nvertices))
     vert_list_proc = nvertices + 100
     
     ! Number of vertices per process
@@ -2015,7 +2014,7 @@ contains
     use referencevariables
     use variables, only: xg_Gau_shell, xgghst_Gau_shell
     use petscvariables, only: xpetsc_shell, xlocpetsc_shell
-    use collocationvariables, only: n_Gau_2d_p1
+
     implicit none
 
     allocate(xgghst_Gau_shell(ndim,nghost_Gau_shell))
@@ -2379,69 +2378,83 @@ contains
   !============================================================================
   !============================================================================
 
-  subroutine UpdateComm1DGhostData(vin, vghstin, vpetscin, vlocin, nq, nk, ih, ngh)
-    ! this subroutine communicates solution data across processes and updates
-    ! the array ughst.
-    use referencevariables
-    use variables, only: ef2e
+  subroutine UpdateComm1DGhostData(Zin, Zghstin, Zpetscin, Zlocin, nq, nk, ngh)
+
+    ! this subroutine communicates solution data across processes and updates the array ughst.
+
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,            only: ef2e
+    use initcollocation,      only: element_properties
+
     implicit none
 
     ! Arguments
     ! =========
     integer,  intent(in) :: nq, nk, ngh
-    integer,  intent(in) :: ih(2)
-    real(wp), intent(in) :: vin(nq,nk,ih(1):ih(2))
-    real(wp), intent(inout) :: vghstin(nq,ngh)
-    Vec vpetscin
-    Vec vlocin
+    real(wp), intent(in) :: Zin(nq,nk,ihelems(1):ihelems(2))
+    real(wp), intent(inout) :: Zghstin(nq,ngh)
+
+    Vec Zpetscin
+    Vec Zlocin
 
     PetscErrorCode ierrpetsc
     integer :: ntotu
     real(wp), allocatable ::  yu(:)
     integer,  allocatable :: iyu(:)
-    integer :: ielem, iloc, inode, iface
+    integer :: ielem, iloc, inode, iface, nodesperface, nodesperelem
     integer :: i, ieq
 
-    real(wp), pointer :: xx_v(:)
+    real(wp), pointer :: xx_Z(:)
 
     ! length of arrays for filling global vectors with data
-    ntotu = nequations*nodesperelem
+
+    ntotu = nq * nk
     allocate(iyu(ntotu))
     allocate( yu(ntotu))
 
     ! loop over elements
-    do ielem = ih(1), ih(2)
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       yu = 0.0_wp
       ! loop over nodes
       do inode = 1, nodesperelem
         ! loop over variables
         do ieq = 1, nq
           ! update temporary solution values
-          yu(nq*(inode-1)+ieq) = vin(ieq,inode,ielem)
+           yu(nq*(inode-1)+ieq) = Zin(ieq,inode,ielem)
           ! update global location of solution values
           iyu(nq*(inode-1)+ieq) = ntotu*(ielem-1)+nq*(inode-1)+ieq-1
         end do
       end do
       ! set values in petsc vector
-      call VecSetValues(vpetscin,ntotu,iyu,yu,insert_values,ierrpetsc)
+      call VecSetValues(Zpetscin,ntotu,iyu,yu,insert_values,ierrpetsc)
     end do
 
     ! assemble vector
-    call VecAssemblyBegin(vpetscin,ierrpetsc)
-    call VecAssemblyEnd  (vpetscin,ierrpetsc)
+    call VecAssemblyBegin(Zpetscin,ierrpetsc)
+    call VecAssemblyEnd  (Zpetscin,ierrpetsc)
     ! update ghost values
-    call VecGhostUpdateBegin(vpetscin, insert_values, scatter_forward, ierrpetsc)
-    call VecGhostUpdateEnd  (vpetscin, insert_values, scatter_forward, ierrpetsc)
+    call VecGhostUpdateBegin(Zpetscin, insert_values, scatter_forward, ierrpetsc)
+    call VecGhostUpdateEnd  (Zpetscin, insert_values, scatter_forward, ierrpetsc)
+
+    ! get local data including ghost points
+    call VecGhostGetLocalForm(Zpetscin, Zlocin, ierrpetsc)
+    ! use fortran pointer for convenience
+    call VecGetArrayF90(Zlocin, xx_Z, ierrpetsc)
 
     ! total length of on process data
-    ntotu = nelems*nodesperelem*nq
-    ! get local data including ghost points
-    call VecGhostGetLocalForm(vpetscin, vlocin, ierrpetsc)
-    ! use fortran pointer for convenience
-    call VecGetArrayF90(vlocin, xx_v, ierrpetsc)
+    ntotu = nelems * nq * nk
+
     iloc = 0
     ! loop over elements
-    do ielem = ih(1), ih(2)
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem,        &
+                     n_pts_2d=nodesperface, &
+                     n_pts_3d=nodesperelem)
+
       ! loop over faces
       do iface = 1,nfacesperelem
         ! do nothing if neighbor is on process
@@ -2453,27 +2466,26 @@ contains
           ! loop over equations
           do ieq = 1,nq
             ! fill ghost data
-            vghstin(ieq,iloc) = xx_v(ntotu+nq*(iloc-1)+ieq)
+            Zghstin(ieq,iloc) = xx_Z(ntotu+nq*(iloc-1)+ieq)
           end do
         end do
       end do
     end do
 
     ! release pointer
-    call VecRestoreArrayF90(vlocin,xx_v,ierrpetsc)
-    call VecGhostRestoreLocalForm(vpetscin,vlocin,ierrpetsc)
-    if(associated(xx_v)) deallocate(xx_v)
+    call VecRestoreArrayF90(Zlocin,xx_Z,ierrpetsc)
+    call VecGhostRestoreLocalForm(Zpetscin,Zlocin,ierrpetsc)
+    if(associated(xx_Z)) deallocate(xx_Z)
 
   end subroutine UpdateComm1DGhostData
 
   !============================================================================
   
-  !============================================================================
-  
   subroutine UpdateComm1DElementGhostData(uin, ughstin, upetscin, ulocin, nq, nk, ih, ngh)
-    ! this subroutine communicates solution data across processes and updates
-    ! the array ughst.
-    use referencevariables
+
+    ! this subroutine communicates solution data across processes and updates the array ughst.
+
+    use referencevariables!, only: ihelems
     use variables, only: ef2e
     implicit none
 
@@ -2483,10 +2495,11 @@ contains
     integer, intent(in) :: ih(2)
     real(wp), intent(in) :: uin(nq,nk,ih(1):ih(2))
     real(wp), intent(inout) :: ughstin(nq,ngh)
+
     Vec upetscin
     Vec ulocin
-
     PetscErrorCode ierrpetsc
+
     integer :: ntotu
     real(wp), allocatable :: yu(:)
     integer, allocatable :: iyu(:)
@@ -2501,7 +2514,7 @@ contains
     allocate( yu(ntotu))
 
     ! loop over elements
-    do ielem = ih(1), ih(2)
+    do ielem = ihelems(1), ihelems(2)
       yu = 0.0_wp
       ! loop over nodes
       do inode = 1, nodesperelem
@@ -2532,7 +2545,7 @@ contains
     call VecGetArrayF90(ulocin, xx_v, ierrpetsc)
     iloc = 0
     ! loop over elements
-    do ielem = ih(1), ih(2)
+    do ielem = ihelems(1), ihelems(2)
       ! loop over faces
       do iface = 1,nfacesperelem
         ! do nothing if neighbor is on process
@@ -2560,7 +2573,8 @@ contains
   !============================================================================
   
   subroutine UpdateComm2DGhostData(vin, vghstin, vpetscin, vlocin, nq, nd, nk, ih, ngh)
-    use referencevariables
+
+    use referencevariables!, only: ihelems
     use variables, only: ef2e
     implicit none
 
@@ -2588,7 +2602,7 @@ contains
     allocate(yphi(ntotphi))
 
     ! loop over elements
-    do ielem = ih(1), ih(2)
+    do ielem = ihelems(1), ihelems(2)
       yphi = 0.0_wp
       ! loop over nodes
       do inode = 1, nodesperelem
@@ -2622,7 +2636,7 @@ contains
     call VecGetArrayF90(vlocin, xx_v, ierrpetsc)
     iloc = 0
     ! loop over elements
-    do ielem = ih(1), ih(2)
+    do ielem = ihelems(1), ihelems(2)
       ! loop over faces
       do iface = 1,nfacesperelem
         ! do nothing if neighbor is on process
@@ -2653,7 +2667,8 @@ contains
   !============================================================================
 
   subroutine UpdateComm2DGeomGhostData(vin,vghstin,vpetscin,vlocin,nd,nk,ih,ngh)
-    use referencevariables
+
+    use referencevariables!, only: ihelems
     use variables, only: ef2e
     implicit none
 
@@ -2682,7 +2697,7 @@ contains
     allocate(y_r_x(ntot_r_x))
 
     ! loop over elements
-    do ielem = ih(1), ih(2)
+    do ielem = ihelems(1), ihelems(2)
       y_r_x = 0.0_wp
       ! loop over nodes
       do inode = 1, nodesperelem
@@ -2717,7 +2732,7 @@ contains
     call VecGetArrayF90(vlocin, xx_v, ierrpetsc)
     iloc = 0
     ! loop over elements
-    do ielem = ih(1), ih(2)
+    do ielem = ihelems(1), ihelems(2)
       ! loop over faces
       do iface = 1,nfacesperelem
         ! do nothing if neighbor is on process
@@ -2749,7 +2764,8 @@ contains
 
   subroutine PetscComm1DDataSetupWENO(vinWENO, vghstinWENO, vpetscinWENO, vlocinWENO, nq, nk, ne, ngh)
     ! this routine allocates the ghost data for Navier Stokes computations
-    use referencevariables
+
+    use referencevariables!, only: ihelems
     use variables, only: ef2e, kfacenodesWENO
     implicit none
 

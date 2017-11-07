@@ -1933,8 +1933,7 @@ contains
     integer :: inode
     integer :: nshell
 
-    call UpdateComm1DGhostData(ug, ughst, upetsc, ulocpetsc, &
-      nequations, nodesperelem, ihelems, nghost)
+    call UpdateComm1DGhostData(ug, ughst, upetsc, ulocpetsc, size(ug,1), size(ug,2), size(ughst,2))
 
     ! Update ghost value in the interior plane for WENO p = 3
     if((discretization == 'SSWENO')) then
