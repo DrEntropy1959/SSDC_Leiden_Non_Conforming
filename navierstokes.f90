@@ -297,8 +297,7 @@ contains
 
     ! Setup the PETSc parallel communication for exchanging the conservative
     ! variables at the parallel face element 
-    call PetscComm1DDataSetup(ug,ughst,upetsc,ulocpetsc,nequations, &
-      & nodesperelem,nelems,nghost)
+    call PetscComm1DDataSetup(ug,ughst,upetsc,ulocpetsc,size(ug,1),size(ug,2),nelems,size(ughst,2))
 
     ! Setup the PETSc parallel communication for exchanging the conservative
     ! variables at the parallel face element 
@@ -1939,7 +1938,7 @@ contains
     if((discretization == 'SSWENO')) then
 
       call UpdateComm1DGhostDataWENO(ug, ughstWENO, upetscWENO, ulocpetscWENO, &
-        nequations, nodesperelem, ihelems, nghost)
+                                     size(ug,1), size(ug,2), size(ughstWENO,2))
 
       if((WENO_type == 'Neighbr_WENO')) call Planar_Interpolation_WENO()
 
@@ -1966,8 +1965,8 @@ contains
 
       call viscous_gradients()
 
-    call UpdateComm2DGhostData(phig, phighst, phipetsc, philocpetsc, &
-      nequations, 3, nodesperelem, ihelems, nghost)
+    call UpdateComm2DGhostData(phig, phighst, phipetsc, philocpetsc,  &
+                              size(phig,1), size(phig,2), size(phig,3), size(phighst,2))
 
     end if
 
@@ -3448,11 +3447,13 @@ contains
         end if
 
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-!       Off Processor Contributions to gsat
+!       Off Processor Contributions to gsat:  Interface straddles parallel partition boundary
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-      else if (ef2e(3,iface,ielem) /= myprocid) then ! This is an interface between parallel parts
+      else if (ef2e(3,iface,ielem) /= myprocid) then 
         
+        if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then
+
           do i = 1,  n_S_2d_On
 
             ! Index in facial ordering
@@ -3467,12 +3468,12 @@ contains
             ! Outward facing normal of facial node
             nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
   
-            ug_On(:)  = ug(:,inode,ielem)
+            ug_On(:)  = ug   (:,inode,ielem)
             ug_Off(:) = ughst(:,gnode)
             call conserved_to_primitive(ug_On (:), vg_On (:), nequations)
             call conserved_to_primitive(ug_Off(:), vg_Off(:), nequations)
   
-            phig_On (:,:) = phig(:,:,inode,ielem)
+            phig_On (:,:) = phig   (:,:,inode,ielem)
             phig_Off(:,:) = phighst(:,:,gnode)
   
             SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
@@ -3485,10 +3486,13 @@ contains
   
           end do
 
+        else
+
+        endif
+
       else             !  on process interfaces
 
-        if(elem_props(2,ielem) == elem_props(2,ef2e(2,iface,ielem))) then
-
+        if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then
 
           do i = 1, n_S_2d_On
         
@@ -3523,7 +3527,7 @@ contains
   
           end do
 
-        else  ! Adjoining element on iface differs in order
+        else  ! Adjoining element touching iface differs in order
 
           n_S_1d_max  = (npoly_max+1)**1
           n_S_2d_max  = (npoly_max+1)**2

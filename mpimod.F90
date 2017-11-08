@@ -2072,36 +2072,45 @@ contains
 
   !============================================================================
 
-  subroutine PetscComm1DDataSetup(vin, vghstin, vpetscin, vlocin, nq, nk, ne, ngh)
+  subroutine PetscComm1DDataSetup(Zin, Zghstin, Zpetscin, Zlocin, nq, nk, ne, ngh)
+
     ! this routine allocates the ghost data for Navier Stokes computations
+
     use referencevariables
-    use variables, only: ef2e, kfacenodes
+    use variables,       only: ef2e, kfacenodes
+    use initcollocation, only: element_properties
     implicit none
 
     ! Arguments
     ! =========
-    integer, intent(in) :: nq, nk, ne, ngh
-    real(wp), intent(in) :: vin(nq,nk,ne)
-    real(wp), intent(in) :: vghstin(nq,ngh)
-    Vec vpetscin
-    Vec vlocin
+    integer,  intent(in) :: nq, nk, ne, ngh
+    real(wp), intent(in) :: Zin(nq,nk,ne)
+    real(wp), intent(in) :: Zghstin(nq,ngh)
+
+    Vec Zpetscin
+    Vec Zlocin
 
     PetscErrorCode ierrpetsc
-    integer :: ntot
-    integer, allocatable :: iyu(:)
-    !real(wp), allocatable :: yu(:)
-    integer :: ielem, iloc, jloc, iface
-    integer :: i, ii, jj, ieq
     PetscScalar xinit
+
+    integer :: ntot
+    integer :: ielem, jloc, iface
+    integer :: i, ii, jj, ieq
+    integer, allocatable :: iyu(:)
 
     xinit = 0.0_wp
 
     ! allocate memory for ghost locations
     allocate(iyu(ngh*nq))
-    iloc = 0
+
     jloc = 0
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem,         &
+                     n_pts_2d=nodesperface,  &
+                   kfacenodes=kfacenodes)
+
       ! loop over faces
       do iface = 1,nfacesperelem
         ! do nothing if neighbor is on process
@@ -2117,52 +2126,53 @@ contains
             ! advance position in ghost array
             jloc = jloc+1
             ! set position of ghost in global vector containing solution data
-            iyu(jloc) = nq*nodesperelem*(ii-1) + (kfacenodes(i,jj)-1)*nq + ieq
+            iyu(jloc) = nq * nk *(ii-1) + (kfacenodes(i,jj)-1)*nq + ieq
           end do
         end do
       end do
     end do
 
+    ! use C indexing
+    iyu = iyu-1
+
     ! total length of on process data for 1D vector of solution
-    ntot = nq*nelems*nodesperelem
+    ntot = nq * nk * nelems
 
     ! create global vector for solution with ghosts
     ! 
-    ! use C indexing
-    iyu = iyu-1
     ! call to petsc to create global vector with ghosts
-    call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, &
-      ngh*nq, iyu, vpetscin, ierrpetsc)
+    call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, ngh*nq, iyu, Zpetscin, ierrpetsc)
     ! initialize to zero
-    call VecSet(vpetscin, xinit, ierrpetsc)
+    call VecSet(Zpetscin, xinit, ierrpetsc)
     ! assemble parallel vector
-    call VecAssemblyBegin(vpetscin,ierrpetsc)
-    call VecAssemblyEnd  (vpetscin,ierrpetsc)
+    call VecAssemblyBegin(Zpetscin,ierrpetsc)
+    call VecAssemblyEnd  (Zpetscin,ierrpetsc)
 
     deallocate(iyu)
 
     ! create container for local vector that contains on process plus ghost data for solution
-    call VecCreateSeq(petsc_comm_self, ntot+ngh*nq, vlocin, ierrpetsc)
+    call VecCreateSeq(petsc_comm_self, ntot+ngh*nq, Zlocin, ierrpetsc)
 
   end subroutine PetscComm1DDataSetup
 
 !============================================================================
 
-  subroutine PetscComm1DElementDataSetup(vin, vghstin, vpetscin, vlocin, nq, n_pts_3d, ne, ngh)
+  subroutine PetscComm1DElementDataSetup(Zin, Zghstin, Zpetscin, Zlocin, nq, nk, ne, ngh)
     ! this routine allocates the ghost data for Navier Stokes computations
     ! ngh = number of ghost points in adjoining elements.  ngh = nghost*nodesperedge
-    ! n_pts_3d is either n_LGL_pts_hex or n_Gau_pts_hex
+    ! nk is either n_LGL_pts_hex or n_Gau_pts_hex
     use referencevariables
-    use variables, only: ef2e
+    use variables,       only: ef2e, kfacenodes
+    use initcollocation, only: element_properties
     implicit none
 
     ! Arguments
     ! =========
-    integer, intent(in) :: nq, n_pts_3d, ne, ngh
-    real(wp), intent(in) :: vin(nq,n_pts_3d,ne)
-    real(wp), intent(in) :: vghstin(nq,ngh)
-    Vec vpetscin
-    Vec vlocin
+    integer, intent(in) :: nq, nk, ne, ngh
+    real(wp), intent(in) :: Zin(nq,nk,ne)
+    real(wp), intent(in) :: Zghstin(nq,ngh)
+    Vec Zpetscin
+    Vec Zlocin
 
     PetscErrorCode ierrpetsc
     integer :: ntot
@@ -2175,9 +2185,16 @@ contains
 
     ! allocate memory for ghost locations
     allocate(iyu(ngh*nq))
+
     jloc = 0
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem,         &
+                     n_pts_2d=nodesperface,  &
+                     n_pts_3d=nodesperelem,  &
+                   kfacenodes=kfacenodes)
+
       ! loop over faces
       do iface = 1,nfacesperelem
         ! do nothing if neighbor is on process
@@ -2187,71 +2204,79 @@ contains
         ! face of neighbor
         jj = ef2e(1,iface,ielem)
         ! loop over nodes on neighbor elements
-        do i = 1, n_pts_3d
+        do i = 1, nodesperelem
           ! loop over equations
           do ieq = 1, nq
             ! advance position in ghost array
             jloc = jloc+1
             ! set position of ghost in global vector containing solution data
-            iyu(jloc) = nq * n_pts_3d * (ii-1) + (i-1)*nq + ieq
+            iyu(jloc) = nq * nk * (ii-1) + (i-1)*nq + ieq
           end do
         end do
       end do
     end do
 
-    ! total length of on process data for 1D vector of solution
-    ntot = nq*nelems * n_pts_3d
-
-    ! create global vector for solution with ghosts
-    ! 
     ! use C indexing
     iyu = iyu-1
+
+    ! total length of on process data for 1D vector of solution
+    ntot = nq * nk * nelems
+
     ! call to petsc to create global vector with ghosts
-    call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, &
-      ngh*nq, iyu, vpetscin, ierrpetsc)
+    call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, ngh*nq, iyu, Zpetscin, ierrpetsc)
     ! initialize to zero
-    call VecSet(vpetscin, xinit, ierrpetsc)
+    call VecSet(Zpetscin, xinit, ierrpetsc)
     ! assemble parallel vector
-    call VecAssemblyBegin(vpetscin,ierrpetsc)
-    call VecAssemblyEnd(vpetscin,ierrpetsc)
+    call VecAssemblyBegin(Zpetscin,ierrpetsc)
+    call VecAssemblyEnd  (Zpetscin,ierrpetsc)
 
     deallocate(iyu)
 
     ! create container for local vector that contains on process plus ghost data for solution
-    call VecCreateSeq(petsc_comm_self, ntot+ngh*nq, vlocin, ierrpetsc)
+    call VecCreateSeq(petsc_comm_self, ntot+ngh*nq, Zlocin, ierrpetsc)
 
   end subroutine PetscComm1DElementDataSetup
 
-  subroutine PetscComm2DDataSetup(vin, vghstin, vpetscin, vlocin, nq, nd, nk, ne, ngh)
+!============================================================================
+
+  subroutine PetscComm2DDataSetup(Zin, Zghstin, Zpetscin, Zlocin, nq, nd, nk, ne, ngh)
+
     ! this routine allocates the ghost data for Navier Stokes computations
     use referencevariables
-    use variables, only: ef2e, kfacenodes
+    use variables,       only: ef2e, kfacenodes
+    use initcollocation, only: element_properties
     implicit none
 
     ! Arguments
     ! =========
-    integer, intent(in) :: nq, nd, nk, ne, ngh
-    real(wp), intent(in) :: vin(nq,nd,nk,ne)
-    real(wp), intent(in) :: vghstin(nq,nd,ngh)
-    Vec vpetscin
-    Vec vlocin
+    integer,  intent(in) :: nq, nd, nk, ne, ngh
+    real(wp), intent(in) :: Zin(nq,nd,nk,ne)
+    real(wp), intent(in) :: Zghstin(nq,nd,ngh)
+
+    Vec Zpetscin
+    Vec Zlocin
 
     PetscErrorCode ierrpetsc
+    PetscScalar xinit
+
     integer :: ntotphi
-    !real(wp), allocatable :: yphi(:)
     integer, allocatable :: iyphi(:)
     integer :: ielem, iloc, idir, iface
     integer :: i, ii, jj, ieq
-
-    PetscScalar xinit
 
     xinit = 0.0_wp
 
     ! allocate memory for ghost locations
     allocate(iyphi(ngh*nq*nd))
+
     iloc = 0
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem,         &
+                     n_pts_2d=nodesperface,  &
+                   kfacenodes=kfacenodes)
+
       ! loop over faces
       do iface = 1,nfacesperelem
         ! do nothing if neighbor is on process
@@ -2268,10 +2293,8 @@ contains
             do ieq = 1,nq
               ! advance position in ghost array
               iloc = iloc+1
-              ! set position of ghost in global vector containing
-              ! entropy variable gradient data
-              iyphi(iloc) = nd*nq*nodesperelem*(ii-1) &
-                + (kfacenodes(i,jj)-1)*nd*nq + nq*(idir-1) + ieq
+              ! set position of ghost in global vector containing  entropy variable gradient data
+              iyphi(iloc) = nq * nd * nk * (ii-1) + (kfacenodes(i,jj)-1)*nd*nq + nq*(idir-1) + ieq
             end do
           end do
         end do
@@ -2279,24 +2302,24 @@ contains
     end do
 
     ! total length of on process data for 1D vector of entropy variable gradients
-    ntotphi = nd*nq*nelems*nodesperelem
+    ntotphi = nq * nd * nk * nelems
 
     ! create global vector for entropy variable gradients with ghosts
-    ! 
+      
     ! use C indexing
     iyphi = iyphi-1
     ! call to petsc to create global vector with ghosts
-    call VecCreateGhost(petsc_comm_world, ntotphi, petsc_decide, ngh*nq*nd, iyphi, vpetscin, ierrpetsc)
+    call VecCreateGhost(petsc_comm_world, ntotphi, petsc_decide, ngh*nq*nd, iyphi, Zpetscin, ierrpetsc)
     ! initialize to zero
-    call VecSet(vpetscin, xinit, ierrpetsc)
+    call VecSet(Zpetscin, xinit, ierrpetsc)
     ! assemble parallel vector
-    call VecAssemblyBegin(vpetscin,ierrpetsc)
-    call VecAssemblyEnd(vpetscin,ierrpetsc)
+    call VecAssemblyBegin(Zpetscin,ierrpetsc)
+    call VecAssemblyEnd  (Zpetscin,ierrpetsc)
 
     deallocate(iyphi)
 
     ! create container for local vector that contains on process plus ghost data for gradients
-    call VecCreateSeq(petsc_comm_self, ntotphi+ngh*nq*nd, vlocin, ierrpetsc)
+    call VecCreateSeq(petsc_comm_self, ntotphi+ngh*nq*nd, Zlocin, ierrpetsc)
 
     return
   end subroutine PetscComm2DDataSetup
@@ -2314,23 +2337,23 @@ contains
     integer, intent(in) :: nd, nk, ne, ngh
     real(wp), intent(in) :: vin(nd,nd,nk,ne)
     real(wp), intent(in) :: vghstin(nd,nd,ngh)
+
     Vec vpetscin
     Vec vlocin
 
     PetscErrorCode ierrpetsc
+    PetscScalar xinit
+
     integer :: ntot_r_x
     integer, allocatable :: iy_r_x(:)
-    integer :: ielem, iloc, jloc, idir, iface
+    integer :: ielem, iloc, idir, iface
     integer :: i, ii, jj, icomp
-
-    PetscScalar xinit
 
     xinit = 0.0_wp
 
     ! allocate memory for ghost locations
     allocate(iy_r_x(ngh*nd*nd))
     iloc = 0
-    jloc = 0
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
       ! loop over faces
@@ -2351,21 +2374,19 @@ contains
               iloc = iloc + 1
               ! set position of ghost in global vector containing
               ! the contravariant vectors
-              iy_r_x(iloc) = nd*nd*nodesperelem*(ii-1) &
-                + (kfacenodes(i,jj)-1)*nd*nd + nd*(idir-1) + icomp
+              iy_r_x(iloc) = nd*nd*nodesperelem*(ii-1) + (kfacenodes(i,jj)-1)*nd*nd + nd*(idir-1) + icomp
             end do
           end do
         end do
       end do
     end do
 
+    ! use C indexing
+    iy_r_x = iy_r_x - 1
+
     ! total length of on process data for 1D vector of contravariant vectors
     ntot_r_x = nd*nd*nelems*nodesperelem
 
-    ! create global vector for contravariant vectors with ghosts
-    ! 
-    ! use C indexing
-    iy_r_x = iy_r_x - 1
     ! call to petsc to create global vector with ghosts
     call VecCreateGhost(petsc_comm_world, ntot_r_x, petsc_decide, ngh*nd*nd,iy_r_x,vpetscin,ierrpetsc)
     ! initialize to zero
@@ -2456,7 +2477,7 @@ contains
     call VecGetArrayF90(Zlocin, xx_Z, ierrpetsc)
 
     ! total length of on process data
-    ntotu = nelems * nq * nk
+    ntotu = nq * nk * nelems
 
     iloc = 0
     ! loop over elements
@@ -2583,37 +2604,42 @@ contains
 
   !============================================================================
   
-  subroutine UpdateComm2DGhostData(vin, vghstin, vpetscin, vlocin, nq, nd, nk, ih, ngh)
+  subroutine UpdateComm2DGhostData(Zin, Zghstin, Zpetscin, Zlocin, nq, nd, nk, ngh)
 
-    use referencevariables!, only: ihelems
-    use variables, only: ef2e
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,            only: ef2e
+    use initcollocation,      only: element_properties
     implicit none
 
     ! Arguments
     ! =========
-    integer, intent(in) :: nq, nd, nk, ngh
-    integer, intent(in) :: ih(2)
-    real(wp), intent(in) :: vin(nq,nd,nk,ih(1):ih(2))
-    real(wp), intent(inout) :: vghstin(nq,nd,ngh)
-    Vec vpetscin
-    Vec vlocin
+    integer,  intent(in) :: nq, nd, nk, ngh
+    real(wp), intent(in) :: Zin(nq,nd,nk,ihelems(1):ihelems(2))
+    real(wp), intent(inout) :: Zghstin(nq,nd,ngh)
+
+    Vec Zpetscin
+    Vec Zlocin
 
     PetscErrorCode ierrpetsc
+
     integer :: ntotphi
-    real(wp), allocatable :: yphi(:)
-    integer, allocatable :: iyphi(:)
-    integer :: ielem, inode, iloc, idir, iface
+    real(wp), allocatable ::  yphi(:)
+    integer,  allocatable :: iyphi(:)
+    integer :: ielem, inode, iloc, idir, iface, nodesperface, nodesperelem
     integer :: i, ieq
 
     real(wp), pointer :: xx_v(:)
 
     ! length of temporary arrays for filling in global data
-    ntotphi = nd*nq*nodesperelem
+    ntotphi = nq * nd * nk
     allocate(iyphi(ntotphi))
-    allocate(yphi(ntotphi))
+    allocate( yphi(ntotphi))
 
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       yphi = 0.0_wp
       ! loop over nodes
       do inode = 1, nodesperelem
@@ -2622,32 +2648,41 @@ contains
           ! loop over variables
           do ieq = 1, nq
             ! update gradient data
-            yphi(nq*nd*(inode-1)+nq*(idir-1)+ieq) = vin(ieq,idir,inode,ielem)
+            yphi(nq*nd*(inode-1)+nq*(idir-1)+ieq) = Zin(ieq,idir,inode,ielem)
             ! update global location of gradient data in 1D vector
             iyphi(nq*nd*(inode-1)+nq*(idir-1)+ieq) = ntotphi*(ielem-1) + nq*nd*(inode-1) + nq*(idir-1)+ieq-1
           end do
         end do
       end do
       ! set values in petsc vector
-      call VecSetValues(vpetscin,ntotphi,iyphi,yphi,insert_values,ierrpetsc)
+      call VecSetValues(Zpetscin,ntotphi,iyphi,yphi,insert_values,ierrpetsc)
     end do
 
     ! assemble parallel vector
-    call VecAssemblyBegin(vpetscin,ierrpetsc)
-    call VecAssemblyEnd(vpetscin,ierrpetsc)
+    call VecAssemblyBegin(Zpetscin,ierrpetsc)
+    call VecAssemblyEnd  (Zpetscin,ierrpetsc)
+
     ! update ghost data
-    call VecGhostUpdateBegin(vpetscin, insert_values, scatter_forward, ierrpetsc)
-    call VecGhostUpdateEnd(vpetscin, insert_values, scatter_forward, ierrpetsc)
+    call VecGhostUpdateBegin(Zpetscin, insert_values, scatter_forward, ierrpetsc)
+    call VecGhostUpdateEnd  (Zpetscin, insert_values, scatter_forward, ierrpetsc)
 
     ! total length of on process data
-    ntotphi = nd*nq*nelems*nodesperelem
+    ntotphi = nq * nd * nk * nelems
+
     ! get local vector with ghost data
-    call VecGhostGetLocalForm(vpetscin, vlocin, ierrpetsc)
+    call VecGhostGetLocalForm(Zpetscin, Zlocin, ierrpetsc)
+
     ! use fortran 90 pointers for convenience
-    call VecGetArrayF90(vlocin, xx_v, ierrpetsc)
+    call VecGetArrayF90(Zlocin, xx_v, ierrpetsc)
+
     iloc = 0
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem,        &
+                     n_pts_2d=nodesperface, &
+                     n_pts_3d=nodesperelem)
+
       ! loop over faces
       do iface = 1,nfacesperelem
         ! do nothing if neighbor is on process
@@ -2661,7 +2696,7 @@ contains
             ! loop over variables
             do ieq = 1,nq
               ! fill ghost values
-              vghstin(ieq,idir,iloc) = xx_v(ntotphi+nd*nq*(iloc-1)+nq*(idir-1)+ieq)
+              Zghstin(ieq,idir,iloc) = xx_v(ntotphi+nd*nq*(iloc-1)+nq*(idir-1)+ieq)
             end do
           end do
         end do
@@ -2669,8 +2704,8 @@ contains
     end do
 
     ! release pointer
-    call VecRestoreArrayF90(vlocin,xx_v,ierrpetsc) 
-    call VecGhostRestoreLocalForm(vpetscin,vlocin,ierrpetsc)
+    call VecRestoreArrayF90(Zlocin,xx_v,ierrpetsc) 
+    call VecGhostRestoreLocalForm(Zpetscin,Zlocin,ierrpetsc)
     if(associated(xx_v)) deallocate(xx_v)
 
   end subroutine UpdateComm2DGhostData
@@ -2679,8 +2714,9 @@ contains
 
   subroutine UpdateComm2DGeomGhostData(vin,vghstin,vpetscin,vlocin,nd,nk,ih,ngh)
 
-    use referencevariables!, only: ihelems
-    use variables, only: ef2e
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,            only: ef2e
+    use initcollocation,      only: element_properties
     implicit none
 
     ! Arguments
@@ -2694,21 +2730,23 @@ contains
 
     PetscErrorCode ierrpetsc
     integer :: ntot_r_x
-    real(wp), allocatable :: y_r_x(:)
-    integer, allocatable :: iy_r_x(:)
-    integer :: ielem, inode, iloc, idir, iface
+    real(wp), allocatable ::  y_r_x(:)
+    integer,  allocatable :: iy_r_x(:)
+    integer :: ielem, inode, iloc, idir, iface, nodesperface, nodesperelem
     integer :: i, icomp
-    !Vec xlocal
-    !PetscScalar xinit
+
     real(wp), pointer :: xx_v(:)
 
     ! length of temporary arrays for filling in global data
-    ntot_r_x = nd*nd*nodesperelem
+    ntot_r_x = nd * nd * nk
     allocate(iy_r_x(ntot_r_x))
-    allocate(y_r_x(ntot_r_x))
+    allocate( y_r_x(ntot_r_x))
 
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       y_r_x = 0.0_wp
       ! loop over nodes
       do inode = 1, nodesperelem
@@ -2744,6 +2782,9 @@ contains
     iloc = 0
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_2d=nodesperface) 
+
       ! loop over faces
       do iface = 1,nfacesperelem
         ! do nothing if neighbor is on process
@@ -2773,37 +2814,43 @@ contains
 
   !============================================================================
 
-  subroutine PetscComm1DDataSetupWENO(vinWENO, vghstinWENO, vpetscinWENO, vlocinWENO, nq, nk, ne, ngh)
+  subroutine PetscComm1DDataSetupWENO(ZinWENO, ZghstinWENO, ZpetscinWENO, ZlocinWENO, nq, nk, ne, ngh)
+
     ! this routine allocates the ghost data for Navier Stokes computations
 
-    use referencevariables!, only: ihelems
-    use variables, only: ef2e, kfacenodesWENO
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,            only: ef2e, kfacenodesWENO
+    use initcollocation,      only: element_properties
     implicit none
 
     ! Arguments
     ! =========
-    integer, intent(in) :: nq, nk, ne, ngh
-    real(wp), intent(in) :: vinWENO(nq,nk,ne)
-    real(wp), intent(in) :: vghstinWENO(nq,ngh)
-    Vec vpetscinWENO
-    Vec vlocinWENO
+    integer,  intent(in) :: nq, nk, ne, ngh
+    real(wp), intent(in) :: ZinWENO(nq,nk,ne)
+    real(wp), intent(in) :: ZghstinWENO(nq,ngh)
+
+    Vec ZpetscinWENO
+    Vec ZlocinWENO
 
     PetscErrorCode ierrpetsc
+    PetscScalar xinit
+
     integer :: ntot
     integer, allocatable :: iyu(:)
-    !real(wp), allocatable :: yu(:)
-    integer :: ielem, iloc, jloc, iface
-    integer :: i, ii, jj, ieq
-    PetscScalar xinit
+    integer :: ielem, jloc, iface
+    integer :: i, ii, jj, ieq, nodesperface
 
     xinit = 0.0_wp
 
     ! allocate memory for ghost locations
     allocate(iyu(ngh*nq))
-    iloc = 0
+
     jloc = 0
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_2d=nodesperface)
+
       ! loop over faces
       do iface = 1,nfacesperelem
         ! do nothing if neighbor is on process
@@ -2819,70 +2866,73 @@ contains
             ! advance position in ghost array
             jloc = jloc+1
             ! set position of ghost in global vector containing solution data
-            iyu(jloc) = nq*nodesperelem*(ii-1) + (kfacenodesWENO(i,jj)-1)*nq + ieq
+            iyu(jloc) = nq * nk * (ii-1) + (kfacenodesWENO(i,jj)-1)*nq + ieq
           end do
         end do
       end do
     end do
 
-    ! total length of on process data for 1D vector of solution
-    ntot = nq*nelems*nodesperelem
-
-    ! create global vector for solution with ghosts
-    ! 
     ! use C indexing
     iyu = iyu-1
+
+    ! total length of on process data for 1D vector of solution
+    ntot = nq * nk * nelems
+
     ! call to petsc to create global vector with ghosts
-    call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, &
-      ngh*nq, iyu, vpetscinWENO, ierrpetsc)
+    call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, ngh*nq, iyu, ZpetscinWENO, ierrpetsc)
     ! initialize to zero
-    call VecSet(vpetscinWENO, xinit, ierrpetsc)
+    call VecSet(ZpetscinWENO, xinit, ierrpetsc)
     ! assemble parallel vector
-    call VecAssemblyBegin(vpetscinWENO,ierrpetsc)
-    call VecAssemblyEnd(vpetscinWENO,ierrpetsc)
+    call VecAssemblyBegin(ZpetscinWENO,ierrpetsc)
+    call VecAssemblyEnd  (ZpetscinWENO,ierrpetsc)
 
     deallocate(iyu)
 
     ! create container for local vector that contains on process plus ghost data for solution
-    call VecCreateSeq(petsc_comm_self, ntot+ngh*nq, vlocinWENO, ierrpetsc)
+    call VecCreateSeq(petsc_comm_self, ntot+ngh*nq, ZlocinWENO, ierrpetsc)
 
   end subroutine PetscComm1DDataSetupWENO
 
   !============================================================================
   
-  subroutine UpdateComm1DGhostDataWENO(vinWENO, vghstinWENO, vpetscinWENO, vlocinWENO, nq, nk, ih, ngh)
-    ! this subroutine communicates solution data across processes and updates
-    ! the array ughst.
-    use referencevariables
-    use variables, only: ef2e
+  subroutine UpdateComm1DGhostDataWENO(vinWENO, vghstinWENO, vpetscinWENO, vlocinWENO, nq, nk, ngh)
+
+    ! this subroutine communicates solution data across processes and updates the array ughst.
+
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,            only: ef2e
+    use initcollocation,      only: element_properties
     implicit none
 
     ! Arguments
     ! =========
     integer, intent(in) :: nq, nk, ngh
-    integer, intent(in) :: ih(2)
-    real(wp), intent(in) :: vinWENO(nq,nk,ih(1):ih(2))
+    real(wp), intent(in) :: vinWENO(nq,nk,ihelems(1):ihelems(2))
     real(wp), intent(inout) :: vghstinWENO(nq,ngh)
+
     Vec vpetscinWENO
     Vec vlocinWENO
 
     PetscErrorCode ierrpetsc
+
     integer :: ntotu
-    real(wp), allocatable :: yu(:)
-    integer, allocatable :: iyu(:)
-    integer :: ielem, iloc, inode, iface
+    real(wp), allocatable ::  yu(:)
+    integer,  allocatable :: iyu(:)
+    integer :: ielem, iloc, inode, iface, nodesperelem, nodesperface
     integer :: i, ieq
-    !Vec xlocal
-    !PetscScalar xinit
+
     real(wp), pointer :: xx_v(:)
 
     ! length of arrays for filling global vectors with data
-    ntotu = nequations*nodesperelem
+    ntotu = nq * nk
     allocate(iyu(ntotu))
     allocate( yu(ntotu))
 
     ! loop over elements
-    do ielem = ih(1), ih(2)
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_3d=nodesperelem)
+
       yu = 0.0_wp
       ! loop over nodes
       do inode = 1, nodesperelem
@@ -2901,6 +2951,7 @@ contains
      ! assemble vector
      call VecAssemblyBegin(vpetscinWENO,ierrpetsc)
      call VecAssemblyEnd  (vpetscinWENO,ierrpetsc)
+
      ! update ghost values
      call VecGhostUpdateBegin(vpetscinWENO, insert_values, scatter_forward, ierrpetsc)
      call VecGhostUpdateEnd  (vpetscinWENO, insert_values, scatter_forward, ierrpetsc)
@@ -2911,9 +2962,13 @@ contains
      call VecGhostGetLocalForm(vpetscinWENO, vlocinWENO, ierrpetsc)
      ! use fortran pointer for convenience
      call VecGetArrayF90(vlocinWENO, xx_v, ierrpetsc)
+
      iloc = 0
      ! loop over elements
-     do ielem = ih(1), ih(2)
+     do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem,        &
+                     n_pts_2d=nodesperface)
        ! loop over faces
        do iface = 1,nfacesperelem
          ! do nothing if neighbor is on process

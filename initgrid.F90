@@ -1584,8 +1584,7 @@ contains
 
           end if ! End if check periodic face in x3 direction
 
-          if ((match_found .eqv. .false.)  .and.  &
-                 (ef2e(4,iface,ielem) == elem_props(2,ielem))) then 
+          if ((match_found .eqv. .false.)  .and. (ef2e(4,iface,ielem) == elem_props(2,ielem))) then 
 
             ! Loop over the nodes on the face
             do inode = 1, n_LGL_2d
@@ -2573,7 +2572,6 @@ contains
       modify_metrics = .false.
       icnt = 0
       do iface = 1,nfacesperelem
-!        write(*,*)ielem,iface,ef2e(4,iface,ielem),elem_props(2,ielem)
          if (ef2e(4,iface,ielem) /= elem_props(2,ielem)) then
             modify_metrics = .true.
             exit
@@ -4413,6 +4411,14 @@ contains
 
     endif
 
+    !  Serial ordering : ! ef2e(:,iface,ielem) 
+    !                       :  (1,j,k) = Adjoining element face ID
+    !                       :  (2,j,k) = Adjoining element ID
+    !                       :  (3,j,k) = Adjoining element process ID
+    !                       :  (4,j,k) = Adjoining element polynomial order
+    !                       :  (5,j,k) = Number of Adjoining elements
+    !                       :  (6,j,k) = HACK self polynomial order assigned to each face
+
     do ielem = 1,nhex
 
       ef2e(6,:,ielem) = elem_props(2,ielem)
@@ -4440,7 +4446,7 @@ contains
     ! Load modules
     use variables
     use collocationvariables
-    use referencevariables, only : ihelems
+    use referencevariables, only : ihelems, npoly
 
     ! Nothing is implicitly defined
     implicit none
@@ -4448,15 +4454,26 @@ contains
     integer :: ielem, qdim
 
     if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,ihelems(1):ihelems(2)))
+    elem_props(:,:) = -1000
+
+    elem_props(1,:) = 1
+    elem_props(2,:) = npoly+1
 
     do ielem = ihelems(1),ihelems(2)
 
-      qdim = size(ef2e(:,1,1))
-      elem_props(1,ielem) = 1
+    !  Parallel ordering : ! ef2e(:,iface,ielem) 
+    !                         :  (1,j,k) = Adjoining element face ID
+    !                         :  (2,j,k) = Adjoining element ID
+    !                         :  (3,j,k) = Adjoining element process ID
+    !                         :  (4,j,k) = Adjoining element polynomial order
+    !                         :  (5,j,k) = Number of Adjoining elements
+    !                         :  (6,j,k) = HACK self polynomial order assigned to each face
+
+      qdim = size(ef2e,2)
       if(sum(ef2e(6,:,ielem))/qdim /= ef2e(6,1,ielem)) then
          write(*,*)'mpi bug in transfering ef2e'
       endif
-      elem_props(2,ielem) = ef2e(6,1,ielem)
+      elem_props(2,ielem) = ef2e(6,1,ielem) 
  
     enddo
 
