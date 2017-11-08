@@ -32,6 +32,7 @@ module referencevariables
   integer :: nghost = 0
   integer :: nghost_elem = 0
   integer :: nghost_Gau_shell = 0
+  integer :: nghost_LGL_shell = 0
 
   integer :: ihelems(2)
   integer :: nprocs
