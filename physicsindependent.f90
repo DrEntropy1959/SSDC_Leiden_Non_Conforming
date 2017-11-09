@@ -200,9 +200,8 @@ contains
     ! Communicate grid values
     call PetscGridLocations_LGL()
 
-    call shell_counter_Gau()
-
-!   call PetscGridLocations_Gau()
+!   if(non_conforming .eqv. .true.) call PetscGridLocations_Gau()
+    call PetscGridLocations_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the face-node connectivity'
@@ -220,8 +219,8 @@ contains
 
     ! Calculate normals
     call calcfacenormals_LGL()
-    call calcfacenormals_Gau()
 
+    call calcfacenormals_Gau()
     if(non_conforming .eqv. .true.) call Modify_Metrics_NonConforming()
 
     if (myprocid == 0) then

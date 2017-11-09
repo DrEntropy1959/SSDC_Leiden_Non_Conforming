@@ -22,7 +22,6 @@ module initgrid
   public set_element_orders_Serial
   public calculatepartitions
 
-  public shell_counter_Gau
   public calcnodes_LGL
   public calcmetrics_LGL
   public facenodesetup_LGL_Driver
@@ -7175,50 +7174,6 @@ contains
 
     return
   end subroutine Shell_Metrics_Analytic
-
-  !============================================================================
-
-  subroutine shell_counter_Gau()
-    ! Initialize the global and ghost arrays for the grid
-    ! It is run in parallel by all processes
-
-    use referencevariables,   only: ihelems, myprocid, nfacesperelem, nghost_Gau_shell
-    use variables,            only: ef2e
-    use collocationvariables, only: elem_props
-    use initcollocation,      only: element_properties
-
-    implicit none
-
-    integer :: ielem, iface
-    integer :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort
-
-    ! Set number of ghost points to zero. These are LGL points.
-    nghost_Gau_shell = 0
-
-    ! count necessary ghost points for each process
-
-    ! loop over elements
-    do ielem = ihelems(1), ihelems(2)
-
-      call element_properties(ielem, n_pts_1d=n_S_1d_On)
-
-      ! loop over faces
-      do iface = 1, nfacesperelem
-
-        n_S_1d_Off  = ef2e(4,iface,ielem)
-        n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
-
-        ! if face neighbor is off process and non-conforming then count ghost nodes
-
-        if ((ef2e(3,iface,ielem) /= myprocid) .and.     &
-            (elem_props(2,ielem) /= ef2e(4,iface,ielem))) nghost_Gau_shell = nghost_Gau_shell + (n_S_1d_Mort)**2
-
-      end do
-
-    end do
-
-  end subroutine shell_counter_Gau
-
 
 end module initgrid
 
