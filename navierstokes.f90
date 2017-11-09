@@ -1945,7 +1945,8 @@ contains
       nshell = nodesperface*nfacesperelem
 
       call UpdateCommShellGhostData(ugWENO_partner, ughstWENO_partner, upetscWENO_Shell, &
-                        ulocpetscWENO_Shell, nequations, nshell, ihelems, nghost)
+                        ulocpetscWENO_Shell, size(ugWENO_partner,1),  &
+                        size(ugWENO_partner,2), size(ughstWENO_partner,2))
 
     endif
 

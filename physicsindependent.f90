@@ -200,7 +200,7 @@ contains
     ! Communicate grid values
     call PetscGridLocations_LGL()
 
-    call Petsc_shell_Counter()
+    call shell_counter_Gau()
 
 !   call PetscGridLocations_Gau()
 

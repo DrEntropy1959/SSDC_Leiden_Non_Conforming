@@ -22,6 +22,7 @@ module initgrid
   public set_element_orders_Serial
   public calculatepartitions
 
+  public shell_counter_Gau
   public calcnodes_LGL
   public calcmetrics_LGL
   public facenodesetup_LGL_Driver
@@ -1584,7 +1585,7 @@ contains
 
           end if ! End if check periodic face in x3 direction
 
-          if ((match_found .eqv. .false.)  .and. (ef2e(4,iface,ielem) == elem_props(2,ielem))) then 
+          if ((match_found .eqv. .false.)  .and. (conforming_interface .eqv. .true.)) then 
 
             ! Loop over the nodes on the face
             do inode = 1, n_LGL_2d
@@ -4446,20 +4447,29 @@ contains
     ! Load modules
     use variables
     use collocationvariables
-    use referencevariables, only : ihelems, npoly
+    use referencevariables, only : ihelems, nfacesperelem
 
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: ielem, qdim
+    integer :: ielem, iface, qdim, ierr, elem_min, elem_max
 
-    if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,ihelems(1):ihelems(2)))
-    elem_props(:,:) = -1000
+    ! determine the lowest and highest element process is connected to (including self)
 
-    elem_props(1,:) = 1
-    elem_props(2,:) = npoly+1
+    elem_min = ihelems(1) ; elem_max = ihelems(2) ;
 
     do ielem = ihelems(1),ihelems(2)
+
+       do iface = 1,nfacesperelem
+         elem_min = min(ef2e(2,iface,ielem),elem_min)
+         elem_max = max(ef2e(2,iface,ielem),elem_max)
+       enddo
+
+    enddo
+
+    ! allocate size of elem_props for each process.  Includes self and all elements connected to faces
+    if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,elem_min:elem_max))
+    elem_props(1,:) = 1 ; elem_props(2,:) = -1000
 
     !  Parallel ordering : ! ef2e(:,iface,ielem) 
     !                         :  (1,j,k) = Adjoining element face ID
@@ -4469,11 +4479,26 @@ contains
     !                         :  (5,j,k) = Number of Adjoining elements
     !                         :  (6,j,k) = HACK self polynomial order assigned to each face
 
+    ! ef2e has poly order stored in the parallel ordering 
+    do ielem = ihelems(1),ihelems(2)
+
       qdim = size(ef2e,2)
       if(sum(ef2e(6,:,ielem))/qdim /= ef2e(6,1,ielem)) then
-         write(*,*)'mpi bug in transfering ef2e'
+         write(*,*)'mpi bug in transfering ef2e:   Stopping'
+         call PetscFinalize(ierr) ; stop ! Finalize MPI and the hooks to PETSc
       endif
       elem_props(2,ielem) = ef2e(6,1,ielem) 
+
+      do iface = 1,nfacesperelem
+         if( (elem_props(2,ef2e(2,iface,ielem)) /= -1000) .and.  &
+             (elem_props(2,ef2e(2,iface,ielem)) /= ef2e(4,iface,ielem)) ) then
+             write(*,*)'something wrong in set_element_orders: parallel.  Stopping'
+             call PetscFinalize(ierr) ; stop ; ! Finalize MPI and the hooks to PETSc
+         else
+           elem_props(2,ef2e(2,iface,ielem)) = ef2e(4,iface,ielem)
+         endif
+      enddo
+
  
     enddo
 
@@ -4704,6 +4729,8 @@ contains
     return
   end subroutine data_partner_element_serial     !   SERIAL Routine
 
+  !============================================================================
+
 ! pure function WENO_Adjoining_Data(k_node,k_face)     !   PARALLEL Routine
   function WENO_Adjoining_Data(k_node,k_face)
      !  Grab the data that lives at the first point off the surface of the
@@ -4732,6 +4759,8 @@ contains
      endif
 
   end function WENO_Adjoining_Data     !   PARALLEL Routine
+
+  !============================================================================
 
   pure function Pencil_Coord(Ns,jdir,iface,i)     !   PARALLEL Routine
 
@@ -4827,8 +4856,9 @@ contains
     enddo
 
 
-    call UpdateComm1DGhostDataWENOGeom(xgWENO_self, xghstWENO_partner, &
-                 xpetscWENO_partner, xlocpetscWENO_partner, 3, nodespershell, ihelems, nghost)
+    call UpdateComm1DGhostDataWENOGeom(xgWENO_self, xghstWENO_partner,             &
+                                       xpetscWENO_partner, xlocpetscWENO_partner,  &
+                                ndim, size(xgWENO_self,2), size(xghstWENO_partner,2))
 
      iloc = 0 
      do ielem = ihelems(1), ihelems(2)                                   ! element loop
@@ -4843,7 +4873,7 @@ contains
              inode = ifacenodes(jnode)                                   ! Volumetric node index corresponding to facial node index
              gnode = efn2efn(3,jnode,ielem)                              ! This is pointing to ghost stack not volumetric stack
              xgWENO_partner(:,jnode,ielem) = xghstWENO_partner(:,iloc) & ! off process partner data
-                   - xghst_LGL(:,iloc) + xg(:,inode,ielem)                   ! account for possibility of non-periodic domain.
+                   - xghst_LGL(:,iloc) + xg(:,inode,ielem)               ! account for possibility of non-periodic domain.
            end do
 
          else                                                            ! On process
@@ -5499,7 +5529,7 @@ contains
 
     real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_one_face
 
-    integer  :: i_elem, i_Gau, i_LGL, j_LGL, k_LGL
+    integer  :: ielem, i_Gau, i_LGL, j_LGL, k_LGL
     real(wp) :: l_xi, l_eta, l_zeta
     real(wp) :: xi_in, eta_in, zeta_in
     real(wp),  dimension(:), allocatable :: x_Gau_1d_Mort,w_Gau_1d_Mort
@@ -5521,15 +5551,15 @@ contains
     allocate(Gau_pts_comp_shell_one_face(3,n_Gau_2d_max))           ;  Gau_pts_comp_shell_one_face(:,:) = 0.0_wp
 
     ! Loop over volumetric elements
-    do i_elem = ihelems(1), ihelems(2)
+    do ielem = ihelems(1), ihelems(2)
 
-      call element_properties(i_elem,               &
+      call element_properties(ielem,               &
                               n_pts_1d=n_LGL_1d_On, &
                               x_pts_1d=x_LGL_1d_On)
 
       do iface = 1,nfacesperelem
 
-        n_LGL_1d_Off  = ef2e(4,iface,i_elem)
+        n_LGL_1d_Off  = ef2e(4,iface,ielem)
         n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
         n_Gau_2d_Mort = n_Gau_1d_Mort**2
 
@@ -5545,7 +5575,7 @@ contains
 
           ishift = (iface-1) * n_Gau_2d_max + i_Gau
           l = 0
-          xg_Gau_shell(:,ishift,i_elem) = 0.0_wp
+          xg_Gau_shell(:,ishift,ielem) = 0.0_wp
   
             xi_in = Gau_pts_comp_shell_one_face(1,i_Gau)
            eta_in = Gau_pts_comp_shell_one_face(2,i_Gau)
@@ -5564,7 +5594,7 @@ contains
   
                 l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d_On,n_LGL_1d_On)
   
-                xg_Gau_shell(:,ishift,i_elem) = xg_Gau_shell(:,ishift,i_elem) + xg(:,l,i_elem)*l_xi*l_eta*l_zeta
+                xg_Gau_shell(:,ishift,ielem) = xg_Gau_shell(:,ishift,ielem) + xg(:,l,ielem)*l_xi*l_eta*l_zeta
   
               end do
             end do
@@ -5596,7 +5626,7 @@ contains
 
     real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_one_face
 
-    integer  :: i_elem, i_Gau, i_LGL, j_LGL, k_LGL
+    integer  :: ielem, i_Gau, i_LGL, j_LGL, k_LGL
     real(wp) :: l_xi, l_eta, l_zeta
     real(wp) :: xi_in, eta_in, zeta_in
     real(wp),  dimension(:), allocatable :: x_Gau_1d_Mort,w_Gau_1d_Mort
@@ -5618,15 +5648,15 @@ contains
     allocate(Gau_pts_comp_shell_one_face(3,n_Gau_2d_max))           ;  Gau_pts_comp_shell_one_face(:,:) = 0.0_wp
 
     ! Loop over volumetric elements
-    do i_elem = ihelems(1), ihelems(2)
+    do ielem = ihelems(1), ihelems(2)
 
-      call element_properties(i_elem,               &
+      call element_properties(ielem,               &
                               n_pts_1d=n_LGL_1d_On, &
                               x_pts_1d=x_LGL_1d_On)
 
       do iface = 1,nfacesperelem
 
-        n_LGL_1d_Off  = ef2e(4,iface,i_elem)
+        n_LGL_1d_Off  = ef2e(4,iface,ielem)
         n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
         n_Gau_2d_Mort = n_Gau_1d_Mort**2
 
@@ -5642,7 +5672,7 @@ contains
 
           ishift = (iface-1) * n_Gau_2d_max + i_Gau
           l = 0
-          Jx_r_Gau_shell(ishift,i_elem) = 0.0_wp
+          Jx_r_Gau_shell(ishift,ielem) = 0.0_wp
   
             xi_in = Gau_pts_comp_shell_one_face(1,i_Gau)
            eta_in = Gau_pts_comp_shell_one_face(2,i_Gau)
@@ -5661,7 +5691,7 @@ contains
   
                 l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d_On,n_LGL_1d_On)
   
-                Jx_r_Gau_shell(ishift,i_elem) = Jx_r_Gau_shell(ishift,i_elem) + Jx_r(l,i_elem)*l_xi*l_eta*l_zeta
+                Jx_r_Gau_shell(ishift,ielem) = Jx_r_Gau_shell(ishift,ielem) + Jx_r(l,ielem)*l_xi*l_eta*l_zeta
   
               end do
             end do
@@ -7147,6 +7177,48 @@ contains
   end subroutine Shell_Metrics_Analytic
 
   !============================================================================
+
+  subroutine shell_counter_Gau()
+    ! Initialize the global and ghost arrays for the grid
+    ! It is run in parallel by all processes
+
+    use referencevariables,   only: ihelems, myprocid, nfacesperelem, nghost_Gau_shell
+    use variables,            only: ef2e
+    use collocationvariables, only: elem_props
+    use initcollocation,      only: element_properties
+
+    implicit none
+
+    integer :: ielem, iface
+    integer :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort
+
+    ! Set number of ghost points to zero. These are LGL points.
+    nghost_Gau_shell = 0
+
+    ! count necessary ghost points for each process
+
+    ! loop over elements
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_1d=n_S_1d_On)
+
+      ! loop over faces
+      do iface = 1, nfacesperelem
+
+        n_S_1d_Off  = ef2e(4,iface,ielem)
+        n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
+
+        ! if face neighbor is off process and non-conforming then count ghost nodes
+
+        if ((ef2e(3,iface,ielem) /= myprocid) .and.     &
+            (elem_props(2,ielem) /= ef2e(4,iface,ielem))) nghost_Gau_shell = nghost_Gau_shell + (n_S_1d_Mort)**2
+
+      end do
+
+    end do
+
+  end subroutine shell_counter_Gau
+
 
 end module initgrid
 
