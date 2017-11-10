@@ -1297,8 +1297,7 @@ contains
           ! Loop through the elements that owns a periodic face in the x1 direction
           if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
+            ! Check if the ielem owns a periodic face and if iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
 
               if (periodic_elem_face_ids_x1(1,i_p_face) == jelems(ielem) .and. &
@@ -1357,8 +1356,7 @@ contains
                     if (magnitude(x1_p-x2_p) <= nodetol) then
                       
                       ! Set the volumetric node index of the connected node
-                      efn2efn(1,knode,ielem) = kfacenodes(jnode,&
-                        & ef2e(1,iface,ielem))
+                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
 
                       ! Set the element of the connected node
                       efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
@@ -1453,8 +1451,7 @@ contains
                     if (magnitude(x1_p-x2_p) <= nodetol) then
                       
                       ! Set the volumetric node index of the connected node
-                      efn2efn(1,knode,ielem) = kfacenodes(jnode,&
-                        & ef2e(1,iface,ielem))
+                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
 
                       ! Set the element of the connected node
                       efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
@@ -5285,6 +5282,8 @@ contains
 
   end subroutine remove_duplicates
 
+!=======================================================================================
+
   function curved_connector_cylinder(nE,x00,x01,x1,x2,xLGL)
 
     use referencevariables, only: ndim
@@ -6024,33 +6023,23 @@ contains
     use referencevariables
     use collocationvariables
     use mpimod
-    use variables, only: ef2e,  &
-      & xg_Gau_shell, xgghst_Gau_Shell, efn2efn_Gau, &
-      & jelems, periodic_elem_face_ids_x1, &
-      & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
-    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points
+    use variables,       only: ef2e, xg_Gau_shell, xgghst_Gau_Shell, efn2efn_Gau
 
     ! Nothing is implicitly defined
     implicit none
+
+    real(wp), parameter :: nodetol = 1.0e-8_wp
 
     integer ::  ielem, inode, jnode, iface, knode, kshell
     integer ::  i_low
 
     real(wp) :: x1(3), x2(3)
-    real(wp), parameter :: nodetol = 1.0e-8_wp
-
-    integer :: i_p_face, p_dir, cnt_coord, i_coord
-    logical :: match_found
-    real(wp), dimension(2) :: x1_p, x2_p
 
     integer :: n_Gau_1d_max , n_Gau_2d_max , n_Gau_shell_max
     integer :: n_Gau_1d_Mort, n_Gau_2d_Mort
     integer :: n_LGL_1d_On  , n_LGL_1d_Off
-    integer :: cnt_debug
 
     continue
-
-    cnt_debug = 0
 
     ! efn2efn_Gau contains the partner node information of every facenode in the domain
 
@@ -6071,748 +6060,137 @@ contains
     i_low = 0
 
     ! Loop over elements
-    do ielem = ihelems(1), ihelems(2)
+    elem_loop:do ielem = ihelems(1), ihelems(2)
       
-      ! Reset facial node index counter
-
       n_LGL_1d_On   = elem_props(2,ielem)
       
       ! Loop over faces
-      do iface = 1, nfacesperelem
+      face_loop:do iface = 1, nfacesperelem
+
+        if (ef2e(4,iface,ielem) == elem_props(2,ielem)) cycle   !  only concerned with non-conforming interfaces
 
         n_LGL_1d_Off  = ef2e(4,iface,ielem)
         n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
         n_Gau_2d_Mort = n_Gau_1d_Mort**2
+
         knode = (iface-1) * n_Gau_2d_max
 
-        ! If on boundary, connect to self
-        if (ef2e(1,iface,ielem) < 0) then
-          
-          ! Loop over nodes on the boundary face
+        if (ef2e(3,iface,ielem) /= myprocid ) then   !  Off-process matching of Mortar points
+
+          ! Loop over the nodes on the face
           do inode = 1, n_Gau_2d_Mort
-            
-            ! Update facial node index counter
+
+            ! Update the facial node index counter
             knode = knode + 1
+
+            ! Save the coordinates of the facial node
+            x1 = xg_Gau_shell(:,knode,ielem)
+              
+            ! Search for the connected node on face of the connected element
+            do jnode = 1, n_Gau_2d_Mort
+
+              ! Coordinates of the jnode
+              ! ef2e(2) gives the element of the neighbor
+              x2 = xgghst_Gau_Shell(:,i_low + jnode)
+              
+              ! Check the distance between the two nodes
+              if (magnitude(x1-x2) <= nodetol) then
+                
+                ! Set the volumetric node index of the connected node
+                efn2efn_Gau(1,knode,ielem) = -1000
+                
+                ! Set the element of the connected node
+                efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
+                
+                ! Set the node index in the ghost array
+                efn2efn_Gau(3,knode,ielem) = i_low + jnode
+
+                exit
+              
+              end if
             
-            ! The first index is the volumetric node index and the second
-            ! index is the element index
-            efn2efn_Gau(:,knode,ielem) = (/ -1000, ielem, 0 /)
-          
+            end do
+              
+            ! Print information at screen if there is a problem and stop
+            ! computation
+            if (jnode > n_Gau_2d_Mort .and. myprocid==1) then
+              write(*,*) 'Connectivity error in face-node connectivity_Gau, Parallel.'
+              write(*,*) 'Process ID, element ID, face ID, ef2e'
+              write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
+              write(*,*) 'Node coordinates and ghost node coordinates'
+              write(*,*) x1, xgghst_Gau_Shell(:,i_low + 1:i_low + n_Gau_2d_Mort)
+              write(*,*) 'Exiting...'
+              stop
+            end if
+
           end do
 
-        else if (ef2e(3,iface,ielem) /= myprocid) then ! A parallel interface
-
-!  HUGE HACK
-        go to 10090
-!  HUGE HACK
-
-          ! Initialize match_found
-          match_found = .false.
+          ! Update the position in the ghost stack
+          i_low = i_low + n_Gau_2d_Mort
           
-          ! Loop through the elements that owns a periodic face in the x1 direction
-          if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
+        else  !  on-process matching
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
+          ! Loop over the nodes on the face
+          do inode = 1, n_Gau_2d_Mort
 
-              if (periodic_elem_face_ids_x1(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x1(2,i_p_face) == iface) then
+            ! Update the facial node index counter
+            knode = knode + 1
 
-                ! There is a match: change logical value of match_found
-                match_found = .true.
-
-                ! Get the direction of "periodicity"
-                p_dir = periodic_elem_face_ids_x1(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_Mort
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0
-                  
-                  do i_coord = 1,3
-                    
-                    if (i_coord /= p_dir) then
-
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  do jnode = 1, n_Gau_2d_Mort
-                    
-                    ! Coordinates of the jnode
-                    x2 = xgghst_Gau_Shell(:,i_low + jnode)
-                
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000 
-
-                      ! Set the element of the connected node
-                      ! ef2e(2) gives the element of the neighbor
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-
-                      ! Set the node index in the ghost array
-                      efn2efn_Gau(3,knode,ielem) = i_low + jnode
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-                ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_Mort
-
-              end if ! End if match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit 
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-
-          end if ! End if check periodic face in x1 direction
-
-          ! Loop through the elements that owns a periodic face in the x2 direction
-          if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x2(1,:)) /= 0) then
-
-            ! Check if the ielem owns a periodic face and if iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x2(1,:))
-
-              if (periodic_elem_face_ids_x2(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x2(2,i_p_face) == iface) then
-
-                ! There is a match: change logical value of match_found
-                match_found = .true.
-
-                ! Get the direction of "periodicity"
-                p_dir = periodic_elem_face_ids_x2(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_Mort
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0
-                  
-                  do i_coord = 1,3
-                    
-                    if (i_coord /= p_dir) then
-
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  do jnode = 1, n_Gau_2d_Mort
-                    
-                    ! Coordinates of the jnode
-                    ! ef2e(2) gives the element of the neighbor
-                    x2 = xgghst_Gau_Shell(:,i_low + jnode)
-                
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000
-
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-
-                      ! Set the node index in the ghost array
-                      efn2efn_Gau(3,knode,ielem) = i_low + jnode
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-                ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_Mort
-
-              end if ! End if match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit 
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-
-          end if ! End if check periodic face in x2 direction
-
-          ! Loop through the elements that owns a periodic face in the x3  direction
-          if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x3(1,:)) /= 0) then
-
-            ! Check if the ielem owns a periodic face and if iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))
-
-              if (periodic_elem_face_ids_x3(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x3(2,i_p_face) == iface) then
-
-                ! There is a match: change logical value of match_found
-                match_found = .true.
-
-                ! Get the direction of "periodicity"
-                p_dir = periodic_elem_face_ids_x3(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_Mort
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0
-                  
-                  do i_coord = 1,3
-                    
-                    if (i_coord /= p_dir) then
-
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  do jnode = 1, n_Gau_2d_Mort
-                    
-                    ! Coordinates of the jnode
-                    ! ef2e(2) gives the element of the neighbor
-                    x2 = xgghst_Gau_Shell(:,i_low + jnode)
-                
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000
-
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-
-                      ! Set the node index in the ghost array
-                      efn2efn_Gau(3,knode,ielem) = i_low + jnode
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-                ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_Mort
-
-              end if ! End if match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit 
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-
-          end if ! End if check periodic face in x3 direction
-
-          if (match_found .eqv. .false.) then
-
-            ! Loop over the nodes on the face
-            do inode = 1, n_Gau_2d_Mort
-
-              ! Update the facial node index counter
-              knode = knode + 1
-
-              ! Save the coordinates of the facial node
-              x1 = xg_Gau_shell(:,knode,ielem)
+            ! Save coordinates of the facial ndoes
+            x1 = xg_Gau_shell(:,knode,ielem)
+            ! Search the for connected node on the face of the connected element
+            
+            do jnode = 1, n_Gau_2d_Mort
               
-              ! Search for the connected node on face of the connected element
-              do jnode = 1, n_Gau_2d_Mort
-
-                ! Coordinates of the jnode
-                ! ef2e(2) gives the element of the neighbor
-                x2 = xgghst_Gau_Shell(:,i_low + jnode)
-                
-                ! Check the distance between the two nodes
-                if (magnitude(x1-x2) <= nodetol) then
-                  
-                  ! Set the volumetric node index of the connected node
-                  efn2efn_Gau(1,knode,ielem) = -1000
-                  
-                  ! Set the element of the connected node
-                  efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-                  
-                  ! Set the node index in the ghost array
-                  efn2efn_Gau(3,knode,ielem) = i_low + jnode
-
-                  exit
-                
-                end if
+              ! Coordinates of the jnode
+              ! ef2e(1) gives the face on the neighboring element and ef2e(2) gives the element
+              kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
+              x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
               
-              end do
-              
-              ! Print information at screen if there is a problem and stop
-              ! computation
-              if (jnode > n_Gau_2d_Mort .and. myprocid==1) then
-                write(*,*) 'Connectivity error in face-node connectivity_Gau, Parallel.'
-                write(*,*) 'Process ID, element ID, face ID, ef2e'
-                write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-                write(*,*) 'Node coordinates and ghost node coordinates'
-                write(*,*) x1, xgghst_Gau_Shell(:,i_low + 1:i_low + n_Gau_2d_Mort)
-                write(*,*) 'Exiting...'
-                stop
-              end if
+              ! Check the distance between the two nodes
+              if (magnitude(x1-x2) <= nodetol) then
 
-            end do
-
-            ! Update the position in the ghost stack
-            i_low = i_low + n_Gau_2d_Mort
-          
-          end if
-
- 10090  continue 
-
-        else ! Not a parallel interface
-
-          ! Initialize match_found
-          match_found = .false.
-
-          if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
-
-            ! Check if the ielem owns a periodic face and if the iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
-
-              if (periodic_elem_face_ids_x1(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x1(2,i_p_face) == iface) then
-
-                ! There is a match
-                match_found = .true.
-
-                ! Get the direction of periodicity
-                p_dir = periodic_elem_face_ids_x1(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_Mort
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-                  x1 = xg_Gau_shell(:,knode,ielem)
+                ! Set the volumetric node index of the connected node
+                efn2efn_Gau(1,knode,ielem) = -1000
                 
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0 
-
-                  do i_coord = 1, 3
-                    
-                    if (i_coord /= p_dir) then
-                      
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  ! Search for the connected node on the face of the connected 
-                  ! element
-                  do jnode = 1,n_Gau_2d_Mort
-                    ! Coordinates of the jnode
-                    ! ef2e(1) gives the face on the neighboring element and
-                    ! ef2e(2) gives the element
-
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
-                    x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
-
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-                    
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check the distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000
-                      
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-                      
-                      ! Set the index of the connected node
-                      efn2efn_Gau(4,knode,ielem) = kshell
-
-                      cnt_debug = cnt_debug + 1
-
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
+                ! Set the element of the connected node
+                efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
                 
-                end do ! End do inode 
-
-              end if ! Match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
+                ! Set the index of the connected node
+                efn2efn_Gau(4,knode,ielem) = kshell
+                
                 exit
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-
-          end if ! End if periodic x1 direction
-
-          ! If the iface is not a periodic face  in the x1 direction, check
-          ! if it is a periodic face in the x2 direction
-          if ((match_found .eqv. .false.) .and.              &
-             (size(periodic_elem_face_ids_x2(1,:)) /= 0)) then
-
-            ! Check if the ielem owns a periodic face and if the iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x2(1,:))
-
-              if (periodic_elem_face_ids_x2(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x2(2,i_p_face) == iface) then
-
-                ! There is a match
-                match_found = .true.
-
-                ! Get the direction of periodicity
-                p_dir = periodic_elem_face_ids_x2(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_Mort
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0 
-
-                  do i_coord = 1, 3
-                    
-                    if (i_coord /= p_dir) then
-                      
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  ! Search for the connected node on the face of the connected 
-                  ! element
-                  do jnode = 1,n_Gau_2d_Mort
-                    ! Coordinates of the jnode
-                    ! ef2e(1) gives the face on the neighboring element and
-                    ! ef2e(2) gives the element
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
-                    x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
-
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-                    
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check the distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000
-                      
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-                      
-                      ! Set the index of the connected node
-                      efn2efn_Gau(4,knode,ielem) = kshell
-
-                      cnt_debug = cnt_debug + 1
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-              end if ! Match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-          
-          end if ! End if periodic x2 direction
-
-
-          ! If the iface is not a periodic face in the x2 direction, check
-          ! if it is a periodic face in the x3 direction
-          if ((match_found .eqv. .false.) .and.              &
-             (size(periodic_elem_face_ids_x3(1,:)) /= 0)) then
-           
-            ! Check if the ielem owns a periodic face and if the iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))
-
-              if (periodic_elem_face_ids_x3(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x3(2,i_p_face) == iface) then
-
-                ! There is a match
-                match_found = .true.
-
-                ! Get the direction of periodicity
-                p_dir = periodic_elem_face_ids_x3(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_Mort
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invariant coordinates
-                  cnt_coord = 0 
-
-                  do i_coord = 1, 3
-                    
-                    if (i_coord /= p_dir) then
-                      
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  ! Search for the connected node on the face of the connected element
-                  do jnode = 1,n_Gau_2d_Mort
-                    ! Coordinates of the jnode
-                    ! ef2e(1) gives the face on the neighboring element and
-                    ! ef2e(2) gives the element
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
-                    x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
-
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-                    
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check the distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000
-                      
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-                      
-                      ! Set the index of the connected node
-                      efn2efn_Gau(4,knode,ielem) = kshell
-
-                      cnt_debug = cnt_debug + 1
-
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-              end if ! Match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-          
-          end if ! End if periodic x3 direction
-
-
-          if (match_found .eqv. .false.) then
-
-            ! Loop over the nodes on the face
-            do inode = 1, n_Gau_2d_Mort
-
-              ! Update the facial node index counter
-              knode = knode + 1
-
-              ! Save coordinates of the facial ndoes
-              x1 = xg_Gau_shell(:,knode,ielem)
-              ! Search the for connected node on the face of the connected element
               
-              do jnode = 1, n_Gau_2d_Mort
-                
-                ! Coordinates of the jnode
-                ! ef2e(1) gives the face on the neighboring element and ef2e(2) gives the element
-                kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
-                x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
-                
-                ! Check the distance between the two nodes
-                if (magnitude(x1-x2) <= nodetol) then
+              end if
+            
+            end do ! End do jnode
 
-                  ! Set the volumetric node index of the connected node
-                  efn2efn_Gau(1,knode,ielem) = -1000
-                  
-                  ! Set the element of the connected node
-                  efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-                  
-                  ! Set the index of the connected node
-                  efn2efn_Gau(4,knode,ielem) = kshell
-                  
-                  exit
-                
-                end if
-              
-              end do ! End do jnode
+            ! Print information at screen if there is a problem and stop computation
+!           if (efn2efn_Gau(2,knode,ielem) < 0) then
+!             write(*,*) 'Connectivity error in face-node connectivity of Gauss path.'
+!             write(*,*) 'Process ID, element ID, face ID, ef2e'
+!             write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
+!             write(*,*) 'Node coordinates'
+!             write(*,*) x1
+!             write(*,*) 'Possible partner node coordinates'
+!             
+!             do jnode = 1, n_Gau_2d_Mort
+!               x2 = xg(:,kfacenodes_Gau(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
+!               write(*,*) x2
+!             end do 
 
-              ! Print information at screen if there is a problem and stop computation
-!             if (efn2efn_Gau(2,knode,ielem) < 0) then
-!               write(*,*) 'Connectivity error in face-node connectivity of Gauss path.'
-!               write(*,*) 'Process ID, element ID, face ID, ef2e'
-!               write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-!               write(*,*) 'Node coordinates'
-!               write(*,*) x1
-!               write(*,*) 'Possible partner node coordinates'
-!               
-!               do jnode = 1, n_Gau_2d_Mort
-!                 x2 = xg(:,kfacenodes_Gau(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
-!                 write(*,*) x2
-!               end do 
+!             write(*,*) 'Exiting...'
+!             stop
+!           end if
 
-!               write(*,*) 'Exiting...'
-!               stop
-!             end if
-
-            end do ! End do inode
+          end do ! End do inode
           
-          end if ! End if not a periodic face (match_found = .false.)
-              
         end if ! End if type of face (boundary, off processor or on processor)
       
-      end do ! End do loop over faces of the element
+      end do face_loop! End do loop over faces of the element
 
-!     write(*,*)'ielem',ielem
-!     write(*,*)'shape',shape(efn2efn_Gau)
-!     write(*,*)'efn2efn_Gau',efn2efn_Gau(4,:,ielem)
-    
-    end do ! End do loop elements owned by the processor
+    end do elem_loop   !End do loop elements owned by the processor
 
-    return
   end subroutine calculate_face_node_connectivity_Gau
 
   !============================================================================
