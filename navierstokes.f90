@@ -297,7 +297,8 @@ contains
 
     ! Setup the PETSc parallel communication for exchanging the conservative
     ! variables at the parallel face element 
-    call PetscComm1DDataSetup(ug,ughst,upetsc,ulocpetsc,size(ug,1),size(ug,2),nelems,size(ughst,2))
+    call PetscComm1DDataSetup(ug,ughst,upetsc,ulocpetsc,size(ug,1),size(ug,2), &
+                             nelems, nodesperproc, size(ughst,2))
 
     ! Setup the PETSc parallel communication for exchanging the conservative
     ! variables at the parallel face element 
@@ -1932,7 +1933,8 @@ contains
     integer :: inode
     integer :: nshell
 
-    call UpdateComm1DGhostData(ug, ughst, upetsc, ulocpetsc, size(ug,1), size(ug,2), size(ughst,2))
+    call UpdateComm1DGhostData(ug, ughst, upetsc, ulocpetsc,  &
+                              size(ug,1), size(ug,2), nodesperproc, size(ughst,2))
 
     ! Update ghost value in the interior plane for WENO p = 3
     if((discretization == 'SSWENO')) then
@@ -1966,8 +1968,8 @@ contains
 
       call viscous_gradients()
 
-    call UpdateComm2DGhostData(phig, phighst, phipetsc, philocpetsc,  &
-                              size(phig,1), size(phig,2), size(phig,3), size(phighst,2))
+      call UpdateComm2DGhostData(phig, phighst, phipetsc, philocpetsc,  &
+                              size(phig,1), size(phig,2), size(phig,3), size(phighst,3))
 
     end if
 

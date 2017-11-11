@@ -22,6 +22,7 @@ module referencevariables
   integer :: nodesperelem = 0
   integer :: nodesperedge = 0
   integer :: nodesperface = 0
+  integer :: nodesperproc = 0
   integer :: nphysdim = 1
   integer :: nconstitutive = 0
   integer :: nverticesperelem = 0
