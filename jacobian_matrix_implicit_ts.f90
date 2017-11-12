@@ -28,17 +28,17 @@ contains
   subroutine communicate_data_jacobian()
 
     ! Load modules
-    use controlvariables, only: IMEX_penalty
-    use nsereferencevariables, only : viscous
-    use variables, only : ug, ughst, uelemghst, velemghst, welemghst, r_x, &
-      & r_x_ghst 
-    use referencevariables, only : nequations, nodesperelem, ihelems, nghost, &
-      & nghost_elem
-    use navierstokes, only : conserved_to_primitive, primitive_to_entropy
-    use petscvariables, only:  upetsc, ulocpetsc, uelempetsc, uelemlocpetsc, &
-      & r_x_petsc,r_x_loc_petsc
-    use mpimod, only : UpdateComm1DGhostData, UpdateComm1DElementGhostData, &
-      & UpdateComm2DGeomGhostData 
+    use controlvariables,       only: IMEX_penalty
+    use nsereferencevariables,  only: viscous
+    use variables,              only: ug, ughst, uelemghst, &
+                                    & velemghst, welemghst, r_x, r_x_ghst 
+    use referencevariables,     only: nequations, nodesperelem, ihelems, nghost, &
+                                    & nghost_elem, ndim, nodesperproc
+    use navierstokes,           only: conserved_to_primitive, primitive_to_entropy
+    use petscvariables,         only: upetsc, ulocpetsc, uelempetsc, uelemlocpetsc, &
+                                    & r_x_petsc,r_x_loc_petsc
+    use mpimod,                 only: UpdateComm1DGhostData, UpdateComm1DElementGhostData, &
+                                    & UpdateComm2DGeomGhostData 
 
     ! Nothing is implicitly defined
     implicit none
@@ -46,14 +46,14 @@ contains
     integer :: i
 
     ! Exchange conservative variables of at the ineterfaces
-    call UpdateComm1DGhostData(ug,ughst,upetsc,ulocpetsc,nequations, &
-      & nodesperelem,ihelems,nghost)
+    call UpdateComm1DGhostData(ug,ughst,upetsc,ulocpetsc,size(ug,1),size(ug,2), &
+                               nodesperproc, size(ughst,2))
     
     if (IMEX_penalty == 'implicit')  then
       if (viscous) then
         ! Exchange conservative variables of the adjoining elements
         call UpdateComm1DElementGhostData(ug,uelemghst,uelempetsc, &
-          & uelemlocpetsc,nequations,nodesperelem,ihelems,nghost_elem)
+          & uelemlocpetsc,size(ug,1),size(ug,2),size(uelemghst,2))
 
         ! Compute primitive and entropy variables of the adjoining elements
         do i = 1, nghost_elem
@@ -62,8 +62,8 @@ contains
         enddo
 
         ! Exchange the geometrical data r_x (Jacobian of the transformation)
-        call UpdateComm2DGeomGhostData(r_x,r_x_ghst,r_x_petsc,r_x_loc_petsc,3, &
-          & nodesperelem,ihelems,nghost)
+        call UpdateComm2DGeomGhostData(r_x,r_x_ghst,r_x_petsc,r_x_loc_petsc,ndim, &
+          & size(r_x,3),size(r_x_ghst,2))
       endif
     endif
 
