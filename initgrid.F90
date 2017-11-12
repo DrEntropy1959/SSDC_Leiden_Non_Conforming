@@ -458,8 +458,6 @@ contains
     ! minimum number of shared vertices for an element connection
     ncommon = nverticesperface
 
-!    write(*,*) iae2v(595)
-
     if(nparts > 1) then
 
       ! assign c pointers
@@ -474,7 +472,7 @@ contains
       icerr = calcMetisPartitions(nelems, nvertices, nparts, xadj, adj, ncommon, &
         eepart, nnpart, nnze2v)
 
-!        write(*,*) 'After if', xadjtmp(594)
+!        write(*,*) 'After if', xadjtmp(:)
     end if
 
     ! FIX FOR THE MEMORY PROBLEM
@@ -1235,8 +1233,9 @@ contains
     logical :: match_found, conforming_interface
     real(wp), dimension(2) :: x1_p, x2_p
 
-    integer :: cnt_debug
+    integer :: cnt_debug, ii
     integer :: n_LGL_1d, n_LGL_2d, nodesperface_max
+    integer :: kelem, n_LGL_2d_Off
 
     continue
 
@@ -1246,8 +1245,7 @@ contains
 
     nodesperface_max = (npoly_max+1)**(ndim-1)
 
-    allocate(efn2efn(4,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
-    efn2efn = -1000
+    allocate(efn2efn(4,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2))) ; efn2efn = -1000 ;
 
     ! Initialize position of the ghost point in the stack
     i_low = 0
@@ -1267,12 +1265,11 @@ contains
       ! Loop over faces
       do iface = 1, nfacesperelem
 
-        knode = (iface-1)*n_LGL_2d
+        knode = n_LGL_2d * (iface - 1)
 
-        !  Conforming or non_conforming interface
-        conforming_interface = .true. ; 
-        if(ef2e(4,iface,ielem) /= elem_props(2,ielem)) conforming_interface = .false.
-        
+!       if(myprocid == 0) write(*,*)'ielem,iface,ef2e(1,iface,ielem),ef2e(4,iface,ielem),elem_props(2,ielem),i_low', &
+!             ielem,iface,ef2e(1,iface,ielem),ef2e(4,iface,ielem),elem_props(2,ielem),ef2e(3,iface,ielem)-myprocid,i_low
+
         ! If on boundary, connect to self
         if (ef2e(1,iface,ielem) < 0) then
           
@@ -1289,7 +1286,7 @@ contains
           end do
 
         ! A conforming parallel interface
-        else if ((ef2e(3,iface,ielem) /= myprocid) .and. (conforming_interface .eqv. .true.)) then
+        else if ((ef2e(3,iface,ielem) /= myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem)) ) then
 
           ! Initialize match_found
           match_found = .false.
@@ -1355,6 +1352,8 @@ contains
                     ! Check distance between the two nodes
                     if (magnitude(x1_p-x2_p) <= nodetol) then
                       
+                      write(*,*)'found a match in parallel path periodic I' 
+
                       ! Set the volumetric node index of the connected node
                       efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
 
@@ -1450,6 +1449,8 @@ contains
                     ! Check distance between the two nodes
                     if (magnitude(x1_p-x2_p) <= nodetol) then
                       
+                      write(*,*)'found a match in parallel path periodic II' 
+
                       ! Set the volumetric node index of the connected node
                       efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
 
@@ -1487,8 +1488,7 @@ contains
           ! Loop through the elements that owns a periodic face in the x3 direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x3(1,:)) /= 0) then
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
+            ! Check if the ielem owns a periodic face and if iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))
 
               if (periodic_elem_face_ids_x3(1,i_p_face) == jelems(ielem) .and. &
@@ -1545,6 +1545,8 @@ contains
 
                     ! Check distance between the two nodes
                     if (magnitude(x1_p-x2_p) <= nodetol) then
+
+                      write(*,*)'found a match in parallel path periodic III' 
                       
                       ! Set the volumetric node index of the connected node
                       efn2efn(1,knode,ielem) = kfacenodes(jnode,&
@@ -1581,7 +1583,7 @@ contains
 
           end if ! End if check periodic face in x3 direction
 
-          if ((match_found .eqv. .false.)  .and. (conforming_interface .eqv. .true.)) then 
+          if (match_found .eqv. .false.) then
 
             ! Loop over the nodes on the face
             do inode = 1, n_LGL_2d
@@ -1601,6 +1603,9 @@ contains
                 
                 ! Check the distance between the two nodes
                 if (magnitude(x1-x2) <= nodetol) then
+
+                  cnt_debug = cnt_debug + 1
+!                 if(myprocid == 0) write(*,*)'found a match in parallel path' , myprocid, i_low, cnt_debug
                   
                   ! Set the volumetric node index of the connected node
                   efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
@@ -1619,14 +1624,18 @@ contains
               
               end do
               
-              ! Print information at screen if there is a problem and stop
-              ! computation
-              if (jnode > n_LGL_2d .and. myprocid==1) then
+              ! Print information at screen if there is a problem and stop computation
+              if (jnode > n_LGL_2d .and. myprocid==0) then
                 write(*,*) 'Connectivity error in face-node connectivity_LGL Parallel.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
                 write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-                write(*,*) 'Node coordinates and ghost node coordinates'
-                write(*,*) x1, xghst_LGL(:,i_low + 1:i_low + n_LGL_2d)
+                write(*,*) 'Node coordinates'
+                write(*,*) x1(:)
+                write(*,*) 'ghost node coordinates'
+                do ii = 1,size(xghst_LGL,2)
+!               do ii = i_low+1,i_low+n_LGL_2d
+                  write(*,*)ii,xghst_LGL(:,ii)
+                enddo
                 write(*,*) 'Exiting...'
                 stop
               end if
@@ -1639,7 +1648,7 @@ contains
           end if
 
         ! serial conforming interface
-        else if ((ef2e(3,iface,ielem) == myprocid) .and. (conforming_interface .eqv. .true.)) then
+        else if ((ef2e(3,iface,ielem) == myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem)) ) then
 
           ! Initialize match_found
           match_found = .false.
@@ -1688,8 +1697,7 @@ contains
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
-                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), &
-                      & ef2e(2,iface,ielem))
+                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1717,7 +1725,7 @@ contains
                       ! Set the index of the connected node
                       efn2efn(4,knode,ielem) = jnode
 
-                      cnt_debug = cnt_debug + 1
+!                     cnt_debug = cnt_debug + 1
 
                       exit ! partner jnode found; exit the jnode do loop
                     
@@ -1814,7 +1822,7 @@ contains
                       ! Set the index of the connected node
                       efn2efn(4,knode,ielem) = jnode
 
-                      cnt_debug = cnt_debug + 1
+!                     cnt_debug = cnt_debug + 1
 
                       exit ! partner jnode found; exit the jnode do loop
                     
@@ -1912,7 +1920,7 @@ contains
                       ! Set the index of the connected node
                       efn2efn(4,knode,ielem) = jnode
 
-                      cnt_debug = cnt_debug + 1
+!                     cnt_debug = cnt_debug + 1
 
                       exit ! partner jnode found; exit the jnode do loop
                     
@@ -2000,6 +2008,14 @@ contains
           
           end if ! End if not a periodic face (match_found = .false.)
               
+        else if (ef2e(4,iface,ielem) /= elem_props(2,ielem) .and. (ef2e(3,iface,ielem) /= myprocid)) then
+
+          kelem = ef2e(2,iface,ielem)
+          call element_properties(kelem, n_pts_2d=n_LGL_2d_Off)
+          i_low = i_low + n_LGL_2d_Off
+!         if(myprocid == 0)write(*,*)'updating i_low and cycling'
+          cycle
+
         end if ! End if type of face (boundary, off processor or on processor)
       
       end do ! End do loop over faces of the element
@@ -4379,32 +4395,34 @@ contains
     !  adjust the element polynomials as per directives
     if(non_conforming .eqv. .true.) then
 
-      do ielem = 1,nhex
-  
-        ! NW quad  x <= +tol ; y >= -tol
-        icnt = 0
-        do j=1,8
-          if((vx_master(1,ic2nh(j,ielem)) <= +tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
-        enddo
-        if(icnt == 8) elem_props(2,ielem) = npoly+2
-        ! SE quad  x >= -tol ; y <= +tol
-        icnt = 0
-        do j=1,8
-          if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) <= +tol)) icnt = icnt + 1
-        enddo
-        if(icnt == 8) elem_props(2,ielem) = npoly+2
-        ! NE quad  x, y >= -tol
-        icnt = 0
-        do j=1,8
-          if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
-        enddo
-        if(icnt == 8) elem_props(2,ielem) = npoly+3
-   
-      enddo
-
-!     do ielem = 1,nhex,3
-!       elem_props(2,ielem) = npoly+2
+!     do ielem = 1,nhex
+! 
+!       ! NW quad  x <= +tol ; y >= -tol
+!       icnt = 0
+!       do j=1,8
+!         if((vx_master(1,ic2nh(j,ielem)) <= +tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
+!       enddo
+!       if(icnt == 8) elem_props(2,ielem) = npoly+2
+!       ! SE quad  x >= -tol ; y <= +tol
+!       icnt = 0
+!       do j=1,8
+!         if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) <= +tol)) icnt = icnt + 1
+!       enddo
+!       if(icnt == 8) elem_props(2,ielem) = npoly+2
+!       ! NE quad  x, y >= -tol
+!       icnt = 0
+!       do j=1,8
+!         if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
+!       enddo
+!       if(icnt == 8) elem_props(2,ielem) = npoly+3
+!  
 !     enddo
+
+!     write(*,*)'npoly',npoly
+      do ielem = nhex/2+1,nhex
+        elem_props(2,ielem) = npoly+2
+      enddo
+!     write(*,*)'serial',elem_props(2,:)
 
     endif
 

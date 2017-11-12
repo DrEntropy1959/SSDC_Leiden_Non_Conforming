@@ -2045,7 +2045,7 @@ contains
     deallocate(iyu)
 
     ! create container for local vector that contains on process plus ghost data for solution
-    call VecCreateSeq(petsc_comm_self, ntotu+ntotG, Zlocin, ierrpetsc)
+    call VecCreateSeq(petsc_comm_self, ntotu + ntotG, Zlocin, ierrpetsc)
 
   end subroutine PetscComm1DDataSetup
 
@@ -2715,48 +2715,47 @@ contains
 
     real(wp), pointer :: xx_Z(:)
 
-    ! length of arrays for filling global vectors with data
-
+                                   ! length of arrays for filling global vectors with data
     ntotu = nq * nk * nelems       ! length of on process data
-    ntotv = nq * np                ! length of on-process data (no padding)
+    ntotv = nq * np                ! length of on-process data (no padding, just data)
     ntotw = nq * nk                ! length of incoming block of data WITH PADDING of zeros
 
-    ! loop over elements
-    do ielem = ihelems(1), ihelems(2)
+    do ielem = ihelems(1), ihelems(2)                       ! loop over elements
 
-      call element_properties(ielem, n_pts_3d=nodesperelem)
+      call element_properties(ielem, n_pts_3d=nodesperelem) ! size is element dependent
 
-      ntot = nq*nodesperelem
+      ntot = nq*nodesperelem                                ! bucket size
       if(allocated(iyu)) deallocate(iyu) ; allocate(iyu(ntot)) ; iyu = 0
       if(allocated( yu)) deallocate( yu) ; allocate( yu(ntot)) ;  yu = 0.0_wp
 
-      do inode = 1, nodesperelem                              ! loop over nodes
+      do inode = 1, nodesperelem                            ! loop over nodes
 
-        do ieq = 1, nq                                        ! loop over variables
+        do ieq = 1, nq                                      ! loop over variables
 
-           yu(nq*(inode-1)+ieq) = Zin(ieq,inode,ielem)        ! update temporary solution values
-
-          iyu(nq*(inode-1)+ieq) = ntotw*(ielem-1)+nq*(inode-1)+ieq - 1 ! update global location of solution values
+           yu(nq*(inode-1)+ieq) = Zin(ieq,inode,ielem)      ! update temporary solution values
+                                                            ! update global location of solution values
+          iyu(nq*(inode-1)+ieq) = ntotw*(ielem-1)       &   ! shift over previous elements
+                                + nq*(inode-1)          &   ! shift over previous nodes
+                                + ieq                   &   ! shift over previous eqns
+                                - 1                         ! shift from fortran to C indexing
 
         end do
 
       end do
-                                                              ! set values in petsc vector
+                                                            ! set values in petsc vector
       call VecSetValues(Zpetscin,ntot,iyu,yu,insert_values,ierrpetsc)
 
     end do
 
-    ! assemble vector
-    call VecAssemblyBegin(Zpetscin,ierrpetsc)
+    call VecAssemblyBegin(Zpetscin,ierrpetsc)               ! assemble Petsc vector
     call VecAssemblyEnd  (Zpetscin,ierrpetsc)
-    ! update ghost values
+                                                            ! update ghost values
     call VecGhostUpdateBegin(Zpetscin, insert_values, scatter_forward, ierrpetsc)
     call VecGhostUpdateEnd  (Zpetscin, insert_values, scatter_forward, ierrpetsc)
 
-    ! get local data including ghost points
-    call VecGhostGetLocalForm(Zpetscin, Zlocin, ierrpetsc)
-    ! use fortran pointer for convenience
-    call VecGetArrayF90(Zlocin, xx_Z, ierrpetsc)
+    call VecGhostGetLocalForm(Zpetscin, Zlocin, ierrpetsc)  ! get local data including ghost points
+
+    call VecGetArrayF90(Zlocin, xx_Z, ierrpetsc)            ! use fortran pointer for convenience
 
     iloc = 0
     do ielem = ihelems(1), ihelems(2)                       ! loop over elements
@@ -2782,8 +2781,7 @@ contains
 
     end do
 
-    ! release pointer
-    call VecRestoreArrayF90(Zlocin,xx_Z,ierrpetsc)
+    call VecRestoreArrayF90(Zlocin,xx_Z,ierrpetsc)          ! release pointer
     call VecGhostRestoreLocalForm(Zpetscin,Zlocin,ierrpetsc)
     if(associated(xx_Z)) deallocate(xx_Z)
 

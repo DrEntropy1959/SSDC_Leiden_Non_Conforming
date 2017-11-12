@@ -29,6 +29,7 @@ contains
     ! Load modules
     use polyinit
     use controlvariables
+    use collocationvariables
     use referencevariables
     use initgrid
     use fileio
@@ -201,7 +202,7 @@ contains
     call PetscGridLocations_LGL()
 
 !   if(non_conforming .eqv. .true.) call PetscGridLocations_Gau()
-    call PetscGridLocations_Gau()
+!   call PetscGridLocations_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the face-node connectivity'
@@ -210,7 +211,8 @@ contains
 
     ! Calculate connections
     call calculate_face_node_connectivity_LGL()
-    call calculate_face_node_connectivity_Gau()
+
+!   call calculate_face_node_connectivity_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the normal vectors'
@@ -230,6 +232,8 @@ contains
 
     ! Set binary sizes for writing the solution vtu files in raw binary vtu format
     call calculate_binary_sizes_vtu()
+
+!   call PetscFinalize(i_err) ; stop
 
     return
   end subroutine physics_independent_setup
