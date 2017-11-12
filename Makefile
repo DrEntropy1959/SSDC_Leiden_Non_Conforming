@@ -25,14 +25,15 @@ LFLAGS = -L/home/carpentr/OpenSourceLib/Lib-Install/lib\
 CC = gcc
 FC = mpif90
 else ifeq ($(HOSTPC),niavisi13-Latitude-3440)
-INCLUDESDIR = -I/home/nia-visi13/Postdoc2/open_source/lib/openmpi-3.0.0/include\
-              -I/home/nia-visi13/Postdoc2/open_source/lib/petsc-3.8.0/include\
-              -I/home/nia-visi13/Postdoc2/open_source/lib/petsc-3.8.0/include/petsc
+INCLUDESDIR = -I/home/nia-visi13/Postdoc2/open_source/deps/openmpi-3.0.0/include\
+              -I/home/nia-visi13/Postdoc2/open_source/deps/petsc-3.5.4/include\
+              -I/home/nia-visi13/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
 FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
 #FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
 CFLAGS = -Ofast  $(INCLUDESDIR)
-LFLAGS = -L/home/nia-visi13/Postdoc2/open_source/lib/openmpi-3.0.0/lib\
-         -L/home/nia-visi13/Postdoc2/open_source/lib/petsc-3.8.0/lib
+LFLAGS = -L/home/nia-visi13/Postdoc2/open_source/deps/openmpi-3.0.0/lib\
+         -L/home/nia-visi13/Postdoc2/open_source/deps/petsc-3.5.4/lib\
+         -L/home/nia-visi13/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
 else
 $(info Hostname Not Found)
 endif
