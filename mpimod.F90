@@ -1,14 +1,12 @@
 module mpimod
 
   use precision_vars
-  use petsc
-
   implicit none
 
-#include "include/petsc/finclude/petscsys.h"
-#include "include/petsc/finclude/petscvec.h"
-#include "include/petsc/finclude/petscis.h"
-!#include "include/petsc/finclude/petscvec.h90"
+#include "finclude/petscsys.h"
+#include "finclude/petscvec.h"
+#include "finclude/petscis.h"
+#include "finclude/petscvec.h90"
 
   integer :: mpi_real_wp, mpi_complex_wp
   integer :: mpi_default_wp

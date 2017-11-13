@@ -1,10 +1,8 @@
 module petscvariables
 
-#include "include/petsc/finclude/petscsys.h"
-#include "include/petsc/finclude/petscvec.h"
-#include "include/petsc/finclude/petscis.h"
-
-  use petsc
+#include "finclude/petscsys.h"
+#include "finclude/petscvec.h"
+#include "finclude/petscis.h"
 
   Vec xpetsc
   Vec xlocpetsc

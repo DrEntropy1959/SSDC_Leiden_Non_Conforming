@@ -11,7 +11,6 @@ module petsc_snes_solver
 
   ! Load modules
   use precision_vars
-  use petsc
 
   ! Nothing is implicitly defined
   implicit none
@@ -28,14 +27,14 @@ module petsc_snes_solver
 
 
 ! C PETSc header files to be included 
-#include "include/petsc/finclude/petscsys.h"
-#include "include/petsc/finclude/petscpc.h"
-#include "include/petsc/finclude/petscvec.h"
-#include "include/petsc/finclude/petscmat.h"
-#include "include/petsc/finclude/petscsnes.h"
-#include "include/petsc/finclude/petscksp.h"
-#include "include/petsc/finclude/petscviewer.h"
-!#include "/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/petsc/include/petsc/finclude/petscvec.h90"
+#include "finclude/petscsys.h"
+#include "finclude/petscpc.h"
+#include "finclude/petscvec.h"
+#include "finclude/petscmat.h"
+#include "finclude/petscsnes.h"
+#include "finclude/petscksp.h"
+#include "finclude/petscvec.h90"
+#include "finclude/petscviewer.h"
 
   ! PETSc variables
   ! ===============
@@ -176,26 +175,22 @@ contains
     call check_petsc_error(i_err)
 
     ! Set linear and nonlinear solver options
-! HACK ALERT
-!   if (IMEX_Element == 'explicit' .and. IMEX_Penalty == 'explicit') then
-!     call PetscOptionsSetValue('-pc_type','none',i_err)
-!     call check_petsc_error(i_err)
-!   else 
-!     call PetscOptionsSetValue('-pc_type','asm',i_err)
-!     call PetscOptionsSetValue('-sub_pc_type','ilu',i_err)
-!     call PetscOptionsSetValue('-sub_pc_factor_levels','1',i_err)
-!   end if
-! HACK ALERT
+    if (IMEX_Element == 'explicit' .and. IMEX_Penalty == 'explicit') then
+      call PetscOptionsSetValue('-pc_type','none',i_err)
+      call check_petsc_error(i_err)
+    else 
+      call PetscOptionsSetValue('-pc_type','asm',i_err)
+      call PetscOptionsSetValue('-sub_pc_type','ilu',i_err)
+      call PetscOptionsSetValue('-sub_pc_factor_levels','1',i_err)
+    end if
 
     ! Create nonlinear solver context
     call SNESCreate(PETSC_COMM_WORLD,petsc_snes,i_err); 
     call check_petsc_error(i_err)
 
     ! Set nonlinear function    
-! HACK ALERT
-!   call SNESSetFunction(petsc_snes,petsc_f_vec,form_function_snes, &
-!     & PETSC_NULL_OBJECT,i_err)
-! HACK ALERT
+    call SNESSetFunction(petsc_snes,petsc_f_vec,form_function_snes, &
+      & PETSC_NULL_OBJECT,i_err)
     call check_petsc_error(i_err)
 
     ! Local portion of the residual Jacobian matrix
@@ -210,9 +205,7 @@ contains
     call check_petsc_error(i_err)
 
     block_size = 5
-! HACK ALERT
-!   call MatSetBlockSize(petsc_pc_mat, block_size) 
-! HACK ALERT
+    call MatSetBlockSize(petsc_pc_mat, block_size) 
     call check_petsc_error(i_err)
     
     call MatSetFromOptions(petsc_pc_mat,i_err)
@@ -293,10 +286,8 @@ contains
     petsc_jacobian_mat = petsc_pc_mat
 
     ! Set function for the calculation of the residual Jacobian matrix
-! HACK ALERT
-!   call SNESSetJacobian(petsc_snes,petsc_jacobian_mat,petsc_pc_mat, &
-!     & form_jacobian_matrix,PETSC_NULL_OBJECT,i_err)
-! HACK ALERT
+    call SNESSetJacobian(petsc_snes,petsc_jacobian_mat,petsc_pc_mat, &
+      & form_jacobian_matrix,PETSC_NULL_OBJECT,i_err)
 
     ! The following commented call is used in to compute the Jacobian matrix 
     ! with the FD approach 
@@ -461,13 +452,11 @@ contains
           !write(*,*) 'shift', shift
           !write(*,*) 'jaS(iaS(nodes_counter):iaS(nodes_counter+1)-1)', jaS(iaS(nodes_counter):iaS(nodes_counter+1)-1)
 
-! HACK ALERT
-!         call MatSetValuesBlocked(pc_mat,1,shift+nodes_counter, &
-!             & nnz_blocks_per_block_row, &
-!             & jaS(iaS(nodes_counter):iaS(nodes_counter+1)-1), &
-!             & dfdu_a_elem(:,:,blocks_counter:nnz_blocks_per_block_row), &
-!             & INSERT_VALUES,i_err)
-! HACK ALERT
+          call MatSetValuesBlocked(pc_mat,1,shift+nodes_counter, &
+              & nnz_blocks_per_block_row, &
+              & jaS(iaS(nodes_counter):iaS(nodes_counter+1)-1), &
+              & dfdu_a_elem(:,:,blocks_counter:nnz_blocks_per_block_row), &
+              & INSERT_VALUES,i_err)
           call check_petsc_error(i_err)
           
           ! Update blocks_counter and nodes_counter
@@ -575,9 +564,7 @@ contains
     !tmp_x = reshape(ug,(/len_local,1/))
 
     ! Set values in the portion of the vector owned by the process
-! HACK ALERT
-!   call VecSetValues(x_vec,len_local,index_list,reshape(ug,(/len_local,1/)),INSERT_VALUES,i_err) 
-! HACK ALERT
+    call VecSetValues(x_vec,len_local,index_list,reshape(ug,(/len_local,1/)),INSERT_VALUES,i_err) 
     call check_petsc_error(i_err)
 
     ! Parallel assembly of initial guess
@@ -674,9 +661,8 @@ contains
     ! Set values in the portion of the vector owned by the process
     !call VecSetValues(f_vec,len_local,index_list,reshape(non_lin_res,(/len_local,1/)),INSERT_VALUES,& 
     !  & i_err)
-! HACK ALERT
-!   call VecSetValues(f_vec,len_local,index_list,non_lin_res,INSERT_VALUES,i_err)
-! HACK ALERT
+    call VecSetValues(f_vec,len_local,index_list,non_lin_res,INSERT_VALUES,& 
+      & i_err)
 
     ! Parallel assembly of the nonlinear residual
     call VecAssemblyBegin(f_vec,i_err)
@@ -739,10 +725,8 @@ contains
     ! Set values in the portion of the vector owned by the process
     !call VecSetValues(petsc_x_vec,len_local,index_list, &
     ! & reshape(ug,(/len_local,1/)),INSERT_VALUES,i_err) 
-! HACK ALERT
-!   call VecSetValues(petsc_x_vec,len_local,index_list, &
-!     & ug(:,:,:),INSERT_VALUES,i_err) 
-! HACK ALERT
+    call VecSetValues(petsc_x_vec,len_local,index_list, &
+      & ug(:,:,:),INSERT_VALUES,i_err) 
     call check_petsc_error(i_err)
 
     ! Parallel assembly of initial guess
@@ -752,9 +736,7 @@ contains
     call check_petsc_error(i_err)
 
     ! Solve nonlinear system
-! HACK ALERT
-!   call SNESSolve(petsc_snes,PETSC_NULL_OBJECT,petsc_x_vec,i_err)
-! HACK ALERT
+    call SNESSolve(petsc_snes,PETSC_NULL_OBJECT,petsc_x_vec,i_err)
     call check_petsc_error(i_err)
 
     ! Check if the solver has converged

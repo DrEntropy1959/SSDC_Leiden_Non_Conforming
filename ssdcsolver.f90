@@ -31,7 +31,7 @@ program ssdcsolver
   ! Start-up file name
   character(len=120) :: arg
   character(len=120) :: start_up_file_name
-  write(*,*) "test"
+
   continue
 
   ! Initialize mpi (mpimod)
