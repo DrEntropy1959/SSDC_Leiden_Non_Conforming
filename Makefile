@@ -13,6 +13,7 @@ LFLAGS  = -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/lib\
           -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/lib
 CC = gcc
 FC = mpif90
+LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
 else ifeq ($(HOSTPC),Leiden)
 $(info ${HOSTPC})
 INCLUDESDIR = -I/home/carpentr/OpenSourceLib/Lib-Install/include\
@@ -24,10 +25,23 @@ LFLAGS = -L/home/carpentr/OpenSourceLib/Lib-Install/lib\
          -L/home/carpentr/OpenSourceLib/Lib-Install/petsc-3.5/lib
 CC = gcc
 FC = mpif90
+LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
+else ifeq ($(HOSTPC),dfernandez-lan)
+$(info ${HOSTPC})
+INCLUDESDIR = -I/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/lib/include\
+              -I/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/petsc
+FCFLAGS = -Wunused -Wsurprising -O1 $(INCLUDESDIR)
+#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+CFLAGS = -O1  $(INCLUDESDIR)
+LFLAGS = -L/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/lib/lib\
+         -L/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/petsc
+#        -L/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/lib/lib\
+CC = gcc
+FC = mpif90
+LIBS = -lpetsc -lHYPRE -lsuperlu_dist -lscalapack -lmetis -lparmetis -lcgns
 else
 $(info Hostname Not Found)
 endif
-LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
 
 SRCS = precision_vars.f90\
        datatypes.f90\
