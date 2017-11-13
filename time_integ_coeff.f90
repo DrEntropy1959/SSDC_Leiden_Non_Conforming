@@ -92,8 +92,14 @@ contains
     ! Nothing is implicitly defined
     implicit none
 
-    real(wp) :: b1, b2, b3, b4, b5, b6
-    integer, parameter  :: method = 1
+    real(wp) :: b1, b2, b3, b4, b5!, b6
+    real(wp) :: AA1, AA2, AA3, AA4, AA5, AA6 
+    real(wp) :: BB1, BB2, BB3, BB4, BB5, BB6 
+    real(wp) :: BH1, BH2, BH3, BH4, BH5, BH6 
+
+    real(wp), dimension(6) :: b, bh, db
+
+    integer, parameter  :: method = 0
 
     ! Williamson
     ! ==========
@@ -163,6 +169,12 @@ contains
         alsrk(4) = -144992129.0_wp/ 98109555.0_wp
         alsrk(5) = -79666811.0_wp/ 37868774.0_wp
         alsrk(6) = -85387295.0_wp/ 44036756.0_wp
+        AA1 = alsrk(1) ; 
+        AA2 = alsrk(2) ; 
+        AA3 = alsrk(3) ; 
+        AA4 = alsrk(4) ; 
+        AA5 = alsrk(5) ; 
+        AA6 = alsrk(6) ; 
 
         ! Weights of main mathod
         brk(1)  = 10764601.0_wp/ 113944427.0_wp
@@ -171,21 +183,31 @@ contains
         brk(4)  = 92067757.0_wp/ 111839021.0_wp
         brk(5)  = 46859183.0_wp/ 63300472.0_wp
         brk(6)  = 47126472.0_wp/ 380443417.0_wp
+        BB1 = brk(1) ; 
+        BB2 = brk(2) ; 
+        BB3 = brk(3) ; 
+        BB4 = brk(4) ; 
+        BB5 = brk(5) ; 
+        BB6 = brk(6) ; 
 
-        b1      = -5062502208571.0_wp/10831071574082.0_wp
-        b2      =  7350684609029.0_wp/8562057514121.0_wp
-        b3      =  -18221243228277.0_wp/40554070092353.0_wp
-        b4      =  129818982301.0_wp/4807233560427.0_wp
-        b5      =  253026190555.0_wp/10259350328147.0_wp
-        b6      =  15875538881.0_wp/2432482339802.0_wp
+        !  Butcher weights for b_j
+        b(1)  = BB1 + AA2*BB2 + AA2*AA3*BB3 + AA2*AA3*AA4*BB4 + AA2*AA3*AA4*AA5*BB5 + AA2*AA3*AA4*AA5*AA6*BB6;
+        b(2)  = BB2 + AA3*BB3 + AA3*AA4*BB4 + AA3*AA4*AA5*BB5 + AA3*AA4*AA5*AA6*BB6;
+        b(3)  = BB3 + AA4*BB4 + AA4*AA5*BB5 + AA4*AA5*AA6*BB6;
+        b(4)  = BB4 + AA5*BB5 + AA5*AA6*BB6;
+        b(5)  = BB5 + AA6*BB6;
+        b(6)  = BB6;
+
+        ! db_j = b_j - bh_j
+        db(1) = -5062502208571.0_wp/10831071574082.0_wp
+        db(2) =  7350684609029.0_wp/8562057514121.0_wp
+        db(3) = -18221243228277.0_wp/40554070092353.0_wp
+        db(4) =  129818982301.0_wp/4807233560427.0_wp
+        db(5) =  253026190555.0_wp/10259350328147.0_wp
+        db(6) =  15875538881.0_wp/2432482339802.0_wp
 
         ! Weights of embedded mathod
-        brkh(1) = brk(1) - b1
-        brkh(2) = brk(2) - b2
-        brkh(3) = brk(3) - b3
-        brkh(4) = brk(4) - b4
-        brkh(5) = brk(5) - b5
-        brkh(6) = brk(6) - b6
+        bh(:) = b(:) - db(:)
 
         crk(1)  = 0.0_wp
         crk(2)  = 10764601.0_wp/113944427.0_wp
@@ -193,6 +215,20 @@ contains
         crk(4)  = 4914898956286.0_wp/11260214860537.0_wp
         crk(5)  = 2210250771543.0_wp/3380123205067.0_wp
         crk(6)  = 34536188621667.0_wp/ 35138252455445.0_wp
+
+        BH6  = bh(6);
+        BH5  = bh(5) - AA6*BH6;
+        BH4  = bh(4) - AA5*BH5 - AA5*AA6*BH6;
+        BH3  = bh(3) - AA4*BH4 - AA4*AA5*BH5 - AA4*AA5*AA6*BH6;
+        BH2  = bh(2) - AA3*BH3 - AA3*AA4*BH4 - AA3*AA4*AA5*BH5 - AA3*AA4*AA5*AA6*BH6;
+        BH1  = bh(1) - AA2*BH2 - AA2*AA3*BH3 - AA2*AA3*AA4*BH4 - AA2*AA3*AA4*AA5*BH5 - AA2*AA3*AA4*AA5*AA6*BH6;
+
+        brkh(1)  = BH1
+        brkh(2)  = BH2
+        brkh(3)  = BH3
+        brkh(4)  = BH4
+        brkh(5)  = BH5
+        brkh(6)  = BH6
 
     end select
 

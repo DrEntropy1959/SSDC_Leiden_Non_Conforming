@@ -7,7 +7,7 @@ $(info ${HOSTPC})
 INCLUDESDIR = -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/include\
               -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/include
 FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -fbounds-check -O3 $(INCLUDESDIR)
-#FCFLAGS = -g -Wall -Wextra -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -ffpe-trap=zero,overflow,underflow -finit-real=nan $(INCLUDESDIR)
+#FCFLAGS = -g -Wall -Wmaybe-uninitialized -Wextra -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -ffpe-trap=zero,overflow,underflow -finit-real=nan $(INCLUDESDIR)
 CFLAGS  = -Ofast  $(INCLUDESDIR)
 LFLAGS  = -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/lib\
           -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/lib
@@ -52,6 +52,7 @@ SRCS = precision_vars.f90\
        collocationvariables.f90\
        SSWENOvariables.f90\
        petscvariables.F90\
+       initcollocation.f90\
        fileio.f90\
        mpimod.F90\
        CSRlocalvariables.f90\
@@ -63,7 +64,6 @@ SRCS = precision_vars.f90\
        initialize_CSR.f90\
        tools_IO.f90\
        time_average.f90\
-       initcollocation.f90\
        SSWENO_routines.f90\
        restart_simulation.f90\
        eispack_module.f90\
@@ -102,6 +102,7 @@ OBJS = precision_vars.o\
        collocationvariables.o\
        SSWENOvariables.o\
        petscvariables.o\
+       initcollocation.o\
        fileio.o\
        mpimod.o\
        CSRlocalvariables.o\
@@ -113,7 +114,6 @@ OBJS = precision_vars.o\
        initialize_CSR.o\
        tools_IO.o\
        time_average.o\
-       initcollocation.o\
        SSWENO_routines.o\
        restart_simulation.o\
        eispack_module.o\

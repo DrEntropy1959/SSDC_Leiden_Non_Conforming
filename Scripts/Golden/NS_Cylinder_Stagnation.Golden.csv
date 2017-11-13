@@ -40,10 +40,10 @@
  Start actual computation
  ===============================================================
  P           3
- L1   error:    1.4186205628736384E-002
- L2   error:    8.2857869471080259E-002
- Linf error:    2.3785199062447075     
- CPU time:         36.7523
+ L1   error:    1.4186205628736372E-002
+ L2   error:    8.2857869471080120E-002
+ Linf error:    2.3785199062447493     
+ CPU time:         22.3853
 
  Solution files written in solution                                                                                                                
 

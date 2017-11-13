@@ -29,6 +29,7 @@ contains
     ! Load modules
     use polyinit
     use controlvariables
+    use collocationvariables
     use referencevariables
     use initgrid
     use fileio
@@ -114,7 +115,7 @@ contains
         ! Create connectivity from the original grid
         call e2e_connectivity_aflr3()  
 
-!       write(*,*) 'Master node builds element orders'
+!       write(*,*) 'Master node builds element orders if non-conforming'
 !       write(*,*) '==============================================================='
         call set_element_orders_serial()      
 
@@ -200,8 +201,7 @@ contains
     ! Communicate grid values
     call PetscGridLocations_LGL()
 
-!   call Petsc_shell_Counter()
-
+!   if(non_conforming .eqv. .true.) call PetscGridLocations_Gau()
 !   call PetscGridLocations_Gau()
 
     if (myprocid == 0) then
@@ -211,7 +211,8 @@ contains
 
     ! Calculate connections
     call calculate_face_node_connectivity_LGL()
-    call calculate_face_node_connectivity_Gau()
+
+!   call calculate_face_node_connectivity_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the normal vectors'
@@ -220,9 +221,9 @@ contains
 
     ! Calculate normals
     call calcfacenormals_LGL()
-    call calcfacenormals_Gau()
 
-!   call Modify_Metrics_NonConforming()
+    call calcfacenormals_Gau()
+    if(non_conforming .eqv. .true.) call Modify_Metrics_NonConforming()
 
     if (myprocid == 0) then
       write(*,*) 'Start actual computation'
@@ -231,6 +232,8 @@ contains
 
     ! Set binary sizes for writing the solution vtu files in raw binary vtu format
     call calculate_binary_sizes_vtu()
+
+!   call PetscFinalize(i_err) ; stop
 
     return
   end subroutine physics_independent_setup

@@ -7,6 +7,7 @@ module petscvariables
   use petsc
 
   Vec xpetsc
+  Vec xlocpetsc
 
   Vec upetsc
   Vec ulocpetsc
