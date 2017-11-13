@@ -2136,9 +2136,10 @@ contains
   subroutine PetscComm2DDataSetup(Zin, Zghstin, Zpetscin, Zlocin, nq, nd, nk, ne, ngh)
 
     ! this routine allocates the ghost data for Navier Stokes computations
-    use referencevariables
-    use variables,       only: ef2e, kfacenodes
-    use initcollocation, only: element_properties
+
+    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,           only: ef2e, kfacenodes
+    use initcollocation,     only: element_properties
     implicit none
 
     ! Arguments
@@ -2153,72 +2154,74 @@ contains
     PetscErrorCode ierrpetsc
     PetscScalar xinit
 
-    integer :: ntotphi
+    integer :: nodesperface
+!   integer :: ntotu,ntotv,ntotG
+    integer :: ntotu,ntotG
     integer :: ielem, iloc, idir, iface
     integer :: i, kelem, kface, ieq
-    integer, allocatable :: iyphi(:)
+    integer, allocatable :: iyu(:)
 
     xinit = 0.0_wp
 
-    ! allocate memory for ghost locations
-    allocate(iyphi(ngh*nq*nd))
+    ntotu = nq * nd * nk * nelems                        ! length of on process data including padding (for 1D solution vector)
+!   ntotv = nq * nd * np                                 ! length of data being used (excludes padding)
+    ntotG = nq * nd * ngh                                ! length of ghost data on process
 
-    iloc = 0
-    ! loop over elements
-    do ielem = ihelems(1), ihelems(2)
+    allocate(iyu(ntotG))                                 ! allocate memory for ghost locations
 
-      ! loop over faces on elem
-      do iface = 1,nfacesperelem
-        ! do nothing if neighbor is on process
-        if (ef2e(3,iface,ielem) == myprocid) cycle
-        ! element of neighbor
-        kelem = ef2e(2,iface,ielem)
-        ! face of neighbor
-        kface = ef2e(1,iface,ielem)
+    iloc = 0                                             ! ghost data counter
+    elem_loop:do ielem = ihelems(1), ihelems(2)          ! loop over elements
 
-        call element_properties(kelem,         &
-                       n_pts_2d=nodesperface,  &
+      face_loop:do iface = 1,nfacesperelem               ! loop over faces on element
+
+        if (ef2e(3,iface,ielem) == myprocid) cycle       ! cycle if neighbor is ON process
+
+        kelem = ef2e(2,iface,ielem)                      ! element of neighbor
+        kface = ef2e(1,iface,ielem)                      ! face of neighbor
+
+        call element_properties(kelem,              &    ! Get off-element properties
+                       n_pts_2d=nodesperface,       & 
                      kfacenodes=kfacenodes)
 
-        ! loop over nodes on neighbor face
-        do i = 1, nodesperface
-          ! loop over gradient directions
-          do idir = 1,nd
-            ! loop over equations
-            do ieq = 1,nq
-              ! advance position in ghost array
-              iloc = iloc+1
-              ! set position of ghost in global vector containing  entropy variable gradient data
-              iyphi(iloc) = nq * nd * nk * (kelem-1) + (kfacenodes(i,kface)-1)*nd*nq + nq*(idir-1) + ieq
+        do i = 1, nodesperface                           ! loop over nodes on neighbor face
+
+          do idir = 1,nd                                 ! loop over gradient directions
+
+            do ieq = 1,nq                                ! loop over equations
+
+              iloc = iloc+1                              ! advance position in ghost array
+                                                         ! set position of ghost in global vector containing  entropy variable gradient data
+              iyu(iloc) = nq * nd * nk * (kelem-1)      &! shift over previous elements
+                        + (kfacenodes(i,kface)-1)*nd*nq &! grab surface data
+                        + nq*(idir-1)                   &! direction loop
+                        + ieq                            ! eqn loop
+
             end do
           end do
+
         end do
-      end do
-    end do
 
-    ! use C indexing
-    iyphi = iyphi-1
+      end do face_loop
 
-    ! total length of on process data for 1D vector of entropy variable gradients
-    ntotphi = nq * nd * nk * nelems
+    end do elem_loop
 
-    ! call to petsc to create global vector with ghosts
-    call VecCreateGhost(petsc_comm_world, ntotphi, petsc_decide, ngh*nq*nd, iyphi, Zpetscin, ierrpetsc)
-    ! initialize to zero
-    call VecSet(Zpetscin, xinit, ierrpetsc)
-    ! assemble parallel vector
+    iyu = iyu-1                                          ! use C indexing
+                                                         ! call to petsc to create global vector with ghosts
+    call VecCreateGhost(petsc_comm_world, ntotu, petsc_decide, ntotG, iyu, Zpetscin, ierrpetsc)
+
+    call VecSet(Zpetscin, xinit, ierrpetsc)              ! initialize to zero
+                                                         ! assemble parallel vector
     call VecAssemblyBegin(Zpetscin,ierrpetsc)
     call VecAssemblyEnd  (Zpetscin,ierrpetsc)
 
-    deallocate(iyphi)
+    deallocate(iyu)
 
-    ! create container for local vector that contains on process plus ghost data for gradients
-    call VecCreateSeq(petsc_comm_self, ntotphi+ngh*nq*nd, Zlocin, ierrpetsc)
+    ! create container for local vector that contains on process plus ghost data for solution gradients
+    call VecCreateSeq(petsc_comm_self, ntotu + ntotG, Zlocin, ierrpetsc)
 
-    return
   end subroutine PetscComm2DDataSetup
 
-  !============================================================================
+! !============================================================================
 
   subroutine PetscComm2DGeomDataSetup(vin,vghstin,vpetscin,vlocin,nd,nk,ne,ngh)
     ! this routine allocates the ghost data for Navier Stokes computations
