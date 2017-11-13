@@ -202,7 +202,7 @@ contains
     call PetscGridLocations_LGL()
 
 !   if(non_conforming .eqv. .true.) call PetscGridLocations_Gau()
-!   call PetscGridLocations_Gau()
+    call PetscGridLocations_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the face-node connectivity'
