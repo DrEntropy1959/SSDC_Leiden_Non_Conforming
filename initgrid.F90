@@ -2324,6 +2324,7 @@ contains
           r_x(1,2,inode,ielem) = -x_r(1,2,inode,ielem)/Jx_r(inode,ielem)
           r_x(2,2,inode,ielem) =  x_r(1,1,inode,ielem)/Jx_r(inode,ielem)
         end do
+
       else
 
 !        Metric data is stored as follows
@@ -2504,6 +2505,8 @@ contains
 
     end do elloop
 
+!   Parallel reduction of errors using conventional MPI calls
+
     ! Reduce values on all processes to a single value
     if(myprocid == 0 )  then
       allocate(err_max_proc(0:nprocs-1))
@@ -2547,6 +2550,7 @@ contains
     use eispack_module,       only: svd
     use unary_mod,            only: qsortd
     use variables,            only: r_x, Jx_r, ef2e
+    use mpimod,               only: mpi_integer, mpi_double, mpi_status_size, mpi_sum, petsc_comm_world
 
     implicit none
 
@@ -2567,7 +2571,7 @@ contains
     real(wp), dimension(:,:),  allocatable :: delta_a
 
     integer,  dimension(:),    allocatable :: perm
-    integer :: ielem, inode, ierr, mod_cnt
+    integer :: ielem, inode, ierr
     integer :: i, iface
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
     integer :: nm, m, n, icnt
@@ -2577,7 +2581,17 @@ contains
     real(wp)                               :: t1, t2
     real(wp), parameter                    :: tol = 1.0e-12_wp
 
-    mod_cnt = 0
+    real(wp) :: err,err_L2,err_Linf
+    real(wp), dimension(:), allocatable :: err_max_proc
+
+    integer :: s_tag, r_tag, m_size, s_request_err_Linf, r_request_err_Linf
+    integer :: np_mods, ng_mods
+
+    integer :: s_status(mpi_status_size)
+    integer :: r_status(mpi_status_size)
+
+    np_mods = 0 ; ng_mods = 0 ;
+
     ! loop over volumetric elements
     elloop:do ielem = ihelems(1), ihelems(2)
 
@@ -2594,7 +2608,7 @@ contains
       if(modify_metrics .eqv. .false.) cycle  ! don't modify metrics if element is fully conforming
 
 !     write(*,*)'modifying metrics on element',ielem
-      mod_cnt = mod_cnt + 1
+      np_mods = np_mods + 1
       
       call element_properties(ielem,&
                               n_pts_1d=n_pts_1d,&
@@ -2657,16 +2671,19 @@ contains
 !     a = a_t - M^* (M a_t - b)
       
       if(allocated(work3)) deallocate(work3) ; allocate(work3(1:m,1:3))   ; work3(:,:)   = 0.0_wp
+
       work3(1:m,1:3) = matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)
-      t1 = maxval(abs(work3))
-      if(t1 >= tol) write(*,*)'A a_t - bvec', maxval(abs(work3))
+
+      t1 = maxval(abs(work3)) ; if(t1 >= tol) write(*,*)'A a_t - bvec', t1
 
       delta_a = matmul( u(1:n,1:m),           &
                   matmul(wI(1:m,1:m),           &
                     matmul(transpose(v(1:m,1:m)), &
                       matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3))))
 
-      t1 = maxval(abs(delta_a)) ; if(t1 >= 1.0e-10_wp) write(*,*)'Metric perturbation magnitude',t1
+      err = maxval(abs(delta_a)) ; 
+      err_L2   = err_L2 + err*err
+      err_Linf = max(err_Linf,err)
 
       a_t(:,:) = a_t(:,:) - delta_a(:,:)
 
@@ -2681,9 +2698,46 @@ contains
       enddo
      
     end do elloop
-    write(*,*)'modified metrics',mod_cnt
 
     deallocate(u,v,w,work,Amat,a_t,bvec,wI)
+
+!   Parallel reduction of errors using conventional MPI calls
+
+    ! Reduce values on all processes to a single value
+    if(myprocid == 0 )  then
+      allocate(err_max_proc(0:nprocs-1))
+      err_max_proc(:) = 0.0_wp ; err_max_proc(0) = err_Linf ;
+    endif
+    if(myprocid /= 0 ) then
+      s_tag = 100 + myprocid
+      m_size = 1
+      call mpi_isend(err_Linf,m_size,mpi_double,0,s_tag,petsc_comm_world, &
+        & s_request_err_Linf,ierr)
+      
+      call mpi_wait(s_request_err_Linf,s_status,ierr)
+    else
+      do m = 1, nprocs-1
+        r_tag = 100 + m
+        m_size = 1
+        call mpi_irecv(err_max_proc(m),m_size,mpi_double,m,r_tag, &
+          & petsc_comm_world,r_request_err_Linf,ierr)
+
+        call mpi_wait(r_request_err_Linf,r_status,ierr)
+      enddo
+    endif
+
+    ! Reduce values on all processes to a single value
+    call MPI_reduce(np_mods, ng_mods,1, mpi_integer, mpi_sum, 0, petsc_comm_world, ierr)
+
+    ! Write at screen the L_inf of the metric error
+    if(myprocid == 0 )  then
+      write(*,*)'  Modifed Elements and L_inf of modification', ng_mods, maxval(err_max_proc(:))
+      write(*,*) '==========================================================='
+
+      deallocate(err_max_proc)
+
+    endif
+
 
   end subroutine modify_metrics_nonConforming
 

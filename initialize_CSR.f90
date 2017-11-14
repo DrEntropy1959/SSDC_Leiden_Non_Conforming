@@ -4496,8 +4496,7 @@ contains
     enddo
 
     ! Reduce values on all processes to a single value
-    call MPI_reduce(nprows,ngrows,1,mpi_integer,mpi_sum ,0,petsc_comm_world, &
-      & i_err)
+    call MPI_reduce(nprows,ngrows,1,mpi_integer,mpi_sum ,0,petsc_comm_world, i_err)
 
     ! Broadcast a message from the process with rank "root" to all other 
     ! processes of the communica
