@@ -2607,8 +2607,7 @@ contains
 
       if(modify_metrics .eqv. .false.) cycle  ! don't modify metrics if element is fully conforming
 
-!     write(*,*)'modifying metrics on element',ielem
-      np_mods = np_mods + 1
+      np_mods = np_mods + 1                   !  Count the number of elements that are modified
       
       call element_properties(ielem,&
                               n_pts_1d=n_pts_1d,&
