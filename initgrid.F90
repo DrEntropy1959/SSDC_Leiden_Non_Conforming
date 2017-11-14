@@ -2237,6 +2237,7 @@ contains
     return
   end function cross_product
 
+  !============================================================================
 
   subroutine calcmetrics_LGL()
     ! This subroutine calculates the metric transformations
@@ -2266,8 +2267,7 @@ contains
 
     continue 
 
-    ! number of nodes in each element
-    nodesperelem_max = (npoly_max+1)**ndim
+    nodesperelem_max = (npoly_max+1)**ndim                    ! number of nodes in each element
 
     allocate(x_r(3,3,1:nodesperelem_max,ihelems(1):ihelems(2))) ;  x_r = 0.0_wp     ! dx/dr
     allocate(r_x(3,3,1:nodesperelem_max,ihelems(1):ihelems(2))) ;  r_x = 0.0_wp     ! dr/dx
@@ -2275,11 +2275,9 @@ contains
 
     allocate(dx_min_elem(ihelems(1):ihelems(2))) ; dx_min_elem(:) = 0.0_wp ;
 
-    ! Initialize metrics error norms
-    err_L2 = 0.0_wp ; err_Linf = 0.0_wp
+    err_L2 = 0.0_wp ; err_Linf = 0.0_wp                       ! Initialize metrics error norms
 
-    ! loop over volumetric elements
-    elloop:do ielem = ihelems(1), ihelems(2)
+    elloop:do ielem = ihelems(1), ihelems(2)                  ! loop over volumetric elements
 
       call element_properties(ielem,         &
                           n_pts_3d=n_LGL_3d, &
@@ -2289,35 +2287,37 @@ contains
                             dagrad=dagrad,   &
                               pvol=pvol)
 
-      ! initialize dx/dr to identity and dr/dx to identity
+                                                              ! initialize dx/dr to identity and dr/dx to identity
       do idir = 1,3
         x_r(idir,idir,1:n_LGL_3d,ielem) = 1.0_wp
         r_x(idir,idir,1:n_LGL_3d,ielem) = 1.0_wp
       end do
-      ! calculate dx/dr
-      !
-      ! initialize to zero
-      x_r(:,1:ndim,1:n_LGL_3d,ielem) = 0.0_wp
-      ! loop over every node in element
-      do inode = 1, n_LGL_3d
-        ! loop over dimension of gradient
-        do jdir = 1,ndim
-          ! loop over number of dependent nodes in gradient
-          do i = iagrad(inode), iagrad(inode+1)-1
-            ! column/node from gradient operator in CSR format in
-            ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
-            jnode = jagrad(jdir,i)
-            ! update gradient. MP: Well, actually this is the Jacobian of the transformation
+                                                              ! calculate dx/dr
+
+      x_r(:,1:ndim,1:n_LGL_3d,ielem) = 0.0_wp                 ! initialize to zero
+      do inode = 1, n_LGL_3d                                  ! loop over every node in element
+
+        do jdir = 1,ndim                                      ! loop over dimension of gradient
+
+          do i = iagrad(inode), iagrad(inode+1)-1             ! loop over number of dependent nodes in gradient
+                                                              ! column/node from gradient operator in CSR format in
+            jnode = jagrad(jdir,i)                            ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
+                                                              ! update gradient. MP: Well, actually this is the Jacobian of the transformation
             x_r(:,jdir,inode,ielem) = x_r(:,jdir,inode,ielem) + dagrad(jdir,i)*xg(:,jnode,ielem)
+
           end do
+
         end do
+
       end do
+
       ! calculate determinant
       do inode = 1,n_LGL_3d
         Jx_r(inode,ielem) = determinant3(x_r(:,:,inode,ielem))
       end do
+
       if (ndim < 3) then
-        ! inverse metrics (note that in 3D this is not sufficient to satisfy the GCL.
+                                                               ! inverse metrics (note that in 3D this is not sufficient to satisfy the GCL.
         do inode = 1,n_LGL_3d
           r_x(1,1,inode,ielem) =  x_r(2,2,inode,ielem)/Jx_r(inode,ielem)
           r_x(2,1,inode,ielem) = -x_r(2,1,inode,ielem)/Jx_r(inode,ielem)
@@ -2339,6 +2339,7 @@ contains
 !
 
         ! Special formulas are used to ensure that GCLs are satisfied in each direction
+
         do inode = 1, n_LGL_3d
           ! dxi_1/dx_1
           j = 1 ; k = 1 ;
@@ -2491,8 +2492,8 @@ contains
         err_Linf = max(err_Linf,err)
       end do
 
-      !  Calculate a conservative estimate of the characteristic length of an
-      !  element.  Needs further refinement
+      !  Calculate a conservative estimate of the characteristic length of an element.  
+      !  Needs further development
 
       dx_min_elem(ielem) = 0.0_wp
       do inode = 1,n_LGL_3d
@@ -2534,7 +2535,6 @@ contains
       deallocate(err_max_proc)
     endif
 
-    return
   end subroutine calcmetrics_LGL
 
   !============================================================================
@@ -4378,7 +4378,8 @@ contains
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: ielem, j, nhex, iface, icnt
+    integer :: ielem, nhex, iface
+!   integer :: j, icnt
     real(wp), parameter  :: tol = 1.0e-9_wp
 
     npoly_max = -1000
@@ -6042,6 +6043,7 @@ contains
     use collocationvariables
     use mpimod
     use variables,       only: ef2e, xg_Gau_shell, xgghst_Gau_Shell, efn2efn_Gau
+    use initcollocation, only: element_properties
 
     ! Nothing is implicitly defined
     implicit none
@@ -6077,15 +6079,14 @@ contains
     ! Initialize position of the ghost point in the stack
     i_low = 0
 
-    ! Loop over elements
-    elem_loop:do ielem = ihelems(1), ihelems(2)
-      
-      n_LGL_1d_On   = elem_props(2,ielem)
-      
-      ! Loop over faces
-      face_loop:do iface = 1, nfacesperelem
+    elem_loop:do ielem = ihelems(1), ihelems(2)                  ! loop over elements
 
-        if (ef2e(4,iface,ielem) == elem_props(2,ielem)) cycle   !  only concerned with non-conforming interfaces
+      call element_properties(ielem,         &
+                     n_pts_1d=n_LGL_1d_On,   &
+                     n_pts_2d=nodesperface,  &
+                     n_pts_3d=nodesperelem)
+
+      face_loop:do iface = 1, nfacesperelem                      ! loop over faces of element
 
         n_LGL_1d_Off  = ef2e(4,iface,ielem)
         n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
@@ -6093,10 +6094,13 @@ contains
 
         knode = (iface-1) * n_Gau_2d_max
 
-        if (ef2e(3,iface,ielem) /= myprocid ) then   !  Off-process matching of Mortar points
+        if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then      ! cycle for conforming interfaces
 
-          ! Loop over the nodes on the face
-          do inode = 1, n_Gau_2d_Mort
+            cycle
+
+        else if((ef2e(3,iface,ielem) /= myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then ! Off-process
+
+          do inode = 1, n_Gau_2d_Mort                            ! Loop over the nodes on the mortar
 
             ! Update the facial node index counter
             knode = knode + 1
@@ -6146,7 +6150,7 @@ contains
           ! Update the position in the ghost stack
           i_low = i_low + n_Gau_2d_Mort
           
-        else  !  on-process matching
+        else if((ef2e(3,iface,ielem) == myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then  ! On-process
 
           ! Loop over the nodes on the face
           do inode = 1, n_Gau_2d_Mort
