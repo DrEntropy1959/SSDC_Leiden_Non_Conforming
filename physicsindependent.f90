@@ -212,7 +212,7 @@ contains
     ! Calculate connections
     call calculate_face_node_connectivity_LGL()
 
-!   call calculate_face_node_connectivity_Gau()
+    call calculate_face_node_connectivity_Gau()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the normal vectors'

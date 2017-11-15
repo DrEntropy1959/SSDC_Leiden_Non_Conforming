@@ -2591,6 +2591,7 @@ contains
     integer :: r_status(mpi_status_size)
 
     np_mods = 0 ; ng_mods = 0 ;
+    err_Linf = 0.0_wp
 
     ! loop over volumetric elements
     elloop:do ielem = ihelems(1), ihelems(2)
@@ -2730,7 +2731,7 @@ contains
 
     ! Write at screen the L_inf of the metric error
     if(myprocid == 0 )  then
-      write(*,*)'  Modifed Elements and L_inf of modification', ng_mods, maxval(err_max_proc(:))
+      write(*,*)'  Modified Elements and L_inf of modification', ng_mods, maxval(err_max_proc(:))
       write(*,*) '==========================================================='
 
       deallocate(err_max_proc)
