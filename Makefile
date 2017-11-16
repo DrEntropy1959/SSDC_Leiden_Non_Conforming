@@ -39,13 +39,9 @@ LFLAGS = -L/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/lib/lib\
 CC = gcc
 FC = mpif90
 LIBS = -lpetsc -lHYPRE -lsuperlu_dist -lscalapack -lmetis -lparmetis -lcgns
->>>>>>> 00303463292a992cd522d85c5b242ae728c7de4b
 else
 $(info Hostname Not Found)
 endif
-
-#LIBS = -lpetsc -lHYPRE -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis 
-
 
 SRCS = precision_vars.f90\
        datatypes.f90\
