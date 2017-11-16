@@ -2136,9 +2136,10 @@ contains
   subroutine PetscComm2DDataSetup(Zin, Zghstin, Zpetscin, Zlocin, nq, nd, nk, ne, ngh)
 
     ! this routine allocates the ghost data for Navier Stokes computations
-    use referencevariables
-    use variables,       only: ef2e, kfacenodes
-    use initcollocation, only: element_properties
+
+    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,           only: ef2e, kfacenodes
+    use initcollocation,     only: element_properties
     implicit none
 
     ! Arguments
@@ -2153,72 +2154,74 @@ contains
     PetscErrorCode ierrpetsc
     PetscScalar xinit
 
-    integer :: ntotphi
+    integer :: nodesperface
+!   integer :: ntotu,ntotv,ntotG
+    integer :: ntotu,ntotG
     integer :: ielem, iloc, idir, iface
     integer :: i, kelem, kface, ieq
-    integer, allocatable :: iyphi(:)
+    integer, allocatable :: iyu(:)
 
     xinit = 0.0_wp
 
-    ! allocate memory for ghost locations
-    allocate(iyphi(ngh*nq*nd))
+    ntotu = nq * nd * nk * nelems                        ! length of on process data including padding (for 1D solution vector)
+!   ntotv = nq * nd * np                                 ! length of data being used (excludes padding)
+    ntotG = nq * nd * ngh                                ! length of ghost data on process
 
-    iloc = 0
-    ! loop over elements
-    do ielem = ihelems(1), ihelems(2)
+    allocate(iyu(ntotG))                                 ! allocate memory for ghost locations
 
-      ! loop over faces on elem
-      do iface = 1,nfacesperelem
-        ! do nothing if neighbor is on process
-        if (ef2e(3,iface,ielem) == myprocid) cycle
-        ! element of neighbor
-        kelem = ef2e(2,iface,ielem)
-        ! face of neighbor
-        kface = ef2e(1,iface,ielem)
+    iloc = 0                                             ! ghost data counter
+    elem_loop:do ielem = ihelems(1), ihelems(2)          ! loop over elements
 
-        call element_properties(kelem,         &
-                       n_pts_2d=nodesperface,  &
+      face_loop:do iface = 1,nfacesperelem               ! loop over faces on element
+
+        if (ef2e(3,iface,ielem) == myprocid) cycle       ! cycle if neighbor is ON process
+
+        kelem = ef2e(2,iface,ielem)                      ! element of neighbor
+        kface = ef2e(1,iface,ielem)                      ! face of neighbor
+
+        call element_properties(kelem,              &    ! Get off-element properties
+                       n_pts_2d=nodesperface,       & 
                      kfacenodes=kfacenodes)
 
-        ! loop over nodes on neighbor face
-        do i = 1, nodesperface
-          ! loop over gradient directions
-          do idir = 1,nd
-            ! loop over equations
-            do ieq = 1,nq
-              ! advance position in ghost array
-              iloc = iloc+1
-              ! set position of ghost in global vector containing  entropy variable gradient data
-              iyphi(iloc) = nq * nd * nk * (kelem-1) + (kfacenodes(i,kface)-1)*nd*nq + nq*(idir-1) + ieq
+        do i = 1, nodesperface                           ! loop over nodes on neighbor face
+
+          do idir = 1,nd                                 ! loop over gradient directions
+
+            do ieq = 1,nq                                ! loop over equations
+
+              iloc = iloc+1                              ! advance position in ghost array
+                                                         ! set position of ghost in global vector containing  entropy variable gradient data
+              iyu(iloc) = nq * nd * nk * (kelem-1)      &! shift over previous elements
+                        + (kfacenodes(i,kface)-1)*nd*nq &! grab surface data
+                        + nq*(idir-1)                   &! direction loop
+                        + ieq                            ! eqn loop
+
             end do
           end do
+
         end do
-      end do
-    end do
 
-    ! use C indexing
-    iyphi = iyphi-1
+      end do face_loop
 
-    ! total length of on process data for 1D vector of entropy variable gradients
-    ntotphi = nq * nd * nk * nelems
+    end do elem_loop
 
-    ! call to petsc to create global vector with ghosts
-    call VecCreateGhost(petsc_comm_world, ntotphi, petsc_decide, ngh*nq*nd, iyphi, Zpetscin, ierrpetsc)
-    ! initialize to zero
-    call VecSet(Zpetscin, xinit, ierrpetsc)
-    ! assemble parallel vector
+    iyu = iyu-1                                          ! use C indexing
+                                                         ! call to petsc to create global vector with ghosts
+    call VecCreateGhost(petsc_comm_world, ntotu, petsc_decide, ntotG, iyu, Zpetscin, ierrpetsc)
+
+    call VecSet(Zpetscin, xinit, ierrpetsc)              ! initialize to zero
+                                                         ! assemble parallel vector
     call VecAssemblyBegin(Zpetscin,ierrpetsc)
     call VecAssemblyEnd  (Zpetscin,ierrpetsc)
 
-    deallocate(iyphi)
+    deallocate(iyu)
 
-    ! create container for local vector that contains on process plus ghost data for gradients
-    call VecCreateSeq(petsc_comm_self, ntotphi+ngh*nq*nd, Zlocin, ierrpetsc)
+    ! create container for local vector that contains on process plus ghost data for solution gradients
+    call VecCreateSeq(petsc_comm_self, ntotu + ntotG, Zlocin, ierrpetsc)
 
-    return
   end subroutine PetscComm2DDataSetup
 
-  !============================================================================
+! !============================================================================
 
   subroutine PetscComm2DGeomDataSetup(vin,vghstin,vpetscin,vlocin,nd,nk,ne,ngh)
     ! this routine allocates the ghost data for Navier Stokes computations
@@ -2615,7 +2618,7 @@ contains
     PetscErrorCode ierrpetsc
     PetscScalar xinit
 
-    integer :: ntot
+    integer :: ntot, ntotG
     integer, allocatable :: iyu(:)
     integer :: ielem, iloc, iface
     integer :: i, kelem, kface, ieq, nodesperface
@@ -2623,59 +2626,61 @@ contains
     xinit  = 0.0_wp
 
     ! total length of on process data for 1D vector of solution
-    ntot = nq * nk * nelems
+    ntot  = nq * nk * nelems
+    ntotG = nq * ngh
 
     ! allocate memory for ghost locations
-    allocate(iyu(ngh*nq))
+    allocate(iyu(ntotG))
 
     iloc = 0
-    ! loop over elements
-    do ielem = ihelems(1), ihelems(2)
-      ! loop over faces on elem
-      do iface = 1,nfacesperelem
-        ! do nothing if neighbor is on process or conforming
+    do ielem = ihelems(1), ihelems(2)                ! loop over elements
+
+      do iface = 1,nfacesperelem                     ! loop over faces on elem
+
+                                                     ! do nothing if neighbor is on process or conforming
         if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
             cycle
         else
-          ! element of neighbor
-          kelem = ef2e(2,iface,ielem)
-          ! face of neighbor
-          kface = ef2e(1,iface,ielem)
+
+          kelem = ef2e(2,iface,ielem)                ! element of neighbor
+          kface = ef2e(1,iface,ielem)                ! face of neighbor
   
           call element_properties(kelem,         &
                          n_pts_2d=nodesperface,  &
                        kfacenodes=kfacenodes)
 
-          ! loop over nodes on neighbor face
-          do i = 1, nodesperface
-            ! loop over equations
-            do ieq = 1, nq
-              ! advance position in ghost array
-              iloc = iloc+1
-              ! set position of ghost in global vector containing solution data
-              iyu(iloc) = nq * nk *(kelem-1) +nq * nk *(kface-1)/nfacesperelem +nq*(i-1) + ieq
+          do i = 1, nodesperface                     ! loop over nodes on neighbor face
+
+            do ieq = 1, nq                           ! loop over equations
+
+              iloc = iloc+1                          ! advance position in ghost array
+                                                     ! set position of ghost in global vector containing solution data
+              iyu(iloc) = nq * nk *(kelem-1)               & ! skip over previous elements
+                        + nq * nk *(kface-1)/nfacesperelem & ! nk/nfacesperelem is face dimension
+                        + nq*(i-1)                         & ! skip over previous eqns
+                        + ieq                                ! eqn
+
             end do
+
           end do
+
         end if
       end do
     end do
 
-    ! use C indexing
-    iyu = iyu-1
+    iyu = iyu-1                                       ! use C indexing
 
-
-    ! call to petsc to create global vector with ghosts
-    call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, ngh*nq, iyu, Zpetscin, ierrpetsc)
-    ! initialize to zero
-    call VecSet(Zpetscin, xinit, ierrpetsc)
-    ! assemble parallel vector
+                                                      ! call to petsc to create global vector with ghosts
+    call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, ntotG, iyu, Zpetscin, ierrpetsc)
+    call VecSet(Zpetscin, xinit, ierrpetsc)           ! initialize to zero
+                                                      ! assemble parallel vector
     call VecAssemblyBegin(Zpetscin,ierrpetsc)
     call VecAssemblyEnd  (Zpetscin,ierrpetsc)
 
     deallocate(iyu)
 
     ! create container for local vector that contains on process plus ghost data for solution
-    call VecCreateSeq(petsc_comm_self, ntot+ngh*nq, Zlocin, ierrpetsc)
+    call VecCreateSeq(petsc_comm_self, ntot + ntotG, Zlocin, ierrpetsc)
 
   end subroutine PetscComm_1D_Shell_DataSetup
 
@@ -2892,13 +2897,126 @@ contains
 
   end subroutine UpdateComm1DElementGhostData
 
-  !============================================================================
+! !============================================================================
   
+! subroutine UpdateComm2DGhostData(Zin, Zghstin, Zpetscin, Zlocin, nq, nd, nk, ngh)
+
+!   use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+!   use variables,            only: ef2e
+!   use initcollocation,      only: element_properties
+!   implicit none
+
+!   ! Arguments
+!   ! =========
+!   integer,  intent(in) :: nq, nd, nk, ngh
+!   real(wp), intent(in) :: Zin(nq,nd,nk,ihelems(1):ihelems(2))
+!   real(wp), intent(inout) :: Zghstin(nq,nd,ngh)
+
+!   Vec Zpetscin
+!   Vec Zlocin
+
+!   PetscErrorCode ierrpetsc
+
+!   integer :: ntotphi
+!   integer :: ielem, inode, iloc, idir, iface, nodesperface, nodesperelem
+!   integer :: kelem
+!   integer :: i, ieq
+!   integer,  allocatable :: iyphi(:)
+!   real(wp), allocatable ::  yphi(:)
+
+!   real(wp), pointer :: xx_v(:)
+
+!   ! length of temporary arrays for filling in global data
+!   ntotphi = nq * nd * nk
+!   allocate(iyphi(ntotphi))
+!   allocate( yphi(ntotphi))
+
+!   ! loop over elements
+!   do ielem = ihelems(1), ihelems(2)
+
+!     call element_properties(ielem, n_pts_3d=nodesperelem)
+
+!     yphi = 0.0_wp
+!     ! loop over nodes
+!     do inode = 1, nodesperelem
+!       ! loop over gradient direction
+!       do idir = 1,3
+!         ! loop over variables
+!         do ieq = 1, nq
+!           ! update gradient data
+!           yphi(nq*nd*(inode-1)+nq*(idir-1)+ieq) = Zin(ieq,idir,inode,ielem)
+!           ! update global location of gradient data in 1D vector
+!           iyphi(nq*nd*(inode-1)+nq*(idir-1)+ieq) = ntotphi*(ielem-1) + nq*nd*(inode-1) + nq*(idir-1)+ieq-1
+!         end do
+!       end do
+!     end do
+!     ! set values in petsc vector
+!     call VecSetValues(Zpetscin,ntotphi,iyphi,yphi,insert_values,ierrpetsc)
+!   end do
+
+!   ! assemble parallel vector
+!   call VecAssemblyBegin(Zpetscin,ierrpetsc)
+!   call VecAssemblyEnd  (Zpetscin,ierrpetsc)
+
+!   ! update ghost data
+!   call VecGhostUpdateBegin(Zpetscin, insert_values, scatter_forward, ierrpetsc)
+!   call VecGhostUpdateEnd  (Zpetscin, insert_values, scatter_forward, ierrpetsc)
+
+!   ! get local vector with ghost data
+!   call VecGhostGetLocalForm(Zpetscin, Zlocin, ierrpetsc)
+
+!   ! use fortran 90 pointers for convenience
+!   call VecGetArrayF90(Zlocin, xx_v, ierrpetsc)
+
+!   ! total length of on process data
+!   ntotphi = nq * nd * nk * nelems
+
+!   iloc = 0
+!   ! loop over elements
+!   do ielem = ihelems(1), ihelems(2)
+
+!     ! loop over faces
+!     do iface = 1,nfacesperelem
+!       ! do nothing if neighbor is on process
+!       if (ef2e(3,iface,ielem) == myprocid) cycle
+!       ! element of neighbor
+!       kelem = ef2e(2,iface,ielem)
+
+!       call element_properties(kelem, n_pts_2d=nodesperface)
+
+!       ! loop over indices
+!       do i = 1, nodesperface
+!         ! update location of ghost node
+!         iloc = iloc+1
+!         ! loop over directions
+!         do idir = 1, nd
+!           ! loop over variables
+!           do ieq = 1,nq
+!             ! fill ghost values
+!             Zghstin(ieq,idir,iloc) = xx_v(ntotphi+nd*nq*(iloc-1)+nq*(idir-1)+ieq)
+!           end do
+!         end do
+!       end do
+!     end do
+!   end do
+
+!   ! release pointer
+!   call VecRestoreArrayF90(Zlocin,xx_v,ierrpetsc) 
+!   call VecGhostRestoreLocalForm(Zpetscin,Zlocin,ierrpetsc)
+!   if(associated(xx_v)) deallocate(xx_v)
+
+! end subroutine UpdateComm2DGhostData
+
+  !===========================================================================================
+
   subroutine UpdateComm2DGhostData(Zin, Zghstin, Zpetscin, Zlocin, nq, nd, nk, ngh)
+
+    ! this subroutine communicates solution data across processes and updates the array ughst.
 
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+
     implicit none
 
     ! Arguments
@@ -2912,93 +3030,91 @@ contains
 
     PetscErrorCode ierrpetsc
 
-    integer :: ntotphi
-    integer :: ielem, inode, iloc, idir, iface, nodesperface, nodesperelem
+!   integer :: ntotu, ntotv, ntotw, ntot
+    integer :: ntotu, ntotw, ntot
+    integer :: ielem, iloc, inode, iface, nodesperface, nodesperelem, idir
     integer :: kelem
     integer :: i, ieq
-    integer,  allocatable :: iyphi(:)
-    real(wp), allocatable ::  yphi(:)
+    integer,  allocatable :: iyu(:)
+    real(wp), allocatable ::  yu(:)
 
-    real(wp), pointer :: xx_v(:)
+    real(wp), pointer :: xx_Z(:)
 
-    ! length of temporary arrays for filling in global data
-    ntotphi = nq * nd * nk
-    allocate(iyphi(ntotphi))
-    allocate( yphi(ntotphi))
+                                   ! length of arrays for filling global vectors with data
+    ntotu = nq * nd * nk * nelems  ! length of on process data
+!   ntotv = nq * nd * np           ! length of on-process data (no padding, just data)
+    ntotw = nq * nd * nk           ! length of incoming block of data WITH PADDING of zeros
 
-    ! loop over elements
-    do ielem = ihelems(1), ihelems(2)
+    do ielem = ihelems(1), ihelems(2)                       ! loop over elements
 
-      call element_properties(ielem, n_pts_3d=nodesperelem)
+      call element_properties(ielem, n_pts_3d=nodesperelem) ! size is element dependent
 
-      yphi = 0.0_wp
-      ! loop over nodes
-      do inode = 1, nodesperelem
-        ! loop over gradient direction
-        do idir = 1,3
-          ! loop over variables
-          do ieq = 1, nq
-            ! update gradient data
-            yphi(nq*nd*(inode-1)+nq*(idir-1)+ieq) = Zin(ieq,idir,inode,ielem)
-            ! update global location of gradient data in 1D vector
-            iyphi(nq*nd*(inode-1)+nq*(idir-1)+ieq) = ntotphi*(ielem-1) + nq*nd*(inode-1) + nq*(idir-1)+ieq-1
+      ntot = nq * nd * nodesperelem                         ! bucket size
+      if(allocated(iyu)) deallocate(iyu) ; allocate(iyu(ntot)) ; iyu = 0
+      if(allocated( yu)) deallocate( yu) ; allocate( yu(ntot)) ;  yu = 0.0_wp
+
+      do inode = 1, nodesperelem                            ! loop over nodes
+
+        do idir = 1,nd                                      ! loop over directions
+
+          do ieq = 1, nq                                    ! loop over equations
+                                                            ! update gradient data
+            yu(nq*nd*(inode-1)+nq*(idir-1)+ieq) = Zin(ieq,idir,inode,ielem)
+                                                            ! update global location of gradient data in 1D vector
+           iyu(nq*nd*(inode-1)+nq*(idir-1)+ieq) = ntotw*(ielem-1) &! shift over previous elements
+                                                + nq*nd*(inode-1) &! shift over previous nodes
+                                                + nq*(idir-1)     &! shift over previous directions
+                                                + ieq             &! shift over previous eqns
+                                                - 1                ! shift from fortran to C indexing
           end do
         end do
+
       end do
-      ! set values in petsc vector
-      call VecSetValues(Zpetscin,ntotphi,iyphi,yphi,insert_values,ierrpetsc)
+                                                            ! set values in petsc vector
+      call VecSetValues(Zpetscin,ntot,iyu,yu,insert_values,ierrpetsc)
+
     end do
 
-    ! assemble parallel vector
-    call VecAssemblyBegin(Zpetscin,ierrpetsc)
+    call VecAssemblyBegin(Zpetscin,ierrpetsc)               ! assemble Petsc vector
     call VecAssemblyEnd  (Zpetscin,ierrpetsc)
-
-    ! update ghost data
+                                                            ! update ghost values
     call VecGhostUpdateBegin(Zpetscin, insert_values, scatter_forward, ierrpetsc)
     call VecGhostUpdateEnd  (Zpetscin, insert_values, scatter_forward, ierrpetsc)
 
-    ! get local vector with ghost data
-    call VecGhostGetLocalForm(Zpetscin, Zlocin, ierrpetsc)
+    call VecGhostGetLocalForm(Zpetscin, Zlocin, ierrpetsc)  ! get local data including ghost points
 
-    ! use fortran 90 pointers for convenience
-    call VecGetArrayF90(Zlocin, xx_v, ierrpetsc)
-
-    ! total length of on process data
-    ntotphi = nq * nd * nk * nelems
+    call VecGetArrayF90(Zlocin, xx_Z, ierrpetsc)            ! use fortran pointer for convenience
 
     iloc = 0
-    ! loop over elements
-    do ielem = ihelems(1), ihelems(2)
+    do ielem = ihelems(1), ihelems(2)                       ! loop over elements
 
-      ! loop over faces
-      do iface = 1,nfacesperelem
-        ! do nothing if neighbor is on process
-        if (ef2e(3,iface,ielem) == myprocid) cycle
-        ! element of neighbor
-        kelem = ef2e(2,iface,ielem)
+      do iface = 1,nfacesperelem                            ! loop over faces
+
+        if (ef2e(3,iface,ielem) == myprocid) cycle          ! cycle if neighbor is on process
+
+        kelem = ef2e(2,iface,ielem)                         ! element of neighbor
 
         call element_properties(kelem, n_pts_2d=nodesperface)
 
-        ! loop over indices
         do i = 1, nodesperface
-          ! update location of ghost node
-          iloc = iloc+1
-          ! loop over directions
-          do idir = 1, nd
-            ! loop over variables
-            do ieq = 1,nq
-              ! fill ghost values
-              Zghstin(ieq,idir,iloc) = xx_v(ntotphi+nd*nq*(iloc-1)+nq*(idir-1)+ieq)
+
+          iloc = iloc+1                                     ! update ghost node index
+
+          do idir = 1, nd                                   ! loop over directions
+            do ieq = 1, nq                                  ! loop over equations
+              Zghstin(ieq,idir,iloc) = xx_Z(ntotu+nd*nq*(iloc-1)+nq*(idir-1)+ieq) ! fill ghost values
             end do
           end do
+
         end do
+
       end do
+
     end do
 
-    ! release pointer
-    call VecRestoreArrayF90(Zlocin,xx_v,ierrpetsc) 
+    call VecRestoreArrayF90(Zlocin,xx_Z,ierrpetsc)          ! release pointer
     call VecGhostRestoreLocalForm(Zpetscin,Zlocin,ierrpetsc)
-    if(associated(xx_v)) deallocate(xx_v)
+    if(associated(xx_Z)) deallocate(xx_Z)
 
   end subroutine UpdateComm2DGhostData
 
@@ -3454,87 +3570,96 @@ contains
 
     PetscErrorCode ierrpetsc
 
-    integer :: ntotu
+    integer :: ntot, ntotu, ntotw
     integer :: ielem, iloc, iface
-    integer :: kelem
-    integer :: i, ieq, jnode, nodesperface
+    integer :: kelem, n_pts_1d_Mort
+    integer :: i, ieq, jnode, nodesperface, nodesperelem
     integer,  allocatable :: iyu(:)
     real(wp), allocatable ::  yu(:)
 
     real(wp), pointer :: xx_Z(:)
 
-    ! length of arrays for filling global vectors with data
-    ntotu = nq * nk
-    allocate(iyu(ntotu))
-    allocate( yu(ntotu))
+    ntotu = nq * nk * nelems     ! length of on-process data including ZERO PADDING
+    ntotw = nq * nk              ! length of on-element data including ZERO PADDING
 
     do ielem = ihelems(1), ihelems(2)                       ! loop over elements
 
-      call element_properties(ielem, n_pts_2d=nodesperface)
+      call element_properties(ielem,         &
+                     n_pts_2d=nodesperface,  &
+                     n_pts_3d=nodesperelem)
 
-      iyu = 0 ; yu = 0.0_wp ;
+      do iface = 1, nfacesperelem                           ! loop over 6 faces
 
-      do iface = 1, nfacesperelem                 ! loop over 6 faces
-
-        do i = 1, nodesperface                    ! loop over nodes on face
-          jnode = (iface-1)*nodesperface + i
-          do ieq = 1, nq                          ! loop over variables
-            ! update temporary solution values
-             yu(nq*(jnode-1)+ieq) = Zin(ieq,jnode,ielem)
-            ! update global location of solution values
-            iyu(nq*(jnode-1)+ieq) = ntotu*(ielem-1)+nq*(jnode-1)+ieq-1
-          end do
-        end do
-
-      end do
-      ! set values in petsc vector
-       call VecSetValues(Zpetsc,ntotu,iyu,yu,insert_values,ierrpetsc)
-
-    end do
-
-    ! assemble vector
-    call VecAssemblyBegin(Zpetsc,ierrpetsc)
-    call VecAssemblyEnd  (Zpetsc,ierrpetsc)
-    ! update ghost values
-    call VecGhostUpdateBegin(Zpetsc, insert_values, scatter_forward, ierrpetsc)
-    call VecGhostUpdateEnd  (Zpetsc, insert_values, scatter_forward, ierrpetsc)
-
-    ! get local data including ghost points
-    call VecGhostGetLocalForm(Zpetsc, Zlocpetsc, ierrpetsc)
-    ! use fortran pointer for convenience
-    call VecGetArrayF90(Zlocpetsc, xx_Z, ierrpetsc)
-
-    ! total length of on process data WITHOUT ghost data
-    ntotu = nq * nk * nelems
-
-    iloc = 0
-    ! loop over elements
-    do ielem = ihelems(1), ihelems(2)
-
-      ! loop over faces
-      do iface = 1,nfacesperelem
-
-        ! if face neighbor is off process and non-conforming then count ghost nodes
         if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
             cycle
         else
 
-          ! element of neighbor
-          kelem = ef2e(2,iface,ielem)
+         n_pts_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
+         ntot = n_pts_1d_Mort**2
+
+         if(allocated(iyu)) deallocate(iyu) ; allocate(iyu(ntot)) ; iyu = 0
+         if(allocated( yu)) deallocate( yu) ; allocate( yu(ntot)) ;  yu = 0.0_wp
+ 
+         do i = 1, nodesperface                              ! loop over nodes on face
+ 
+           jnode = (iface-1)*nodesperface + i                ! access shell coordinate
+ 
+           do ieq = 1, nq                                    ! loop over variables
+              yu(nq*(jnode-1)+ieq) = Zin(ieq,jnode,ielem)    ! update temporary solution values
+                                                             ! update global location of solution values
+             iyu(nq*(jnode-1)+ieq) = ntotw*(ielem-1)   &     ! skip previous elements
+                                   + nq*(jnode-1)      &
+                                   + ieq               &
+                                   - 1
+           end do
+ 
+         end do
+ 
+         call VecSetValues(Zpetsc,ntot,iyu,yu,insert_values,ierrpetsc) ! set values in petsc vector
+ 
+        endif
+
+      end do
+
+    end do
+
+                                                            ! assemble vector
+    call VecAssemblyBegin(Zpetsc,ierrpetsc)
+    call VecAssemblyEnd  (Zpetsc,ierrpetsc)
+                                                            ! update ghost values
+    call VecGhostUpdateBegin(Zpetsc, insert_values, scatter_forward, ierrpetsc)
+    call VecGhostUpdateEnd  (Zpetsc, insert_values, scatter_forward, ierrpetsc)
+                                                            ! get local data including ghost points
+    call VecGhostGetLocalForm(Zpetsc, Zlocpetsc, ierrpetsc)
+                                                            ! use fortran pointer for convenience
+    call VecGetArrayF90(Zlocpetsc, xx_Z, ierrpetsc)
+
+    iloc = 0                                                ! zero ghost counter
+    do ielem = ihelems(1), ihelems(2)                       ! loop over elements
+
+      do iface = 1,nfacesperelem                            ! loop over faces
+
+                                                            ! if face neighbor is off process and non-conforming then count ghost nodes
+        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+            cycle
+        else
+
+          kelem = ef2e(2,iface,ielem)                       ! element of neighbor
 
           call element_properties(kelem, n_pts_2d=nodesperface)
 
-          ! loop over nodes
-          do i = 1, nodesperface
-            ! update ghost node index
-            iloc = iloc+1
-            ! loop over equations
-            do ieq = 1,nq
-              ! fill ghost data
-              Zghstin(ieq,iloc) = xx_Z(ntotu+nq*(iloc-1)+ieq)
+          do i = 1, nodesperface                              ! loop over nodes
+
+            iloc = iloc+1                                     ! update ghost node index
+
+            do ieq = 1,nq                                     ! loop over equations
+              Zghstin(ieq,iloc) = xx_Z(ntotu+nq*(iloc-1)+ieq) ! fill ghost data
             end do
+
           end do
+
         end if
+
       end do
 
     end do

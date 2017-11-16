@@ -2237,6 +2237,7 @@ contains
     return
   end function cross_product
 
+  !============================================================================
 
   subroutine calcmetrics_LGL()
     ! This subroutine calculates the metric transformations
@@ -2266,8 +2267,7 @@ contains
 
     continue 
 
-    ! number of nodes in each element
-    nodesperelem_max = (npoly_max+1)**ndim
+    nodesperelem_max = (npoly_max+1)**ndim                    ! number of nodes in each element
 
     allocate(x_r(3,3,1:nodesperelem_max,ihelems(1):ihelems(2))) ;  x_r = 0.0_wp     ! dx/dr
     allocate(r_x(3,3,1:nodesperelem_max,ihelems(1):ihelems(2))) ;  r_x = 0.0_wp     ! dr/dx
@@ -2275,11 +2275,9 @@ contains
 
     allocate(dx_min_elem(ihelems(1):ihelems(2))) ; dx_min_elem(:) = 0.0_wp ;
 
-    ! Initialize metrics error norms
-    err_L2 = 0.0_wp ; err_Linf = 0.0_wp
+    err_L2 = 0.0_wp ; err_Linf = 0.0_wp                       ! Initialize metrics error norms
 
-    ! loop over volumetric elements
-    elloop:do ielem = ihelems(1), ihelems(2)
+    elloop:do ielem = ihelems(1), ihelems(2)                  ! loop over volumetric elements
 
       call element_properties(ielem,         &
                           n_pts_3d=n_LGL_3d, &
@@ -2289,41 +2287,44 @@ contains
                             dagrad=dagrad,   &
                               pvol=pvol)
 
-      ! initialize dx/dr to identity and dr/dx to identity
+                                                              ! initialize dx/dr to identity and dr/dx to identity
       do idir = 1,3
         x_r(idir,idir,1:n_LGL_3d,ielem) = 1.0_wp
         r_x(idir,idir,1:n_LGL_3d,ielem) = 1.0_wp
       end do
-      ! calculate dx/dr
-      !
-      ! initialize to zero
-      x_r(:,1:ndim,1:n_LGL_3d,ielem) = 0.0_wp
-      ! loop over every node in element
-      do inode = 1, n_LGL_3d
-        ! loop over dimension of gradient
-        do jdir = 1,ndim
-          ! loop over number of dependent nodes in gradient
-          do i = iagrad(inode), iagrad(inode+1)-1
-            ! column/node from gradient operator in CSR format in
-            ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
-            jnode = jagrad(jdir,i)
-            ! update gradient. MP: Well, actually this is the Jacobian of the transformation
+                                                              ! calculate dx/dr
+
+      x_r(:,1:ndim,1:n_LGL_3d,ielem) = 0.0_wp                 ! initialize to zero
+      do inode = 1, n_LGL_3d                                  ! loop over every node in element
+
+        do jdir = 1,ndim                                      ! loop over dimension of gradient
+
+          do i = iagrad(inode), iagrad(inode+1)-1             ! loop over number of dependent nodes in gradient
+                                                              ! column/node from gradient operator in CSR format in
+            jnode = jagrad(jdir,i)                            ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
+                                                              ! update gradient. MP: Well, actually this is the Jacobian of the transformation
             x_r(:,jdir,inode,ielem) = x_r(:,jdir,inode,ielem) + dagrad(jdir,i)*xg(:,jnode,ielem)
+
           end do
+
         end do
+
       end do
+
       ! calculate determinant
       do inode = 1,n_LGL_3d
         Jx_r(inode,ielem) = determinant3(x_r(:,:,inode,ielem))
       end do
+
       if (ndim < 3) then
-        ! inverse metrics (note that in 3D this is not sufficient to satisfy the GCL.
+                                                               ! inverse metrics (note that in 3D this is not sufficient to satisfy the GCL.
         do inode = 1,n_LGL_3d
           r_x(1,1,inode,ielem) =  x_r(2,2,inode,ielem)/Jx_r(inode,ielem)
           r_x(2,1,inode,ielem) = -x_r(2,1,inode,ielem)/Jx_r(inode,ielem)
           r_x(1,2,inode,ielem) = -x_r(1,2,inode,ielem)/Jx_r(inode,ielem)
           r_x(2,2,inode,ielem) =  x_r(1,1,inode,ielem)/Jx_r(inode,ielem)
         end do
+
       else
 
 !        Metric data is stored as follows
@@ -2339,6 +2340,7 @@ contains
 !
 
         ! Special formulas are used to ensure that GCLs are satisfied in each direction
+
         do inode = 1, n_LGL_3d
           ! dxi_1/dx_1
           j = 1 ; k = 1 ;
@@ -2491,8 +2493,8 @@ contains
         err_Linf = max(err_Linf,err)
       end do
 
-      !  Calculate a conservative estimate of the characteristic length of an
-      !  element.  Needs further refinement
+      !  Calculate a conservative estimate of the characteristic length of an element.  
+      !  Needs further development
 
       dx_min_elem(ielem) = 0.0_wp
       do inode = 1,n_LGL_3d
@@ -2502,6 +2504,8 @@ contains
       dx_min_elem(ielem) = dx_min_elem(ielem)**(0.333333333333333333333333_wp)
 
     end do elloop
+
+!   Parallel reduction of errors using conventional MPI calls
 
     ! Reduce values on all processes to a single value
     if(myprocid == 0 )  then
@@ -2534,7 +2538,6 @@ contains
       deallocate(err_max_proc)
     endif
 
-    return
   end subroutine calcmetrics_LGL
 
   !============================================================================
@@ -2547,6 +2550,7 @@ contains
     use eispack_module,       only: svd
     use unary_mod,            only: qsortd
     use variables,            only: r_x, Jx_r, ef2e
+    use mpimod,               only: mpi_integer, mpi_double, mpi_status_size, mpi_sum, petsc_comm_world
 
     implicit none
 
@@ -2567,7 +2571,7 @@ contains
     real(wp), dimension(:,:),  allocatable :: delta_a
 
     integer,  dimension(:),    allocatable :: perm
-    integer :: ielem, inode, ierr, mod_cnt
+    integer :: ielem, inode, ierr
     integer :: i, iface
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
     integer :: nm, m, n, icnt
@@ -2577,7 +2581,18 @@ contains
     real(wp)                               :: t1, t2
     real(wp), parameter                    :: tol = 1.0e-12_wp
 
-    mod_cnt = 0
+    real(wp) :: err,err_L2,err_Linf
+    real(wp), dimension(:), allocatable :: err_max_proc
+
+    integer :: s_tag, r_tag, m_size, s_request_err_Linf, r_request_err_Linf
+    integer :: np_mods, ng_mods
+
+    integer :: s_status(mpi_status_size)
+    integer :: r_status(mpi_status_size)
+
+    np_mods = 0 ; ng_mods = 0 ;
+    err_Linf = 0.0_wp
+
     ! loop over volumetric elements
     elloop:do ielem = ihelems(1), ihelems(2)
 
@@ -2593,8 +2608,7 @@ contains
 
       if(modify_metrics .eqv. .false.) cycle  ! don't modify metrics if element is fully conforming
 
-!     write(*,*)'modifying metrics on element',ielem
-      mod_cnt = mod_cnt + 1
+      np_mods = np_mods + 1                   !  Count the number of elements that are modified
       
       call element_properties(ielem,&
                               n_pts_1d=n_pts_1d,&
@@ -2657,16 +2671,19 @@ contains
 !     a = a_t - M^* (M a_t - b)
       
       if(allocated(work3)) deallocate(work3) ; allocate(work3(1:m,1:3))   ; work3(:,:)   = 0.0_wp
+
       work3(1:m,1:3) = matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)
-      t1 = maxval(abs(work3))
-      if(t1 >= tol) write(*,*)'A a_t - bvec', maxval(abs(work3))
+
+      t1 = maxval(abs(work3)) ; if(t1 >= tol) write(*,*)'A a_t - bvec', t1
 
       delta_a = matmul( u(1:n,1:m),           &
                   matmul(wI(1:m,1:m),           &
                     matmul(transpose(v(1:m,1:m)), &
                       matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3))))
 
-      t1 = maxval(abs(delta_a)) ; if(t1 >= 1.0e-10_wp) write(*,*)'Metric perturbation magnitude',t1
+      err = maxval(abs(delta_a)) ; 
+      err_L2   = err_L2 + err*err
+      err_Linf = max(err_Linf,err)
 
       a_t(:,:) = a_t(:,:) - delta_a(:,:)
 
@@ -2681,9 +2698,46 @@ contains
       enddo
      
     end do elloop
-    write(*,*)'modified metrics',mod_cnt
 
     deallocate(u,v,w,work,Amat,a_t,bvec,wI)
+
+!   Parallel reduction of errors using conventional MPI calls
+
+    ! Reduce values on all processes to a single value
+    if(myprocid == 0 )  then
+      allocate(err_max_proc(0:nprocs-1))
+      err_max_proc(:) = 0.0_wp ; err_max_proc(0) = err_Linf ;
+    endif
+    if(myprocid /= 0 ) then
+      s_tag = 100 + myprocid
+      m_size = 1
+      call mpi_isend(err_Linf,m_size,mpi_double,0,s_tag,petsc_comm_world, &
+        & s_request_err_Linf,ierr)
+      
+      call mpi_wait(s_request_err_Linf,s_status,ierr)
+    else
+      do m = 1, nprocs-1
+        r_tag = 100 + m
+        m_size = 1
+        call mpi_irecv(err_max_proc(m),m_size,mpi_double,m,r_tag, &
+          & petsc_comm_world,r_request_err_Linf,ierr)
+
+        call mpi_wait(r_request_err_Linf,r_status,ierr)
+      enddo
+    endif
+
+    ! Reduce values on all processes to a single value
+    call MPI_reduce(np_mods, ng_mods,1, mpi_integer, mpi_sum, 0, petsc_comm_world, ierr)
+
+    ! Write at screen the L_inf of the metric error
+    if(myprocid == 0 )  then
+      write(*,*)'  Modified Elements and L_inf of modification', ng_mods, maxval(err_max_proc(:))
+      write(*,*) '==========================================================='
+
+      deallocate(err_max_proc)
+
+    endif
+
 
   end subroutine modify_metrics_nonConforming
 
@@ -4378,7 +4432,8 @@ contains
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: ielem, j, nhex, iface, icnt
+    integer :: ielem, nhex, iface
+!   integer :: j, icnt
     real(wp), parameter  :: tol = 1.0e-9_wp
 
     npoly_max = -1000
@@ -6042,6 +6097,7 @@ contains
     use collocationvariables
     use mpimod
     use variables,       only: ef2e, xg_Gau_shell, xgghst_Gau_Shell, efn2efn_Gau
+    use initcollocation, only: element_properties
 
     ! Nothing is implicitly defined
     implicit none
@@ -6077,15 +6133,14 @@ contains
     ! Initialize position of the ghost point in the stack
     i_low = 0
 
-    ! Loop over elements
-    elem_loop:do ielem = ihelems(1), ihelems(2)
-      
-      n_LGL_1d_On   = elem_props(2,ielem)
-      
-      ! Loop over faces
-      face_loop:do iface = 1, nfacesperelem
+    elem_loop:do ielem = ihelems(1), ihelems(2)                  ! loop over elements
 
-        if (ef2e(4,iface,ielem) == elem_props(2,ielem)) cycle   !  only concerned with non-conforming interfaces
+      call element_properties(ielem,         &
+                     n_pts_1d=n_LGL_1d_On,   &
+                     n_pts_2d=nodesperface,  &
+                     n_pts_3d=nodesperelem)
+
+      face_loop:do iface = 1, nfacesperelem                      ! loop over faces of element
 
         n_LGL_1d_Off  = ef2e(4,iface,ielem)
         n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
@@ -6093,10 +6148,13 @@ contains
 
         knode = (iface-1) * n_Gau_2d_max
 
-        if (ef2e(3,iface,ielem) /= myprocid ) then   !  Off-process matching of Mortar points
+        if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then      ! cycle for conforming interfaces
 
-          ! Loop over the nodes on the face
-          do inode = 1, n_Gau_2d_Mort
+            cycle
+
+        else if((ef2e(3,iface,ielem) /= myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then ! Off-process
+
+          do inode = 1, n_Gau_2d_Mort                            ! Loop over the nodes on the mortar
 
             ! Update the facial node index counter
             knode = knode + 1
@@ -6146,7 +6204,7 @@ contains
           ! Update the position in the ghost stack
           i_low = i_low + n_Gau_2d_Mort
           
-        else  !  on-process matching
+        else if((ef2e(3,iface,ielem) == myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then  ! On-process
 
           ! Loop over the nodes on the face
           do inode = 1, n_Gau_2d_Mort

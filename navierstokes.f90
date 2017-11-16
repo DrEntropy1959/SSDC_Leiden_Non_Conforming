@@ -3598,40 +3598,31 @@ contains
 !=========
 !         Inviscid interface SATs (skew-symmetric portion)
 !=========
-          On_Element_1:do i = 1, n_S_2d_On
+          On_Element_1:do i = 1, n_S_2d_On                               ! On_Element Loop over 2D LGL points
         
-            ! Index in facial ordering
-            jnode =  n_S_2d_On*(iface-1) + i
+            jnode =  n_S_2d_On*(iface-1) + i                             ! Index in facial ordering
               
-            ! Volumetric node index corresponding to facial node index
-            inode = ifacenodes_On(jnode)
+            inode = ifacenodes_On(jnode)                                 ! Volumetric node index corresponding to facial node index
               
-            ! On-element face data
-            vg_On(:) =   vg(:,inode,ielem)
+            vg_On(:) =   vg(:,inode,ielem)                               ! On-element face data
 
-            ! Rotate into entropy variables and store as face plane data
-            call primitive_to_entropy(vg_On(:),wg_2d_On(:,i),nequations)
+            call primitive_to_entropy(vg_On(:),wg_2d_On(:,i),nequations) ! Rotate into entropy variables and store as face plane data
 
-            ! Outward facing normal of facial node
-            nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+            nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
 
-            ! One point flux based on vg_On and nx
-            fn(:) = normalflux(vg_On(:), nx(:), nequations)
+            fn(:) = normalflux(vg_On(:), nx(:), nequations)              ! One point flux based on vg_On and nx
 
-            Off_Element_1:do k = 1, n_S_2d_Off
+            Off_Element_1:do k = 1, n_S_2d_Off                           ! Off_Element Loop over 2D LGL points
 
-              ! Index in facial ordering
-              knode = n_S_2d_Off*(kface-1) + k
+              knode = n_S_2d_Off*(kface-1) + k                           ! Index in facial ordering
 
-              ! Volumetric node index corresponding to facial node index
-              lnode = ifacenodes_Off(knode)
+              lnode = ifacenodes_Off(knode)                              ! Volumetric node index corresponding to facial node index
 
-              ! Off-element face data
-              vg_Off(:) = vg(:,lnode,kelem)
-
+              vg_Off(:) = vg(:,lnode,kelem)                              ! Off-element face data
+                                                 
               call EntropyConsistentFlux_Vectors(vg_On (:), vg_Off(:), nequations, FxA(:,k), FyA(:,k), FzA(:,k)) ! (Entropy Flux vectors)
 
-            enddo Off_Element_1
+            enddo Off_Element_1                                          ! End Off_Element
 
             call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FxA,FxB,Extrp_Off)
             call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FyA,FyB,Extrp_Off)
