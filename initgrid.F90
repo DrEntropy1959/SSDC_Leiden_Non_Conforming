@@ -740,9 +740,10 @@ contains
     integer :: il(2,3)
     ! local grid distance
     real(wp)                :: dr
-    real(wp), dimension(nodesperedge)  :: xi
     real(wp), dimension(3)  :: dx
     real(wp), dimension(3)  :: x00,x01
+
+    real(wp), dimension(:), allocatable  :: xi
 
     ! number of nodes in each element
     nodesperelem_max = (npoly_max+1)**ndim
@@ -758,6 +759,8 @@ contains
       call element_properties(ielem,       &
                               n_pts_1d=nE, &
                               x_pts_1d=x_LGL_1d)
+
+      if(allocated(xi)) deallocate(xi) ; allocate(xi(1:nE)) ;  xi = 0.0_wp
 
       if(allocated(xl)) deallocate(xl) ; allocate(xl(3,1:nE,1:nE,1:nE)) ;  xl = 0.0_wp
 
@@ -2657,9 +2660,11 @@ contains
         t2 = maxval(abs(transpose(amat)-matmul(u(1:n,1:m),matmul(diag(1:m,1:m),transpose(v(1:m,1:m))) )))
         if(w(perm(2)) <= tol) write(*,*)'second singular mode',w(perm(1:2))
         if(t1+t2 > tol) then
+          write(*,*)'second singular mode',w(perm(1:2))
           write(*,*)'error in u^T u', t1
           write(*,*)'error in A - u S v^T', t2
           write(*,*)'stopping'
+          call PetscFinalize(ierr) ; Stop ;
           stop
          endif
       endif
