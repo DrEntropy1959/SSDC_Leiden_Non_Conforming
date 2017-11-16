@@ -2546,7 +2546,7 @@ contains
 
     use referencevariables
     use collocationvariables, only: elem_props
-    use initcollocation,      only: GCL_Triple_Qmat_Transpose, element_properties
+    use initcollocation,      only: GCL_Triple_Qmat_Transpose, element_properties, GCL_Triple_Smat
     use eispack_module,       only: svd
     use unary_mod,            only: qsortd
     use variables,            only: r_x, Jx_r, ef2e
@@ -2561,11 +2561,11 @@ contains
     real(wp), dimension(:,:),  allocatable :: qmat
     real(wp), dimension(:),    allocatable :: p_surf
 
-    real(wp), dimension(:,:),  allocatable :: Amat
+    real(wp), dimension(:,:),  allocatable :: Amat, Smat
     real(wp), dimension(:,:),  allocatable :: bvec
     real(wp), dimension(:,:),  allocatable :: a_t
     real(wp), dimension(:,:),  allocatable :: u, v
-    real(wp), dimension(:),    allocatable :: w, work, pmat
+    real(wp), dimension(:),    allocatable :: w, work, pmat, verror
     real(wp), dimension(:,:),  allocatable :: work3
     real(wp), dimension(:,:),  allocatable :: eye, wrk, diag, wI
     real(wp), dimension(:,:),  allocatable :: delta_a
@@ -2576,7 +2576,7 @@ contains
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
     integer :: nm, m, n, icnt
 
-    logical                                :: testing = .false.
+    logical                                :: testing = .false., testing_metric_comp = .true.
     logical                                :: modify_metrics = .false.
     real(wp)                               :: t1, t2
     real(wp), parameter                    :: tol = 1.0e-12_wp
@@ -2632,7 +2632,7 @@ contains
       if(allocated( a_t)) deallocate( a_t) ; allocate(a_t(3*n_pts_3d,3)) ;  a_t(:,:) = 0.0_wp
       if(allocated(delta_a)) deallocate(delta_a) ; allocate(delta_a(3*n_pts_3d,3)) ;  delta_a(:,:) = 0.0_wp
 
-      call GCL_Triple_Qmat_Transpose(n_pts_1d, n_pts_3d, pmat, qmat, Amat)
+      call GCL_Triple_Qmat_Transpose(n_pts_1d, n_pts_3d, pmat, qmat, Amat)     
 
       call SVD(nm,n,m,transpose(Amat),w,matu,u,matv,v,ierr,work)
 
@@ -2663,6 +2663,7 @@ contains
           stop
          endif
       endif
+
 
       call Load_Mortar_Metric_Data(ielem,n_pts_1d,n_pts_2d,n_pts_3d, ifacenodes, p_surf, a_t, bvec)
 
@@ -2696,7 +2697,21 @@ contains
          r_x(3,1:3,inode,ielem) = a_t((3-1)*n_pts_3d+inode,1:3) / Jx_r(inode,ielem)
 
       enddo
-     
+      !-- testing to see if the discrete metric terms satisfy the correct GCL condition
+      if(testing_metric_comp) then
+        if(allocated(Smat)) deallocate(Smat) ; allocate(Smat(nm,n)) ; Smat(:,:) = 0.0_wp
+        if(allocated(verror)) deallocate(verror); allocate(verror(n)); t1 = 0.0_wp
+
+        !-- construct matrix with Smat = [Sxi;Seta;Szeta] to be used to check that the metric 
+        !   approximations are correct
+        call GCL_Triple_Smat(n_pts_1d, n_pts_3d, pmat, qmat, Smat) 
+
+        !-- loop over the three computational directions and construct S*Almk
+        do i = 1,3
+          verror = verror+matmul(Smat(1+(i-1)*m:i*m,1:m),a_t(1:m,i))-bvec(1:m,i)
+        enddo
+      endif
+    
     end do elloop
 
     deallocate(u,v,w,work,Amat,a_t,bvec,wI)

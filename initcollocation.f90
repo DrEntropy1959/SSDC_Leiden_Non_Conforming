@@ -28,6 +28,7 @@ module initcollocation
   public lagrange_basis_function_1d
   public D_lagrange_basis_function_1d
   public GCL_Triple_Qmat_Transpose
+  public GCL_Triple_Smat
 
 contains
 
@@ -617,6 +618,79 @@ contains
     deallocate(stride)
 
   end subroutine GCL_Triple_Qmat_Transpose
+
+  ! ===================================================================================
+  ! This subroutine calculates the multi-dimensional Smat operators 
+  ! for an already set dimension and polynomial approximation.
+  ! Only holds for SBP operators that contain boundary nodes
+  ! ===================================================================================
+
+  subroutine GCL_Triple_Smat(n_pts_1d, n_pts_3d, pmat, qmat, Stran_3_mat)
+
+    use referencevariables
+
+    implicit none
+
+    integer,                                   intent(in)    :: n_pts_1d, n_pts_3d
+    real(wp), dimension(:),                    intent(in)    :: pmat
+    real(wp), dimension(:,:),                  intent(in)    :: qmat
+    real(wp), dimension(:,:),                  intent(inout) :: Stran_3_mat
+
+    integer :: i,j,k,jj,kk,inode, idir
+    integer :: il(2,3), ix(3),iy(3),iz(3)
+    integer, allocatable, dimension(:) :: stride
+    integer :: shift
+
+    ! high and low indices in each dimension
+    il = 1
+    do idir = 1,ndim
+      il(2,idir) = n_pts_1d
+    end do
+
+    ! stride between columns in each direction
+    allocate(stride(1:ndim))
+    do idir = 1,ndim
+      stride(idir) = n_pts_1d**(idir-1)
+    end do
+
+    ! q_gradmat is the same as dmat but is a full matrix
+    ! loop over directions
+    do idir = 1, ndim
+      ! reset node counter
+      inode = 0
+      ! loop over third direction
+      do k = il(1,3), il(2,3)
+        ! loop over second direction
+        do j = il(1,2), il(2,2)
+          ! loop over first direction
+          do i = il(1,1), il(2,1)
+            ! index vector
+            ix = (/ i,j,k /)
+            iy = (/ j,k,i /)
+            iz = (/ k,i,j /)
+            ! advance node counter by 1
+            inode = inode+1
+            ! loop over coefficients in gradient operator
+            do kk = 1,n_pts_1d
+              ! column/node corresponding to coefficient
+              jj = stride(idir)*(kk-ix(idir)) + inode
+              ! set coefficient in larger gradient matrix
+              shift = (idir-1) * n_pts_3d
+
+              !-- only keep the skew-symmetric portion (the setup is for S^T so multiply by negative to get S)
+              if((kk==1).OR.(kk==n_pts_1d)) then
+              else
+                Stran_3_mat(jj,shift+inode) = -qmat(ix(idir),kk) * pmat(iy(idir)) * pmat(iz(idir))
+              endif
+            end do
+          end do
+        end do
+      end do
+    end do
+
+    deallocate(stride)
+
+  end subroutine GCL_Triple_Smat
 
   subroutine FilterMatrix()
 
