@@ -25,19 +25,26 @@ LFLAGS = -L/home/carpentr/OpenSourceLib/Lib-Install/lib\
 CC = gcc
 FC = mpif90
 else ifeq ($(HOSTPC),niavisi13-Latitude-3440)
-INCLUDESDIR = -I/home/nia-visi13/Postdoc2/open_source/deps/openmpi-3.0.0/include\
-              -I/home/nia-visi13/Postdoc2/open_source/deps/petsc-3.5.4/include\
+INCLUDESDIR = -I/home/nia-visi13/Postdoc2/open_source/deps/openmpi-1.8.3/include\
+              -I/home/nia-visi13/Postdoc2/open_source/deps/petsc-3.5.2/include\
               -I/home/nia-visi13/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
 FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
 #FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
 CFLAGS = -Ofast  $(INCLUDESDIR)
-LFLAGS = -L/home/nia-visi13/Postdoc2/open_source/deps/openmpi-3.0.0/lib\
-         -L/home/nia-visi13/Postdoc2/open_source/deps/petsc-3.5.4/lib\
+
+LFLAGS = -L/home/nia-visi13/Postdoc2/open_source/deps/openmpi-1.8.3/lib\
+         -L/home/nia-visi13/Postdoc2/open_source/deps/petsc-3.5.2/lib\
          -L/home/nia-visi13/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
+
+CC = gcc
+FC = mpif90
 else
 $(info Hostname Not Found)
 endif
 LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
+
+#LIBS = -lpetsc -lHYPRE -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis 
+
 
 SRCS = precision_vars.f90\
        datatypes.f90\

@@ -1,6 +1,5 @@
 module petscvariables
 
-use petsc
 #include "finclude/petscsys.h"
 #include "finclude/petscvec.h"
 #include "finclude/petscis.h"
