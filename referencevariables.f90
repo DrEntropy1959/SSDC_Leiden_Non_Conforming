@@ -22,6 +22,7 @@ module referencevariables
   integer :: nodesperelem = 0
   integer :: nodesperedge = 0
   integer :: nodesperface = 0
+  integer :: nodesperproc = 0
   integer :: nphysdim = 1
   integer :: nconstitutive = 0
   integer :: nverticesperelem = 0
@@ -32,6 +33,7 @@ module referencevariables
   integer :: nghost = 0
   integer :: nghost_elem = 0
   integer :: nghost_Gau_shell = 0
+  integer :: nghost_LGL_shell = 0
 
   integer :: ihelems(2)
   integer :: nprocs

@@ -630,6 +630,7 @@ contains
       
     call qsortd(distance,ind,nodesperelem)
     
+    i0 = 0 ; j0 = 0 ; k0 = 0 ;
     do k = 1,ns
       do j = 1,ns
         do i = 1,ns

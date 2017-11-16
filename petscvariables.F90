@@ -5,6 +5,7 @@ module petscvariables
 #include "finclude/petscis.h"
 
   Vec xpetsc
+  Vec xlocpetsc
 
   Vec upetsc
   Vec ulocpetsc

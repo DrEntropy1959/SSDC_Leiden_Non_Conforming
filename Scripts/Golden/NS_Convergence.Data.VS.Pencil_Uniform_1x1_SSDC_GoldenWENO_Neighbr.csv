@@ -41,7 +41,7 @@
  L1   error:    2.2931583713647143E-002
  L2   error:    3.9506551125513420E-002
  Linf error:   0.15495971830607580     
- CPU time:         10.1889
+ CPU time:          7.7733
 
  Solution files written in solution                                                                                                                
 
@@ -87,7 +87,7 @@
  L1   error:    2.0622860691455729E-002
  L2   error:    5.2379023334567107E-002
  Linf error:   0.43911798335816865     
- CPU time:         21.0006
+ CPU time:         14.9871
 
  Solution files written in solution                                                                                                                
 
@@ -136,7 +136,7 @@
  L1   error:    2.1930430002132344E-002
  L2   error:    4.8625879014961314E-002
  Linf error:   0.48127362134705898     
- CPU time:         11.7639
+ CPU time:          8.9513
 
  Solution files written in solution                                                                                                                
 
@@ -185,7 +185,7 @@
  L1   error:    1.3417354607968303E-005
  L2   error:    3.3321644112794699E-005
  Linf error:    3.7196011306805943E-004
- CPU time:         24.7154
+ CPU time:         17.3443
 
  Solution files written in solution                                                                                                                
 

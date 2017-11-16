@@ -297,8 +297,8 @@ contains
 
     ! Setup the PETSc parallel communication for exchanging the conservative
     ! variables at the parallel face element 
-    call PetscComm1DDataSetup(ug,ughst,upetsc,ulocpetsc,nequations, &
-      & nodesperelem,nelems,nghost)
+    call PetscComm1DDataSetup(ug,ughst,upetsc,ulocpetsc,size(ug,1),size(ug,2), &
+                             nelems, nodesperproc, size(ughst,2))
 
     ! Setup the PETSc parallel communication for exchanging the conservative
     ! variables at the parallel face element 
@@ -1933,21 +1933,22 @@ contains
     integer :: inode
     integer :: nshell
 
-    call UpdateComm1DGhostData(ug, ughst, upetsc, ulocpetsc, &
-      nequations, nodesperelem, ihelems, nghost)
+    call UpdateComm1DGhostData(ug, ughst, upetsc, ulocpetsc,  &
+                              size(ug,1), size(ug,2), nodesperproc, size(ughst,2))
 
     ! Update ghost value in the interior plane for WENO p = 3
     if((discretization == 'SSWENO')) then
 
       call UpdateComm1DGhostDataWENO(ug, ughstWENO, upetscWENO, ulocpetscWENO, &
-        nequations, nodesperelem, ihelems, nghost)
+                                     size(ug,1), size(ug,2), size(ughstWENO,2))
 
       if((WENO_type == 'Neighbr_WENO')) call Planar_Interpolation_WENO()
 
       nshell = nodesperface*nfacesperelem
 
       call UpdateCommShellGhostData(ugWENO_partner, ughstWENO_partner, upetscWENO_Shell, &
-                        ulocpetscWENO_Shell, nequations, nshell, ihelems, nghost)
+                        ulocpetscWENO_Shell, size(ugWENO_partner,1),  &
+                        size(ugWENO_partner,2), size(ughstWENO_partner,2))
 
     endif
 
@@ -1967,8 +1968,8 @@ contains
 
       call viscous_gradients()
 
-    call UpdateComm2DGhostData(phig, phighst, phipetsc, philocpetsc, &
-      nequations, 3, nodesperelem, ihelems, nghost)
+      call UpdateComm2DGhostData(phig, phighst, phipetsc, philocpetsc,  &
+                              size(phig,1), size(phig,2), size(phig,3), size(phighst,3))
 
     end if
 
@@ -3449,11 +3450,13 @@ contains
         end if
 
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-!       Off Processor Contributions to gsat
+!       Off Processor Contributions to gsat:  Interface straddles parallel partition boundary
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-      else if (ef2e(3,iface,ielem) /= myprocid) then ! This is an interface between parallel parts
+      else if (ef2e(3,iface,ielem) /= myprocid) then 
         
+        if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then
+
           do i = 1,  n_S_2d_On
 
             ! Index in facial ordering
@@ -3468,12 +3471,12 @@ contains
             ! Outward facing normal of facial node
             nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
   
-            ug_On(:)  = ug(:,inode,ielem)
+            ug_On(:)  = ug   (:,inode,ielem)
             ug_Off(:) = ughst(:,gnode)
             call conserved_to_primitive(ug_On (:), vg_On (:), nequations)
             call conserved_to_primitive(ug_Off(:), vg_Off(:), nequations)
   
-            phig_On (:,:) = phig(:,:,inode,ielem)
+            phig_On (:,:) = phig   (:,:,inode,ielem)
             phig_Off(:,:) = phighst(:,:,gnode)
   
             SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
@@ -3486,10 +3489,13 @@ contains
   
           end do
 
+        else
+
+        endif
+
       else             !  on process interfaces
 
-        if(elem_props(2,ielem) == elem_props(2,ef2e(2,iface,ielem))) then
-
+        if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then
 
           do i = 1, n_S_2d_On
         
@@ -3524,7 +3530,7 @@ contains
   
           end do
 
-        else  ! Adjoining element on iface differs in order
+        else  ! Adjoining element touching iface differs in order
 
           n_S_1d_max  = (npoly_max+1)**1
           n_S_2d_max  = (npoly_max+1)**2
@@ -3592,40 +3598,31 @@ contains
 !=========
 !         Inviscid interface SATs (skew-symmetric portion)
 !=========
-          On_Element_1:do i = 1, n_S_2d_On
+          On_Element_1:do i = 1, n_S_2d_On                               ! On_Element Loop over 2D LGL points
         
-            ! Index in facial ordering
-            jnode =  n_S_2d_On*(iface-1) + i
+            jnode =  n_S_2d_On*(iface-1) + i                             ! Index in facial ordering
               
-            ! Volumetric node index corresponding to facial node index
-            inode = ifacenodes_On(jnode)
+            inode = ifacenodes_On(jnode)                                 ! Volumetric node index corresponding to facial node index
               
-            ! On-element face data
-            vg_On(:) =   vg(:,inode,ielem)
+            vg_On(:) =   vg(:,inode,ielem)                               ! On-element face data
 
-            ! Rotate into entropy variables and store as face plane data
-            call primitive_to_entropy(vg_On(:),wg_2d_On(:,i),nequations)
+            call primitive_to_entropy(vg_On(:),wg_2d_On(:,i),nequations) ! Rotate into entropy variables and store as face plane data
 
-            ! Outward facing normal of facial node
-            nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+            nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
 
-            ! One point flux based on vg_On and nx
-            fn(:) = normalflux(vg_On(:), nx(:), nequations)
+            fn(:) = normalflux(vg_On(:), nx(:), nequations)              ! One point flux based on vg_On and nx
 
-            Off_Element_1:do k = 1, n_S_2d_Off
+            Off_Element_1:do k = 1, n_S_2d_Off                           ! Off_Element Loop over 2D LGL points
 
-              ! Index in facial ordering
-              knode = n_S_2d_Off*(kface-1) + k
+              knode = n_S_2d_Off*(kface-1) + k                           ! Index in facial ordering
 
-              ! Volumetric node index corresponding to facial node index
-              lnode = ifacenodes_Off(knode)
+              lnode = ifacenodes_Off(knode)                              ! Volumetric node index corresponding to facial node index
 
-              ! Off-element face data
-              vg_Off(:) = vg(:,lnode,kelem)
-
+              vg_Off(:) = vg(:,lnode,kelem)                              ! Off-element face data
+                                                 
               call EntropyConsistentFlux_Vectors(vg_On (:), vg_Off(:), nequations, FxA(:,k), FyA(:,k), FzA(:,k)) ! (Entropy Flux vectors)
 
-            enddo Off_Element_1
+            enddo Off_Element_1                                          ! End Off_Element
 
             call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FxA,FxB,Extrp_Off)
             call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FyA,FyB,Extrp_Off)
