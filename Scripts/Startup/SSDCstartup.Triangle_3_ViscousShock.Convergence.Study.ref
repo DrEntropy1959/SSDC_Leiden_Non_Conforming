@@ -1,7 +1,7 @@
  &PreProcParameters
  ndim = 3,
- npoly = NPoly, 
- casefile = 'Cube_2D_Extrude_NonConforming_PTSxPTSx01',
+ npoly = NPoly,
+ casefile = 'Triangle_3',
  grid_format = 'aflr3',
  viscous = .true.,
  crossterms = .true.,
@@ -66,4 +66,4 @@
  casefile = 'vs.uns.4x2',
  casefile = 'cylinder.49x17'
  casefile = 'OrthoCube1Blocks',
- casefile = 'Cube_2D_Extrude_NonUniform_PTSxPTSx2',
+ casefile = 'Cube_2D_Extrude_NonUniform_032x032x2',

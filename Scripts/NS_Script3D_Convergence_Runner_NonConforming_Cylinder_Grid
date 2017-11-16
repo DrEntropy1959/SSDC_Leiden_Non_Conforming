@@ -1,0 +1,18 @@
+cd ..
+#make clean
+make 
+cp Scripts/Startup/SSDCstartup.Cylinder_Grid_ViscousShock.Convergence.Study.ref SSDCstartup.ref
+cp zerodat NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv
+   for var1 in 1 2 3 #4
+     do
+       echo " Order: $var1 "
+       cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g'  > SSDCstartup
+
+        mpirun.actual -np  1 nice -19 ./SSDCNSE > tmp88
+
+       cp NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv tmp87
+       cat tmp87 tmp88 > NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv
+   done
+#cp   NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv Scripts/Golden/NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv
+ diff NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv Scripts/Golden/NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv
+
