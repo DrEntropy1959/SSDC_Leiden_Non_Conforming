@@ -53,6 +53,20 @@ LFLAGS = -L/home/nia-visi13/Postdoc2/open_source/deps/openmpi-1.8.3/lib\
 CC = gcc
 FC = mpif90
 LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
+else ifeq ($(HOSTPC),computer-dcdelrey)
+$(info ${HOSTPC})
+INCLUDESDIR = -I/home/dcdelrey/Documents/Postdoc2/open_source/deps/openmpi-1.8.3/include\
+              -I/home/dcdelrey/Documents/Postdoc2/open_source/deps/petsc-3.5.2/include\
+              -I/home/dcdelrey/Documents/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
+FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+CFLAGS = -Ofast  $(INCLUDESDIR)
+LFLAGS = -L/home/dcdelrey/Documents/Postdoc2/open_source/deps/openmpi-1.8.3/lib\
+         -L/home/dcdelrey/Documents/Postdoc2/open_source/deps/petsc-3.5.2/lib\
+         -L/home/dcdelrey/Documents/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
+CC = gcc
+FC = mpif90
+LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
 else
 $(info Hostname Not Found)
 endif
