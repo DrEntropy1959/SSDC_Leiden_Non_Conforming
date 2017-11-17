@@ -15,6 +15,7 @@ module physicsindependent
 
   ! Exceptions, i.e. public subroutines or functions
   public :: physics_independent_setup
+  
 
 contains
 
@@ -163,7 +164,7 @@ contains
     ! Collocation points
 
     call calcnodes_LGL()
-
+    call transform_grid()
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the metrics'
     end if

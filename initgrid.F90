@@ -46,6 +46,7 @@ module initgrid
   public calc_Jacobian_Gau_shell_all_hexas
   public modify_metrics_nonconforming
   public perturb_vertices_tg_vortex_1
+  public transform_grid
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
@@ -6648,6 +6649,96 @@ contains
 
     return
   end subroutine Shell_Metrics_Analytic
+  
+  subroutine transform_grid()
+  !================================================================================================
+  !
+  ! Purpose: takes the grid and subjects it to a transformation
+  !
+  !================================================================================================
+ 
+    !-- use statments
+    use mpimod
+    use referencevariables, only                 : myprocid, nprocs
+    use variables, only: xg
 
+  
+    implicit none
+
+    !-- local variables
+    integer                                      :: m_size, iproc,i_err
+    integer                                      :: s_tag, s_request_err, s_status
+    integer                                      :: r_tag, r_request_err, r_status
+    integer                                      :: i
+    real(wp)                                     :: x_min, y_min, z_min
+    real(wp)                                     :: x_max, y_max, z_max
+    real(wp), allocatable,dimension(:,:,:)         :: xyz_minmax
+    real(wp), dimension(3,2)                     :: xyz_loc_minmax
+    
+    !-- local variables 
+
+    x_min = -1000
+    !   Parallel determination of the max and min values
+
+    ! setup matrix to store local max and min values
+    if(myprocid == 0 )  then
+      allocate(xyz_minmax(3,2,nprocs)); xyz_minmax = 0.0_wp
+      !-- set the values on the root process
+      xyz_minmax(1,1,1) = minval(xg(1,:,:)); xyz_minmax(2,1,1) = minval(xg(2,:,:)); xyz_minmax(3,1,1) = minval(xg(3,:,:))
+      xyz_minmax(1,2,1) = maxval(xg(1,:,:)); xyz_minmax(2,2,1) = maxval(xg(2,:,:)); xyz_minmax(3,2,1) = minval(xg(3,:,:))  
+      !write(*,*)'values from root process'   
+      !write(*,*)(xyz_minmax(i,1:2,1),i=1,3)
+    endif
+     
+    !-- send the max min values from each process to the root process
+    if(myprocid /= 0 ) then
+      xyz_loc_minmax(1,1) = minval(xg(1,:,:)); xyz_loc_minmax(2,1) = minval(xg(2,:,:)); xyz_loc_minmax(3,1) = minval(xg(3,:,:))
+      xyz_loc_minmax(1,2) = maxval(xg(1,:,:)); xyz_loc_minmax(2,2) = maxval(xg(2,:,:)); xyz_loc_minmax(3,2) = minval(xg(3,:,:))
+
+      s_tag = 100 + myprocid
+      m_size = 3*2
+      call mpi_isend(xyz_loc_minmax,m_size,mpi_double,0,s_tag,petsc_comm_world, &
+        & s_request_err,i_err)
+      
+      call mpi_wait(s_request_err,s_status,i_err)
+      !write(*,*)'proc = ',myprocid, 'sent'
+      !write(*,*)(xyz_loc_minmax(i,1:2),i=1,3)
+    else
+    !-- root process
+      do iproc = 1, nprocs-1
+        r_tag = 100 + iproc
+        m_size = 3*2
+        call mpi_irecv(xyz_minmax(1:3,1:2,iproc+1),m_size,mpi_double,iproc,r_tag, &
+          & petsc_comm_world,r_request_err,i_err)
+
+        call mpi_wait(r_request_err,r_status,i_err)
+        !write(*,*)'root recived from proc =',iproc
+        !write(*,*)'xyz_minmax(1:3,1:2,iproc+1)'
+        !write(*,*)(xyz_minmax(i,1:2,iproc+1),i=1,3)
+      enddo
+
+      !-- determine global min and max x, y, and z values
+      x_min = maxval(xyz_minmax(1,1,1:nprocs))
+      y_min = maxval(xyz_minmax(2,1,1:nprocs))
+      z_min = maxval(xyz_minmax(3,1,1:nprocs))
+
+      x_max = maxval(xyz_minmax(1,2,1:nprocs))
+      y_max = maxval(xyz_minmax(2,2,1:nprocs))
+      z_max = maxval(xyz_minmax(3,2,1:nprocs))
+
+      write(*,*)'from root x_min =', x_min
+    endif
+    call mpi_bcast(x_min,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(y_min,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(z_min,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(x_max,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(y_max,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(z_max,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    if(myprocid/=0)then
+      write(*,*)'myprocid, x_min ',myprocid,x_min
+    endif
+    call PetscFinalize(i_err); stop
+    !-- apply the transformation on each local element
+  end subroutine transform_grid
 end module initgrid
 
