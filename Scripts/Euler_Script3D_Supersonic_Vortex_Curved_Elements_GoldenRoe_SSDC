@@ -25,7 +25,7 @@ cp zerodat Supersonic_Vortex.Convergence.Study.csv
        echo "OverColl: $var0   Order: $var1   Grid: $var2   Grid: ${var3}  "
        cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g' | sed 's/XPT/'${var2}'/g' | sed 's/YPT/'${var3}'/g' > SSDCstartup
 if [ "$THISHOST" == "tab16" ]; then
-       mpirun.actual -np  4 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun -np  4 nice -19 ./SSDCNSE > tmp88 ;
 elif [ "$THISHOST" = "Leiden" ]; then
        mpirun        -np  4 nice -19 ./SSDCNSE > tmp88 ;
 else
