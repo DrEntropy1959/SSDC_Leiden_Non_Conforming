@@ -15,7 +15,7 @@ cp zerodat NS_Convergence.Data.VS.Pencil_Uniform_1x1_SSDC_GoldenWENO_Neighbr.csv
        if   [ $var2 -le 002 ] 
        then
 if [ "$THISHOST" == "tab16" ]; then
-       mpirun.actual -np  1 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun -np  1 nice -19 ./SSDCNSE > tmp88 ;
 elif [ "$THISHOST" = "Leiden" ]; then
        mpirun        -np  1 nice -19 ./SSDCNSE > tmp88 ;
 else
@@ -24,7 +24,7 @@ fi
        elif [ $var2 -eq 004 ] 
        then
 if [ "$THISHOST" == "tab16" ]; then
-       mpirun.actual -np  1 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun -np  1 nice -19 ./SSDCNSE > tmp88 ;
 elif [ "$THISHOST" = "Leiden" ]; then
        mpirun        -np  1 nice -19 ./SSDCNSE > tmp88 ;
 else
@@ -47,7 +47,7 @@ fi
        if   [ $var2 -le 002 ] 
        then
 if [ "$THISHOST" == "tab16" ]; then
-       mpirun.actual -np  2 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun -np  2 nice -19 ./SSDCNSE > tmp88 ;
 elif [ "$THISHOST" = "Leiden" ]; then
        mpirun        -np  2 nice -19 ./SSDCNSE > tmp88 ;
 else
@@ -56,7 +56,7 @@ fi
        elif [ $var2 -eq 004 ] 
        then
 if [ "$THISHOST" == "tab16" ]; then
-       mpirun.actual -np  2 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun -np  2 nice -19 ./SSDCNSE > tmp88 ;
 elif [ "$THISHOST" = "Leiden" ]; then
        mpirun        -np  2 nice -19 ./SSDCNSE > tmp88 ;
 else
@@ -65,7 +65,7 @@ fi
        elif [ $var2 -ge 008 ] 
        then
 if [ "$THISHOST" == "tab16" ]; then
-       mpirun.actual -np  4 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun -np  4 nice -19 ./SSDCNSE > tmp88 ;
 elif [ "$THISHOST" = "Leiden" ]; then
        mpirun        -np  4 nice -19 ./SSDCNSE > tmp88 ;
 else
