@@ -11,13 +11,13 @@ cp zerodat NS_Convergence.Data.VS.Quadrants_NonConforming_NxNx1_SSDC.csv
        cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g' | sed 's/PTS/'${var2}'/g' > SSDCstartup
        if   [ $var2 -le 01 ] 
        then
-           mpirun.actual -np  1 nice -19 ./SSDCNSE > tmp88
+           mpirun -np  1 nice -19 ./SSDCNSE > tmp88
        elif [ $var2 -eq 02 ] 
        then
-           mpirun.actual -np  1 nice -19 ./SSDCNSE > tmp88
+           mpirun -np  1 nice -19 ./SSDCNSE > tmp88
        elif [ $var2 -ge 03 ] 
        then
-           mpirun.actual -np  1 nice -19 ./SSDCNSE > tmp88
+           mpirun -np  1 nice -19 ./SSDCNSE > tmp88
        fi
        cp NS_Convergence.Data.VS.Quadrants_NonConforming_NxNx1_SSDC.csv tmp87
        cat tmp87 tmp88 > NS_Convergence.Data.VS.Quadrants_NonConforming_NxNx1_SSDC.csv

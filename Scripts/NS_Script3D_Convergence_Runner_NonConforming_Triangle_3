@@ -8,7 +8,7 @@ cp zerodat NS_Convergence.Data.VS.Triangle_3_NonConforming_SSDC.csv
        echo " Order: $var1 "
        cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g'  > SSDCstartup
 
-        mpirun.actual -np  1 nice -19 ./SSDCNSE > tmp88
+        mpirun -np  1 nice -19 ./SSDCNSE > tmp88
 
        cp NS_Convergence.Data.VS.Triangle_3_NonConforming_SSDC.csv tmp87
        cat tmp87 tmp88 > NS_Convergence.Data.VS.Triangle_3_NonConforming_SSDC.csv

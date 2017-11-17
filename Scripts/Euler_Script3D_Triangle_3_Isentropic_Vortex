@@ -9,7 +9,7 @@ cp zerodat Triangle_3_Isentropic_Vortex.Convergence.Study.csv
        echo "Order: $var1   "
        cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g'  > SSDCstartup
 if [ "$THISHOST" == "tab16" ]; then
-       mpirun.actual -np  1 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun -np  1 nice -19 ./SSDCNSE > tmp88 ;
 elif [ "$THISHOST" = "Leiden" ]; then
        mpirun        -np  1 nice -19 ./SSDCNSE > tmp88 ;
 else
