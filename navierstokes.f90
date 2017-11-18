@@ -3443,12 +3443,16 @@ contains
         end if
 
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-!       Off Processor Contributions to gsat:  Interface straddles parallel partition boundary
+!       Conforming interface:  polynomial orders match 
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-      else if (ef2e(3,iface,ielem) /= myprocid) then 
+      else if (elem_props(2,ielem) == ef2e(4,iface,ielem)) then
+
+        if (ef2e(3,iface,ielem) /= myprocid) then 
         
-        if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then
+          !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+          !       Off Processor Contributions to gsat:  Conforming Interface straddles parallel partition
+          !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
           do i = 1,  n_S_2d_On
 
@@ -3482,13 +3486,11 @@ contains
   
           end do
 
-        else
+        else if (ef2e(3,iface,ielem) == myprocid) then 
 
-        endif
-
-      else             !  on process interfaces
-
-        if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then
+          !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+          !       On-Processor Contributions to gsat:  Conforming Interface is on-process
+          !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
           do i = 1, n_S_2d_On
         
@@ -3523,81 +3525,115 @@ contains
   
           end do
 
-        else  ! Non-conforming element: Adjoining element touching iface differs in order
+        endif
 
-          n_S_1d_max  = (npoly_max+1)**1
-          n_S_2d_max  = (npoly_max+1)**2
-          kface       = ef2e(1,iface,ielem)
-          kelem       = ef2e(2,iface,ielem)
+!-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+!       NON-CONFORMING Contributions to gsat
+!-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-          call element_properties(kelem,&
-                         n_pts_1d=n_S_1d_Off,&
-                         n_pts_2d=n_S_2d_Off,&
-                         x_pts_1d=x_S_1d_Off,&
-                       kfacenodes=kfacenodes_Off,&
-                       ifacenodes=ifacenodes_Off)
+      else if (elem_props(2,ielem) /= ef2e(4,iface,ielem)) then
 
-          n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
-          n_S_2d_Mort = (n_S_1d_Mort)**2
-          if(allocated(x_S_1d_Mort)) deallocate(x_S_1d_Mort) ; allocate(x_S_1d_Mort(n_S_1d_Mort)) ;
-          if(allocated(w_S_1d_Mort)) deallocate(w_S_1d_Mort) ; allocate(w_S_1d_Mort(n_S_1d_Mort)) ;
-          call Gauss_Legendre_points(n_S_1d_Mort,x_S_1d_Mort,w_S_1d_Mort)
-  
-          allocate(nx_2d_Off(ndim,n_S_2D_Off))
+        n_S_1d_max  = (npoly_max+1)**1
+        n_S_2d_max  = (npoly_max+1)**2
+        kface       = ef2e(1,iface,ielem)
+        kelem       = ef2e(2,iface,ielem)
 
-          allocate(mut_2d_Off(n_S_2D_Off))
+        call element_properties(kelem,&
+                       n_pts_1d=n_S_1d_Off,&
+                       n_pts_2d=n_S_2d_Off,&
+                       x_pts_1d=x_S_1d_Off,&
+                     kfacenodes=kfacenodes_Off,&
+                     ifacenodes=ifacenodes_Off)
 
-          allocate(Jx_r_2d_Mort(n_S_2D_Mort))
+        n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
+        n_S_2d_Mort = (n_S_1d_Mort)**2
+        if(allocated(x_S_1d_Mort)) deallocate(x_S_1d_Mort) ; allocate(x_S_1d_Mort(n_S_1d_Mort)) ;
+        if(allocated(w_S_1d_Mort)) deallocate(w_S_1d_Mort) ; allocate(w_S_1d_Mort(n_S_1d_Mort)) ;
+        call Gauss_Legendre_points(n_S_1d_Mort,x_S_1d_Mort,w_S_1d_Mort)
 
-          allocate( wg_Mort_On (nequations,n_S_2d_Mort))
-          allocate( wg_Mort_Off(nequations,n_S_2d_Mort))
-  
-          allocate(vg_2d_On    (nequations,n_S_2d_On  ))
-          allocate(wg_2d_On    (nequations,n_S_2d_On  ))
-  
-          allocate(vg_2d_Off   (nequations,n_S_2d_Off ))
-          allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
-  
-          allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
-          allocate(phig_2d_Off (nequations,ndim,n_S_2d_Off))
+        allocate(  nx_2d_Off (ndim,n_S_2D_Off ))
+        allocate( mut_2d_Off (     n_S_2D_Off ))
+        allocate(Jx_r_2d_Mort(     n_S_2D_Mort))
 
-          if(n_S_1d_Mort == n_S_1d_On) then
-            poly_val = n_S_1d_Mort - npoly
-             allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
-                      Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,1) ;
-             allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
-                      Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,1) ;
-            poly_val = n_S_1d_Off  - npoly
-             allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
-                      Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,2) ;
-          else
-            poly_val = n_S_1d_On - npoly
-             allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
-                      Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,2) ;
-             allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
-                      Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,2) ;
-            poly_val = n_S_1d_Mort - npoly
-             allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
-                      Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
-          endif
+        allocate(vg_2d_On    (nequations,n_S_2d_On  ))
+        allocate(wg_2d_On    (nequations,n_S_2d_On  ))
+
+        allocate(vg_2d_Off   (nequations,n_S_2d_Off ))
+        allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
+
+        allocate( wg_Mort_On (nequations,n_S_2d_Mort))
+        allocate( wg_Mort_Off(nequations,n_S_2d_Mort))
+
+        allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
+        allocate(phig_2d_Off (nequations,ndim,n_S_2d_Off))
+
+        if(n_S_1d_Mort == n_S_1d_On) then
+          poly_val = n_S_1d_Mort - npoly
+           allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
+                    Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,1) ;
+           allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
+                    Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,1) ;
+          poly_val = n_S_1d_Off  - npoly
+           allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
+                    Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,2) ;
+        else
+          poly_val = n_S_1d_On - npoly
+           allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
+                    Intrp_On (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On  ,1:n_S_1d_Mort,poly_val,2) ;
+           allocate(Extrp_On (n_S_1d_Mort,n_S_1d_On  )) ; 
+                    Extrp_On (:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_On  ,poly_val,2) ;
+          poly_val = n_S_1d_Mort - npoly
+           allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
+                    Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
+        endif
   
 !=========
-!          face data:  On_element, Off_element and On_Mortar
+!       face data:  On_element, Off_element and On_Mortar
 !=========
 
-           On_Elem_0:do i = 1, n_S_2d_On                                         ! On_Element Loop over 2D LGL points
+                                                                                 ! face data:  On_element independent of serial or parallel
+        On_Elem_0:do i = 1, n_S_2d_On                                            ! On_Element Loop over 2D LGL points
         
-            jnode =  n_S_2d_On*(iface-1) + i                                     ! Index in facial ordering
-            inode = ifacenodes_On(jnode)                                         ! Volumetric node index corresponding to facial node index
+         jnode =  n_S_2d_On*(iface-1) + i                                        ! Index in facial ordering
+         inode = ifacenodes_On(jnode)                                            ! Volumetric node index corresponding to facial node index
 
-              vg_2d_On(:,  i) =   vg(:,  inode,ielem)                            ! On-element face data
-            phig_2d_On(:,:,i) = phig(:,:,inode,ielem)                            ! Viscous derivatives
+           vg_2d_On(:,  i) =   vg(:,  inode,ielem)                               ! On-element face data
+         phig_2d_On(:,:,i) = phig(:,:,inode,ielem)                               ! Viscous derivatives
 
-            call primitive_to_entropy(vg_2d_On(:,i),wg_2d_On(:,i),nequations)    ! Rotate into entropy variables and store as face plane data
+         call primitive_to_entropy(vg_2d_On(:,i),wg_2d_On(:,i),nequations)       ! Rotate into entropy variables and store as face plane data
 
-          enddo  On_Elem_0                                                       ! End off-element loop
+        enddo  On_Elem_0                                                         ! End off-element loop
+
+        if (ef2e(3,iface,ielem) /= myprocid) then                                !  Parallel data
 
           Off_Elem_0:do k = 1, n_S_2d_Off                                        ! Off-element loop over data
+
+!           lnode =  n_S_2d_Off*(kface-1) + k                                    ! Index in facial ordering
+!           knode = ifacenodes_Off(lnode)                                        ! Volumetric node index corresponding to facial node index
+
+!             vg_2d_Off(:,  k) =   vg(:,  knode,kelem)                           ! volumetric node data from off element face
+!           phig_2d_Off(:,:,k) = phig(:,:,knode,kelem)                           ! Viscous derivatives
+
+!             nx_2d_Off(:,  k) = Jx_r(    knode,kelem)*facenodenormal(:,lnode,kelem) ! Outward facing normal of facial node
+!            mut_2d_Off(    k) =  mut(    knode,kelem)                           ! Outward facing normal of facial node
+
+!           call primitive_to_entropy(vg_2d_Off(:,k),wg_2d_Off(:,k),nequations)  ! Rotate into entropy variables and store as face plane data
+
+          enddo Off_Elem_0                                                       ! End off-element loop
+
+          On_Mortar_0:do j = 1, n_S_2d_Mort
+
+!           jnode =  n_S_2d_max*(iface-1) + j                                    ! Index in facial ordering
+
+!           lnode = efn2efn_Gau(4,jnode,ielem)
+
+!           Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_shell(lnode,kelem)) * 0.5_wp
+     
+          enddo On_Mortar_0
+
+        else
+
+          Off_Elem_1:do k = 1, n_S_2d_Off                                        ! Off-element loop over data
 
             lnode =  n_S_2d_Off*(kface-1) + k                                    ! Index in facial ordering
             knode = ifacenodes_Off(lnode)                                        ! Volumetric node index corresponding to facial node index
@@ -3610,87 +3646,75 @@ contains
 
             call primitive_to_entropy(vg_2d_Off(:,k),wg_2d_Off(:,k),nequations)  ! Rotate into entropy variables and store as face plane data
 
-          enddo Off_Elem_0                                                       ! End off-element loop
+          enddo Off_Elem_1                                                       ! End off-element loop
 
-          On_Mortar_0:do j = 1, n_S_2d_Mort
+          On_Mortar_1:do j = 1, n_S_2d_Mort
 
             jnode =  n_S_2d_max*(iface-1) + j                                    ! Index in facial ordering
 
             lnode = efn2efn_Gau(4,jnode,ielem)
 
             Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_shell(lnode,kelem)) * 0.5_wp
-      
-          enddo On_Mortar_0
+     
+          enddo On_Mortar_1
 
-          ! Extrapolate On_element and Off_element entropy variables wg ==>  Mortar
-          call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Mort,x_S_1d_On ,x_S_1d_Mort,wg_2d_On ,wg_Mort_On ,Extrp_On )
-          call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,wg_2d_Off,wg_Mort_Off,Extrp_Off)
+        endif
+
+        ! Extrapolate On_element and Off_element entropy variables wg ==>  Mortar
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Mort,x_S_1d_On ,x_S_1d_Mort,wg_2d_On ,wg_Mort_On ,Extrp_On )
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,wg_2d_Off,wg_Mort_Off,Extrp_Off)
 
 !=========
-!         Inviscid interface SATs (skew-symmetric portion + Upwind Entropy Stable dissipation)
+!       Inviscid interface SATs (skew-symmetric portion + Upwind Entropy Stable dissipation)
 !=========
 
-          call Inviscid_SAT_Non_Conforming_Interface(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
-                                                     n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
-                                                     n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
-                                                     n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
-                                                     vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
-                                                     Intrp_On, Extrp_Off)
-
+        call Inviscid_SAT_Non_Conforming_Interface(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+                                                   n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                   n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                   n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
+                                                   vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
+                                                   Intrp_On, Extrp_Off)
+ 
 ! ========
-!         Viscous interface SATs 
+!       Viscous interface SATs 
 ! ========
 
-          call Viscous_SAT_Non_Conforming_Interface(ielem, kelem, iface, kface,  &
-                                                    ifacenodes_On, ifacenodes_Off, n_S_2d_max, &
-                                                    n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
-                                                    n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
-                                                    n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
-                                                    vg_2d_On,  vg_2d_Off,  &
-                                                    wg_Mort_On, wg_Mort_Off,  &
-                                                                  nx_2d_Off, & 
-                                                    phig_2d_On, phig_2d_Off, &
-                                                                 mut_2d_Off, &
-                                                                Jx_r_2d_Mort, &
-                                                    Intrp_On, Extrp_Off)
+        call Viscous_SAT_Non_Conforming_Interface(ielem, kelem, iface, kface,                     &
+                                                  ifacenodes_On, ifacenodes_Off, n_S_2d_max,      &
+                                                  n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                  n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                  n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
+                                                    vg_2d_On,   vg_2d_Off,                        &
+                                                  phig_2d_On, phig_2d_Off,                        &
+                                                  wg_Mort_On, wg_Mort_Off,                        &
+                                                 nx_2d_Off, mut_2d_Off, Jx_r_2d_Mort,             &
+                                                  Intrp_On, Extrp_Off)
 
 
-          deallocate(vg_2d_On,  vg_2d_Off  )
-          deallocate(wg_2d_On,  wg_2d_Off  )
-          deallocate(wg_Mort_On,wg_Mort_Off)
-          deallocate(Extrp_Off,Extrp_On)
-          deallocate(Intrp_On)
-          deallocate(x_S_1d_Off,x_S_1d_Mort)
-          deallocate(phig_2d_On, phig_2d_Off)
-          deallocate(Jx_r_2d_Mort)
-
-        end if
-
-      end if
+        deallocate(vg_2d_On,  vg_2d_Off  )
+        deallocate(wg_2d_On,  wg_2d_Off  )
+        deallocate(wg_Mort_On,wg_Mort_Off)
+        deallocate(Extrp_Off,Extrp_On)
+        deallocate(Intrp_On)
+        deallocate(x_S_1d_Off,x_S_1d_Mort)
+        deallocate(phig_2d_On, phig_2d_Off)
+        deallocate(Jx_r_2d_Mort)
+ 
+      end if  !  main if statement differentiating different paths (interface / BC type) in SAT_Penalty routine
 
     end do faceloop
-
-
     
     ! Deallocate memory
 
     deallocate(x_S_1d_On)
 
-    deallocate(ustar)
-    deallocate(vstar)
-    deallocate(wstar)
-    deallocate(fRoeI)
-    deallocate(fLLF)
-    deallocate(fstar)
-    deallocate(fstarV)
+    deallocate(ustar,vstar,wstar)
+    deallocate(fRoeI,fLLF)
+    deallocate(fstar,fstarV)
     deallocate(phistar)
-    deallocate(fn)
-    deallocate(fnV)
-    deallocate(sinv)
-    deallocate(smat)
-    deallocate(ev)
-    deallocate(evabs)
-    deallocate(vav)
+    deallocate(fn,fnV)
+    deallocate(sinv,smat)
+    deallocate(ev,evabs,vav)
 
     return
   end subroutine SAT_Penalty
@@ -3828,17 +3852,15 @@ contains
   !       NONCONFORMING VISCOUS interface SATs 
   !============================================================================
   
-  subroutine Viscous_SAT_Non_Conforming_Interface(ielem, kelem, iface, kface, &
-                                                  ifacenodes_On , ifacenodes_Off, n_S_2d_max, &
+  subroutine Viscous_SAT_Non_Conforming_Interface(ielem, kelem, iface, kface,                     &
+                                                  ifacenodes_On, ifacenodes_Off, n_S_2d_max,      &
                                                   n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                   n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                   n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
-                                                  vg_2d_On,  vg_2d_Off,  &
-                                                  wg_Mort_On, wg_Mort_Off,  &
-                                                                nx_2d_Off, & 
-                                                  phig_2d_On, phig_2d_Off, &
-                                                               mut_2d_Off, &
-                                                             Jx_r_2d_Mort, &
+                                                    vg_2d_On,   vg_2d_Off,                        &
+                                                  phig_2d_On, phig_2d_Off,                        &
+                                                  wg_Mort_On, wg_Mort_Off,                        &
+                                                 nx_2d_Off, mut_2d_Off, Jx_r_2d_Mort,             &
                                                   Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
