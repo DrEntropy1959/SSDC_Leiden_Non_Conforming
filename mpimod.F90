@@ -1912,6 +1912,58 @@ contains
 
   !============================================================================
   
+  subroutine PetscNormals_LGL()
+
+    ! Initialize the global and ghost arrays for the grid
+    ! It is run in parallel by all processes
+
+    use referencevariables
+    use variables,            only: Jx_facenodenormal_LGL, nxghst_LGL_Shell, ef2e
+    use petscvariables,       only: nxpetsc_shell, nxlocpetsc_shell
+    use initcollocation,      only: element_properties
+    use collocationvariables, only: elem_props
+
+    implicit none
+
+    integer :: ielem, iface
+    integer :: n_S_1d_On
+
+    nghost_LGL_shell = 0
+
+    ! loop over elements
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_1d=n_S_1d_On)
+
+      ! loop over faces
+      do iface = 1, nfacesperelem
+
+        ! if face neighbor is off process and non-conforming then count ghost nodes
+        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+            cycle
+        else
+
+          nghost_LGL_shell = nghost_LGL_shell + (n_S_1d_On)**2
+
+        endif
+
+      end do
+
+    end do
+
+    allocate(nxghst_LGL_shell(ndim,nghost_LGL_shell))
+
+    call PetscComm_1D_Shell_DataSetup(Jx_facenodenormal_LGL,nxghst_LGL_shell,nxpetsc_shell,nxlocpetsc_shell, &
+             & size(Jx_facenodenormal_LGL,1), size(Jx_facenodenormal_LGL,2), nelems, size(nxghst_LGL_shell,2))
+
+    call UpdateComm_1D_ShellGhostData(Jx_facenodenormal_LGL,nxghst_LGL_shell,nxpetsc_shell,nxlocpetsc_shell, &
+             & size(Jx_facenodenormal_LGL,1), size(Jx_facenodenormal_LGL,2),         size(nxghst_LGL_shell,2))
+
+
+  end subroutine PetscNormals_LGL
+
+  !============================================================================
+  
   subroutine PetscGridLocations_Gau()
 
     ! Initialize the global and ghost arrays for the grid
@@ -1928,6 +1980,7 @@ contains
     integer :: ielem, iface
     integer :: n_S_1d_Off, n_S_1d_On, n_S_1d_Mort
 
+    nghost_Gau_shell = 0
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
 

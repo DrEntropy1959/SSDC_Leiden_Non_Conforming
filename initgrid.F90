@@ -1998,8 +1998,7 @@ contains
                 write(*,*) 'Possible partner node coordinates'
                 
                 do jnode = 1, n_LGL_2d
-                  x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), &
-                    & ef2e(2,iface,ielem))
+                  x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), ef2e(2,iface,ielem))
                   write(*,*) x2
                 end do 
 
@@ -2016,7 +2015,6 @@ contains
           kelem = ef2e(2,iface,ielem)
           call element_properties(kelem, n_pts_2d=n_LGL_2d_Off)
           i_low = i_low + n_LGL_2d_Off
-!         if(myprocid == 0)write(*,*)'updating i_low and cycling'
           cycle
 
         end if ! End if type of face (boundary, off processor or on processor)
@@ -2025,7 +2023,6 @@ contains
 
     end do ! End do loop elements owned by the processor
 
-    return
   end subroutine calculate_face_node_connectivity_LGL
 
   !============================================================================
@@ -2034,7 +2031,8 @@ contains
     ! this subroutine calculates the outward facing normals
     ! of each facial node
     use referencevariables
-    use variables, only: kfacenodes, facenodenormal, r_x, ef2e, efn2efn, Jx_r
+    use variables, only: kfacenodes, facenodenormal, r_x, ef2e, efn2efn, Jx_r, &
+                       Jx_facenodenormal_LGL 
     use initcollocation,      only: element_properties
 
     implicit none
@@ -2052,7 +2050,8 @@ contains
     ! number of nodes in each element
 
     nodesperface_max = (npoly_max+1)**(ndim-1)
-    allocate(facenodenormal(3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
+    allocate(   facenodenormal    (3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
+    allocate(Jx_facenodenormal_LGL(3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
     facenodenormal = 0.0_wp
 
     ! loop over elements
@@ -2079,7 +2078,8 @@ contains
           ! sign so normal is facing outward
           dx = sign(1.0_wp,real(elfacedirections(iface),wp))
           ! outward facing normal using metrics
-          facenodenormal(:,knode,ielem) = dx*r_x(idir,:,i,ielem)
+             facenodenormal    (:,knode,ielem) =               r_x(idir,:,i,ielem) * dx
+          Jx_facenodenormal_LGL(:,knode,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
         end do
       end do
     end do
@@ -2147,9 +2147,6 @@ contains
     n_pts_2d_max = (npoly_max+1)**2
 
     allocate(Jx_facenodenormal_Gau(3,nfacesperelem*n_pts_2d_max,ihelems(1):ihelems(2)))
-    Jx_facenodenormal_Gau = 0.0_wp
-
-    allocate(Jx_facenodenormal_LGL(3,nfacesperelem*n_pts_2d_max,ihelems(1):ihelems(2)))
     Jx_facenodenormal_Gau = 0.0_wp
 
     ! loop over elements
@@ -2237,7 +2234,6 @@ contains
     cross_product(2) = a(3) * b(1) - a(1) * b(3)
     cross_product(3) = a(1) * b(2) - a(2) * b(1)
 
-    return
   end function cross_product
 
   !============================================================================
@@ -4420,7 +4416,6 @@ contains
       stop
     end if ! End if ndim == 3
 
-    return
   end subroutine e2e_connectivity_aflr3     !  SERIAL Routine
 
   !============================================================================
@@ -4734,7 +4729,6 @@ contains
       end do
     end do
 
-    return
   end subroutine create_ldg_flip_flop_sign
 
   !============================================================================
@@ -4762,7 +4756,6 @@ contains
       face_pairs(2) = 6
     end if
 
-    return
   end function face_pairs
 
   !============================================================================
@@ -4800,7 +4793,6 @@ contains
     ! Face index of the partner face
     k_face = ef2e(1,face_id,elem_id)
 
-    return
   end subroutine data_partner_element_serial     !   SERIAL Routine
 
   !============================================================================
@@ -5586,7 +5578,6 @@ contains
       end do
     end do
 
-    return
   end function LGL_pts_lexo_comp_hexa
 
   !=================================================================================================

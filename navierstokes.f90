@@ -3142,6 +3142,7 @@ contains
     integer                              :: n_S_1d_On , n_S_1d_Off, n_S_1d_Mort, n_S_1d_max
     integer                              :: n_S_2d_On , n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
     integer                              :: poly_val
+    integer                              :: n_petsc_ghst
  
     real(wp), allocatable, dimension(:)  :: x_S_1d_On, x_S_1d_Off
     real(wp), allocatable, dimension(:)  :: x_S_1d_Mort, w_S_1d_Mort
@@ -3224,6 +3225,8 @@ contains
                  kfacenodes=kfacenodes_On,&
                  ifacenodes=ifacenodes_On)
        
+    n_petsc_ghst = 0
+
     ! Loop over each face
     faceloop:do iface = 1,nfacesperelem
 
@@ -3486,6 +3489,8 @@ contains
   
           end do
 
+          n_petsc_ghst = n_petsc_ghst + n_S_2d_On                           !  Keep track of position in Ghost stack
+
         else if (ef2e(3,iface,ielem) == myprocid) then 
 
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -3591,7 +3596,7 @@ contains
 !       face data:  On_element, Off_element and On_Mortar
 !=========
 
-                                                                                 ! face data:  On_element independent of serial or parallel
+                                                                                 ! On_Element face data same for serial or parallel
         On_Elem_0:do i = 1, n_S_2d_On                                            ! On_Element Loop over 2D LGL points
         
          jnode =  n_S_2d_On*(iface-1) + i                                        ! Index in facial ordering
@@ -3608,26 +3613,30 @@ contains
 
           Off_Elem_0:do k = 1, n_S_2d_Off                                        ! Off-element loop over data
 
-!           lnode =  n_S_2d_Off*(kface-1) + k                                    ! Index in facial ordering
-!           knode = ifacenodes_Off(lnode)                                        ! Volumetric node index corresponding to facial node index
+            n_petsc_ghst = n_petsc_ghst + 1
 
-!             vg_2d_Off(:,  k) =   vg(:,  knode,kelem)                           ! volumetric node data from off element face
-!           phig_2d_Off(:,:,k) = phig(:,:,knode,kelem)                           ! Viscous derivatives
+                 ug_Off(:    ) =   ughst(:,  n_petsc_ghst)                       ! conserved variable   in Petsc ghost registers
+            phig_2d_Off(:,:,k) = phighst(:,:,n_petsc_ghst)                       ! Viscous derivatives  in Petsc ghost registers
 
-!             nx_2d_Off(:,  k) = Jx_r(    knode,kelem)*facenodenormal(:,lnode,kelem) ! Outward facing normal of facial node
-!            mut_2d_Off(    k) =  mut(    knode,kelem)                           ! Outward facing normal of facial node
+              nx_2d_Off(:,  k) =  nxghst_LGL_Shell(:,n_petsc_ghst)               ! Outward facing norma in Petsc ghost registers
 
-!           call primitive_to_entropy(vg_2d_Off(:,k),wg_2d_Off(:,k),nequations)  ! Rotate into entropy variables and store as face plane data
+!            mut_2d_Off(    k) = mutghst(    n_petsc_ghst)                       ! Turbulent viscosity  in Petsc ghost registers
+             mut_2d_Off(    k) = 0.0_wp  !HACK:  Take out
+             
+
+            call conserved_to_primitive(ug_Off   (:  ),vg_2d_Off(:,k),nequations)! Rotate into primitive variables and store as face plane data
+            call primitive_to_entropy  (vg_2d_Off(:,k),wg_2d_Off(:,k),nequations)! Rotate into entropy   variables and store as face plane data
 
           enddo Off_Elem_0                                                       ! End off-element loop
 
           On_Mortar_0:do j = 1, n_S_2d_Mort
 
-!           jnode =  n_S_2d_max*(iface-1) + j                                    ! Index in facial ordering
+            jnode =  n_S_2d_max*(iface-1) + j                                    ! Index in facial ordering
 
-!           lnode = efn2efn_Gau(4,jnode,ielem)
+            lnode = efn2efn_Gau(3,jnode,ielem)
 
-!           Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_shell(lnode,kelem)) * 0.5_wp
+!           Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_ghst(lnode)) * 0.5_wp
+            Jx_r_2d_Mort(j) = 0.0_wp  !  HACK:  Take out
      
           enddo On_Mortar_0
 
@@ -6451,17 +6460,18 @@ contains
               cycle
             else if (ef2e(3,iface,ielem) /= myprocid) then
               do i = 1,n_S_2d_On
-                jnode = n_S_2d_On*(iface-1)+i
-                ! corresponding volumetric node for face node
-                inode = ifacenodes_On(jnode)
-                ! volumetric node of partner node
-                gnode = efn2efn(3,jnode,ielem)
-                ! volumetric element of partner node
-                kelem = efn2efn(2,jnode,ielem)
-                ! outward facing normal of facial node
-                nx = facenodenormal(:,jnode,ielem)
-  
+
+                jnode = n_S_2d_On*(iface-1) + i
+
+                inode = ifacenodes_On(jnode)                       ! corresponding volumetric node for face node
+
                 wg_On(:) = wg(:,inode,ielem)
+
+                gnode = efn2efn(3,jnode,ielem)                     ! volumetric node of partner node
+
+                kelem = efn2efn(2,jnode,ielem)                     ! volumetric element of partner node
+
+                nx = facenodenormal(:,jnode,ielem)                 ! outward facing normal of facial node
   
                 call conserved_to_primitive(ughst(:,gnode),vg_Off(:),nequations)
                 call primitive_to_entropy(vg_Off(:),wg_Off(:),nequations)
