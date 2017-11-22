@@ -6750,6 +6750,7 @@ contains
     !   call write_grid_to_file('test.txt')
     !endif
 
+    !-
     !-- test of the snap to sphere subroutines
     !call PetscFinalize(i_err); stop
   end subroutine transform_grid
