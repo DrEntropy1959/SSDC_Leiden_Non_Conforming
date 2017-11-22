@@ -2246,7 +2246,7 @@ contains
     do ielem = ihelems(1), ihelems(2)
 
       call element_properties(ielem, n_pts_3d=nodesperelem, pvol=pvol)
-
+      write(*,*)'ielem = ',ielem, 'maxval(ug)=',maxval(abs(ug(:,:,ielem)))
       ! Loop over every node in the element
       do inode = 1, nodesperelem
         ! Compute the exact solution
@@ -2268,7 +2268,10 @@ contains
         l1(2) = l1(2) + pvol(inode)*Jx_r(inode,ielem)
       end do
     end do
-
+    
+    write(*,*)'l1 = ',l1
+    write(*,*)'l2 = ',l2
+    write(*,*)'linf = ',linf
     ! Sum all the L1 terms across all the processes
     call mpi_allreduce(l1,l1sum,2, &
       & MPI_DEFAULT_WP,MPI_SUM,petsc_comm_world,ierr)
@@ -3631,7 +3634,7 @@ contains
 ! ========
 !         Viscous interface SATs 
 ! ========
-
+          
           !  =======
           !  LDG viscous dissipation: Connects Off with On interfaces through mortar
           !  =======

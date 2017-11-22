@@ -24,10 +24,13 @@ module initgrid
 
   public calcnodes_LGL
   public calcmetrics_LGL
+  public facenodesetup_LGL_Driver
   public facenodesetup_LGL
+  public facenodesetup_Gau_Driver
   public facenodesetup_Gau
   public facenodesetup_LGL_WENO
   public calculate_face_node_connectivity_LGL
+  public calculate_face_node_connectivity_Gau
   public calcfacenormals_LGL
   public calcfacenormals_Gau
   public init_elem_type
@@ -40,7 +43,10 @@ module initgrid
   public WENO_Intrp_Face_Nodes
   public Boundary_Vertex_2_Vertex_Connectivity
   public calc_Gau_shell_pts_all_hexas
-  public calculate_face_node_connectivity_Gau
+  public calc_Jacobian_Gau_shell_all_hexas
+  public modify_metrics_nonconforming
+  public perturb_vertices_tg_vortex_1
+  public transform_grid
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
@@ -328,6 +334,7 @@ contains
     vertexcount = 1
     do kzone = 1, nvolumesections
       izone = isectionvolume(kzone)
+
       do ielem = boundaryelems(izone)%ielstart, boundaryelems(izone)%ielend
         k = k+1
         iae2v(k) = vertexcount
@@ -452,8 +459,6 @@ contains
     ! minimum number of shared vertices for an element connection
     ncommon = nverticesperface
 
-!    write(*,*) iae2v(595)
-
     if(nparts > 1) then
 
       ! assign c pointers
@@ -468,7 +473,7 @@ contains
       icerr = calcMetisPartitions(nelems, nvertices, nparts, xadj, adj, ncommon, &
         eepart, nnpart, nnze2v)
 
-!        write(*,*) 'After if', xadjtmp(594)
+!        write(*,*) 'After if', xadjtmp(:)
     end if
 
     ! FIX FOR THE MEMORY PROBLEM
@@ -585,20 +590,17 @@ contains
     integer,parameter :: seed = 86456
     real(wp) :: rand
     
-    integer :: iell, ielh
-
     real(wp) :: diff_x, diff_y, diff_z
     real(wp), parameter :: toll = 1e-6
     real :: tmp
     
     continue
   
-    iell = ihelems(1)
-    ielh = ihelems(2)
-
     call srand(seed)
 
-    do ielem = iell, ielh
+    ! loop over volumetric elements
+    do ielem = ihelems(1), ihelems(2)
+
       do i = 1, nverticesperelem
         ! Compute the difference between each coordinate and pi.
         ! The domain of computation for the Taylor-Green vortex goes from 
@@ -713,9 +715,6 @@ contains
     return
   end subroutine pert_int_vert
 
-
-  !============================================================================
-  
   !============================================================================
 
   subroutine calcnodes_LGL()
@@ -726,45 +725,54 @@ contains
     use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
-    use collocationvariables, only: x_LGL_pts_1D
+    use initcollocation, only: element_properties
     implicit none
     ! indices
     integer :: ielem, inode, idir, iface
     integer :: i,j,k
     integer :: nE
+    integer :: nodesperelem_max
     ! cartesian based grid coordinates
     real(wp), allocatable :: xl(:,:,:,:)
+
+    real(wp), allocatable :: x_LGL_1d(:)
+
     ! high and low indices for each direction
     integer :: il(2,3)
     ! local grid distance
     real(wp)                :: dr
-    real(wp), dimension(nodesperedge)  :: xi
     real(wp), dimension(3)  :: dx
     real(wp), dimension(3)  :: x00,x01
 
-    ! nE is simply for convenience of presentation in the coding
-    nE = nodesperedge
+    real(wp), dimension(:), allocatable  :: xi
+
     ! number of nodes in each element
-    nodesperelem = nE**ndim
-    ! total number of nodes
-    nnodes = nodesperelem*nelems
+    nodesperelem_max = (npoly_max+1)**ndim
 
     ! allocate global node matrix
-    allocate(xg(3,1:nodesperelem,ihelems(1):ihelems(2)))
+    allocate(xg(3,1:nodesperelem_max,ihelems(1):ihelems(2)))
     xg = 0.0_wp
-    ! allocate local nodes
-    allocate(xl(3,1:nE,1:nE,1:nE))
-    xl = 0.0_wp
-
-    ! low index is always 1
-    il = 1
-    ! set high index for each grid direction to nodesperedge
-    do idir = 1,ndim
-      il(2,idir) = nE
-    end do
 
     ! loop over volumetric elements
     do ielem = ihelems(1), ihelems(2)
+
+!     ! nE is size of edge on element (varies with element)
+      call element_properties(ielem,       &
+                              n_pts_1d=nE, &
+                              x_pts_1d=x_LGL_1d)
+
+      if(allocated(xi)) deallocate(xi) ; allocate(xi(1:nE)) ;  xi = 0.0_wp
+
+      if(allocated(xl)) deallocate(xl) ; allocate(xl(3,1:nE,1:nE,1:nE)) ;  xl = 0.0_wp
+
+
+      ! low index is always 1
+      il = 1
+      ! set high index for each grid direction to nodesperedge
+      do idir = 1,ndim
+        il(2,idir) = nE
+      end do
+
       ! reset local grid coordinates
       xl = 0.0_wp
       ! initialize corners to vertex values
@@ -798,7 +806,7 @@ contains
 
         ! Build the ``Bird cage'': 12 bounding edge connectors that define the Hexahedral Element
         do i = 1,nE                                 ! loop over nodes on edge
-            dr = 0.5_wp*(x_LGL_pts_1D(i)+1.0_wp)    ! distance in computational space
+            dr = 0.5_wp*(x_LGL_1d(i)+1.0_wp)    ! distance in computational space
           if (ndim > 0) then
             dx = xl(:,nE, 1, 1)-xl(:, 1, 1, 1) ; xl(:, i, 1, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_2 = 0, xi_3 = 0
           endif
@@ -823,7 +831,7 @@ contains
 
         x00 = cylinder_x0 ; x01 = cylinder_x1 ;
 
-        xi(:) = 0.5_wp*(x_LGL_pts_1D(:)+1.0_wp)    ! distance in computational space
+        xi(:) = 0.5_wp*(x_LGL_1d(:)+1.0_wp)    ! distance in computational space
 
         if (ndim > 0) then
           xl(:, :, 1, 1) = curved_connector_cylinder(nE,x00,x01,xl(:, 1, 1, 1),xl(:,nE, 1, 1),xi) ! xi_2 = 0, xi_3 = 0
@@ -846,7 +854,7 @@ contains
 
         case ('parabola')
 
-        xi(:) = 0.5_wp*(x_LGL_pts_1D(:)+1.0_wp)    ! distance in computational space
+        xi(:) = 0.5_wp*(x_LGL_1d(:)+1.0_wp)    ! distance in computational space
 
         if (ndim > 0) then
           xl(:, :, 1, 1) = curved_connector_parabola(nE,xl(:, 1, 1, 1),xl(:,nE, 1, 1),xi) ! xi_2 = 0, xi_3 = 0
@@ -872,23 +880,23 @@ contains
       ! build faces
       if (ndim > 1) then
         ! xi_3 = 0
-        call TFI2D(xl(:, :, :, 1),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
       end if
       if (ndim > 2) then
         ! xi_3 = 1
-        call TFI2D(xl(:, :, :,nE),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:, :, :,nE),nE,x_LGL_1d)
         ! xi_2 = 0
-        call TFI2D(xl(:, :, 1, :),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
         ! xi_2 = 1
-        call TFI2D(xl(:, :,nE, :),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
         ! xi_1 = 0
-        call TFI2D(xl(:, 1, :, :),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
         ! xi_1 = 1
-        call TFI2D(xl(:,nE, :, :),nE,x_LGL_pts_1D)
+        call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
       end if
       ! build volumes
       if (ndim > 2) then
-        call TFI3D(xl(:,:,:,:),nE,x_LGL_pts_1D)
+        call TFI3D(xl(:,:,:,:),nE,x_LGL_1d)
       end if
       ! populate global coordinate matrix simply by packing
       ! in the typical manner
@@ -908,7 +916,7 @@ contains
 
 ! =============================================================================
 
-  subroutine facenodesetup_LGL()
+  subroutine facenodesetup_LGL_Driver()
     ! This subroutine calculates the partner node of each facial
     ! node on every volumetric element. Partner nodes of boundary
     ! faces are set to themselves.
@@ -919,37 +927,127 @@ contains
     !   ifacenodes(nodesperface*nfacesperelem)  
     !      kfacenode flattened into a single vector
     !  
-    use referencevariables
+    use referencevariables, only: nfacesperelem
     use mpimod
-    use variables, only: kfacenodes, ifacenodes
+    use variables, only: kfacenodes_LGL_p0, ifacenodes_LGL_p0 &
+                       , kfacenodes_LGL_p1, ifacenodes_LGL_p1 &
+                       , kfacenodes_LGL_p2, ifacenodes_LGL_p2 &
+                       , kfacenodes, ifacenodes
+
+    use collocationvariables, only: n_LGL_1d_p0, n_LGL_2d_p0 &
+                                  , n_LGL_1d_p1, n_LGL_2d_p1 &
+                                  , n_LGL_1d_p2, n_LGL_2d_p2 
+
+    implicit none
+
+    ! kfacenodes separates each face
+    ! ifacenodes includes all faces
+
+    allocate(kfacenodes_LGL_p0(n_LGL_2d_p0,nfacesperelem))
+    allocate(ifacenodes_LGL_p0(n_LGL_2d_p0*nfacesperelem))
+
+    allocate(kfacenodes_LGL_p1(n_LGL_2d_p1,nfacesperelem))
+    allocate(ifacenodes_LGL_p1(n_LGL_2d_p1*nfacesperelem))
+
+    allocate(kfacenodes_LGL_p2(n_LGL_2d_p2,nfacesperelem))
+    allocate(ifacenodes_LGL_p2(n_LGL_2d_p2*nfacesperelem))
+
+    call facenodesetup_LGL(n_LGL_1d_p0, n_LGL_2d_p0, kfacenodes_LGL_p0, ifacenodes_LGL_p0)
+    call facenodesetup_LGL(n_LGL_1d_p1, n_LGL_2d_p1, kfacenodes_LGL_p1, ifacenodes_LGL_p1)
+    call facenodesetup_LGL(n_LGL_1d_p2, n_LGL_2d_p2, kfacenodes_LGL_p2, ifacenodes_LGL_p2)
+
+    allocate(kfacenodes(n_LGL_2d_p0,nfacesperelem))
+    allocate(ifacenodes(n_LGL_2d_p0*nfacesperelem))
+
+    kfacenodes(:,:) = kfacenodes_LGL_p0(:,:)
+    ifacenodes(:)   = ifacenodes_LGL_p0(:)
+
+    end subroutine facenodesetup_LGL_Driver
+
+! =============================================================================
+
+  subroutine facenodesetup_Gau_Driver()
+    ! This subroutine calculates the partner node of each facial
+    ! node on every volumetric element. Partner nodes of boundary
+    ! faces are set to themselves.
+    !  
+    !   kfacenodes(nodesperface,nfacesperelem)  
+    !      volumetric node index of face node  
+    !      
+    !   ifacenodes(nodesperface*nfacesperelem)  
+    !      kfacenode flattened into a single vector
+    !  
+    use referencevariables, only: nfacesperelem
+    use mpimod
+    use variables, only: kfacenodes_Gau_p0, ifacenodes_Gau_p0 &
+                       , kfacenodes_Gau_p1, ifacenodes_Gau_p1 &
+                       , kfacenodes_Gau_p2, ifacenodes_Gau_p2 
+
+    use collocationvariables, only: n_Gau_1d_p0, n_Gau_2d_p0 &
+                                  , n_Gau_1d_p1, n_Gau_2d_p1 &
+                                  , n_Gau_1d_p2, n_Gau_2d_p2 
+
+    implicit none
+
+    ! kfacenodes separates each face
+    ! ifacenodes includes all faces
+
+    allocate(kfacenodes_Gau_p0(n_Gau_2d_p0,nfacesperelem))
+    allocate(ifacenodes_Gau_p0(n_Gau_2d_p0*nfacesperelem))
+
+    allocate(kfacenodes_Gau_p1(n_Gau_2d_p1,nfacesperelem))
+    allocate(ifacenodes_Gau_p1(n_Gau_2d_p1*nfacesperelem))
+
+    allocate(kfacenodes_Gau_p2(n_Gau_2d_p2,nfacesperelem))
+    allocate(ifacenodes_Gau_p2(n_Gau_2d_p2*nfacesperelem))
+
+    call facenodesetup_Gau(n_Gau_1d_p0, n_Gau_2d_p0, kfacenodes_Gau_p0, ifacenodes_Gau_p0)
+    call facenodesetup_Gau(n_Gau_1d_p1, n_Gau_2d_p1, kfacenodes_Gau_p1, ifacenodes_Gau_p1)
+    call facenodesetup_Gau(n_Gau_1d_p2, n_Gau_2d_p2, kfacenodes_Gau_p2, ifacenodes_Gau_p2)
+
+    end subroutine facenodesetup_Gau_Driver
+
+! =============================================================================
+
+  subroutine facenodesetup_LGL(n_LGL_1d, n_LGL_2d, kfacenodes, ifacenodes)
+
+    ! This subroutine calculates the partner node of each facial
+    ! node on every volumetric element. Partner nodes of boundary
+    ! faces are set to themselves.
+    !  
+    !   kfacenodes(nodesperface,nfacesperelem)  
+    !      volumetric node index of face node  
+    !      
+    !   ifacenodes(nodesperface*nfacesperelem)  
+    !      kfacenode flattened into a single vector
+    !  
+    use referencevariables, only: nfacesperelem, ndim
+
     implicit none
 
     ! indices
+    integer,                   intent(in   ) :: n_LGL_1d, n_LGL_2d
+    integer,  dimension(:,:),  intent(inout) :: kfacenodes
+    integer,  dimension(:  ),  intent(inout) :: ifacenodes
+
     integer :: i,j,k
     integer :: stride, stride1, stride2, ioffset
 
     real(wp), parameter :: nodetol = 1.0e-8_wp
 
-    ! local facial masks
-    !
-    ! kfacenodes separates each face
-    allocate(kfacenodes(nodesperface,nfacesperelem))
-    ! ifacenodes includes all faces
-    allocate(ifacenodes(nodesperface*nfacesperelem))
-
     if (ndim == 2) then
       ! loop over every node on each face
-      do i = 1, nodesperedge
-        ! on face 1, the first nodesperface nodes are just
-        ! the first nodesperface
+      do i = 1, n_LGL_1d
+        ! on face 1, the first n_LGL_2d nodes are just
+        ! the first n_LGL_2d
         kfacenodes(i,1) = i
         ! on face 3 there is just an offset to where the
         ! counting starts
-        j = (nodesperedge-1)*nodesperedge+i
+        j = (n_LGL_1d-1)*n_LGL_1d+i
         kfacenodes(i,3) = j
         ! onface 2, a stride and offset are required
-        stride = nodesperedge
-        j = nodesperedge + (i-1)*stride
+        stride = n_LGL_1d
+        j = n_LGL_1d + (i-1)*stride
         kfacenodes(i,2) = j
         ! on face 4, a stride is needed
         j = 1 + (i-1)*stride
@@ -957,33 +1055,33 @@ contains
       end do
     else if (ndim == 3) then
       k = 0
-      do j = 1, nodesperedge
-        do i = 1, nodesperedge
+      do j = 1, n_LGL_1d
+        do i = 1, n_LGL_1d
           k = k+1
           ! face 1 does not require an offset or a stride
           kfacenodes(k,1) = k
           ! on face 2, a stride is required
           ioffset = 1
           stride1 = 1
-          stride2 = nodesperedge**2
+          stride2 = n_LGL_1d**2
           kfacenodes(k,2) = ioffset+stride1*(i-1)+stride2*(j-1)
           ! on face 3, offset and stride are needed
-          ioffset = nodesperedge
-          stride1 = nodesperedge
-          stride2 = nodesperedge**2
+          ioffset = n_LGL_1d
+          stride1 = n_LGL_1d
+          stride2 = n_LGL_1d**2
           kfacenodes(k,3) = ioffset+stride1*(i-1)+stride2*(j-1)
           ! face 4 requires an offset and a stride
-          ioffset = 1+(nodesperedge-1)*nodesperedge
+          ioffset = 1+(n_LGL_1d-1)*n_LGL_1d
           stride1 = 1
-          stride2 = nodesperedge**2
+          stride2 = n_LGL_1d**2
           kfacenodes(k,4) = ioffset+stride1*(i-1)+stride2*(j-1)
           ! on face 5 only a stride is required
           ioffset = 1
-          stride1 = nodesperedge
-          stride2 = nodesperedge**2
+          stride1 = n_LGL_1d
+          stride2 = n_LGL_1d**2
           kfacenodes(k,5) = ioffset+stride1*(i-1)+stride2*(j-1)
           ! on face 6 only an offset is required
-          ioffset = (nodesperedge-1)*nodesperedge*nodesperedge
+          ioffset = (n_LGL_1d-1)*n_LGL_1d*n_LGL_1d
           kfacenodes(k,6) = ioffset+k
         end do
       end do
@@ -996,7 +1094,7 @@ contains
     ! loop over faces
     do j = 1, nfacesperelem
       ! loop over nodes on each face
-      do i = 1, nodesperface
+      do i = 1, n_LGL_2d
         ! advance facial node index
         k = k+1
         ! map facial node index to volumetric node
@@ -1117,55 +1215,70 @@ contains
     ! Load modules
     use referencevariables
     use mpimod
-    use variables, only: xg, xghst_LGL, kfacenodes, ifacenodes, ef2e, efn2efn, &
-      & jelems, periodic_elem_face_ids_x1, &
+    use variables, only: xg, xghst_LGL, ef2e, efn2efn,        &
+      & jelems, periodic_elem_face_ids_x1,                    &
       & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
+    use collocationvariables, only: elem_props
+    use initcollocation,      only: element_properties
 
     ! Nothing is implicitly defined
     implicit none
 
+    integer, allocatable, dimension(:,:) :: kfacenodes
+    integer, allocatable, dimension(:)   :: ifacenodes
+
     integer ::  ielem, inode, jnode, iface, knode
     integer ::  i_low
 
-    integer :: iell, ielh
     real(wp) :: x1(3), x2(3)
     real(wp), parameter :: nodetol = 1.0e-8_wp
 
     integer :: i_p_face, p_dir, cnt_coord, i_coord
-    logical :: match_found
+    logical :: match_found, conforming_interface
     real(wp), dimension(2) :: x1_p, x2_p
 
-    integer :: cnt_debug
+    integer :: cnt_debug, ii
+    integer :: n_LGL_1d, n_LGL_2d, nodesperface_max
+    integer :: kelem, n_LGL_2d_Off
 
     continue
 
     cnt_debug = 0
 
-    ! Low and High volumetric element index
-    iell = ihelems(1) ; ielh = ihelems(2) ;
+    ! efn2efn contains the partner node information of every facenode in the domain
 
-    ! efn2efn contains the partner node information of every facenode in the 
-    ! domain
-    allocate(efn2efn(4,nfacesperelem*nodesperface,iell:ielh))
-    efn2efn = -1000
+    nodesperface_max = (npoly_max+1)**(ndim-1)
+
+    allocate(efn2efn(4,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2))) ; efn2efn = -1000 ;
 
     ! Initialize position of the ghost point in the stack
     i_low = 0
 
-    ! Loop over elements
-    do ielem = iell, ielh
+    ! loop over volumetric elements
+    do ielem = ihelems(1), ihelems(2)
       
+      call element_properties(ielem,&
+                              n_pts_1d=n_LGL_1d,  &
+                              n_pts_2d=n_LGL_2d,  &
+                            kfacenodes=kfacenodes,&
+                            ifacenodes=ifacenodes )
+
       ! Reset facial node index counter
       knode = 0
       
       ! Loop over faces
       do iface = 1, nfacesperelem
-        
+
+        knode = n_LGL_2d * (iface - 1)
+
+!       if(myprocid == 0) write(*,*)'ielem,iface,ef2e(1,iface,ielem),ef2e(4,iface,ielem),elem_props(2,ielem),i_low', &
+!             ielem,iface,ef2e(1,iface,ielem),ef2e(4,iface,ielem),elem_props(2,ielem),ef2e(3,iface,ielem)-myprocid,i_low
+
         ! If on boundary, connect to self
         if (ef2e(1,iface,ielem) < 0) then
           
           ! Loop over nodes on the boundary face
-          do inode = 1, nodesperface
+          do inode = 1, n_LGL_2d
             
             ! Update facial node index counter
             knode = knode + 1
@@ -1176,17 +1289,16 @@ contains
           
           end do
 
-        else if (ef2e(3,iface,ielem) /= myprocid) then ! A parallel interface
+        ! A conforming parallel interface
+        else if ((ef2e(3,iface,ielem) /= myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem)) ) then
 
           ! Initialize match_found
           match_found = .false.
           
-          ! Loop through the elements that owns a periodic face in the x1
-          ! direction
+          ! Loop through the elements that owns a periodic face in the x1 direction
           if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
+            ! Check if the ielem owns a periodic face and if iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
 
               if (periodic_elem_face_ids_x1(1,i_p_face) == jelems(ielem) .and. &
@@ -1199,7 +1311,7 @@ contains
                 p_dir = periodic_elem_face_ids_x1(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1221,7 +1333,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, nodesperface
+                  do jnode = 1, n_LGL_2d
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -1244,9 +1356,10 @@ contains
                     ! Check distance between the two nodes
                     if (magnitude(x1_p-x2_p) <= nodetol) then
                       
+                      write(*,*)'found a match in parallel path periodic I' 
+
                       ! Set the volumetric node index of the connected node
-                      efn2efn(1,knode,ielem) = kfacenodes(jnode,&
-                        & ef2e(1,iface,ielem))
+                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
 
                       ! Set the element of the connected node
                       efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
@@ -1265,7 +1378,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + nodesperface
+                i_low = i_low + n_LGL_2d
 
               end if ! End if match found
 
@@ -1279,13 +1392,10 @@ contains
 
           end if ! End if check periodic face in x1 direction
 
-
-          ! Loop through the elements that owns a periodic face in the x2
-          ! direction
+          ! Loop through the elements that owns a periodic face in the x2 direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x2(1,:)) /= 0) then
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
+            ! Check if the ielem owns a periodic face and if iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x2(1,:))
 
               if (periodic_elem_face_ids_x2(1,i_p_face) == jelems(ielem) .and. &
@@ -1298,7 +1408,7 @@ contains
                 p_dir = periodic_elem_face_ids_x2(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1320,7 +1430,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, nodesperface
+                  do jnode = 1, n_LGL_2d
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -1343,9 +1453,10 @@ contains
                     ! Check distance between the two nodes
                     if (magnitude(x1_p-x2_p) <= nodetol) then
                       
+                      write(*,*)'found a match in parallel path periodic II' 
+
                       ! Set the volumetric node index of the connected node
-                      efn2efn(1,knode,ielem) = kfacenodes(jnode,&
-                        & ef2e(1,iface,ielem))
+                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
 
                       ! Set the element of the connected node
                       efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
@@ -1364,7 +1475,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + nodesperface
+                i_low = i_low + n_LGL_2d
 
               end if ! End if match found
 
@@ -1378,13 +1489,10 @@ contains
 
           end if ! End if check periodic face in x2 direction
 
-
-          ! Loop through the elements that owns a periodic face in the x3
-          ! direction
+          ! Loop through the elements that owns a periodic face in the x3 direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x3(1,:)) /= 0) then
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
+            ! Check if the ielem owns a periodic face and if iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))
 
               if (periodic_elem_face_ids_x3(1,i_p_face) == jelems(ielem) .and. &
@@ -1397,7 +1505,7 @@ contains
                 p_dir = periodic_elem_face_ids_x3(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1419,7 +1527,7 @@ contains
                   
                   end do
 
-                  do jnode = 1, nodesperface
+                  do jnode = 1, n_LGL_2d
                     
                     ! Coordinates of the jnode
                     ! ef2e(2) gives the element of the neighbor
@@ -1441,6 +1549,8 @@ contains
 
                     ! Check distance between the two nodes
                     if (magnitude(x1_p-x2_p) <= nodetol) then
+
+                      write(*,*)'found a match in parallel path periodic III' 
                       
                       ! Set the volumetric node index of the connected node
                       efn2efn(1,knode,ielem) = kfacenodes(jnode,&
@@ -1463,7 +1573,7 @@ contains
                 end do ! End do inode 
 
                 ! Update the position in the ghost stack
-                i_low = i_low + nodesperface
+                i_low = i_low + n_LGL_2d
 
               end if ! End if match found
 
@@ -1477,17 +1587,10 @@ contains
 
           end if ! End if check periodic face in x3 direction
 
-
-
           if (match_found .eqv. .false.) then
 
-!!!!!!!!!!!
-! NOTE: HERE WE WANT TO CHECK IF elem_props(2,ielem) == elem_props(2,ef2e(1,iface,ielem))
-!!!!!!!!!!!!!!
-
-
             ! Loop over the nodes on the face
-            do inode = 1, nodesperface
+            do inode = 1, n_LGL_2d
 
               ! Update the facial node index counter
               knode = knode + 1
@@ -1496,7 +1599,7 @@ contains
               x1 = xg(:,ifacenodes(knode),ielem)
               
               ! Search for the connected node on face of the connected element
-              do jnode = 1, nodesperface
+              do jnode = 1, n_LGL_2d
 
                 ! Coordinates of the jnode
                 ! ef2e(2) gives the element of the neighbor
@@ -1504,6 +1607,9 @@ contains
                 
                 ! Check the distance between the two nodes
                 if (magnitude(x1-x2) <= nodetol) then
+
+                  cnt_debug = cnt_debug + 1
+!                 if(myprocid == 0) write(*,*)'found a match in parallel path' , myprocid, i_low, cnt_debug
                   
                   ! Set the volumetric node index of the connected node
                   efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
@@ -1522,14 +1628,18 @@ contains
               
               end do
               
-              ! Print information at screen if there is a problem and stop
-              ! computation
-              if (jnode > nodesperface .and. myprocid==1) then
-                write(*,*) 'Connectivity error in face-node connectivity.'
+              ! Print information at screen if there is a problem and stop computation
+              if (jnode > n_LGL_2d .and. myprocid==0) then
+                write(*,*) 'Connectivity error in face-node connectivity_LGL Parallel.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
                 write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-                write(*,*) 'Node coordinates and ghost node coordinates'
-                write(*,*) x1, xghst_LGL(:,i_low + 1:i_low + nodesperface)
+                write(*,*) 'Node coordinates'
+                write(*,*) x1(:)
+                write(*,*) 'ghost node coordinates'
+                do ii = 1,size(xghst_LGL,2)
+!               do ii = i_low+1,i_low+n_LGL_2d
+                  write(*,*)ii,xghst_LGL(:,ii)
+                enddo
                 write(*,*) 'Exiting...'
                 stop
               end if
@@ -1537,11 +1647,12 @@ contains
             end do
 
             ! Update the position in the ghost stack
-            i_low = i_low + nodesperface
+            i_low = i_low + n_LGL_2d
           
           end if
 
-        else ! Not a parallel interface
+        ! serial conforming interface
+        else if ((ef2e(3,iface,ielem) == myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem)) ) then
 
           ! Initialize match_found
           match_found = .false.
@@ -1562,7 +1673,7 @@ contains
                 p_dir = periodic_elem_face_ids_x1(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1586,12 +1697,11 @@ contains
 
                   ! Search for the connected node on the face of the connected 
                   ! element
-                  do jnode = 1,nodesperface
+                  do jnode = 1,n_LGL_2d
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
-                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), &
-                      & ef2e(2,iface,ielem))
+                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1619,7 +1729,7 @@ contains
                       ! Set the index of the connected node
                       efn2efn(4,knode,ielem) = jnode
 
-                      cnt_debug = cnt_debug + 1
+!                     cnt_debug = cnt_debug + 1
 
                       exit ! partner jnode found; exit the jnode do loop
                     
@@ -1641,7 +1751,6 @@ contains
 
           end if ! End if periodic x1 direction
 
-
           ! If the iface is not a periodic face  in the x1 direction, check
           ! if it is a periodic face in the x2 direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x2(1,:)) /= 0) then
@@ -1660,7 +1769,7 @@ contains
                 p_dir = periodic_elem_face_ids_x2(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1684,7 +1793,7 @@ contains
 
                   ! Search for the connected node on the face of the connected 
                   ! element
-                  do jnode = 1,nodesperface
+                  do jnode = 1,n_LGL_2d
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
@@ -1717,7 +1826,7 @@ contains
                       ! Set the index of the connected node
                       efn2efn(4,knode,ielem) = jnode
 
-                      cnt_debug = cnt_debug + 1
+!                     cnt_debug = cnt_debug + 1
 
                       exit ! partner jnode found; exit the jnode do loop
                     
@@ -1758,7 +1867,7 @@ contains
                 p_dir = periodic_elem_face_ids_x3(3,i_p_face)
 
                 ! Loop over the nodes on the face
-                do inode = 1, nodesperface
+                do inode = 1, n_LGL_2d
                   
                   ! Update the facial node index counter
                   knode = knode + 1
@@ -1782,7 +1891,7 @@ contains
 
                   ! Search for the connected node on the face of the connected 
                   ! element
-                  do jnode = 1,nodesperface
+                  do jnode = 1,n_LGL_2d
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
                     ! ef2e(2) gives the element
@@ -1815,7 +1924,7 @@ contains
                       ! Set the index of the connected node
                       efn2efn(4,knode,ielem) = jnode
 
-                      cnt_debug = cnt_debug + 1
+!                     cnt_debug = cnt_debug + 1
 
                       exit ! partner jnode found; exit the jnode do loop
                     
@@ -1837,24 +1946,20 @@ contains
           
           end if ! End if periodic x3 direction
 
-
           if (match_found .eqv. .false.) then
-!!!!!!!!!!!
-! NOTE: HERE WE WANT TO CHECK IF elem_props(2,ielem) == elem_props(2,ef2e(1,iface,ielem))
-!!!!!!!!!!!!!!
 
+!           write(*,*)'ifacenodes',ifacenodes(:)
             ! Loop over the nodes on the face
-            do inode = 1, nodesperface
+            do inode = 1, n_LGL_2d
 
               ! Update the facial node index counter
               knode = knode + 1
 
               ! Save coordinates of the facial ndoes
               x1 = xg(:,ifacenodes(knode),ielem)
-              ! Search the for connected node on the face of the connected 
-              ! element
-              
-              do jnode = 1, nodesperface
+
+              ! Search the for connected node on the face of the connected element
+              do jnode = 1, n_LGL_2d
                 
                 ! Coordinates of the jnode
                 ! ef2e(1) gives the face on the neighboring element and
@@ -1883,14 +1988,17 @@ contains
               ! Print information at screen if there is a problem and stop computation
 
               if (efn2efn(1,knode,ielem) < 0 .or. efn2efn(2,knode,ielem) < 0) then
-                write(*,*) 'Connectivity error in face-node connectivity.'
+                write(*,*) 'conforming_interface', conforming_interface
+                write(*,*) 'Connectivity error in face-node connectivity_LGL Serial.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
-                write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
+                write(*,*) myprocid, ielem, iface
+                write(*,*) 'ef2e'
+                write(*,*) ef2e(:,iface,ielem)
                 write(*,*) 'Node coordinates'
                 write(*,*) x1
                 write(*,*) 'Possible partner node coordinates'
                 
-                do jnode = 1, nodesperface
+                do jnode = 1, n_LGL_2d
                   x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), &
                     & ef2e(2,iface,ielem))
                   write(*,*) x2
@@ -1904,6 +2012,14 @@ contains
           
           end if ! End if not a periodic face (match_found = .false.)
               
+        else if (ef2e(4,iface,ielem) /= elem_props(2,ielem) .and. (ef2e(3,iface,ielem) /= myprocid)) then
+
+          kelem = ef2e(2,iface,ielem)
+          call element_properties(kelem, n_pts_2d=n_LGL_2d_Off)
+          i_low = i_low + n_LGL_2d_Off
+!         if(myprocid == 0)write(*,*)'updating i_low and cycling'
+          cycle
+
         end if ! End if type of face (boundary, off processor or on processor)
       
       end do ! End do loop over faces of the element
@@ -1920,22 +2036,33 @@ contains
     ! of each facial node
     use referencevariables
     use variables, only: kfacenodes, facenodenormal, r_x, ef2e, efn2efn, Jx_r
+    use initcollocation,      only: element_properties
+
     implicit none
 
     ! indices
     integer :: ielem, kelem, inode, iface, idir, knode
     integer :: i
+    integer :: n_LGL_2d, nodesperface_max
 
     real(wp) :: dx
     real(wp), dimension(3) :: wrk
     !real(wp), dimension(3) :: xg_target=(/1.5_wp,1.0_wp,0.0_wp/)
     logical                :: testing = .false.
 
-    allocate(facenodenormal(3,nfacesperelem*nodesperface,ihelems(1):ihelems(2)))
+    ! number of nodes in each element
+
+    nodesperface_max = (npoly_max+1)**(ndim-1)
+    allocate(facenodenormal(3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
     facenodenormal = 0.0_wp
 
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
+
+       call element_properties(ielem,             &
+                              n_pts_2d=n_LGL_2d,  &
+                            kfacenodes=kfacenodes )
+
       ! reset facial node index counter
       knode = 0
       ! compute outward facing normals
@@ -1943,7 +2070,7 @@ contains
       ! loop over faces
       do iface = 1,nfacesperelem
         ! loop over nodes on face
-        do inode = 1,nodesperface
+        do inode = 1,n_LGL_2d
           ! update facial node index counter
           knode = knode + 1
           ! volumetric node index of facial node
@@ -1962,15 +2089,20 @@ contains
 
     if(testing) then
       do ielem = ihelems(1), ihelems(2)
+
+       call element_properties(ielem,             &
+                              n_pts_2d=n_LGL_2d,  &
+                            kfacenodes=kfacenodes )
+
         knode = 0
         ! loop over faces
         do iface = 1,nfacesperelem
           ! loop over nodes on face
           kelem = ef2e(2,iface,ielem)
-          do inode = 1,nodesperface
+          do inode = 1,n_LGL_2d
             knode = knode + 1
             if(ef2e(1,iface,ielem) > 0)then
-              i = (ef2e(1,iface,ielem)-1)*nodesperface+efn2efn(4,knode,ielem)
+              i = (ef2e(1,iface,ielem)-1)*n_LGL_2d+efn2efn(4,knode,ielem)
               wrk = facenodenormal(1:3,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem) &
                   + facenodenormal(1:3, i ,kelem)*Jx_r(efn2efn(1,knode,ielem),kelem)
               if(magnitude(wrk) >= 1.0e-10_wp) then
@@ -1986,6 +2118,113 @@ contains
 
   end subroutine calcfacenormals_LGL
 
+  !============================================================================
+  
+  subroutine calcfacenormals_Gau()
+    ! this subroutine calculates the outward facing normals
+    ! of each facial node
+    use referencevariables
+    use initcollocation,      only: element_properties, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
+    use collocationvariables, only: Restrct_Gau_2_LGL_1d
+
+    use variables, only: Jx_facenodenormal_Gau, xg_Gau_Shell
+    use variables, only: Jx_facenodenormal_LGL, ef2e
+
+    implicit none
+
+    ! indices
+    integer :: ielem, iface, knode, node_id
+    integer :: n_pts_1d_max, n_pts_2d_max
+    integer :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort, poly_val
+    integer :: istart, iend_Mort, iend_On
+
+    logical                               :: testing = .false.
+    real(wp), dimension(:),   allocatable :: x_S_1d_Mort, x_S_1d_On, w_S_1d_Mort
+    real(wp), dimension(:,:), allocatable :: Intrp
+
+!   real(wp), dimension(3) :: wrk
+
+    n_pts_1d_max = (npoly_max+1)**1
+    n_pts_2d_max = (npoly_max+1)**2
+
+    allocate(Jx_facenodenormal_Gau(3,nfacesperelem*n_pts_2d_max,ihelems(1):ihelems(2)))
+    Jx_facenodenormal_Gau = 0.0_wp
+
+    allocate(Jx_facenodenormal_LGL(3,nfacesperelem*n_pts_2d_max,ihelems(1):ihelems(2)))
+    Jx_facenodenormal_Gau = 0.0_wp
+
+    ! loop over elements
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem,              &
+                              n_pts_1d=n_S_1d_On, &
+                              x_pts_1d=x_S_1d_On)
+
+      knode = 0                                  !  reset facial node index counter
+      node_id = 0
+      do iface = 1,nfacesperelem                 ! loop over faces
+
+        n_S_1d_Off  = ef2e(4,iface,ielem)
+        n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
+
+        if(allocated(x_S_1d_Mort)) deallocate(x_S_1d_Mort) ; allocate(x_S_1d_Mort(n_S_1d_Mort)) ;
+        if(allocated(w_S_1d_Mort)) deallocate(w_S_1d_Mort) ; allocate(w_S_1d_Mort(n_S_1d_Mort)) ;
+        call Gauss_Legendre_points(n_S_1d_Mort,x_S_1d_Mort,w_S_1d_Mort)
+      
+       ! compute OUTWARD FACING normals on mortars
+        call Shell_Metrics_Analytic(iface,n_pts_1d_max,n_S_1d_Mort,x_S_1d_Mort,     &
+                              xg_Gau_shell(:,:,ielem),Jx_facenodenormal_Gau(:,:,ielem))
+
+        ! Grab the correct restriction operator between mortar and on-element face
+        if(allocated(Intrp)) deallocate(Intrp) ;
+        if(n_S_1d_Mort == n_S_1d_On) then
+          poly_val = n_S_1d_Mort - npoly
+          allocate(Intrp(n_S_1d_On,n_S_1d_Mort)) ;  Intrp(:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On,1:n_S_1d_Mort,poly_val,1) ;
+        else
+          poly_val = n_S_1d_On - npoly
+          allocate(Intrp(n_S_1d_On,n_S_1d_Mort)) ;  Intrp(:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On,1:n_S_1d_Mort,poly_val,2) ;
+        endif
+
+        ! Restrict all metric data from mortar back to element face
+        istart    = (iface-1)*n_pts_2d_max  + 1
+        iend_Mort = istart + n_S_1d_Mort**2 - 1
+        iend_On   = istart + n_S_1d_On**2   - 1
+        call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
+           Jx_facenodenormal_Gau(:,istart:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart:iend_Mort,ielem),Intrp)
+
+      end do
+
+    end do
+
+    ! testing facenodenormal calculations
+
+    if(testing) then
+!     do ielem = ihelems(1), ihelems(2)
+!       knode = 0
+!       ! loop over faces
+!       do iface = 1,nfacesperelem
+!         ! loop over nodes on face
+!         kelem = ef2e(2,iface,ielem)
+!         do inode = 1,n_Gau_2d_p1
+!           knode = knode + 1
+!           if(ef2e(1,iface,ielem) > 0)then
+!             i = (ef2e(1,iface,ielem)-1)*n_Gau_2d_p1+efn2efn(4,knode,ielem)
+!             wrk = facenodenormal(1:3,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem) &
+!                 + facenodenormal(1:3, i ,kelem)*Jx_r(efn2efn(1,knode,ielem),kelem)
+!             if(magnitude(wrk) >= 1.0e-10_wp) then
+!               write(*,*)'facenodenormals are incorrect'
+!               write(*,*)facenodenormal(1:2,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem) &
+!                       , facenodenormal(1:2, i ,kelem)*Jx_r(efn2efn(1,knode,ielem),kelem)
+!             endif
+!           endif
+!         end do
+!       end do
+!     end do
+    endif
+
+  end subroutine calcfacenormals_Gau
+
+  !============================================================================
 
   pure function cross_product(a, b)
     
@@ -2002,19 +2241,23 @@ contains
     return
   end function cross_product
 
+  !============================================================================
 
   subroutine calcmetrics_LGL()
     ! This subroutine calculates the metric transformations
     ! between computational and physical space.
     use referencevariables
     use variables, only: xg, x_r, r_x, Jx_r, dx_min_elem
-    use collocationvariables, only: iagrad, jagrad, dagrad, pvol
+    use collocationvariables, only: nnzgrad, iagrad, jagrad, dagrad, pvol
+    use initcollocation, only: element_properties
     use mpimod
 
     implicit none
     ! indices
     integer :: ielem, inode, jnode, idir, jdir
     integer :: i,j,k,l,ii
+    integer :: nodesperelem_max, n_LGL_3d
+
 
     real(wp) :: test(3)
     real(wp) :: err,err_L2,err_Linf
@@ -2028,60 +2271,64 @@ contains
 
     continue 
 
-    ! dx/dr
-    allocate(x_r(3,3,1:nodesperelem,ihelems(1):ihelems(2)))
-    x_r = 0.0_wp
-    ! dr/dx
-    allocate(r_x(3,3,1:nodesperelem,ihelems(1):ihelems(2)))
-    r_x = 0.0_wp
-    ! J = |dx/dr|
-    allocate(Jx_r(1:nodesperelem,ihelems(1):ihelems(2)))
-    Jx_r = 0.0_wp
+    nodesperelem_max = (npoly_max+1)**ndim                    ! number of nodes in each element
 
-    allocate(dx_min_elem(ihelems(1):ihelems(2)))
-    dx_min_elem(:) = 0.0_wp
+    allocate(x_r(3,3,1:nodesperelem_max,ihelems(1):ihelems(2))) ;  x_r = 0.0_wp     ! dx/dr
+    allocate(r_x(3,3,1:nodesperelem_max,ihelems(1):ihelems(2))) ;  r_x = 0.0_wp     ! dr/dx
+    allocate(Jx_r(   1:nodesperelem_max,ihelems(1):ihelems(2))) ; Jx_r = 0.0_wp     ! J = |dx/dr|
 
-    ! Initialize metrics error norms
-    err_L2 = 0.0_wp
-    err_Linf = 0.0_wp
+    allocate(dx_min_elem(ihelems(1):ihelems(2))) ; dx_min_elem(:) = 0.0_wp ;
 
-    ! loop over volumetric elements
-    elloop:do ielem = ihelems(1), ihelems(2)
-      ! initialize dx/dr to identity and dr/dx to identity
+    err_L2 = 0.0_wp ; err_Linf = 0.0_wp                       ! Initialize metrics error norms
+
+    elloop:do ielem = ihelems(1), ihelems(2)                  ! loop over volumetric elements
+
+      call element_properties(ielem,         &
+                          n_pts_3d=n_LGL_3d, &
+                           nnzgrad=nnzgrad,  &
+                            iagrad=iagrad,   &
+                            jagrad=jagrad,   &
+                            dagrad=dagrad,   &
+                              pvol=pvol)
+
+                                                              ! initialize dx/dr to identity and dr/dx to identity
       do idir = 1,3
-        x_r(idir,idir,:,ielem) = 1.0_wp
-        r_x(idir,idir,:,ielem) = 1.0_wp
+        x_r(idir,idir,1:n_LGL_3d,ielem) = 1.0_wp
+        r_x(idir,idir,1:n_LGL_3d,ielem) = 1.0_wp
       end do
-      ! calculate dx/dr
-      !
-      ! initialize to zero
-      x_r(:,1:ndim,:,ielem) = 0.0_wp
-      ! loop over every node in element
-      do inode = 1, nodesperelem
-        ! loop over dimension of gradient
-        do jdir = 1,ndim
-          ! loop over number of dependent nodes in gradient
-          do i = iagrad(inode), iagrad(inode+1)-1
-            ! column/node from gradient operator in CSR format in
-            ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
-            jnode = jagrad(jdir,i)
-            ! update gradient. MP: Well, actually this is the Jacobian of the transformation
+                                                              ! calculate dx/dr
+
+      x_r(:,1:ndim,1:n_LGL_3d,ielem) = 0.0_wp                 ! initialize to zero
+      do inode = 1, n_LGL_3d                                  ! loop over every node in element
+
+        do jdir = 1,ndim                                      ! loop over dimension of gradient
+
+          do i = iagrad(inode), iagrad(inode+1)-1             ! loop over number of dependent nodes in gradient
+                                                              ! column/node from gradient operator in CSR format in
+            jnode = jagrad(jdir,i)                            ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
+                                                              ! update gradient. MP: Well, actually this is the Jacobian of the transformation
             x_r(:,jdir,inode,ielem) = x_r(:,jdir,inode,ielem) + dagrad(jdir,i)*xg(:,jnode,ielem)
+
           end do
+
         end do
+
       end do
+
       ! calculate determinant
-      do inode = 1,nodesperelem
+      do inode = 1,n_LGL_3d
         Jx_r(inode,ielem) = determinant3(x_r(:,:,inode,ielem))
       end do
+
       if (ndim < 3) then
-        ! inverse metrics (note that in 3D this is not sufficient to satisfy the GCL.
-        do inode = 1,nodesperelem
+                                                               ! inverse metrics (note that in 3D this is not sufficient to satisfy the GCL.
+        do inode = 1,n_LGL_3d
           r_x(1,1,inode,ielem) =  x_r(2,2,inode,ielem)/Jx_r(inode,ielem)
           r_x(2,1,inode,ielem) = -x_r(2,1,inode,ielem)/Jx_r(inode,ielem)
           r_x(1,2,inode,ielem) = -x_r(1,2,inode,ielem)/Jx_r(inode,ielem)
           r_x(2,2,inode,ielem) =  x_r(1,1,inode,ielem)/Jx_r(inode,ielem)
         end do
+
       else
 
 !        Metric data is stored as follows
@@ -2097,7 +2344,8 @@ contains
 !
 
         ! Special formulas are used to ensure that GCLs are satisfied in each direction
-        do inode = 1, nodesperelem
+
+        do inode = 1, n_LGL_3d
           ! dxi_1/dx_1
           j = 1 ; k = 1 ;
           r_x(j,k,inode,ielem) = 0.0_wp
@@ -2234,7 +2482,7 @@ contains
 !     \frac{\partial}{\partial \xi^j} \left( J \frac{\partial \xi^j}{\partial x^i} \right) == 0 ; i,j = 1,3
 !     ( Assumes Einstein Convention on ``j'' )
 !
-      do inode = 1,nodesperelem
+      do inode = 1,n_LGL_3d
         do i = 1, ndim
           test(i) = 0.0_wp
           do l = 1, ndim
@@ -2249,17 +2497,19 @@ contains
         err_Linf = max(err_Linf,err)
       end do
 
-      !  Calculate a conservative estimate of the characteristic length of an
-      !  element.  Needs further refinement
+      !  Calculate a conservative estimate of the characteristic length of an element.  
+      !  Needs further development
 
       dx_min_elem(ielem) = 0.0_wp
-      do inode = 1,nodesperelem
+      do inode = 1,n_LGL_3d
         dx_min_elem(ielem) = dx_min_elem(ielem) + pvol(inode)*Jx_r(inode,ielem)
       end do
 
       dx_min_elem(ielem) = dx_min_elem(ielem)**(0.333333333333333333333333_wp)
 
     end do elloop
+
+!   Parallel reduction of errors using conventional MPI calls
 
     ! Reduce values on all processes to a single value
     if(myprocid == 0 )  then
@@ -2292,11 +2542,294 @@ contains
       deallocate(err_max_proc)
     endif
 
-    return
   end subroutine calcmetrics_LGL
 
+  !============================================================================
+
+  subroutine modify_metrics_nonconforming()
+
+    use referencevariables
+    use collocationvariables, only: elem_props
+    use initcollocation,      only: GCL_Triple_Qmat_Transpose, element_properties, GCL_Triple_Smat
+    use eispack_module,       only: svd
+    use unary_mod,            only: qsortd
+    use variables,            only: r_x, Jx_r, ef2e
+    use mpimod,               only: mpi_integer, mpi_double, mpi_status_size, mpi_sum, petsc_comm_world
+
+    implicit none
+
+    logical, parameter :: matu = .True.
+    logical, parameter :: matv = .True.
+
+    integer,  dimension(:),    allocatable :: ifacenodes
+    real(wp), dimension(:,:),  allocatable :: qmat
+    real(wp), dimension(:),    allocatable :: p_surf
+
+    real(wp), dimension(:,:),  allocatable :: Amat, Smat
+    real(wp), dimension(:,:),  allocatable :: bvec
+    real(wp), dimension(:,:),  allocatable :: a_t
+    real(wp), dimension(:,:),  allocatable :: u, v
+    real(wp), dimension(:),    allocatable :: w, work, pmat, verror
+    real(wp), dimension(:,:),  allocatable :: work3
+    real(wp), dimension(:,:),  allocatable :: eye, wrk, diag, wI
+    real(wp), dimension(:,:),  allocatable :: delta_a
+
+    integer,  dimension(:),    allocatable :: perm
+    integer :: ielem, inode, ierr
+    integer :: i, iface
+    integer :: n_pts_1d, n_pts_2d, n_pts_3d
+    integer :: nm, m, n, icnt
+
+    logical                                :: testing = .false., testing_metric_comp = .true.
+    logical                                :: modify_metrics = .false.
+    real(wp)                               :: t1, t2
+    real(wp), parameter                    :: tol = 1.0e-12_wp
+
+    real(wp) :: err,err_L2,err_Linf
+    real(wp), dimension(:), allocatable :: err_max_proc
+
+    integer :: s_tag, r_tag, m_size, s_request_err_Linf, r_request_err_Linf
+    integer :: np_mods, ng_mods
+
+    integer :: s_status(mpi_status_size)
+    integer :: r_status(mpi_status_size)
+
+    np_mods = 0 ; ng_mods = 0 ;
+    err_Linf = 0.0_wp
+
+    ! loop over volumetric elements
+    elloop:do ielem = ihelems(1), ihelems(2)
+
+   
+      modify_metrics = .false.
+      icnt = 0
+      do iface = 1,nfacesperelem
+         if (ef2e(4,iface,ielem) /= elem_props(2,ielem)) then
+            modify_metrics = .true.
+            exit
+         endif
+      enddo
+
+      if(modify_metrics .eqv. .false.) cycle  ! don't modify metrics if element is fully conforming
+
+      np_mods = np_mods + 1                   !  Count the number of elements that are modified
+      
+      call element_properties(ielem,&
+                              n_pts_1d=n_pts_1d,&
+                              n_pts_2d=n_pts_2d,&
+                              n_pts_3d=n_pts_3d,&
+                                  qmat=qmat,&
+                                  pmat=pmat,&
+                                p_surf=p_surf,&
+                            ifacenodes=ifacenodes)
+                     
+      m = 1*n_pts_3d ; n = 3*n_pts_3d ; nm = max(m,n) ;
+
+      if(allocated(Amat)) deallocate(Amat) ; allocate(Amat(nm,n)) ; Amat(:,:) = 0.0_wp
+      if(allocated(   v)) deallocate(   v) ; allocate(   v(nm,n)) ;    v(:,:) = 0.0_wp
+      if(allocated(   u)) deallocate(   u) ; allocate(   u(nm,n)) ;    u(:,:) = 0.0_wp
+      if(allocated(   w)) deallocate(   w) ; allocate(   w(nm))   ;    w(:)   = 0.0_wp
+      if(allocated(work)) deallocate(work) ; allocate(work(nm))   ; work(:)   = 0.0_wp
+      if(allocated(  wI)) deallocate(  wI) ; allocate(  wI(m,m))  ;   wI(:,:) = 0.0_wp
+
+      if(allocated(bvec)) deallocate(bvec) ; allocate( bvec(n_pts_3d,3)) ; bvec(:,:) = 0.0_wp
+      if(allocated( a_t)) deallocate( a_t) ; allocate(a_t(3*n_pts_3d,3)) ;  a_t(:,:) = 0.0_wp
+      if(allocated(delta_a)) deallocate(delta_a) ; allocate(delta_a(3*n_pts_3d,3)) ;  delta_a(:,:) = 0.0_wp
+
+      call GCL_Triple_Qmat_Transpose(n_pts_1d, n_pts_3d, pmat, qmat, Amat)     
+
+      call SVD(nm,n,m,transpose(Amat),w,matu,u,matv,v,ierr,work)
+
+      if(testing) then
+        if(allocated( eye)) deallocate( eye) ; allocate( eye(m,m))  ;  eye(:,:) = 0.0_wp
+        if(allocated( wrk)) deallocate( wrk) ; allocate( wrk(m,m))  ;  wrk(:,:) = 0.0_wp
+        if(allocated(diag)) deallocate(diag) ; allocate(diag(m,m))  ; diag(:,:) = 0.0_wp
+        if(allocated(perm)) deallocate(perm) ; allocate(perm(m))    ; perm(:)   = 0
+        do i = 1,m
+          eye(i,i) = 1.0_wp
+        enddo
+          
+        do i = 1,m
+          diag(i,i) = w(i)
+          if(w(i) >= tol) wI(i,i) = 1.0_wp / w(i)
+        enddo
+        call qsortd(w(1:m),perm,m)
+        wrk(:,:) = matmul(transpose(v(1:m,1:m)),v(1:m,1:m)) &
+                 + matmul(v(1:m,1:m),transpose(v(1:m,1:m))) &
+                 + matmul(transpose(u(1:n,1:m)),u(1:n,1:m)) 
+        t1 = maxval(abs(3*eye(:,:) - wrk(:,:))) 
+        t2 = maxval(abs(transpose(amat)-matmul(u(1:n,1:m),matmul(diag(1:m,1:m),transpose(v(1:m,1:m))) )))
+        if(w(perm(2)) <= tol) write(*,*)'second singular mode',w(perm(1:2))
+        if(t1+t2 > tol) then
+          write(*,*)'second singular mode',w(perm(1:2))
+          write(*,*)'error in u^T u', t1
+          write(*,*)'error in A - u S v^T', t2
+          write(*,*)'stopping'
+          call PetscFinalize(ierr) ; Stop ;
+          stop
+         endif
+      endif
+
+
+      call Load_Mortar_Metric_Data(ielem,n_pts_1d,n_pts_2d,n_pts_3d, ifacenodes, p_surf, a_t, bvec)
+
+!     minimizing (a - a_t)(a - a_t) / 2 ; subject to M a = b
+!     "t" subscript denotes "target metric values' :  i.e., a_t
+!     a = a_t - M^* (M a_t - b)
+      
+      if(allocated(work3)) deallocate(work3) ; allocate(work3(1:m,1:3))   ; work3(:,:)   = 0.0_wp
+
+      work3(1:m,1:3) = matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)
+
+      t1 = maxval(abs(work3)) ; if(t1 >= tol) write(*,*)'A a_t - bvec', t1
+
+      delta_a = matmul( u(1:n,1:m),           &
+                  matmul(wI(1:m,1:m),           &
+                    matmul(transpose(v(1:m,1:m)), &
+                      matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3))))
+
+      err = maxval(abs(delta_a)) ; 
+      err_L2   = err_L2 + err*err
+      err_Linf = max(err_Linf,err)
+
+      a_t(:,:) = a_t(:,:) - delta_a(:,:)
+
+!     New metric coefficients.  Assumes that the Jacobian (Jx_r) remains unchanged
+
+      do inode = 1,n_pts_3d
+
+         r_x(1,1:3,inode,ielem) = a_t((1-1)*n_pts_3d+inode,1:3) / Jx_r(inode,ielem)
+         r_x(2,1:3,inode,ielem) = a_t((2-1)*n_pts_3d+inode,1:3) / Jx_r(inode,ielem)
+         r_x(3,1:3,inode,ielem) = a_t((3-1)*n_pts_3d+inode,1:3) / Jx_r(inode,ielem)
+
+      enddo
+      !-- testing to see if the discrete metric terms satisfy the correct GCL condition
+      if(testing_metric_comp) then
+        if(allocated(Smat)) deallocate(Smat) ; allocate(Smat(nm,n)) ; Smat(:,:) = 0.0_wp
+        if(allocated(verror)) deallocate(verror); allocate(verror(n)); t1 = 0.0_wp
+
+        !-- construct matrix with Smat = [Sxi;Seta;Szeta] to be used to check that the metric 
+        !   approximations are correct
+        call GCL_Triple_Smat(n_pts_1d, n_pts_3d, pmat, qmat, Smat) 
+
+        !-- loop over the three computational directions and construct S*Almk
+        do i = 1,3
+          verror = verror+matmul(Smat(1+(i-1)*m:i*m,1:m),a_t(1:m,i))-bvec(1:m,i)
+        enddo
+      endif
+    
+    end do elloop
+
+    deallocate(u,v,w,work,Amat,a_t,bvec,wI)
+
+!   Parallel reduction of errors using conventional MPI calls
+
+    ! Reduce values on all processes to a single value
+    if(myprocid == 0 )  then
+      allocate(err_max_proc(0:nprocs-1))
+      err_max_proc(:) = 0.0_wp ; err_max_proc(0) = err_Linf ;
+    endif
+    if(myprocid /= 0 ) then
+      s_tag = 100 + myprocid
+      m_size = 1
+      call mpi_isend(err_Linf,m_size,mpi_double,0,s_tag,petsc_comm_world, &
+        & s_request_err_Linf,ierr)
+      
+      call mpi_wait(s_request_err_Linf,s_status,ierr)
+    else
+      do m = 1, nprocs-1
+        r_tag = 100 + m
+        m_size = 1
+        call mpi_irecv(err_max_proc(m),m_size,mpi_double,m,r_tag, &
+          & petsc_comm_world,r_request_err_Linf,ierr)
+
+        call mpi_wait(r_request_err_Linf,r_status,ierr)
+      enddo
+    endif
+
+    ! Reduce values on all processes to a single value
+    call MPI_reduce(np_mods, ng_mods,1, mpi_integer, mpi_sum, 0, petsc_comm_world, ierr)
+
+    ! Write at screen the L_inf of the metric error
+    if(myprocid == 0 )  then
+      write(*,*)'  Modified Elements and L_inf of modification', ng_mods, maxval(err_max_proc(:))
+      write(*,*) '==========================================================='
+
+      deallocate(err_max_proc)
+
+    endif
+
+
+  end subroutine modify_metrics_nonConforming
 
   !============================================================================
+
+  subroutine Load_Mortar_Metric_Data(ielem,n_LGL_1d,n_LGL_2d,n_LGL_3d,ifacenodes,p_surf,a_t,bvec)
+
+    use referencevariables
+    use variables, only: Jx_r, r_x, facenodenormal, Jx_facenodenormal_LGL, ef2e
+    use collocationvariables, only: elem_props
+
+    implicit none
+
+    integer,                   intent(in   ) :: ielem,n_LGL_1d,n_LGL_2d,n_LGL_3d
+    integer,   dimension(:),   intent(in   ) :: ifacenodes
+    real(wp),  dimension(:),   intent(in   ) :: p_surf
+
+    real(wp), dimension(:,:),  intent(inout) :: a_t
+    real(wp), dimension(:,:),  intent(inout) :: bvec
+
+    integer                                  :: i, iface, inode, jnode, knode
+
+    real(wp), dimension(3)                   :: nx
+
+
+    bvec(:,:) = 0.0_wp
+    do iface = 1,nfacesperelem
+
+       do i = 1,n_LGL_2d
+
+            knode = (iface-1)*(npoly_max+1)**2 + i
+            ! Index in facial ordering
+            jnode =  n_LGL_2d*(iface-1)+i
+              
+            ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes(jnode)
+              
+            ! Outward facing normal of facial node
+            if (ef2e(4,iface,ielem) == elem_props(2,ielem)) then !    Conforming interface
+              nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+!             t1 = maxval(abs(nx(:) - Jx_facenodenormal_LGL(:,knode,ielem)))
+!             if(t1 >= 1.0e-10_wp) write(*,*)'metric differences: iface',iface, t1
+            else                                                 ! NonConforming interface
+              nx(:) = Jx_facenodenormal_LGL(:,knode,ielem)
+            endif
+
+            bvec(inode,:) = bvec(inode,:) + p_surf(i)*nx(:)
+
+       enddo
+
+    enddo
+
+!        Metric data is stored as follows
+!              --                                  --
+!              | dxi_1/dx_1, dxi_1/dx_2, dxi_1/dx_3 |
+!              |                                    |
+!        r_x = | dxi_2/dx_1, dxi_2/dx_2, dxi_2/dx_3 |
+!              |                                    |
+!              | dxi_3/dx_1, dxi_3/dx_2, dxi_3/dx_3 |
+!              --                                  --
+   
+    do inode = 1,n_LGL_3d
+      a_t((1-1)*n_LGL_3d + inode,1:3) =   Jx_r(inode,ielem)*r_x(1,1:3,inode,ielem)
+      a_t((2-1)*n_LGL_3d + inode,1:3) =   Jx_r(inode,ielem)*r_x(2,1:3,inode,ielem)
+      a_t((3-1)*n_LGL_3d + inode,1:3) =   Jx_r(inode,ielem)*r_x(3,1:3,inode,ielem)
+    enddo
+
+  end subroutine Load_Mortar_Metric_Data
+
+  !============================================================================
+
   ! e2e_connectivity_aflr3 - Constructs the element-to-element connectivity
   ! starting from the information read from the AFLR3 grid.
 
@@ -2352,7 +2885,8 @@ contains
 
     !integer, allocatable, dimension(:) :: list_partner_faces
 
-    real(wp), parameter :: diff_toll = 1e-8
+    real(wp), parameter  :: diff_toll = 1e-8
+    integer,  parameter  :: qdim = 6             !  dimension of ef2e array
 
     continue
 
@@ -2376,7 +2910,7 @@ contains
     !  nelems     :    elements  =  nhex in this case
     !
     !                   Dim,    Dim,         Dim
-    !  ef2e       :    ( 5 ,nfaceperelem, nelements) 
+    !  ef2e       :    ( 6 ,nfaceperelem, nelements) 
     !             :  Two situation occur.  The face is either an 
     !                  (Interior face 
     !                      :  (1,j,k) = Adjoining element face ID
@@ -2384,12 +2918,14 @@ contains
     !                      :  (3,j,k) = Adjoining element process ID
     !                      :  (4,j,k) = Adjoining element polynomial order
     !                      :  (5,j,k) = Number of Adjoining elements
+    !                      :  (6,j,k) = HACK self polynomial order assigned to each face
     !                  (Boundary face 
     !                      :  (1,j,k) = Set to -11 
     !                      :  (2,j,k) = -100000000
     !                      :  (3,j,k) = -100000000
     !                      :  (4,j,k) = -100000000
     !                      :  (5,j,k) = -100000000
+    !                      :  (6,j,k) = -100000000
     !
     ! iae2v,jae2v     :    Which vertices belong to each element
 
@@ -2457,7 +2993,7 @@ contains
 
 
       ! Calculate element-to-element connectivity using shared nodes
-      allocate(ef2e(5,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
+      allocate(ef2e(qdim,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
 
       allocate(ivtmp1(nverticesperface*bigN),ivtmp2(nverticesperface*bigN))
       allocate(ivtmp3(nverticesperface),     ivtmp4(nverticesperface))
@@ -3859,9 +4395,9 @@ contains
       ! Cosntruct iae2v and jae2v
       ! =========================
       nnze2v = nverticesperelem*nelems
-      allocate(iae2v(nelems+1))  ; iae2v = 0
+      allocate(iae2v(nelems+1))      ; iae2v = 0
       allocate(iae2v_tmp(nelems+1))  ; iae2v_tmp = 0
-      allocate(jae2v(nnze2v))    ; jae2v = 0
+      allocate(jae2v(nnze2v))        ; jae2v = 0
       allocate(jae2v_tmp(nnze2v))    ; jae2v_tmp = 0
 
       iae2v(1) = 1
@@ -3910,36 +4446,87 @@ contains
     ! Load modules
     use variables
     use collocationvariables
-    use referencevariables, only : npoly, nfacesperelem
+    use controlvariables,   only : non_conforming
+    use referencevariables, only : npoly, npoly_max, nfacesperelem
+    use mpimod
 
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: ielem, j, nhex, iface
+    integer :: ielem, nhex, iface
+!   integer :: j, icnt
+    real(wp), parameter  :: tol = 1.0e-9_wp
+
+    npoly_max = -1000
 
     nhex = size(ic2nh,2)
 
     if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,1:nhex))
+    elem_props(:,:) = -1000
 
-    do ielem = 1,nhex
+    elem_props(1,:) = 1
+    elem_props(2,:) = npoly+1
 
-      elem_props(1,ielem) = 1
-      elem_props(2,ielem) = npoly+1
-      do j=1,8
-        if(vx_master(1,ic2nh(j,ielem)) >= 100000.5_wp) elem_props(2,ielem) = npoly+2
+
+    !  adjust the element polynomials as per directives
+    if(non_conforming .eqv. .true.) then
+
+!     do ielem = 1,nhex
+! 
+!       ! NW quad  x <= +tol ; y >= -tol
+!       icnt = 0
+!       do j=1,8
+!         if((vx_master(1,ic2nh(j,ielem)) <= +tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
+!       enddo
+!       if(icnt == 8) elem_props(2,ielem) = npoly+2
+!       ! SE quad  x >= -tol ; y <= +tol
+!       icnt = 0
+!       do j=1,8
+!         if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) <= +tol)) icnt = icnt + 1
+!       enddo
+!       if(icnt == 8) elem_props(2,ielem) = npoly+2
+!       ! NE quad  x, y >= -tol
+!       icnt = 0
+!       do j=1,8
+!         if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
+!       enddo
+!       if(icnt == 8) elem_props(2,ielem) = npoly+3
+!  
+!     enddo
+
+!     write(*,*)'npoly',npoly
+      do ielem = nhex/2+1,nhex
+        elem_props(2,ielem) = npoly+2
       enddo
- 
-    enddo
+!     write(*,*)'serial',elem_props(2,:)
+
+    endif
+
+    !  Serial ordering : ! ef2e(:,iface,ielem) 
+    !                       :  (1,j,k) = Adjoining element face ID
+    !                       :  (2,j,k) = Adjoining element ID
+    !                       :  (3,j,k) = Adjoining element process ID
+    !                       :  (4,j,k) = Adjoining element polynomial order
+    !                       :  (5,j,k) = Number of Adjoining elements
+    !                       :  (6,j,k) = HACK self polynomial order assigned to each face
 
     do ielem = 1,nhex
+
+      ef2e(6,:,ielem) = elem_props(2,ielem)
+
+      if(elem_props(2,ielem) >= npoly_max + 1) npoly_max = elem_props(2,ielem) - 1
 
       do iface = 1,nfacesperelem
 
-        if(ef2e(2,iface,ielem) > 0) ef2e(4,iface,ielem) = elem_props(2,ef2e(2,iface,ielem))
+        if(ef2e(2,iface,ielem) > 0) then
+          ef2e(4,iface,ielem) = elem_props(2,ef2e(2,iface,ielem))
+        else
+          ef2e(4,iface,ielem) = elem_props(2,ielem)
+        endif
 
       enddo
+
     enddo
- 
 
     end subroutine set_element_orders_Serial    !  Serial Routine
 
@@ -3950,22 +4537,58 @@ contains
     ! Load modules
     use variables
     use collocationvariables
-    use referencevariables, only : npoly, ihelems
+    use referencevariables, only : ihelems, nfacesperelem
 
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: ielem, j
+    integer :: ielem, iface, qdim, ierr, elem_min, elem_max
 
-    if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,ihelems(1):ihelems(2)))
+    ! determine the lowest and highest element process is connected to (including self)
+
+    elem_min = ihelems(1) ; elem_max = ihelems(2) ;
 
     do ielem = ihelems(1),ihelems(2)
 
-      elem_props(1,ielem) = 1
-      elem_props(2,ielem) = npoly+1
-      do j=1,8
-        if(vx(1,e2v(j,ielem)) >= 100000.5_wp) elem_props(2,ielem) = npoly+2
+       do iface = 1,nfacesperelem
+         elem_min = min(ef2e(2,iface,ielem),elem_min)
+         elem_max = max(ef2e(2,iface,ielem),elem_max)
+       enddo
+
+    enddo
+
+    ! allocate size of elem_props for each process.  Includes self and all elements connected to faces
+    if(allocated(elem_props)) deallocate(elem_props) ; allocate(elem_props(2,elem_min:elem_max))
+    elem_props(1,:) = 1 ; elem_props(2,:) = -1000
+
+    !  Parallel ordering : ! ef2e(:,iface,ielem) 
+    !                         :  (1,j,k) = Adjoining element face ID
+    !                         :  (2,j,k) = Adjoining element ID
+    !                         :  (3,j,k) = Adjoining element process ID
+    !                         :  (4,j,k) = Adjoining element polynomial order
+    !                         :  (5,j,k) = Number of Adjoining elements
+    !                         :  (6,j,k) = HACK self polynomial order assigned to each face
+
+    ! ef2e has poly order stored in the parallel ordering 
+    do ielem = ihelems(1),ihelems(2)
+
+      qdim = size(ef2e,2)
+      if(sum(ef2e(6,:,ielem))/qdim /= ef2e(6,1,ielem)) then
+         write(*,*)'mpi bug in transfering ef2e:   Stopping'
+         call PetscFinalize(ierr) ; stop ! Finalize MPI and the hooks to PETSc
+      endif
+      elem_props(2,ielem) = ef2e(6,1,ielem) 
+
+      do iface = 1,nfacesperelem
+         if( (elem_props(2,ef2e(2,iface,ielem)) /= -1000) .and.  &
+             (elem_props(2,ef2e(2,iface,ielem)) /= ef2e(4,iface,ielem)) ) then
+             write(*,*)'something wrong in set_element_orders: parallel.  Stopping'
+             call PetscFinalize(ierr) ; stop ; ! Finalize MPI and the hooks to PETSc
+         else
+           elem_props(2,ef2e(2,iface,ielem)) = ef2e(4,iface,ielem)
+         endif
       enddo
+
  
     enddo
 
@@ -4196,8 +4819,10 @@ contains
     return
   end subroutine data_partner_element_serial     !   SERIAL Routine
 
-  pure function WENO_Adjoining_Data(k_node,k_face)     !   PARALLEL Routine
-! function WENO_Adjoining_Data(k_node,k_face)
+  !============================================================================
+
+! pure function WENO_Adjoining_Data(k_node,k_face)     !   PARALLEL Routine
+  function WENO_Adjoining_Data(k_node,k_face)
      !  Grab the data that lives at the first point off the surface of the
      !  adjoining element
 
@@ -4218,9 +4843,14 @@ contains
          WENO_Adjoining_Data = k_node + 1
      elseif(k_face == 6) then
          WENO_Adjoining_Data = k_node - nodesperface
+     else 
+         write(*,*)'invalid face. Stopping'
+         stop
      endif
 
   end function WENO_Adjoining_Data     !   PARALLEL Routine
+
+  !============================================================================
 
   pure function Pencil_Coord(Ns,jdir,iface,i)     !   PARALLEL Routine
 
@@ -4315,8 +4945,10 @@ contains
 
     enddo
 
-    call UpdateComm1DGhostDataWENOGeom(xgWENO_self, xghstWENO_partner, &
-                 xpetscWENO_partner, xlocpetscWENO_partner, 3, nodespershell, ihelems, nghost)
+
+    call UpdateComm1DGhostDataWENOGeom(xgWENO_self, xghstWENO_partner,             &
+                                       xpetscWENO_partner, xlocpetscWENO_partner,  &
+                                ndim, size(xgWENO_self,2), size(xghstWENO_partner,2))
 
      iloc = 0 
      do ielem = ihelems(1), ihelems(2)                                   ! element loop
@@ -4331,7 +4963,7 @@ contains
              inode = ifacenodes(jnode)                                   ! Volumetric node index corresponding to facial node index
              gnode = efn2efn(3,jnode,ielem)                              ! This is pointing to ghost stack not volumetric stack
              xgWENO_partner(:,jnode,ielem) = xghstWENO_partner(:,iloc) & ! off process partner data
-                   - xghst_LGL(:,iloc) + xg(:,inode,ielem)                   ! account for possibility of non-periodic domain.
+                   - xghst_LGL(:,iloc) + xg(:,inode,ielem)               ! account for possibility of non-periodic domain.
            end do
 
          else                                                            ! On process
@@ -4744,6 +5376,8 @@ contains
 
   end subroutine remove_duplicates
 
+!=======================================================================================
+
   function curved_connector_cylinder(nE,x00,x01,x1,x2,xLGL)
 
     use referencevariables, only: ndim
@@ -4973,181 +5607,197 @@ contains
 
   !=================================================================================================
 
-  subroutine calc_Gau_shell_metrics_all_hexas()
-
-    ! Load module
-    use variables
-    use referencevariables
-    use collocationvariables
-    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points, JacobiP11
-    use initcollocation, only : D_lagrange_basis_function_1d
-
-    ! Nothing is implicitly defined
-    implicit none
-
-    real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_quad
-
-    integer  :: low_elem, high_elem
-    integer  :: i_elem, i_gauss, i_LGL, j_LGL, k_LGL, i_coord
-    real(wp) :: l_xi, l_eta, l_zeta
-    real(wp) :: xi_in, eta_in, zeta_in
-    real(wp),  dimension(n_Gau_1d_pH)    :: x_Gau_1d,w_Gau_1d
-    real(wp),  dimension(:), allocatable :: x_LGL_1d
-
-    integer :: l
-    integer :: n_Gau_shell_loc, n_Gau_1d, n_LGL_1d
-
-    continue
-
-    n_Gau_1d = n_Gau_1d_pH
-    call Gauss_Legendre_points(n_Gau_1d,x_Gau_1d,w_Gau_1d)
-
-    ! Set the coordinates of the 3D Gauss points in computational space
-    n_Gau_shell_loc = nfacesperelem*n_Gau_1d**2
-
-    Gau_pts_comp_shell_quad = Shell_pts_lexo_comp_quad(x_Gau_1d,n_Gau_1d)
-
-    ! Low and high element indices
-    low_elem  = ihelems(1)
-    high_elem = ihelems(2)
-
-    ! Allocate memory
-    allocate(xg_Gau_Shell(3,N_Gau_shell_loc,low_elem:high_elem))
-
-    ! Loop over volumetric elements
-    do i_elem = low_elem, high_elem
-
-      n_LGL_1d = elem_props(2,i_elem)
-      if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ; allocate(x_LGL_1d(n_LGL_1d))
-      call JacobiP11(n_LGL_1d,x_LGL_1d)
-
-      do i_gauss = 1, N_Gau_shell_loc
-        l = 0
-        xg_Gau_shell(:,i_gauss,i_elem) = 0.0_wp
-
-          xi_in = Gau_pts_comp_shell_quad(1,i_gauss)
-         eta_in = Gau_pts_comp_shell_quad(2,i_gauss)
-        zeta_in = Gau_pts_comp_shell_quad(3,i_gauss)
-
-        do k_LGL = 1, n_LGL_1d
-
-          l_zeta = lagrange_basis_function_1d(zeta_in,k_LGL,x_LGL_1d,n_LGL_1d)
-
-          do j_LGL = 1, n_LGL_1d
-
-            l_eta  = lagrange_basis_function_1d(eta_in, j_LGL,x_LGL_1d,n_LGL_1d)
-
-            do i_LGL = 1, n_LGL_1d
-              l = l + 1
-
-              l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d,n_LGL_1d)
-
-              do i_coord = 1, 3
-                xg_Gau_shell(i_coord,i_gauss,i_elem) = xg_Gau_shell(i_coord,i_gauss,i_elem) + &
-                  & xg(i_coord,l,i_elem)*l_xi*l_eta*l_zeta
-              end do
-
-            end do
-          end do
-        end do
-      end do
-
-    end do
-    if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ;
-
-    deallocate(Gau_pts_comp_shell_quad)
-
-  end subroutine calc_Gau_shell_metrics_all_hexas
-
-
-  !=================================================================================================
-
   subroutine calc_Gau_shell_pts_all_hexas()
 
     ! Load module
     use variables
     use referencevariables
     use collocationvariables
-    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points, JacobiP11
+    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points
+    use initcollocation, only : element_properties
 
     ! Nothing is implicitly defined
     implicit none
 
-    real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_quad
+    real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_one_face
 
-    integer  :: low_elem, high_elem
-    integer  :: i_elem, i_gauss, i_LGL, j_LGL, k_LGL, i_coord
+    integer  :: ielem, i_Gau, i_LGL, j_LGL, k_LGL
     real(wp) :: l_xi, l_eta, l_zeta
     real(wp) :: xi_in, eta_in, zeta_in
-    real(wp),  dimension(n_Gau_1d_pH)    :: x_Gau_1d,w_Gau_1d
-    real(wp),  dimension(:), allocatable :: x_LGL_1d
+    real(wp),  dimension(:), allocatable :: x_Gau_1d_Mort,w_Gau_1d_Mort
+    real(wp),  dimension(:), allocatable :: x_LGL_1d_On
 
-    integer :: l
-    integer :: n_Gau_shell_loc, n_Gau_1d, n_LGL_1d
+    integer :: l, ishift, iface
+    integer :: n_Gau_shell_max, n_Gau_1d_max, n_Gau_2d_max, n_Gau_1d_Mort, n_Gau_2d_Mort
+    integer :: n_LGL_1d_On, n_LGL_1d_Off
 
     continue
 
-    n_Gau_1d = n_Gau_1d_pH
-    call Gauss_Legendre_points(n_Gau_1d,x_Gau_1d,w_Gau_1d)
-
-    ! Set the coordinates of the 3D Gauss points in computational space
-    n_Gau_shell_loc = nfacesperelem*n_Gau_1d**2
-
-    allocate(Gau_pts_comp_shell_quad(3,N_Gau_shell_loc))
-
-    Gau_pts_comp_shell_quad = Shell_pts_lexo_comp_quad(x_Gau_1d,n_Gau_1d)
-
-    ! Low and high element indices
-    low_elem  = ihelems(1)
-    high_elem = ihelems(2)
+    ! Set the maximum size of buckets for shell data 
+    n_Gau_1d_max = (npoly_max+1)**1
+    n_Gau_2d_max = (npoly_max+1)**2
+    n_Gau_shell_max = nfacesperelem * n_Gau_2d_max
 
     ! Allocate memory
-    allocate(xg_Gau_Shell(3,N_Gau_shell_loc,low_elem:high_elem))
+    allocate(xg_Gau_Shell(3,n_Gau_shell_max,ihelems(1):ihelems(2))) ;  xg_Gau_Shell(:,:,:) = 0.0_wp
+    allocate(Gau_pts_comp_shell_one_face(3,n_Gau_2d_max))           ;  Gau_pts_comp_shell_one_face(:,:) = 0.0_wp
 
     ! Loop over volumetric elements
-    do i_elem = low_elem, high_elem
+    do ielem = ihelems(1), ihelems(2)
 
-      n_LGL_1d = elem_props(2,i_elem)
-      if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ; allocate(x_LGL_1d(n_LGL_1d))
-      call JacobiP11(n_LGL_1d,x_LGL_1d)
+      call element_properties(ielem,               &
+                              n_pts_1d=n_LGL_1d_On, &
+                              x_pts_1d=x_LGL_1d_On)
 
-      do i_gauss = 1, N_Gau_shell_loc
-        l = 0
-        xg_Gau_shell(:,i_gauss,i_elem) = 0.0_wp
+      do iface = 1,nfacesperelem
 
-          xi_in = Gau_pts_comp_shell_quad(1,i_gauss)
-         eta_in = Gau_pts_comp_shell_quad(2,i_gauss)
-        zeta_in = Gau_pts_comp_shell_quad(3,i_gauss)
+        n_LGL_1d_Off  = ef2e(4,iface,ielem)
+        n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
+        n_Gau_2d_Mort = n_Gau_1d_Mort**2
 
-        do k_LGL = 1, n_LGL_1d
+        if(allocated(x_Gau_1d_Mort)) deallocate(x_Gau_1d_Mort) ; allocate(x_Gau_1d_Mort(n_Gau_1d_Mort)) ;
+        if(allocated(w_Gau_1d_Mort)) deallocate(w_Gau_1d_Mort) ; allocate(w_Gau_1d_Mort(n_Gau_1d_Mort)) ;
 
-          l_zeta = lagrange_basis_function_1d(zeta_in,k_LGL,x_LGL_1d,n_LGL_1d)
+        call Gauss_Legendre_points(n_Gau_1d_Mort,x_Gau_1d_Mort,w_Gau_1d_Mort)
 
-          do j_LGL = 1, n_LGL_1d
+        Gau_pts_comp_shell_one_face = Shell_pts_lexo_comp_one_face(iface,n_Gau_2d_max, &
+                                                                   n_Gau_1d_mort,x_Gau_1d_Mort)
 
-            l_eta  = lagrange_basis_function_1d(eta_in, j_LGL,x_LGL_1d,n_LGL_1d)
+        do i_Gau = 1, n_Gau_2d_Mort
 
-            do i_LGL = 1, n_LGL_1d
-              l = l + 1
-
-              l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d,n_LGL_1d)
-
-              do i_coord = 1, 3
-                xg_Gau_shell(i_coord,i_gauss,i_elem) = xg_Gau_shell(i_coord,i_gauss,i_elem) + &
-                  & xg(i_coord,l,i_elem)*l_xi*l_eta*l_zeta
+          ishift = (iface-1) * n_Gau_2d_max + i_Gau
+          l = 0
+          xg_Gau_shell(:,ishift,ielem) = 0.0_wp
+  
+            xi_in = Gau_pts_comp_shell_one_face(1,i_Gau)
+           eta_in = Gau_pts_comp_shell_one_face(2,i_Gau)
+          zeta_in = Gau_pts_comp_shell_one_face(3,i_Gau)
+  
+          do k_LGL = 1, n_LGL_1d_On
+  
+            l_zeta = lagrange_basis_function_1d(zeta_in,k_LGL,x_LGL_1d_On,n_LGL_1d_On)
+  
+            do j_LGL = 1, n_LGL_1d_On
+  
+              l_eta  = lagrange_basis_function_1d(eta_in, j_LGL,x_LGL_1d_On,n_LGL_1d_On)
+  
+              do i_LGL = 1, n_LGL_1d_On
+                l = l + 1
+  
+                l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d_On,n_LGL_1d_On)
+  
+                xg_Gau_shell(:,ishift,ielem) = xg_Gau_shell(:,ishift,ielem) + xg(:,l,ielem)*l_xi*l_eta*l_zeta
+  
               end do
-
             end do
           end do
         end do
+
       end do
 
     end do
-    if(allocated(x_LGL_1d)) deallocate(x_LGL_1d) ;
 
-    deallocate(Gau_pts_comp_shell_quad)
+    deallocate(x_LGL_1d_On,x_Gau_1d_Mort,w_Gau_1d_Mort) ; 
+    deallocate(Gau_pts_comp_shell_one_face) ;
 
   end subroutine calc_Gau_shell_pts_all_hexas
+
+  !============================================================================
+
+  subroutine calc_Jacobian_Gau_shell_all_hexas()
+
+    ! Load module
+    use variables
+    use referencevariables
+    use collocationvariables
+    use initcollocation, only : lagrange_basis_function_1d, Gauss_Legendre_points
+    use initcollocation, only : element_properties
+
+    ! Nothing is implicitly defined
+    implicit none
+
+    real(wp), allocatable, dimension(:,:) :: Gau_pts_comp_shell_one_face
+
+    integer  :: ielem, i_Gau, i_LGL, j_LGL, k_LGL
+    real(wp) :: l_xi, l_eta, l_zeta
+    real(wp) :: xi_in, eta_in, zeta_in
+    real(wp),  dimension(:), allocatable :: x_Gau_1d_Mort,w_Gau_1d_Mort
+    real(wp),  dimension(:), allocatable :: x_LGL_1d_On
+
+    integer :: l, ishift, iface
+    integer :: n_Gau_shell_max, n_Gau_1d_max, n_Gau_2d_max, n_Gau_1d_Mort, n_Gau_2d_Mort
+    integer :: n_LGL_1d_On, n_LGL_1d_Off
+
+    continue
+
+    ! Set the maximum size of buckets for shell data 
+    n_Gau_1d_max = (npoly_max+1)**1
+    n_Gau_2d_max = (npoly_max+1)**2
+    n_Gau_shell_max = nfacesperelem * n_Gau_2d_max
+
+    ! Allocate memory
+    allocate(Jx_r_Gau_Shell(n_Gau_shell_max,ihelems(1):ihelems(2))) ;  Jx_r_Gau_Shell(:,:) = 0.0_wp
+    allocate(Gau_pts_comp_shell_one_face(3,n_Gau_2d_max))           ;  Gau_pts_comp_shell_one_face(:,:) = 0.0_wp
+
+    ! Loop over volumetric elements
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem,               &
+                              n_pts_1d=n_LGL_1d_On, &
+                              x_pts_1d=x_LGL_1d_On)
+
+      do iface = 1,nfacesperelem
+
+        n_LGL_1d_Off  = ef2e(4,iface,ielem)
+        n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
+        n_Gau_2d_Mort = n_Gau_1d_Mort**2
+
+        if(allocated(x_Gau_1d_Mort)) deallocate(x_Gau_1d_Mort) ; allocate(x_Gau_1d_Mort(n_Gau_1d_Mort)) ;
+        if(allocated(w_Gau_1d_Mort)) deallocate(w_Gau_1d_Mort) ; allocate(w_Gau_1d_Mort(n_Gau_1d_Mort)) ;
+
+        call Gauss_Legendre_points(n_Gau_1d_Mort,x_Gau_1d_Mort,w_Gau_1d_Mort)
+
+        Gau_pts_comp_shell_one_face = Shell_pts_lexo_comp_one_face(iface,n_Gau_2d_max, &
+                                                                   n_Gau_1d_mort,x_Gau_1d_Mort)
+
+        do i_Gau = 1, n_Gau_2d_Mort
+
+          ishift = (iface-1) * n_Gau_2d_max + i_Gau
+          l = 0
+          Jx_r_Gau_shell(ishift,ielem) = 0.0_wp
+  
+            xi_in = Gau_pts_comp_shell_one_face(1,i_Gau)
+           eta_in = Gau_pts_comp_shell_one_face(2,i_Gau)
+          zeta_in = Gau_pts_comp_shell_one_face(3,i_Gau)
+  
+          do k_LGL = 1, n_LGL_1d_On
+  
+            l_zeta = lagrange_basis_function_1d(zeta_in,k_LGL,x_LGL_1d_On,n_LGL_1d_On)
+  
+            do j_LGL = 1, n_LGL_1d_On
+  
+              l_eta  = lagrange_basis_function_1d(eta_in, j_LGL,x_LGL_1d_On,n_LGL_1d_On)
+  
+              do i_LGL = 1, n_LGL_1d_On
+                l = l + 1
+  
+                l_xi   = lagrange_basis_function_1d(xi_in,  i_LGL,x_LGL_1d_On,n_LGL_1d_On)
+  
+                Jx_r_Gau_shell(ishift,ielem) = Jx_r_Gau_shell(ishift,ielem) + Jx_r(l,ielem)*l_xi*l_eta*l_zeta
+  
+              end do
+            end do
+          end do
+        end do
+
+      end do
+
+    end do
+
+    deallocate(x_LGL_1d_On,x_Gau_1d_Mort,w_Gau_1d_Mort) ; 
+    deallocate(Gau_pts_comp_shell_one_face) ;
+
+  end subroutine calc_Jacobian_Gau_shell_all_hexas
 
   !============================================================================
 
@@ -5274,22 +5924,148 @@ contains
 
   !============================================================================
 
-  subroutine facenodesetup_Gau()
+  pure function Shell_pts_lexo_comp_one_face(iface,n_max_2d,n_pts_1d,x_pts_1d)
+
+    ! Nothing is implicitly defined
+    use referencevariables
+
+    implicit none
+
+    integer,                       intent(in) :: iface,n_max_2d,n_pts_1d
+    real(wp), dimension(n_pts_1d), intent(in) :: x_pts_1d
+
+    real(wp), dimension(3,n_max_2d)           :: Shell_pts_lexo_comp_one_face
+
+    real(wp) :: zeta, eta, xi
+
+    integer :: i, j, k, node_id
+    integer :: ixL, ixH, iyL, iyH, izL, izH
+
+    continue
+
+    ! Initialize to zero the coordinates
+    Shell_pts_lexo_comp_one_face(:,:) = 0.0_wp
+
+    ! Set to zero the local node ID
+    node_id = 0
+
+      ! Set the coordinates of the Gauss points in computational space
+          if(iface == 1) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = 1
+        zeta = -1.0_wp
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+            end do
+          end do
+      elseif(iface == 2) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = 1
+         izL = 1   ;  izH = n_pts_1d
+         eta = -1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+            end do
+        end do
+      elseif(iface == 3) then
+         ixL = 1   ;  ixH = 1
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = n_pts_1d
+         xi  = +1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+          end do
+        end do
+      elseif(iface == 4) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = 1
+         izL = 1   ;  izH = n_pts_1d
+         eta = +1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+            end do
+        end do
+      elseif(iface == 5) then
+         ixL = 1   ;  ixH = 1
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = n_pts_1d
+          xi = -1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+          end do
+        end do
+      elseif(iface == 6) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = 1
+        zeta = +1.0_wp
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+              node_id = node_id + 1
+              Shell_pts_lexo_comp_one_face(3,node_id) = zeta
+              Shell_pts_lexo_comp_one_face(2,node_id) = eta
+              Shell_pts_lexo_comp_one_face(1,node_id) = xi
+            end do
+          end do
+        endif
+
+    return
+  end function Shell_pts_lexo_comp_one_face
+
+  !============================================================================
+
+  subroutine facenodesetup_Gau(n_Gau_1d, n_Gau_2d, kfacenodes_Gau, ifacenodes_Gau)
     !  Establish pointers for grabbing the face nodes from an 
     !  element volumetic ordering.  Implicit are that a subset of the volume nodes 
     !  are on the face of the element
     !  
-    !   kfacenodes(n_Gau_2d_pH,nfacesperelem)  
+    !   kfacenodes(n_Gau_2d_p1,nfacesperelem)  
     !      volumetric node index of face node  
     !      
-    !   ifacenodes(n_Gau_2d_pH*nfacesperelem)  
+    !   ifacenodes(n_Gau_2d_p1*nfacesperelem)  
     !      kfacenode flattened into a single vector
     !  
     use referencevariables
     use mpimod
-    use variables, only: kfacenodes_Gau, ifacenodes_Gau
-    use collocationvariables, only: n_Gau_2d_pH
+
     implicit none
+
+    integer,                              intent(in   ) :: n_Gau_1d, n_Gau_2d
+    integer, dimension(:,:), allocatable, intent(inout) :: kfacenodes_Gau
+    integer, dimension(:),   allocatable, intent(inout) :: ifacenodes_Gau
 
     ! indices
     integer :: i,j,k
@@ -5297,22 +6073,19 @@ contains
     real(wp), parameter :: nodetol = 1.0e-8_wp
 
     ! local facial masks
-    !
-    ! kfacenodes_Gau separates each face
-    allocate(kfacenodes_Gau(n_Gau_2d_pH,nfacesperelem))
-    ! ifacenodes_Gau includes all faces
-    allocate(ifacenodes_Gau(n_Gau_2d_pH*nfacesperelem))
-
+    if(allocated(kfacenodes_Gau)) deallocate(kfacenodes_Gau) ; allocate(kfacenodes_Gau(n_Gau_2d,nfacesperelem))
+    if(allocated(ifacenodes_Gau)) deallocate(ifacenodes_Gau) ; allocate(ifacenodes_Gau(n_Gau_2d*nfacesperelem))
+     
     if (ndim == 2) then
     else if (ndim == 3) then
-      do k = 1, n_Gau_2d_pH
+      do k = 1, n_Gau_2d
           ! face 1 does not require an offset or a stride
-          kfacenodes_Gau(k,1) = (1-1)*n_Gau_2d_pH + k
-          kfacenodes_Gau(k,2) = (2-1)*n_Gau_2d_pH + k
-          kfacenodes_Gau(k,3) = (3-1)*n_Gau_2d_pH + k
-          kfacenodes_Gau(k,4) = (4-1)*n_Gau_2d_pH + k
-          kfacenodes_Gau(k,5) = (5-1)*n_Gau_2d_pH + k
-          kfacenodes_Gau(k,6) = (6-1)*n_Gau_2d_pH + k
+          kfacenodes_Gau(k,1) = (1-1)*n_Gau_2d + k
+          kfacenodes_Gau(k,2) = (2-1)*n_Gau_2d + k
+          kfacenodes_Gau(k,3) = (3-1)*n_Gau_2d + k
+          kfacenodes_Gau(k,4) = (4-1)*n_Gau_2d + k
+          kfacenodes_Gau(k,5) = (5-1)*n_Gau_2d + k
+          kfacenodes_Gau(k,6) = (6-1)*n_Gau_2d + k
       end do
     else
       write(*,*) 'error: unsupported dimension', ndim
@@ -5323,7 +6096,7 @@ contains
     ! loop over faces
     do j = 1, nfacesperelem
       ! loop over nodes on each face
-      do i = 1, n_Gau_2d_pH
+      do i = 1, n_Gau_2d
         ! advance facial node index
         k = k+1
         ! map facial node index to volumetric node
@@ -5344,36 +6117,24 @@ contains
     use referencevariables
     use collocationvariables
     use mpimod
-    use variables, only: xg, kfacenodes_Gau, ef2e,  &
-      & xg_Gau_shell, xgghst_Gau_Shell, efn2efn_Gau, &
-      & jelems, periodic_elem_face_ids_x1, &
-      & periodic_elem_face_ids_x2, periodic_elem_face_ids_x3
+    use variables,       only: ef2e, xg_Gau_shell, xgghst_Gau_Shell, efn2efn_Gau
+    use initcollocation, only: element_properties
 
     ! Nothing is implicitly defined
     implicit none
 
+    real(wp), parameter :: nodetol = 1.0e-8_wp
+
     integer ::  ielem, inode, jnode, iface, knode, kshell
     integer ::  i_low
 
-    integer :: low_elem, high_elem
     real(wp) :: x1(3), x2(3)
-    real(wp), parameter :: nodetol = 1.0e-8_wp
 
-    integer :: i_p_face, p_dir, cnt_coord, i_coord
-    logical :: match_found
-    real(wp), dimension(2) :: x1_p, x2_p
-
-    integer :: cnt_debug
+    integer :: n_Gau_1d_max , n_Gau_2d_max , n_Gau_shell_max
+    integer :: n_Gau_1d_Mort, n_Gau_2d_Mort
+    integer :: n_LGL_1d_On  , n_LGL_1d_Off
 
     continue
-
-    cnt_debug = 0
-
-    ! Low volumetric element index
-    low_elem = ihelems(1)
-
-    ! High volumetric element index
-    high_elem = ihelems(2)
 
     ! efn2efn_Gau contains the partner node information of every facenode in the domain
 
@@ -5383,755 +6144,953 @@ contains
     ! efn2efn_Gau(4,k,m) = node value in shell coordinates of partner node (defined only if non-parallel interface)
     !  NOTE:  The definition of efn2efn_Gau(4) is different than efn2efn(4)
 
-    allocate(efn2efn_Gau(4,N_Gau_shell,low_elem:high_elem))
-    efn2efn_Gau = -1000
+    ! Set the maximum size of buckets for shell data 
+    n_Gau_1d_max = (npoly_max+1)**1
+    n_Gau_2d_max = (npoly_max+1)**2
+    n_Gau_shell_max = nfacesperelem * n_Gau_2d_max
+
+    allocate(efn2efn_Gau(4,n_Gau_shell_max,ihelems(1):ihelems(2))) ; efn2efn_Gau = -1000 ;
 
     ! Initialize position of the ghost point in the stack
     i_low = 0
 
-    ! Loop over elements
-    do ielem = low_elem, high_elem
-      
-      ! Reset facial node index counter
-      knode = 0
-      
-      ! Loop over faces
-      do iface = 1, nfacesperelem
-        
-        ! If on boundary, connect to self
-        if (ef2e(1,iface,ielem) < 0) then
-          
-          ! Loop over nodes on the boundary face
-          do inode = 1, n_Gau_2d_pH
-            
-            ! Update facial node index counter
+    elem_loop:do ielem = ihelems(1), ihelems(2)                  ! loop over elements
+
+      call element_properties(ielem,         &
+                     n_pts_1d=n_LGL_1d_On,   &
+                     n_pts_2d=nodesperface,  &
+                     n_pts_3d=nodesperelem)
+
+      face_loop:do iface = 1, nfacesperelem                      ! loop over faces of element
+
+        n_LGL_1d_Off  = ef2e(4,iface,ielem)
+        n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
+        n_Gau_2d_Mort = n_Gau_1d_Mort**2
+
+        knode = (iface-1) * n_Gau_2d_max
+
+        if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then      ! cycle for conforming interfaces
+
+            cycle
+
+        else if((ef2e(3,iface,ielem) /= myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then ! Off-process
+
+          do inode = 1, n_Gau_2d_Mort                            ! Loop over the nodes on the mortar
+
+            ! Update the facial node index counter
             knode = knode + 1
+
+            ! Save the coordinates of the facial node
+            x1 = xg_Gau_shell(:,knode,ielem)
+              
+            ! Search for the connected node on face of the connected element
+            do jnode = 1, n_Gau_2d_Mort
+
+              ! Coordinates of the jnode
+              ! ef2e(2) gives the element of the neighbor
+              x2 = xgghst_Gau_Shell(:,i_low + jnode)
+              
+              ! Check the distance between the two nodes
+              if (magnitude(x1-x2) <= nodetol) then
+                
+                ! Set the volumetric node index of the connected node
+                efn2efn_Gau(1,knode,ielem) = -1000
+                
+                ! Set the element of the connected node
+                efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
+                
+                ! Set the node index in the ghost array
+                efn2efn_Gau(3,knode,ielem) = i_low + jnode
+
+                exit
+              
+              end if
             
-            ! The first index is the volumetric node index and the second
-            ! index is the element index
-            efn2efn_Gau(:,knode,ielem) = (/ -1000, ielem, 0 /)
-          
+            end do
+              
+            ! Print information at screen if there is a problem and stop
+            ! computation
+            if (jnode > n_Gau_2d_Mort .and. myprocid==1) then
+              write(*,*) 'Connectivity error in face-node connectivity_Gau, Parallel.'
+              write(*,*) 'Process ID, element ID, face ID, ef2e'
+              write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
+              write(*,*) 'Node coordinates and ghost node coordinates'
+              write(*,*) x1, xgghst_Gau_Shell(:,i_low + 1:i_low + n_Gau_2d_Mort)
+              write(*,*) 'Exiting...'
+              stop
+            end if
+
           end do
 
-        else if (ef2e(3,iface,ielem) /= myprocid) then ! A parallel interface
-
-          ! Initialize match_found
-          match_found = .false.
+          ! Update the position in the ghost stack
+          i_low = i_low + n_Gau_2d_Mort
           
-          ! Loop through the elements that owns a periodic face in the x1
-          ! direction
-          if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
+        else if((ef2e(3,iface,ielem) == myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then  ! On-process
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
-            do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
+          ! Loop over the nodes on the face
+          do inode = 1, n_Gau_2d_Mort
 
-              if (periodic_elem_face_ids_x1(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x1(2,i_p_face) == iface) then
+            ! Update the facial node index counter
+            knode = knode + 1
 
-                ! There is a match: change logical value of match_found
-                match_found = .true.
-
-                ! Get the direction of "periodicity"
-                p_dir = periodic_elem_face_ids_x1(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0
-                  
-                  do i_coord = 1,3
-                    
-                    if (i_coord /= p_dir) then
-
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  do jnode = 1, n_Gau_2d_pH
-                    
-                    ! Coordinates of the jnode
-                    ! ef2e(2) gives the element of the neighbor
-                    x2 = xgghst_Gau_Shell(:,i_low + jnode)
-                
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000 
-
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-
-                      ! Set the node index in the ghost array
-                      efn2efn_Gau(3,knode,ielem) = i_low + jnode
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-                ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_pH
-
-              end if ! End if match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit 
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-
-          end if ! End if check periodic face in x1 direction
-
-
-          ! Loop through the elements that owns a periodic face in the x2
-          ! direction
-          if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x2(1,:)) /= 0) then
-
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
-            do i_p_face = 1, size(periodic_elem_face_ids_x2(1,:))
-
-              if (periodic_elem_face_ids_x2(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x2(2,i_p_face) == iface) then
-
-                ! There is a match: change logical value of match_found
-                match_found = .true.
-
-                ! Get the direction of "periodicity"
-                p_dir = periodic_elem_face_ids_x2(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0
-                  
-                  do i_coord = 1,3
-                    
-                    if (i_coord /= p_dir) then
-
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  do jnode = 1, n_Gau_2d_pH
-                    
-                    ! Coordinates of the jnode
-                    ! ef2e(2) gives the element of the neighbor
-                    x2 = xgghst_Gau_Shell(:,i_low + jnode)
-                
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000
-
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-
-                      ! Set the node index in the ghost array
-                      efn2efn_Gau(3,knode,ielem) = i_low + jnode
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-                ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_pH
-
-              end if ! End if match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit 
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-
-          end if ! End if check periodic face in x2 direction
-
-
-          ! Loop through the elements that owns a periodic face in the x3
-          ! direction
-          if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x3(1,:)) /= 0) then
-
-            ! Check if the ielem owns a periodic face and if iface is a periodic
-            ! face
-            do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))
-
-              if (periodic_elem_face_ids_x3(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x3(2,i_p_face) == iface) then
-
-                ! There is a match: change logical value of match_found
-                match_found = .true.
-
-                ! Get the direction of "periodicity"
-                p_dir = periodic_elem_face_ids_x3(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0
-                  
-                  do i_coord = 1,3
-                    
-                    if (i_coord /= p_dir) then
-
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  do jnode = 1, n_Gau_2d_pH
-                    
-                    ! Coordinates of the jnode
-                    ! ef2e(2) gives the element of the neighbor
-                    x2 = xgghst_Gau_Shell(:,i_low + jnode)
-                
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000
-
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-
-                      ! Set the node index in the ghost array
-                      efn2efn_Gau(3,knode,ielem) = i_low + jnode
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-                ! Update the position in the ghost stack
-                i_low = i_low + n_Gau_2d_pH
-
-              end if ! End if match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit 
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-
-          end if ! End if check periodic face in x3 direction
-
-
-
-          if (match_found .eqv. .false.) then
-
-            ! Loop over the nodes on the face
-            do inode = 1, n_Gau_2d_pH
-
-              ! Update the facial node index counter
-              knode = knode + 1
-
-              ! Save the coordinates of the facial node
-              x1 = xg_Gau_shell(:,knode,ielem)
-              
-              ! Search for the connected node on face of the connected element
-              do jnode = 1, n_Gau_2d_pH
-
-                ! Coordinates of the jnode
-                ! ef2e(2) gives the element of the neighbor
-                x2 = xgghst_Gau_Shell(:,i_low + jnode)
-                
-                ! Check the distance between the two nodes
-                if (magnitude(x1-x2) <= nodetol) then
-                  
-                  ! Set the volumetric node index of the connected node
-                  efn2efn_Gau(1,knode,ielem) = -1000
-                  
-                  ! Set the element of the connected node
-                  efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-                  
-                  ! Set the node index in the ghost array
-                  efn2efn_Gau(3,knode,ielem) = i_low + jnode
-
-                  exit
-                
-                end if
-              
-              end do
-              
-              ! Print information at screen if there is a problem and stop
-              ! computation
-              if (jnode > n_Gau_2d_pH .and. myprocid==1) then
-                write(*,*) 'Connectivity error in face-node connectivity.'
-                write(*,*) 'Process ID, element ID, face ID, ef2e'
-                write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-                write(*,*) 'Node coordinates and ghost node coordinates'
-                write(*,*) x1, xgghst_Gau_Shell(:,i_low + 1:i_low + n_Gau_2d_pH)
-                write(*,*) 'Exiting...'
-                stop
-              end if
-
-            end do
-
-            ! Update the position in the ghost stack
-            i_low = i_low + n_Gau_2d_pH
-          
-          end if
-
-        else ! Not a parallel interface
-
-          ! Initialize match_found
-          match_found = .false.
-
-          if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
-
-            write(*,*)'periodic 1'
-            ! Check if the ielem owns a periodic face and if the iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
-
-              if (periodic_elem_face_ids_x1(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x1(2,i_p_face) == iface) then
-
-                ! There is a match
-                match_found = .true.
-
-                ! Get the direction of periodicity
-                p_dir = periodic_elem_face_ids_x1(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0 
-
-                  do i_coord = 1, 3
-                    
-                    if (i_coord /= p_dir) then
-                      
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  ! Search for the connected node on the face of the connected 
-                  ! element
-                  do jnode = 1,n_Gau_2d_pH
-                    ! Coordinates of the jnode
-                    ! ef2e(1) gives the face on the neighboring element and
-                    ! ef2e(2) gives the element
-
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH + jnode
-                    x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
-
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-                    
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check the distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000
-                      
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-                      
-                      ! Set the index of the connected node
-                      efn2efn_Gau(4,knode,ielem) = kshell
-
-                      cnt_debug = cnt_debug + 1
-
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-              end if ! Match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-
-          end if ! End if periodic x1 direction
-
-          ! If the iface is not a periodic face  in the x1 direction, check
-          ! if it is a periodic face in the x2 direction
-          if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x2(1,:)) /= 0) then
-
-            write(*,*)'periodic 2'
-            ! Check if the ielem owns a periodic face and if the iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x2(1,:))
-
-              if (periodic_elem_face_ids_x2(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x2(2,i_p_face) == iface) then
-
-                ! There is a match
-                match_found = .true.
-
-                ! Get the direction of periodicity
-                p_dir = periodic_elem_face_ids_x2(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0 
-
-                  do i_coord = 1, 3
-                    
-                    if (i_coord /= p_dir) then
-                      
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  ! Search for the connected node on the face of the connected 
-                  ! element
-                  do jnode = 1,n_Gau_2d_pH
-                    ! Coordinates of the jnode
-                    ! ef2e(1) gives the face on the neighboring element and
-                    ! ef2e(2) gives the element
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH + jnode
-                    x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
-
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-                    
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check the distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000
-                      
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-                      
-                      ! Set the index of the connected node
-                      efn2efn_Gau(4,knode,ielem) = kshell
-
-                      cnt_debug = cnt_debug + 1
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-              end if ! Match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-          
-          end if ! End if periodic x2 direction
-
-
-          ! If the iface is not a periodic face in the x2 direction, check
-          ! if it is a periodic face in the x3 direction
-          if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x3(1,:)) /= 0) then
-           
-            write(*,*)'periodic 3'
-            ! Check if the ielem owns a periodic face and if the iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))
-
-              if (periodic_elem_face_ids_x3(1,i_p_face) == jelems(ielem) .and. &
-                & periodic_elem_face_ids_x3(2,i_p_face) == iface) then
-
-                ! There is a match
-                match_found = .true.
-
-                ! Get the direction of periodicity
-                p_dir = periodic_elem_face_ids_x3(3,i_p_face)
-
-                ! Loop over the nodes on the face
-                do inode = 1, n_Gau_2d_pH
-                  
-                  ! Update the facial node index counter
-                  knode = knode + 1
-                  
-                  ! Save the coordinates of the facial node
-                  x1 = xg_Gau_shell(:,knode,ielem)
-                
-                  ! Extract from x1 the two invariant coordinates
-                  cnt_coord = 0 
-
-                  do i_coord = 1, 3
-                    
-                    if (i_coord /= p_dir) then
-                      
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
-
-                  ! Search for the connected node on the face of the connected 
-                  ! element
-                  do jnode = 1,n_Gau_2d_pH
-                    ! Coordinates of the jnode
-                    ! ef2e(1) gives the face on the neighboring element and
-                    ! ef2e(2) gives the element
-                    kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH + jnode
-                    x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
-
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-                    
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check the distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn_Gau(1,knode,ielem) = -1000
-                      
-                      ! Set the element of the connected node
-                      efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-                      
-                      ! Set the index of the connected node
-                      efn2efn_Gau(4,knode,ielem) = kshell
-
-                      cnt_debug = cnt_debug + 1
-
-
-                      exit ! partner jnode found; exit the jnode do loop
-                    
-                    end if
-                  
-                  end do ! End do jnode
-                
-                end do ! End do inode 
-
-              end if ! Match found
-
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit
-              end if
-
-            end do ! End do loop over the elements that own a periodic face
-          
-          end if ! End if periodic x3 direction
-
-
-          if (match_found .eqv. .false.) then
-
-            write(*,*)'non-periodic path'
+            ! Save coordinates of the facial ndoes
+            x1 = xg_Gau_shell(:,knode,ielem)
+            ! Search the for connected node on the face of the connected element
             
-            ! Loop over the nodes on the face
-            do inode = 1, n_Gau_2d_pH
-
-              ! Update the facial node index counter
-              knode = knode + 1
-
-              ! Save coordinates of the facial ndoes
-              x1 = xg_Gau_shell(:,knode,ielem)
-              ! Search the for connected node on the face of the connected element
+            do jnode = 1, n_Gau_2d_Mort
               
-              do jnode = 1, n_Gau_2d_pH
-                
-                ! Coordinates of the jnode
-                ! ef2e(1) gives the face on the neighboring element and ef2e(2) gives the element
-                kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_pH + jnode
-                x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
-                
-                ! Check the distance between the two nodes
-                if (magnitude(x1-x2) <= nodetol) then
-
-                  ! Set the volumetric node index of the connected node
-                  efn2efn_Gau(1,knode,ielem) = -1000
-                  
-                  ! Set the element of the connected node
-                  efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
-                  
-                  ! Set the index of the connected node
-                  efn2efn_Gau(4,knode,ielem) = kshell
-                  
-                  exit
-                
-                end if
+              ! Coordinates of the jnode
+              ! ef2e(1) gives the face on the neighboring element and ef2e(2) gives the element
+              kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
+              x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
               
-              end do ! End do jnode
+              ! Check the distance between the two nodes
+              if (magnitude(x1-x2) <= nodetol) then
 
-              ! Print information at screen if there is a problem and stop computation
-              if (efn2efn_Gau(2,knode,ielem) < 0) then
-                write(*,*) 'Connectivity error in face-node connectivity of Gauss path.'
-                write(*,*) 'Process ID, element ID, face ID, ef2e'
-                write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-                write(*,*) 'Node coordinates'
-                write(*,*) x1
-                write(*,*) 'Possible partner node coordinates'
+                ! Set the volumetric node index of the connected node
+                efn2efn_Gau(1,knode,ielem) = -1000
                 
-                do jnode = 1, n_Gau_2d_pH
-                  x2 = xg(:,kfacenodes_Gau(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
-                  write(*,*) x2
-                end do 
-
-                write(*,*) 'Exiting...'
-                stop
+                ! Set the element of the connected node
+                efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
+                
+                ! Set the index of the connected node
+                efn2efn_Gau(4,knode,ielem) = kshell
+                
+                exit
+              
               end if
+            
+            end do ! End do jnode
 
-            end do ! End do inode
+            ! Print information at screen if there is a problem and stop computation
+!           if (efn2efn_Gau(2,knode,ielem) < 0) then
+!             write(*,*) 'Connectivity error in face-node connectivity of Gauss path.'
+!             write(*,*) 'Process ID, element ID, face ID, ef2e'
+!             write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
+!             write(*,*) 'Node coordinates'
+!             write(*,*) x1
+!             write(*,*) 'Possible partner node coordinates'
+!             
+!             do jnode = 1, n_Gau_2d_Mort
+!               x2 = xg(:,kfacenodes_Gau(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
+!               write(*,*) x2
+!             end do 
+
+!             write(*,*) 'Exiting...'
+!             stop
+!           end if
+
+          end do ! End do inode
           
-          end if ! End if not a periodic face (match_found = .false.)
-              
         end if ! End if type of face (boundary, off processor or on processor)
       
-      end do ! End do loop over faces of the element
-    
-    end do ! End do loop elements owned by the processor
+      end do face_loop! End do loop over faces of the element
 
-    return
+    end do elem_loop   !End do loop elements owned by the processor
+
   end subroutine calculate_face_node_connectivity_Gau
 
   !============================================================================
 
+  subroutine Shell_Metrics_Analytic(iface, n_pts_1d_max, n_pts_1d, x_pts_1d,  &
+                                    xg_Gau,Jx_facenodenormal_Gau)
+
+    ! Nothing is implicitly defined
+    use referencevariables
+    use initcollocation,      only: D_lagrange_basis_function_1d, &
+                                      lagrange_basis_function_1d
+
+!   use variables, only:  Jx_r, facenodenormal
+
+    implicit none
+
+    integer,                       intent(in   ) :: iface, n_pts_1d_max, n_pts_1d
+    real(wp), dimension(n_pts_1d), intent(in   ) :: x_pts_1d
+    real(wp), dimension(:,:),      intent(in   ) :: xg_Gau
+    real(wp), dimension(:,:),      intent(  out) :: Jx_facenodenormal_Gau
+    real(wp) :: zeta, eta, xi
+    real(wp) :: t1, t2, t3, t4
+
+    integer  :: i, j, k, i1, j1, k1
+    integer  :: ixL, ixH, iyL, iyH, izL, izH
+    integer  :: n_Gau, node_id
+    integer  :: ival, kval
+    integer  :: ishift, jshift, kshift, face_shift
+
+    real(wp), dimension(:), allocatable  :: x_Gau
+    
+    continue
+
+    node_id = 0
+    n_Gau = n_pts_1d
+    face_shift = (iface-1)*n_pts_1d_max**2
+    allocate(x_Gau(n_pts_1d)) ; x_Gau(:) = x_pts_1d
+
+    ! Set to zero the local node ID
+          if(iface == 1) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = 1
+        zeta = -1.0_wp
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+
+              node_id = node_id + 1
+              kval = mod(node_id-1,n_Gau)+1 ;
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = (j1-1)*n_Gau + kval + face_shift
+                 t1 =  t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
+                 t4 =  t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
+                enddo
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t2 =  t2 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+                 t3 =  t3 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+              enddo   
+              Jx_facenodenormal_Gau(1,node_id+face_shift) =  (t1*t2 - t3*t4) * zeta
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = (j1-1)*n_Gau + kval + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
+                 t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
+              enddo
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+                 t3 = t3 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+              enddo
+              Jx_facenodenormal_Gau(2,node_id+face_shift) =  (t1*t2 - t3*t4) * zeta
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = (j1-1)*n_Gau + kval + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
+                 t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
+              enddo
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+                 t3 = t3 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+              enddo
+              Jx_facenodenormal_Gau(3,node_id+face_shift) =  (t1*t2 - t3*t4) * zeta
+            end do
+          end do
+      elseif(iface == 2) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = 1
+         izL = 1   ;  izH = n_pts_1d
+         eta = -1.0_wp
+        do i = izL, izH
+          zeta = x_Gau(i)
+            do k = ixL, ixH
+              xi = x_Gau(k)
+
+              node_id = node_id + 1
+              kval = mod(node_id-1,n_Gau)+1 ;
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
+              enddo
+              Jx_facenodenormal_Gau(1,node_id+face_shift) =  (t1*t2 - t3*t4) * eta
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
+              enddo
+              Jx_facenodenormal_Gau(2,node_id+face_shift) =  (t1*t2 - t3*t4) * eta
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
+              enddo
+              Jx_facenodenormal_Gau(3,node_id+face_shift) =  (t1*t2 - t3*t4) * eta
+            end do
+        end do
+      elseif(iface == 3) then
+         ixL = 1   ;  ixH = 1
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = n_pts_1d
+         xi  = +1.0_wp
+        do i = izL, izH
+          zeta = x_Gau(i)
+            do j = iyL, iyH
+              eta = x_Gau(j)
+
+              node_id = node_id + 1
+              ival = mod(node_id-1,n_Gau)+1 ;
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = node_id - ival + j1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
+                 t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + ival + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
+              enddo
+              Jx_facenodenormal_Gau(1,node_id+face_shift) =  (t1*t2 - t3*t4) * xi
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = node_id - ival + j1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
+                 t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + ival + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
+              enddo
+              Jx_facenodenormal_Gau(2,node_id+face_shift) =  (t1*t2 - t3*t4) * xi
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = node_id - ival + j1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
+                 t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + ival + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
+              enddo
+              Jx_facenodenormal_Gau(3,node_id+face_shift) =  (t1*t2 - t3*t4) * xi
+          end do
+        end do
+      elseif(iface == 4) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = 1
+         izL = 1   ;  izH = n_pts_1d
+         eta = +1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+
+              node_id = node_id + 1
+              kval = mod(node_id-1,n_Gau)+1 ;
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
+              enddo
+              Jx_facenodenormal_Gau(1,node_id+face_shift) =  (t1*t2 - t3*t4) * eta
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
+              enddo
+              Jx_facenodenormal_Gau(2,node_id+face_shift) =  (t1*t2 - t3*t4) * eta
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+                 t4 = t4 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + kval + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
+              enddo
+              Jx_facenodenormal_Gau(3,node_id+face_shift) =  (t1*t2 - t3*t4) * eta
+            end do
+        end do
+      elseif(iface == 5) then
+         ixL = 1   ;  ixH = 1
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = n_pts_1d
+          xi = -1.0_wp
+        do i = izL, izH
+          zeta = x_pts_1d(i)
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+
+              node_id = node_id + 1
+              ival = mod(node_id-1,n_Gau)+1 ;
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = node_id - ival + j1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
+                 t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + ival + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
+              enddo
+              Jx_facenodenormal_Gau(1,node_id+face_shift) =  (t1*t2 - t3*t4) * xi
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = node_id - ival + j1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
+                 t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + ival + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(3,ishift)
+              enddo
+              Jx_facenodenormal_Gau(2,node_id+face_shift) =  (t1*t2 - t3*t4) * xi
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = node_id - ival + j1 + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
+                 t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
+              enddo
+              do i1 = 1, n_pts_1d
+                 ishift = (i1-1)*n_Gau + ival + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(2,ishift)
+                 t3 = t3 + D_lagrange_basis_function_1d(zeta,i1,x_Gau,n_Gau) * xg_Gau(1,ishift)
+              enddo
+              Jx_facenodenormal_Gau(3,node_id+face_shift) =  (t1*t2 - t3*t4) * xi
+          end do
+        end do
+      elseif(iface == 6) then
+         ixL = 1   ;  ixH = n_pts_1d
+         iyL = 1   ;  iyH = n_pts_1d
+         izL = 1   ;  izH = 1
+        zeta = +1.0_wp
+          do j = iyL, iyH
+            eta = x_pts_1d(j)
+            do k = ixL, ixH
+              xi = x_pts_1d(k)
+
+              node_id = node_id + 1
+              kval = mod(node_id-1,n_Gau)+1 ;
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = (j1-1)*n_Gau + kval + face_shift
+                 t1 =  t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
+                 t4 =  t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
+                enddo
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t2 =  t2 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+                 t3 =  t3 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+              enddo   
+              Jx_facenodenormal_Gau(1,node_id+face_shift) =  (t1*t2 - t3*t4) * zeta
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = (j1-1)*n_Gau + kval + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
+                 t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(3,jshift)
+              enddo
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(3,kshift)
+                 t3 = t3 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+              enddo
+              Jx_facenodenormal_Gau(2,node_id+face_shift) =  (t1*t2 - t3*t4) * zeta
+
+              t1 = 0.0_wp; t2 = 0.0_wp; t3 = 0.0_wp; t4 = 0.0_wp
+              do j1 = 1, n_pts_1d
+                 jshift = (j1-1)*n_Gau + kval + face_shift
+                 t1 = t1 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(2,jshift)
+                 t4 = t4 + D_lagrange_basis_function_1d( eta,j1,x_Gau,n_Gau) * xg_Gau(1,jshift)
+              enddo
+              do k1 = 1, n_pts_1d
+                 kshift = node_id - kval + k1 + face_shift
+                 t2 = t2 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(1,kshift)
+                 t3 = t3 + D_lagrange_basis_function_1d(  xi,k1,x_Gau,n_Gau) * xg_Gau(2,kshift)
+              enddo
+              Jx_facenodenormal_Gau(3,node_id+face_shift) =  (t1*t2 - t3*t4) * zeta
+            end do
+          end do
+      endif
+
+    return
+  end subroutine Shell_Metrics_Analytic
+  
+  subroutine transform_grid()
+  !================================================================================================
+  !
+  ! Purpose: takes the grid and subjects it to a transformation
+  !
+  !================================================================================================
+ 
+    !-- use statments
+    use mpimod
+    use referencevariables, only                 : myprocid, nprocs, ihelems
+    use variables, only                          : xg
+    use precision_vars, only                     : pi
+    use initcollocation, only                    : element_properties
+  
+    implicit none
+
+    !-- local variables
+    integer                                      :: m_size, iproc,i_err
+    integer                                      :: s_tag, s_request_err, s_status
+    integer                                      :: r_tag, r_request_err, r_status
+    integer                                      :: inode, ielem
+    integer                                      :: n_pts_3d
+    real(wp)                                     :: x_min, y_min, z_min
+    real(wp)                                     :: x_max, y_max, z_max
+    real(wp), allocatable,dimension(:,:,:)       :: xyz_minmax
+    real(wp), dimension(3,2)                     :: xyz_loc_minmax
+    real(wp)                                     :: x_old, y_old, z_old, x, y, z 
+    real(wp)                                     :: xi, eta, zeta 
+
+    x_min = -1000
+    !   Parallel determination of the max and min values
+
+    ! setup matrix to store local max and min values
+    if(myprocid == 0 )  then
+      allocate(xyz_minmax(3,2,nprocs)); xyz_minmax = 0.0_wp
+      !-- set the values on the root process
+      xyz_minmax(1,1,1) = minval(xg(1,:,:)); xyz_minmax(2,1,1) = minval(xg(2,:,:)); xyz_minmax(3,1,1) = minval(xg(3,:,:))
+      xyz_minmax(1,2,1) = maxval(xg(1,:,:)); xyz_minmax(2,2,1) = maxval(xg(2,:,:)); xyz_minmax(3,2,1) = maxval(xg(3,:,:))  
+    endif
+     
+    !-- send the max min values from each process to the root process
+    if(myprocid /= 0 ) then
+      xyz_loc_minmax(1,1) = minval(xg(1,:,:)); xyz_loc_minmax(2,1) = minval(xg(2,:,:)); xyz_loc_minmax(3,1) = minval(xg(3,:,:))
+      xyz_loc_minmax(1,2) = maxval(xg(1,:,:)); xyz_loc_minmax(2,2) = maxval(xg(2,:,:)); xyz_loc_minmax(3,2) = maxval(xg(3,:,:))
+
+      s_tag = 100 + myprocid
+      m_size = 3*2
+      call mpi_isend(xyz_loc_minmax,m_size,mpi_double,0,s_tag,petsc_comm_world, &
+        & s_request_err,i_err)
+
+      call mpi_wait(s_request_err,s_status,i_err)
+    
+    else
+    !-- root process
+      do iproc = 1, nprocs-1
+        r_tag = 100 + iproc
+        m_size = 3*2
+        call mpi_irecv(xyz_minmax(1:3,1:2,iproc+1),m_size,mpi_double,iproc,r_tag, &
+          & petsc_comm_world,r_request_err,i_err)
+
+        call mpi_wait(r_request_err,r_status,i_err)
+      enddo
+
+      !-- determine global min and max x, y, and z values
+      x_min = minval(xyz_minmax(1,1,1:nprocs))
+      y_min = minval(xyz_minmax(2,1,1:nprocs))
+      z_min = minval(xyz_minmax(3,1,1:nprocs))
+
+      x_max = maxval(xyz_minmax(1,2,1:nprocs))
+      y_max = maxval(xyz_minmax(2,2,1:nprocs))
+      z_max = maxval(xyz_minmax(3,2,1:nprocs))
+
+    endif
+    call mpi_bcast(x_min,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(y_min,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(z_min,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(x_max,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(y_max,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(z_max,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    
+    !-- apply the transformation on each local element
+    do ielem = ihelems(1), ihelems(2)
+      !-- obtain element properties
+      call element_properties(ielem,n_pts_3d=n_pts_3d)
+
+      do inode = 1,n_pts_3d
+        !-- obtain old values (x,y,z)
+        x_old = xg(1,inode,ielem)
+        y_old = xg(2,inode,ielem)
+        z_old = xg(3,inode,ielem)
+
+        !-- compute new values of (x,y,z); here xi, eta, and zeta are variables used as parameters to vary between 0 and 1
+        xi = (x_old-x_min)/(x_max-x_min)
+        eta = (y_old-y_min)/(y_max-y_min)
+        zeta = (z_old-z_min)/(z_max-z_min)
+        x = x_old+1.0_wp/10.0_wp*sin(pi*xi)*sin(pi*eta)*sin(pi*zeta)
+        y = y_old+1.0_wp/10.0_wp*exp(1.0_wp-eta)*sin(pi*xi)*sin(pi*zeta)
+        z = z_old+1.0_wp/10.0_wp*exp(1.0_wp-zeta)*sin(pi*xi)*sin(pi*eta)
+        
+        !-- overwrite old values with new values
+        xg(1,inode,ielem) = x; xg(2,inode,ielem) = y; xg(3,inode,ielem) = z
+      enddo
+    enddo
+    
+    !-- write to file ONLY USE WITH ONE PROCESS
+    !if (nprocs==1)then
+    !   call write_grid_to_file('test.txt')
+    !endif
+
+    !-- test of the snap to sphere subroutines
+    !call PetscFinalize(i_err); stop
+  end subroutine transform_grid
+
+  subroutine snap_to_sphere(ielem,points,origin,xyz)
+  !================================================================================================
+  !
+  ! Purpose: takes the grid and subjects it to a transformation
+  !
+  ! Assumption: that the element being snaped comes from a soccer ball decomposition of the sphere
+  !             and therefore, each surface on the sphere has sides of the same length
+  !
+  !================================================================================================
+ 
+    !-- use statments
+    use initcollocation, only                    : element_properties
+    use precision_vars, only                     : pi
+ 
+    implicit none
+
+    !-- input variables
+    integer, intent(in)                          :: ielem
+    real(wp), intent(in), dimension(8,3)         :: points
+    real(wp), intent(in), dimension(3)           :: origin
+    real(wp), intent(inout),allocatable, dimension(:,:) :: xyz
+
+    !-- local variables
+    integer                                      :: i, j, count_min, count_max, inode
+    integer                                      :: n_pts_1d, n_pts_2d, n_pts_3d
+    integer, dimension(4)                        :: order
+    integer                                      :: i_err
+    real(wp),dimension(4,3)                      :: points_plane_r_min, points_plane_r_max
+    real(wp),dimension(4,3)                      :: points_plane_r_min_cc, points_plane_r_max_cc
+    real(wp), dimension(8)                       :: r_points, theta_points, phi_points
+    real(wp)                                     :: r_max, r_min
+    real(wp), allocatable, dimension(:)          :: r
+    real(wp), allocatable, dimension(:)           :: x_pts_1d
+
+    real(wp), parameter                          :: tol = 10**(-12)
+
+    !-- determine the radius 
+    do i = 1,8
+      r_points(i) = sqrt( (points(i,1)-origin(1))**2 + (points(i,2)-origin(2))**2 + (points(i,3)-origin(3)) )
+    enddo
+
+    !-- determine the min and max radius
+    r_min = minval(r_points); r_max = maxval(r_points)
+
+    !-- determine theta and phi
+    do i = 1,8
+      theta_points(i) = acos( (points(i,3)-origin(3))/r_points(i) )
+
+      !-- logic to bar against negative theta and theta greater than pi
+      if( theta_points(i)<0.0_wp) then 
+        theta_points(i) = abs(theta_points(i))
+      endif
+      if( theta_points(i)> pi ) then
+        theta_points(i) = 2.0_wp*pi-theta_points(i)
+      endif
+
+      phi_points(i) = atan( (points(i,2)-origin(2))/(points(i,1)-origin(1)) )
+
+      !-- logic to bar against negative phi
+      if ( phi_points(i)< 0.0_wp) then
+        phi_points(i) = 2.0_wp*pi+phi_points(i)
+      endif
+
+    enddo
+
+    !-- determine which four points have the same radius
+    count_min = 1
+    count_max = 1
+    do i = 1,8
+      if (abs(r_points(1)-r_min).LE.tol) then
+        points_plane_r_min(count_min,1) = r_min
+        points_plane_r_min(count_min,2) = theta_points(i)
+        points_plane_r_min(count_min,3) = phi_points(i) 
+        count_min = count_min+1
+      elseif(abs(r_points(1)-r_min).LE.tol) then
+        points_plane_r_max(count_max,1) = r_max
+        points_plane_r_max(count_max,2) = theta_points(i)
+        points_plane_r_max(count_max,3) = phi_points(i) 
+        count_max = count_max+1
+      else
+        write(*,*)' the 8 points furnished to initgrid: snap_to_sphere are incorrect',points
+        call PetscFinalize(i_err); stop
+      endif
+    enddo
+ 
+    !-- organize the points in each plane in a counter clockwise fashion where the first point has
+    !   the minimum theta and phi values and the last point has the maximum theta and phi values
+
+    !-- plane r_min
+    do i = 1,4
+      if((abs(points_plane_r_min(i,2)-minval(points_plane_r_min(1:4,2))) < tol)&
+         .AND.(abs(points_plane_r_min(i,3)-minval(points_plane_r_min(1:4,3))) < tol))then
+        !-- min theta, min phi point
+        order(1) = i
+      endif 
+      if( (abs(points_plane_r_min(i,2)-maxval(points_plane_r_min(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_min(i,3)-minval(points_plane_r_min(1:4,3))) < tol)      )then
+        !-- max theta, min phi point
+        order(2) = i
+      endif    
+      if( (abs(points_plane_r_min(i,2)-maxval(points_plane_r_min(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_min(i,3)-maxval(points_plane_r_min(1:4,3))) < tol)      )then
+        !-- max theta, max phi point
+        order(3) = i
+      endif 
+      if( (abs(points_plane_r_min(i,2)-minval(points_plane_r_min(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_min(i,3)-maxval(points_plane_r_min(1:4,3))) < tol)      )then
+        !-- min theta, max phi point
+        order(4) = i
+      endif 
+    enddo
+
+    !-- reorder
+    do i = 1,4
+      points_plane_r_min_cc(i,1:3) = points_plane_r_min(order(i),1:3)
+    enddo
+
+    !-- plane r_max
+    do i = 1,4
+      if( (abs(points_plane_r_max(i,2)-minval(points_plane_r_max(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_max(i,3)-minval(points_plane_r_max(1:4,3))) < tol)      )then
+        !-- min theta, min phi point
+        order(1) = i
+      endif 
+      if( (abs(points_plane_r_max(i,2)-maxval(points_plane_r_max(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_max(i,3)-minval(points_plane_r_max(1:4,3))) < tol)      )then
+        !-- max theta, min phi point
+        order(2) = i
+      endif    
+      if( (abs(points_plane_r_max(i,2)-maxval(points_plane_r_max(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_max(i,3)-maxval(points_plane_r_max(1:4,3))) < tol)      )then
+        !-- max theta, max phi point
+        order(3) = i
+      endif 
+      if( (abs(points_plane_r_max(i,2)-minval(points_plane_r_max(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_max(i,3)-maxval(points_plane_r_max(1:4,3))) < tol)      )then
+        !-- min theta, max phi point
+        order(4) = i
+      endif 
+    enddo
+
+    !-- reorder
+    do i = 1,4
+      points_plane_r_max_cc(i,1:3) = points_plane_r_max(order(i),1:3)
+    enddo
+
+    !-- obtain element properties
+    call element_properties(ielem,n_pts_1d=n_pts_1d,n_pts_2d=n_pts_2d,&
+                            n_pts_3d=n_pts_3d,x_pts_1d=x_pts_1d)
+
+    !-- construct nodal distribution in the r direction
+    if(allocated(r)) deallocate(r); allocate(r(n_pts_1d)); r = 0.0_wp
+    do inode = 1, n_pts_1d
+      r(i) = (r_max-r_min)/2.0_wp*x_pts_1d(i)+(r_max+r_min)/2.0_wp
+    enddo
+    
+    !-- construct each plane of points
+    allocate(xyz(n_pts_3d,3)); xyz = 0.0_wp
+    
+    do i = 1, n_pts_1d
+      !-- set the new r value 
+      do j = 1, 4
+        points_plane_r_min_cc(j,1) = r(j)
+      enddo
+      call snap_to_sphere_patch(ielem,points_plane_r_min_cc,origin,n_pts_1d,xyz(n_pts_2d*(i-1)+1:i*n_pts_2d,1:3))
+    enddo
+
+    !-- deallocate statments
+    deallocate(r)
+  end subroutine snap_to_sphere
+
+  subroutine snap_to_sphere_patch(ielem,points,origin,n_pts_1d,xyz)
+  !================================================================================================
+  !
+  ! Purpose: takes the grid and subjects it to a transformation
+  !
+  !================================================================================================
+ 
+    !-- use statments
+    use initcollocation, only                    : element_properties
+  
+    implicit none
+
+    !-- input variables
+    integer, intent(in)                          :: ielem, n_pts_1d
+    real(wp), intent(in), dimension(4,3)         :: points
+    real(wp), intent(in), dimension(3)           :: origin
+    real(wp), intent(inout),dimension(n_pts_1d**2,3) :: xyz
+
+    !-- local variables
+    integer                                      :: inode
+    integer                                      :: i, j
+    integer                                      :: i_err
+    real(wp), allocatable, dimension(:)          :: x_pts_1d
+    real(wp), dimension(4)                       :: r, theta_points, phi_points
+    real(wp)                                     :: theta, phi, theta_min, theta_max, phi_min, phi_max
+    real(wp)                                     :: xi, eta
+
+    real(wp), parameter                          :: tol = 10**(-12)
+
+    !-- determine the radius and ensure that all 4 points have the same radius 
+    do i = 1,4
+      r(i) = sqrt( (points(i,1)-origin(1))**2 + (points(i,2)-origin(2))**2 + (points(i,3)-origin(3)) )
+    enddo
+
+    if ( (abs(r(1)-r(2)).GE.tol).OR.(abs(r(1)-r(3)).GE.tol).OR.(abs(r(1)-r(4)).GE.tol) ) then
+      write(*,*)'the four points that have been provided to initgrid: snap_to_sphere_patch do not have the same radius'
+      call PetscFinalize(i_err); stop
+    endif
+
+    !-- determine min/max theta, phi
+    do i = 1,4
+      theta_points(i) = acos( (points(i,3)-origin(3))/r(1) )
+
+      !-- logic to bar against negative theta and theta greater than pi
+      if( theta_points(i).LE.0.0_wp) then 
+        theta_points(i) = abs(theta_points(i))
+      endif
+      if( theta_points(i)> pi ) then
+        theta_points(i) = 2.0_wp*pi-theta_points(i)
+      endif
+
+      phi_points(i) = atan( (points(i,2)-origin(2))/(points(i,1)-origin(1)) )
+
+      !-- logic to bar against negative phi
+      if ( phi_points(i)< 0.0_wp) then
+        phi_points(i) = 2.0_wp*pi+phi_points(i)
+      endif
+
+    enddo
+
+    theta_min = minval(theta_points); theta_max = maxval(theta_points)
+    phi_min = minval(phi_points);     phi_max = maxval(phi_points)
+                
+    !-- obtain element properties
+    call element_properties(ielem,x_pts_1d=x_pts_1d)
+
+    inode = 1
+    do i = 1,n_pts_1d
+      do j = 1,n_pts_1d
+        xi = x_pts_1d(i)
+        eta = x_pts_1d(j)
+
+        theta = (theta_max-theta_min)/2.0_wp*xi+(theta_max+theta_min)/2.0_wp
+        phi = (phi_max-phi_min)/2.0_wp*eta+(phi_max+phi_min)/2.0_wp
+
+        xyz(inode,1) = origin(1)+r(1)*cos(phi)*sin(theta)
+        xyz(inode,2) = origin(2)+r(1)*sin(phi)*cos(theta)
+        xyz(inode,3) = origin(3)+r(1)*cos(theta)
+  
+        inode = inode+1
+      enddo
+    enddo
+
+
+    !-- deallocate statments
+    deallocate(x_pts_1d)
+
+  end subroutine snap_to_sphere_patch
+
+subroutine write_grid_to_file(file_name)
+!==================================================================================================
+!
+! Purpose: write a grid element by element to file
+!
+! Comments:
+!
+! Additional documentation: THIS IS NOT SETUP FOR PARALLEL RUNS ONLY USE ONE PROCESS
+!
+! Unit tests: 
+!
+! Inputs: file_name (char(len=*): string with the name of the file
+!
+! outputs: 
+!
+!
+!==================================================================================================
+  
+  !-- variables
+  use precision_vars, only                       : get_unit
+  use referencevariables, only                 : myprocid, nprocs, ihelems
+  use variables, only                          : xg
+  use initcollocation, only                    : element_properties
+
+  implicit none
+                     
+  !-- input variables
+  character(len=*),optional,intent(in)           :: file_name 
+
+  !-- local variables
+  integer                                        :: iunit, inode, n_pts_3d, ielem
+  integer                                        :: i,j
+  character(len=1024)                            :: numb
+
+  !-- file access variables
+  integer                                        :: ios
+
+  !-- writing to file
+  print *,"writing to: ",file_name
+
+  !-- open file on the master proc
+  if (myprocid==0) then
+    !-- obtain a free Fortarn unit
+    call get_unit(iunit)
+    
+    !-- open the file
+    open(UNIT=iunit,FILE=file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
+    if(ios.NE.0) then 
+      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
+      stop
+    endif
+    
+    !-- write the root process nodal information to file
+    do ielem = ihelems(1), ihelems(2)
+      !-- obtain element properties
+      write(numb,'(I0)')ielem
+      call element_properties(ielem,n_pts_3d=n_pts_3d)
+      write(iunit,*)'element_'//trim(adjustl(numb))//" = [..."
+      do inode = 1,n_pts_3d
+        write(iunit,*)(xg(j,inode,ielem),j=1,3),";"
+      enddo
+      write(iunit,*)"];"
+    enddo
+       !-- close file
+    close(UNIT=iunit)
+  endif
+ 
+end subroutine write_grid_to_file
+
 end module initgrid
+

@@ -33,8 +33,8 @@ s1 = news; Plane Surface(s1) = {ll1};
 Transfinite Surface{s1} = {pCirc2,pCirc1,pCirc4,pCirc3};
 
 
-q = 2 ;
-p = 0 ;
+q = 2;
+p = 1 ;
 Cylinder = 1 + q*2*(2^p) ;
 EndCaps  = 1 + q*1*(2^p) ;
 Transfinite Line{lLinC1,lLinC2}  = EndCaps   Using Progression 1.0;

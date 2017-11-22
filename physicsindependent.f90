@@ -224,7 +224,7 @@ contains
     call calcfacenormals_LGL()
 
     call calcfacenormals_Gau()
-    if(non_conforming .eqv. .true.) call modify_metrics_nonconforming()
+    !if(non_conforming .eqv. .true.) call modify_metrics_nonconforming()
 
     if (myprocid == 0) then
       write(*,*) 'Start actual computation'
