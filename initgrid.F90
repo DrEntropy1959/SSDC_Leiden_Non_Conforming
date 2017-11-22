@@ -1270,9 +1270,6 @@ contains
 
         knode = n_LGL_2d * (iface - 1)
 
-!       if(myprocid == 0) write(*,*)'ielem,iface,ef2e(1,iface,ielem),ef2e(4,iface,ielem),elem_props(2,ielem),i_low', &
-!             ielem,iface,ef2e(1,iface,ielem),ef2e(4,iface,ielem),elem_props(2,ielem),ef2e(3,iface,ielem)-myprocid,i_low
-
         ! If on boundary, connect to self
         if (ef2e(1,iface,ielem) < 0) then
           
@@ -2034,6 +2031,7 @@ contains
     use variables, only: kfacenodes, facenodenormal, r_x, ef2e, efn2efn, Jx_r, &
                        Jx_facenodenormal_LGL 
     use initcollocation,      only: element_properties
+    use collocationvariables, only: elem_props
 
     implicit none
 
@@ -2043,9 +2041,9 @@ contains
     integer :: n_LGL_2d, nodesperface_max
 
     real(wp) :: dx
-    real(wp), dimension(3) :: wrk
-    !real(wp), dimension(3) :: xg_target=(/1.5_wp,1.0_wp,0.0_wp/)
-    logical                :: testing = .false.
+    real(wp), dimension(3) :: w1, w2
+   !real(wp), dimension(3) :: xg_target=(/1.5_wp,1.0_wp,0.0_wp/)
+    logical                :: testing = .true.
 
     ! number of nodes in each element
 
@@ -2061,58 +2059,70 @@ contains
                               n_pts_2d=n_LGL_2d,  &
                             kfacenodes=kfacenodes )
 
-      ! reset facial node index counter
-      knode = 0
-      ! compute outward facing normals
-      !
-      ! loop over faces
-      do iface = 1,nfacesperelem
-        ! loop over nodes on face
-        do inode = 1,n_LGL_2d
-          ! update facial node index counter
-          knode = knode + 1
-          ! volumetric node index of facial node
-          i = kfacenodes(inode,iface)
-          ! unsigned direction of face in computational space
-          idir = abs(elfacedirections(iface))
-          ! sign so normal is facing outward
-          dx = sign(1.0_wp,real(elfacedirections(iface),wp))
-          ! outward facing normal using metrics
+      knode = 0                                  ! reset facial node index counter
+                                                 ! compute outward facing normals
+      do iface = 1,nfacesperelem                 ! loop over faces
+
+        do inode = 1,n_LGL_2d                    ! loop over nodes on face
+
+          knode = knode + 1                      ! update facial node index counter
+
+          i = kfacenodes(inode,iface)            ! volumetric node index of facial node
+
+          idir = abs(elfacedirections(iface))    ! unsigned direction of face in computational space
+
+          dx = sign(1.0_wp,real(elfacedirections(iface),wp)) ! sign so normal is facing outward
+
+                                                 ! outward facing normal divided by Jacobian 
              facenodenormal    (:,knode,ielem) =               r_x(idir,:,i,ielem) * dx
+                                                 ! outward facing normal using metrics
           Jx_facenodenormal_LGL(:,knode,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
+
         end do
+
       end do
+
     end do
 
     ! testing facenodenormal calculations
 
     if(testing) then
-      do ielem = ihelems(1), ihelems(2)
+      elem_loop:do ielem = ihelems(1), ihelems(2)
 
-       call element_properties(ielem,             &
-                              n_pts_2d=n_LGL_2d,  &
-                            kfacenodes=kfacenodes )
+        call element_properties(ielem,             &
+                               n_pts_2d=n_LGL_2d,  &
+                             kfacenodes=kfacenodes )
 
-        knode = 0
-        ! loop over faces
-        do iface = 1,nfacesperelem
-          ! loop over nodes on face
-          kelem = ef2e(2,iface,ielem)
-          do inode = 1,n_LGL_2d
-            knode = knode + 1
-            if(ef2e(1,iface,ielem) > 0)then
-              i = (ef2e(1,iface,ielem)-1)*n_LGL_2d+efn2efn(4,knode,ielem)
-              wrk = facenodenormal(1:3,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem) &
-                  + facenodenormal(1:3, i ,kelem)*Jx_r(efn2efn(1,knode,ielem),kelem)
-              if(magnitude(wrk) >= 1.0e-10_wp) then
-                write(*,*)'facenodenormals are incorrect'
-                write(*,*)facenodenormal(1:2,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem) &
-                        , facenodenormal(1:2, i ,kelem)*Jx_r(efn2efn(1,knode,ielem),kelem)
-              endif
+        face_loop:do iface = 1,nfacesperelem                      ! loop over faces
+
+          if (ef2e(4,iface,ielem) == elem_props(2,ielem)) then
+
+            if (ef2e(3,iface,ielem) /= myprocid) then       !  Parallel conforming path
+
+            else                                            !  Serial conforming path
+
+              knode = n_LGL_2d * (iface - 1)                ! stride through shell ordering 
+              kelem = ef2e(2,iface,ielem)                   ! adjoining element
+              do inode = 1,n_LGL_2d                         ! loop over nodes on face
+                knode = knode + 1
+                if(ef2e(1,iface,ielem) > 0)then
+
+                  i = (ef2e(1,iface,ielem)-1)*n_LGL_2d + efn2efn(4,knode,ielem)
+
+                  w1(:) = facenodenormal(1:3,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem)
+                  w2(:) = facenodenormal(1:3,   i ,kelem)*Jx_r(efn2efn(1,knode,ielem) ,kelem)
+
+                  if(magnitude(w1+w2) >= 1.0e-10_wp) then
+                    write(*,*)'facenodenormals are incorrect' ; write(*,*)w1,w2 ;
+
+                  endif
+                endif
+              end do
             endif
-          end do
-        end do
-      end do
+          endif
+
+         end do face_loop
+      end do elem_loop
     endif
 
   end subroutine calcfacenormals_LGL
@@ -2700,7 +2710,14 @@ contains
      
     end do elloop
 
-    deallocate(u,v,w,work,Amat,a_t,bvec,wI)
+    if(allocated(u)) deallocate(u) ;
+    if(allocated(v)) deallocate(v) ;
+    if(allocated(w)) deallocate(w) ;
+    if(allocated(work)) deallocate(work) ;
+    if(allocated(Amat)) deallocate(Amat) ;
+    if(allocated(a_t)) deallocate(a_t) ;
+    if(allocated(bvec)) deallocate(bvec) ;
+    if(allocated(wI)) deallocate(wI) ;
 
 !   Parallel reduction of errors using conventional MPI calls
 
@@ -6108,6 +6125,7 @@ contains
     integer :: n_Gau_1d_max , n_Gau_2d_max , n_Gau_shell_max
     integer :: n_Gau_1d_Mort, n_Gau_2d_Mort
     integer :: n_LGL_1d_On  , n_LGL_1d_Off
+    integer :: ierr
 
     continue
 
@@ -6148,7 +6166,7 @@ contains
 
             cycle
 
-        else if((ef2e(3,iface,ielem) /= myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then ! Off-process
+        else if((ef2e(3,iface,ielem) /= myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then ! Off-process - NonConforming
 
           do inode = 1, n_Gau_2d_Mort                            ! Loop over the nodes on the mortar
 
@@ -6183,16 +6201,22 @@ contains
             
             end do
               
-            ! Print information at screen if there is a problem and stop
-            ! computation
+            ! Print information at screen if there is a problem and stop computation
             if (jnode > n_Gau_2d_Mort .and. myprocid==1) then
               write(*,*) 'Connectivity error in face-node connectivity_Gau, Parallel.'
               write(*,*) 'Process ID, element ID, face ID, ef2e'
               write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-              write(*,*) 'Node coordinates and ghost node coordinates'
-              write(*,*) x1, xgghst_Gau_Shell(:,i_low + 1:i_low + n_Gau_2d_Mort)
+              write(*,*) 'Node coordinates'
+              write(*,*) x1
+              write(*,*) 'Possible partner node coordinates'
+!             
+!             do jnode = i_low+1, i_low+n_Gau_2d_Mort
+              do jnode = 1, size(xgghst_Gau_Shell,2)
+                x2 = xgghst_Gau_Shell(:,jnode)
+                write(*,*) x2
+              end do 
               write(*,*) 'Exiting...'
-              stop
+              call PetscFinalize(ierr) ; stop
             end if
 
           end do
@@ -6200,7 +6224,7 @@ contains
           ! Update the position in the ghost stack
           i_low = i_low + n_Gau_2d_Mort
           
-        else if((ef2e(3,iface,ielem) == myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then  ! On-process
+        else if((ef2e(3,iface,ielem) == myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then  ! On-process - Non-conforming
 
           ! Loop over the nodes on the face
           do inode = 1, n_Gau_2d_Mort
@@ -6238,22 +6262,22 @@ contains
             end do ! End do jnode
 
             ! Print information at screen if there is a problem and stop computation
-!           if (efn2efn_Gau(2,knode,ielem) < 0) then
-!             write(*,*) 'Connectivity error in face-node connectivity of Gauss path.'
-!             write(*,*) 'Process ID, element ID, face ID, ef2e'
-!             write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-!             write(*,*) 'Node coordinates'
-!             write(*,*) x1
-!             write(*,*) 'Possible partner node coordinates'
-!             
-!             do jnode = 1, n_Gau_2d_Mort
-!               x2 = xg(:,kfacenodes_Gau(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
-!               write(*,*) x2
-!             end do 
-
-!             write(*,*) 'Exiting...'
-!             stop
-!           end if
+            if (efn2efn_Gau(2,knode,ielem) < 0) then
+              write(*,*) 'Connectivity error in face-node connectivity of Gauss path.'
+              write(*,*) 'Process ID, element ID, face ID, ef2e'
+              write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
+              write(*,*) 'Node coordinates'
+              write(*,*) x1
+              write(*,*) 'Possible partner node coordinates'
+              
+              do jnode = 1, n_Gau_2d_Mort
+                kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
+                x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
+                write(*,*) x2
+              end do 
+              write(*,*) 'Exiting...'
+              call PetscFinalize(ierr) ; stop
+            end if
 
           end do ! End do inode
           
