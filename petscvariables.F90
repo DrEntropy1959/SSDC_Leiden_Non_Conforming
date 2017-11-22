@@ -7,6 +7,9 @@ module petscvariables
   Vec xpetsc
   Vec xlocpetsc
 
+  Vec nxpetsc_Shell
+  Vec nxlocpetsc_Shell
+
   Vec upetsc
   Vec ulocpetsc
 
