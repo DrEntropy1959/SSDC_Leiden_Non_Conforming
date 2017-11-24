@@ -1953,10 +1953,10 @@ contains
 
     allocate(nxghst_LGL_shell(ndim,nghost_LGL_shell))
 
-    call PetscComm_1D_Shell_DataSetup(Jx_facenodenormal_LGL,nxghst_LGL_shell,nxpetsc_shell,nxlocpetsc_shell, &
+    call PetscComm_1D_Mortar_DataSetup(Jx_facenodenormal_LGL,nxghst_LGL_shell,nxpetsc_shell,nxlocpetsc_shell, &
              & size(Jx_facenodenormal_LGL,1), size(Jx_facenodenormal_LGL,2), nelems, size(nxghst_LGL_shell,2))
 
-    call UpdateComm_1D_ShellGhostData(Jx_facenodenormal_LGL,nxghst_LGL_shell,nxpetsc_shell,nxlocpetsc_shell, &
+    call UpdateComm_1D_Mortar_GhostData(Jx_facenodenormal_LGL,nxghst_LGL_shell,nxpetsc_shell,nxlocpetsc_shell, &
              & size(Jx_facenodenormal_LGL,1), size(Jx_facenodenormal_LGL,2),         size(nxghst_LGL_shell,2))
 
 
@@ -2006,12 +2006,11 @@ contains
 
     allocate(xgghst_Gau_shell(ndim,nghost_Gau_shell))
 
-    call PetscComm_1D_Shell_DataSetup(xg_Gau_shell,xgghst_Gau_shell,xpetsc_shell,xlocpetsc_shell, &
+    call PetscComm_1D_Mortar_DataSetup(xg_Gau_shell,xgghst_Gau_shell,xpetsc_shell,xlocpetsc_shell, &
                   & size(xg_Gau_shell,1), size(xg_Gau_shell,2), nelems, size(xgghst_Gau_shell,2))
 
-    call UpdateComm_1D_ShellGhostData(xg_Gau_shell,xgghst_Gau_shell,xpetsc_shell,xlocpetsc_shell, &
+    call UpdateComm_1D_Mortar_GhostData(xg_Gau_shell,xgghst_Gau_shell,xpetsc_shell,xlocpetsc_shell, &
                   & size(xg_Gau_shell,1), size(xg_Gau_shell,2),         size(xgghst_Gau_shell,2))
-
 
   end subroutine PetscGridLocations_Gau
   
@@ -2647,13 +2646,13 @@ contains
 
   !============================================================================
 
-  subroutine PetscComm_1D_Shell_DataSetup(Zin, Zghstin, Zpetscin, Zlocin, nq, nk, ne, ngh)
+  subroutine PetscComm_1D_Mortar_DataSetup(Zin, Zghstin, Zpetscin, Zlocin, nq, nk, ne, ngh)
 
     ! Allocate the shell ghost data for Navier Stokes computations
     ! Data is stored in SHELL coordinates (dimension => nk = nodesperface*nfacesperelem )
 
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
-    use variables,            only: ef2e, kfacenodes
+    use variables,            only: ef2e
     use initcollocation,      only: element_properties
     use collocationvariables, only: elem_props
     implicit none
@@ -2674,13 +2673,22 @@ contains
     integer :: ntot, ntotG
     integer, allocatable :: iyu(:)
     integer :: ielem, iloc, iface
-    integer :: i, kelem, kface, ieq, nodesperface
+    integer :: i, kelem, kface, ieq
+    integer :: n_S_1d_Mort, n_S_2d_Mort, nfacesize
+    integer :: ierr
 
     xinit  = 0.0_wp
 
     ! total length of on process data for 1D vector of solution
     ntot  = nq * nk * nelems
     ntotG = nq * ngh
+
+    nfacesize = nk / nfacesperelem
+
+    if(nfacesize*nfacesperelem /= nk) then
+      write(*,*)'wrong sizes in PetscComm_1D_Mortar: stopping'
+      call PetscFinalize(ierr) ; stop
+    end if
 
     ! allocate memory for ghost locations
     allocate(iyu(ntotG))
@@ -2697,21 +2705,20 @@ contains
 
           kelem = ef2e(2,iface,ielem)                ! element of neighbor
           kface = ef2e(1,iface,ielem)                ! face of neighbor
-  
-          call element_properties(kelem,         &
-                         n_pts_2d=nodesperface,  &
-                       kfacenodes=kfacenodes)
 
-          do i = 1, nodesperface                     ! loop over nodes on neighbor face
+          n_S_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
+          n_S_2d_Mort = n_S_1d_Mort**2
+  
+          do i = 1, n_S_2d_Mort                      ! loop over nodes on neighbor face
 
             do ieq = 1, nq                           ! loop over equations
 
               iloc = iloc+1                          ! advance position in ghost array
                                                      ! set position of ghost in global vector containing solution data
-              iyu(iloc) = nq * nk *(kelem-1)               & ! skip over previous elements
-                        + nq * nk *(kface-1)/nfacesperelem & ! nk/nfacesperelem is face dimension
-                        + nq*(i-1)                         & ! skip over previous eqns
-                        + ieq                                ! eqn
+              iyu(iloc) = nq * nk *(kelem-1)        & ! skip over previous elements
+                        + nq * nfacesize *(kface-1) & ! nk/nfacesperelem is face dimension
+                        + nq*(i-1)                  & ! skip over previous eqns
+                        + ieq                         ! eqn
 
             end do
 
@@ -2725,6 +2732,7 @@ contains
 
                                                       ! call to petsc to create global vector with ghosts
     call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, ntotG, iyu, Zpetscin, ierrpetsc)
+
     call VecSet(Zpetscin, xinit, ierrpetsc)           ! initialize to zero
                                                       ! assemble parallel vector
     call VecAssemblyBegin(Zpetscin,ierrpetsc)
@@ -2735,7 +2743,7 @@ contains
     ! create container for local vector that contains on process plus ghost data for solution
     call VecCreateSeq(petsc_comm_self, ntot + ntotG, Zlocin, ierrpetsc)
 
-  end subroutine PetscComm_1D_Shell_DataSetup
+  end subroutine PetscComm_1D_Mortar_DataSetup
 
   !===========================================================================================
   !===========================================================================================
@@ -3603,7 +3611,7 @@ contains
 
   !============================================================================
   
-  subroutine UpdateComm_1D_ShellGhostData(Zin, Zghstin, Zpetsc, Zlocpetsc, nq, nk, ngh)
+  subroutine UpdateComm_1D_Mortar_GhostData(Zin, Zghstin, Zpetsc, Zlocpetsc, nq, nk, ngh)
 
     ! Communicates solution data across processes and updates the array ughst.
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
@@ -3624,9 +3632,9 @@ contains
     PetscErrorCode ierrpetsc
 
     integer :: ntot, ntotu, ntotw
-    integer :: ielem, iloc, iface
-    integer :: kelem, n_pts_1d_Mort
-    integer :: i, ieq, jnode, nodesperface, nodesperelem
+    integer :: ielem, iloc, iface, nfacesize
+    integer :: kelem, n_S_1d_Mort, n_S_2d_Mort
+    integer :: i, ieq, jnode
     integer,  allocatable :: iyu(:)
     real(wp), allocatable ::  yu(:)
 
@@ -3635,11 +3643,9 @@ contains
     ntotu = nq * nk * nelems     ! length of on-process data including ZERO PADDING
     ntotw = nq * nk              ! length of on-element data including ZERO PADDING
 
-    do ielem = ihelems(1), ihelems(2)                       ! loop over elements
+    nfacesize = nk / nfacesperelem
 
-      call element_properties(ielem,         &
-                     n_pts_2d=nodesperface,  &
-                     n_pts_3d=nodesperelem)
+    do ielem = ihelems(1), ihelems(2)                       ! loop over elements
 
       do iface = 1, nfacesperelem                           ! loop over 6 faces
 
@@ -3647,23 +3653,24 @@ contains
             cycle
         else
 
-         n_pts_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
-         ntot = n_pts_1d_Mort**2
+         n_S_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
+         n_S_2d_Mort = n_S_1d_Mort**2
+         ntot = nq * n_S_2d_Mort
 
          if(allocated(iyu)) deallocate(iyu) ; allocate(iyu(ntot)) ; iyu = 0
          if(allocated( yu)) deallocate( yu) ; allocate( yu(ntot)) ;  yu = 0.0_wp
  
-         do i = 1, nodesperface                              ! loop over nodes on face
+         do i = 1, n_S_2d_Mort                               ! loop over nodes on face
  
-           jnode = (iface-1)*nodesperface + i                ! access shell coordinate
+           jnode = (iface-1)*nfacesize + i                   ! access shell coordinate
  
            do ieq = 1, nq                                    ! loop over variables
-              yu(nq*(jnode-1)+ieq) = Zin(ieq,jnode,ielem)    ! update temporary solution values
+              yu(nq*(i-1)+ieq) = Zin(ieq,jnode,ielem)        ! update temporary solution values
                                                              ! update global location of solution values
-             iyu(nq*(jnode-1)+ieq) = ntotw*(ielem-1)   &     ! skip previous elements
-                                   + nq*(jnode-1)      &
-                                   + ieq               &
-                                   - 1
+             iyu(nq*(i-1)+ieq) = ntotw*(ielem-1)   &         ! skip previous elements
+                               + nq*(jnode-1)      &
+                               + ieq               &
+                               - 1
            end do
  
          end do
@@ -3676,8 +3683,7 @@ contains
 
     end do
 
-                                                            ! assemble vector
-    call VecAssemblyBegin(Zpetsc,ierrpetsc)
+    call VecAssemblyBegin(Zpetsc,ierrpetsc)                 ! assemble vector
     call VecAssemblyEnd  (Zpetsc,ierrpetsc)
                                                             ! update ghost values
     call VecGhostUpdateBegin(Zpetsc, insert_values, scatter_forward, ierrpetsc)
@@ -3699,9 +3705,10 @@ contains
 
           kelem = ef2e(2,iface,ielem)                       ! element of neighbor
 
-          call element_properties(kelem, n_pts_2d=nodesperface)
+          n_S_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
+          n_S_2d_Mort = n_S_1d_Mort**2
 
-          do i = 1, nodesperface                              ! loop over nodes
+          do i = 1, n_S_2d_Mort                               ! loop over nodes
 
             iloc = iloc+1                                     ! update ghost node index
 
@@ -3723,6 +3730,6 @@ contains
     if(associated(xx_Z)) deallocate(xx_Z)
 
 
-  end subroutine UpdateComm_1D_ShellGhostData
+  end subroutine UpdateComm_1D_Mortar_GhostData
   
 end module mpimod
