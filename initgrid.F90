@@ -2044,7 +2044,7 @@ contains
     real(wp) :: dx
     real(wp), dimension(3) :: w1, w2
    !real(wp), dimension(3) :: xg_target=(/1.5_wp,1.0_wp,0.0_wp/)
-    logical                :: testing = .false.
+    logical                :: testing = .true.
 
     ! number of nodes in each element
 
@@ -2709,10 +2709,12 @@ contains
          r_x(3,1:3,inode,ielem) = a_t((3-1)*n_pts_3d+inode,1:3) / Jx_r(inode,ielem)
 
       enddo
+
       !-- testing to see if the discrete metric terms satisfy the correct GCL condition
+
       if(testing_metric_comp) then
-        if(allocated(Smat)) deallocate(Smat) ; allocate(Smat(nm,n)) ; Smat(:,:) = 0.0_wp
-        if(allocated(verror)) deallocate(verror); allocate(verror(n)); t1 = 0.0_wp
+        if(allocated(Smat  )) deallocate(Smat  ); allocate(Smat(nm,n)); Smat(:,:) = 0.0_wp
+        if(allocated(verror)) deallocate(verror); allocate(verror(n )); verror(:) = 0.0_wp
 
         !-- construct matrix with Smat = [Sxi;Seta;Szeta] to be used to check that the metric 
         !   approximations are correct
@@ -2726,14 +2728,14 @@ contains
     
     end do elloop
 
-    if(allocated(u)) deallocate(u) ;
-    if(allocated(v)) deallocate(v) ;
-    if(allocated(w)) deallocate(w) ;
+    if(allocated(u))    deallocate(u) ;
+    if(allocated(v))    deallocate(v) ;
+    if(allocated(w))    deallocate(w) ;
     if(allocated(work)) deallocate(work) ;
     if(allocated(Amat)) deallocate(Amat) ;
-    if(allocated(a_t)) deallocate(a_t) ;
+    if(allocated(a_t))  deallocate(a_t) ;
     if(allocated(bvec)) deallocate(bvec) ;
-    if(allocated(wI)) deallocate(wI) ;
+    if(allocated(wI))   deallocate(wI) ;
 
 !   Parallel reduction of errors using conventional MPI calls
 
