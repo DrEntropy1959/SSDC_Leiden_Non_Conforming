@@ -46,6 +46,7 @@ module initgrid
   public calc_Jacobian_Gau_shell_all_hexas
   public modify_metrics_nonconforming
   public perturb_vertices_tg_vortex_1
+  public transform_grid
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
@@ -2555,7 +2556,7 @@ contains
 
     use referencevariables
     use collocationvariables, only: elem_props
-    use initcollocation,      only: GCL_Triple_Qmat_Transpose, element_properties
+    use initcollocation,      only: GCL_Triple_Qmat_Transpose, element_properties, GCL_Triple_Smat
     use eispack_module,       only: svd
     use unary_mod,            only: qsortd
     use variables,            only: r_x, Jx_r, ef2e
@@ -2570,11 +2571,11 @@ contains
     real(wp), dimension(:,:),  allocatable :: qmat
     real(wp), dimension(:),    allocatable :: p_surf
 
-    real(wp), dimension(:,:),  allocatable :: Amat
+    real(wp), dimension(:,:),  allocatable :: Amat, Smat
     real(wp), dimension(:,:),  allocatable :: bvec
     real(wp), dimension(:,:),  allocatable :: a_t
     real(wp), dimension(:,:),  allocatable :: u, v
-    real(wp), dimension(:),    allocatable :: w, work, pmat
+    real(wp), dimension(:),    allocatable :: w, work, pmat, verror
     real(wp), dimension(:,:),  allocatable :: work3
     real(wp), dimension(:,:),  allocatable :: eye, wrk, diag, wI
     real(wp), dimension(:,:),  allocatable :: delta_a
@@ -2585,7 +2586,7 @@ contains
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
     integer :: nm, m, n, icnt
 
-    logical                                :: testing = .false.
+    logical                                :: testing = .false., testing_metric_comp = .false.
     logical                                :: modify_metrics = .false.
     real(wp)                               :: t1, t2
     real(wp), parameter                    :: tol = 1.0e-12_wp
@@ -2641,7 +2642,7 @@ contains
       if(allocated( a_t)) deallocate( a_t) ; allocate(a_t(3*n_pts_3d,3)) ;  a_t(:,:) = 0.0_wp
       if(allocated(delta_a)) deallocate(delta_a) ; allocate(delta_a(3*n_pts_3d,3)) ;  delta_a(:,:) = 0.0_wp
 
-      call GCL_Triple_Qmat_Transpose(n_pts_1d, n_pts_3d, pmat, qmat, Amat)
+      call GCL_Triple_Qmat_Transpose(n_pts_1d, n_pts_3d, pmat, qmat, Amat)     
 
       call SVD(nm,n,m,transpose(Amat),w,matu,u,matv,v,ierr,work)
 
@@ -2675,6 +2676,7 @@ contains
          endif
       endif
 
+
       call Load_Mortar_Metric_Data(ielem,n_pts_1d,n_pts_2d,n_pts_3d, ifacenodes, p_surf, a_t, bvec)
 
 !     minimizing (a - a_t)(a - a_t) / 2 ; subject to M a = b
@@ -2707,7 +2709,21 @@ contains
          r_x(3,1:3,inode,ielem) = a_t((3-1)*n_pts_3d+inode,1:3) / Jx_r(inode,ielem)
 
       enddo
-     
+      !-- testing to see if the discrete metric terms satisfy the correct GCL condition
+      if(testing_metric_comp) then
+        if(allocated(Smat)) deallocate(Smat) ; allocate(Smat(nm,n)) ; Smat(:,:) = 0.0_wp
+        if(allocated(verror)) deallocate(verror); allocate(verror(n)); t1 = 0.0_wp
+
+        !-- construct matrix with Smat = [Sxi;Seta;Szeta] to be used to check that the metric 
+        !   approximations are correct
+        call GCL_Triple_Smat(n_pts_1d, n_pts_3d, pmat, qmat, Smat) 
+
+        !-- loop over the three computational directions and construct S*Almk
+        do i = 1,3
+          verror = verror+matmul(Smat(1+(i-1)*m:i*m,1:m),a_t(1:m,i))-bvec(1:m,i)
+        enddo
+      endif
+    
     end do elloop
 
     if(allocated(u)) deallocate(u) ;
@@ -6648,6 +6664,449 @@ contains
 
     return
   end subroutine Shell_Metrics_Analytic
+  
+  subroutine transform_grid()
+  !================================================================================================
+  !
+  ! Purpose: takes the grid and subjects it to a transformation
+  !
+  !================================================================================================
+ 
+    !-- use statments
+    use mpimod
+    use referencevariables, only                 : myprocid, nprocs, ihelems
+    use variables, only                          : xg
+    use precision_vars, only                     : pi
+    use initcollocation, only                    : element_properties
+  
+    implicit none
+
+    !-- local variables
+    integer                                      :: m_size, iproc,i_err
+    integer                                      :: s_tag, s_request_err, s_status
+    integer                                      :: r_tag, r_request_err, r_status
+    integer                                      :: inode, ielem
+    integer                                      :: n_pts_3d
+    real(wp)                                     :: x_min, y_min, z_min
+    real(wp)                                     :: x_max, y_max, z_max
+    real(wp), allocatable,dimension(:,:,:)       :: xyz_minmax
+    real(wp), dimension(3,2)                     :: xyz_loc_minmax
+    real(wp)                                     :: x_old, y_old, z_old, x, y, z 
+    real(wp)                                     :: xi, eta, zeta 
+
+    x_min = -1000
+    !   Parallel determination of the max and min values
+
+    ! setup matrix to store local max and min values
+    if(myprocid == 0 )  then
+      allocate(xyz_minmax(3,2,nprocs)); xyz_minmax = 0.0_wp
+      !-- set the values on the root process
+      xyz_minmax(1,1,1) = minval(xg(1,:,:)); xyz_minmax(2,1,1) = minval(xg(2,:,:)); xyz_minmax(3,1,1) = minval(xg(3,:,:))
+      xyz_minmax(1,2,1) = maxval(xg(1,:,:)); xyz_minmax(2,2,1) = maxval(xg(2,:,:)); xyz_minmax(3,2,1) = maxval(xg(3,:,:))  
+    endif
+     
+    !-- send the max min values from each process to the root process
+    if(myprocid /= 0 ) then
+      xyz_loc_minmax(1,1) = minval(xg(1,:,:)); xyz_loc_minmax(2,1) = minval(xg(2,:,:)); xyz_loc_minmax(3,1) = minval(xg(3,:,:))
+      xyz_loc_minmax(1,2) = maxval(xg(1,:,:)); xyz_loc_minmax(2,2) = maxval(xg(2,:,:)); xyz_loc_minmax(3,2) = maxval(xg(3,:,:))
+
+      s_tag = 100 + myprocid
+      m_size = 3*2
+      call mpi_isend(xyz_loc_minmax,m_size,mpi_double,0,s_tag,petsc_comm_world, &
+        & s_request_err,i_err)
+
+      call mpi_wait(s_request_err,s_status,i_err)
+    
+    else
+    !-- root process
+      do iproc = 1, nprocs-1
+        r_tag = 100 + iproc
+        m_size = 3*2
+        call mpi_irecv(xyz_minmax(1:3,1:2,iproc+1),m_size,mpi_double,iproc,r_tag, &
+          & petsc_comm_world,r_request_err,i_err)
+
+        call mpi_wait(r_request_err,r_status,i_err)
+      enddo
+
+      !-- determine global min and max x, y, and z values
+      x_min = minval(xyz_minmax(1,1,1:nprocs))
+      y_min = minval(xyz_minmax(2,1,1:nprocs))
+      z_min = minval(xyz_minmax(3,1,1:nprocs))
+
+      x_max = maxval(xyz_minmax(1,2,1:nprocs))
+      y_max = maxval(xyz_minmax(2,2,1:nprocs))
+      z_max = maxval(xyz_minmax(3,2,1:nprocs))
+
+    endif
+    call mpi_bcast(x_min,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(y_min,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(z_min,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(x_max,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(y_max,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    call mpi_bcast(z_max,1,mpi_double,0,PETSC_COMM_WORLD,i_err)
+    
+    !-- apply the transformation on each local element
+    do ielem = ihelems(1), ihelems(2)
+      !-- obtain element properties
+      call element_properties(ielem,n_pts_3d=n_pts_3d)
+
+      do inode = 1,n_pts_3d
+        !-- obtain old values (x,y,z)
+        x_old = xg(1,inode,ielem)
+        y_old = xg(2,inode,ielem)
+        z_old = xg(3,inode,ielem)
+
+        !-- compute new values of (x,y,z); here xi, eta, and zeta are variables used as parameters to vary between 0 and 1
+        xi = (x_old-x_min)/(x_max-x_min)
+        eta = (y_old-y_min)/(y_max-y_min)
+        zeta = (z_old-z_min)/(z_max-z_min)
+        x = x_old+1.0_wp/10.0_wp*sin(pi*xi)*sin(pi*eta)*sin(pi*zeta)
+        y = y_old+1.0_wp/10.0_wp*exp(1.0_wp-eta)*sin(pi*xi)*sin(pi*zeta)
+        z = z_old+1.0_wp/10.0_wp*exp(1.0_wp-zeta)*sin(pi*xi)*sin(pi*eta)
+        
+        !-- overwrite old values with new values
+        xg(1,inode,ielem) = x; xg(2,inode,ielem) = y; xg(3,inode,ielem) = z
+      enddo
+    enddo
+    
+    !-- write to file ONLY USE WITH ONE PROCESS
+    !if (nprocs==1)then
+    !   call write_grid_to_file('test.txt')
+    !endif
+
+    !-
+    !-- test of the snap to sphere subroutines
+    !call PetscFinalize(i_err); stop
+  end subroutine transform_grid
+
+  subroutine snap_to_sphere(ielem,points,origin,xyz)
+  !================================================================================================
+  !
+  ! Purpose: takes the grid and subjects it to a transformation
+  !
+  ! Assumption: that the element being snaped comes from a soccer ball decomposition of the sphere
+  !             and therefore, each surface on the sphere has sides of the same length
+  !
+  !================================================================================================
+ 
+    !-- use statments
+    use initcollocation, only                    : element_properties
+    use precision_vars, only                     : pi
+ 
+    implicit none
+
+    !-- input variables
+    integer, intent(in)                          :: ielem
+    real(wp), intent(in), dimension(8,3)         :: points
+    real(wp), intent(in), dimension(3)           :: origin
+    real(wp), intent(inout),allocatable, dimension(:,:) :: xyz
+
+    !-- local variables
+    integer                                      :: i, j, count_min, count_max, inode
+    integer                                      :: n_pts_1d, n_pts_2d, n_pts_3d
+    integer, dimension(4)                        :: order
+    integer                                      :: i_err
+    real(wp),dimension(4,3)                      :: points_plane_r_min, points_plane_r_max
+    real(wp),dimension(4,3)                      :: points_plane_r_min_cc, points_plane_r_max_cc
+    real(wp), dimension(8)                       :: r_points, theta_points, phi_points
+    real(wp)                                     :: r_max, r_min
+    real(wp), allocatable, dimension(:)          :: r
+    real(wp), allocatable, dimension(:)           :: x_pts_1d
+
+    real(wp), parameter                          :: tol = 10**(-12)
+
+    !-- determine the radius 
+    do i = 1,8
+      r_points(i) = sqrt( (points(i,1)-origin(1))**2 + (points(i,2)-origin(2))**2 + (points(i,3)-origin(3)) )
+    enddo
+
+    !-- determine the min and max radius
+    r_min = minval(r_points); r_max = maxval(r_points)
+
+    !-- determine theta and phi
+    do i = 1,8
+      theta_points(i) = acos( (points(i,3)-origin(3))/r_points(i) )
+
+      !-- logic to bar against negative theta and theta greater than pi
+      if( theta_points(i)<0.0_wp) then 
+        theta_points(i) = abs(theta_points(i))
+      endif
+      if( theta_points(i)> pi ) then
+        theta_points(i) = 2.0_wp*pi-theta_points(i)
+      endif
+
+      phi_points(i) = atan( (points(i,2)-origin(2))/(points(i,1)-origin(1)) )
+
+      !-- logic to bar against negative phi
+      if ( phi_points(i)< 0.0_wp) then
+        phi_points(i) = 2.0_wp*pi+phi_points(i)
+      endif
+
+    enddo
+
+    !-- determine which four points have the same radius
+    count_min = 1
+    count_max = 1
+    do i = 1,8
+      if (abs(r_points(1)-r_min).LE.tol) then
+        points_plane_r_min(count_min,1) = r_min
+        points_plane_r_min(count_min,2) = theta_points(i)
+        points_plane_r_min(count_min,3) = phi_points(i) 
+        count_min = count_min+1
+      elseif(abs(r_points(1)-r_min).LE.tol) then
+        points_plane_r_max(count_max,1) = r_max
+        points_plane_r_max(count_max,2) = theta_points(i)
+        points_plane_r_max(count_max,3) = phi_points(i) 
+        count_max = count_max+1
+      else
+        write(*,*)' the 8 points furnished to initgrid: snap_to_sphere are incorrect',points
+        call PetscFinalize(i_err); stop
+      endif
+    enddo
+ 
+    !-- organize the points in each plane in a counter clockwise fashion where the first point has
+    !   the minimum theta and phi values and the last point has the maximum theta and phi values
+
+    !-- plane r_min
+    do i = 1,4
+      if((abs(points_plane_r_min(i,2)-minval(points_plane_r_min(1:4,2))) < tol)&
+         .AND.(abs(points_plane_r_min(i,3)-minval(points_plane_r_min(1:4,3))) < tol))then
+        !-- min theta, min phi point
+        order(1) = i
+      endif 
+      if( (abs(points_plane_r_min(i,2)-maxval(points_plane_r_min(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_min(i,3)-minval(points_plane_r_min(1:4,3))) < tol)      )then
+        !-- max theta, min phi point
+        order(2) = i
+      endif    
+      if( (abs(points_plane_r_min(i,2)-maxval(points_plane_r_min(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_min(i,3)-maxval(points_plane_r_min(1:4,3))) < tol)      )then
+        !-- max theta, max phi point
+        order(3) = i
+      endif 
+      if( (abs(points_plane_r_min(i,2)-minval(points_plane_r_min(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_min(i,3)-maxval(points_plane_r_min(1:4,3))) < tol)      )then
+        !-- min theta, max phi point
+        order(4) = i
+      endif 
+    enddo
+
+    !-- reorder
+    do i = 1,4
+      points_plane_r_min_cc(i,1:3) = points_plane_r_min(order(i),1:3)
+    enddo
+
+    !-- plane r_max
+    do i = 1,4
+      if( (abs(points_plane_r_max(i,2)-minval(points_plane_r_max(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_max(i,3)-minval(points_plane_r_max(1:4,3))) < tol)      )then
+        !-- min theta, min phi point
+        order(1) = i
+      endif 
+      if( (abs(points_plane_r_max(i,2)-maxval(points_plane_r_max(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_max(i,3)-minval(points_plane_r_max(1:4,3))) < tol)      )then
+        !-- max theta, min phi point
+        order(2) = i
+      endif    
+      if( (abs(points_plane_r_max(i,2)-maxval(points_plane_r_max(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_max(i,3)-maxval(points_plane_r_max(1:4,3))) < tol)      )then
+        !-- max theta, max phi point
+        order(3) = i
+      endif 
+      if( (abs(points_plane_r_max(i,2)-minval(points_plane_r_max(1:4,2))) < tol).AND.&
+          &(abs(points_plane_r_max(i,3)-maxval(points_plane_r_max(1:4,3))) < tol)      )then
+        !-- min theta, max phi point
+        order(4) = i
+      endif 
+    enddo
+
+    !-- reorder
+    do i = 1,4
+      points_plane_r_max_cc(i,1:3) = points_plane_r_max(order(i),1:3)
+    enddo
+
+    !-- obtain element properties
+    call element_properties(ielem,n_pts_1d=n_pts_1d,n_pts_2d=n_pts_2d,&
+                            n_pts_3d=n_pts_3d,x_pts_1d=x_pts_1d)
+
+    !-- construct nodal distribution in the r direction
+    if(allocated(r)) deallocate(r); allocate(r(n_pts_1d)); r = 0.0_wp
+    do inode = 1, n_pts_1d
+      r(i) = (r_max-r_min)/2.0_wp*x_pts_1d(i)+(r_max+r_min)/2.0_wp
+    enddo
+    
+    !-- construct each plane of points
+    allocate(xyz(n_pts_3d,3)); xyz = 0.0_wp
+    
+    do i = 1, n_pts_1d
+      !-- set the new r value 
+      do j = 1, 4
+        points_plane_r_min_cc(j,1) = r(j)
+      enddo
+      call snap_to_sphere_patch(ielem,points_plane_r_min_cc,origin,n_pts_1d,xyz(n_pts_2d*(i-1)+1:i*n_pts_2d,1:3))
+    enddo
+
+    !-- deallocate statments
+    deallocate(r)
+  end subroutine snap_to_sphere
+
+  subroutine snap_to_sphere_patch(ielem,points,origin,n_pts_1d,xyz)
+  !================================================================================================
+  !
+  ! Purpose: takes the grid and subjects it to a transformation
+  !
+  !================================================================================================
+ 
+    !-- use statments
+    use initcollocation, only                    : element_properties
+  
+    implicit none
+
+    !-- input variables
+    integer, intent(in)                          :: ielem, n_pts_1d
+    real(wp), intent(in), dimension(4,3)         :: points
+    real(wp), intent(in), dimension(3)           :: origin
+    real(wp), intent(inout),dimension(n_pts_1d**2,3) :: xyz
+
+    !-- local variables
+    integer                                      :: inode
+    integer                                      :: i, j
+    integer                                      :: i_err
+    real(wp), allocatable, dimension(:)          :: x_pts_1d
+    real(wp), dimension(4)                       :: r, theta_points, phi_points
+    real(wp)                                     :: theta, phi, theta_min, theta_max, phi_min, phi_max
+    real(wp)                                     :: xi, eta
+
+    real(wp), parameter                          :: tol = 10**(-12)
+
+    !-- determine the radius and ensure that all 4 points have the same radius 
+    do i = 1,4
+      r(i) = sqrt( (points(i,1)-origin(1))**2 + (points(i,2)-origin(2))**2 + (points(i,3)-origin(3)) )
+    enddo
+
+    if ( (abs(r(1)-r(2)).GE.tol).OR.(abs(r(1)-r(3)).GE.tol).OR.(abs(r(1)-r(4)).GE.tol) ) then
+      write(*,*)'the four points that have been provided to initgrid: snap_to_sphere_patch do not have the same radius'
+      call PetscFinalize(i_err); stop
+    endif
+
+    !-- determine min/max theta, phi
+    do i = 1,4
+      theta_points(i) = acos( (points(i,3)-origin(3))/r(1) )
+
+      !-- logic to bar against negative theta and theta greater than pi
+      if( theta_points(i).LE.0.0_wp) then 
+        theta_points(i) = abs(theta_points(i))
+      endif
+      if( theta_points(i)> pi ) then
+        theta_points(i) = 2.0_wp*pi-theta_points(i)
+      endif
+
+      phi_points(i) = atan( (points(i,2)-origin(2))/(points(i,1)-origin(1)) )
+
+      !-- logic to bar against negative phi
+      if ( phi_points(i)< 0.0_wp) then
+        phi_points(i) = 2.0_wp*pi+phi_points(i)
+      endif
+
+    enddo
+
+    theta_min = minval(theta_points); theta_max = maxval(theta_points)
+    phi_min = minval(phi_points);     phi_max = maxval(phi_points)
+                
+    !-- obtain element properties
+    call element_properties(ielem,x_pts_1d=x_pts_1d)
+
+    inode = 1
+    do i = 1,n_pts_1d
+      do j = 1,n_pts_1d
+        xi = x_pts_1d(i)
+        eta = x_pts_1d(j)
+
+        theta = (theta_max-theta_min)/2.0_wp*xi+(theta_max+theta_min)/2.0_wp
+        phi = (phi_max-phi_min)/2.0_wp*eta+(phi_max+phi_min)/2.0_wp
+
+        xyz(inode,1) = origin(1)+r(1)*cos(phi)*sin(theta)
+        xyz(inode,2) = origin(2)+r(1)*sin(phi)*cos(theta)
+        xyz(inode,3) = origin(3)+r(1)*cos(theta)
+  
+        inode = inode+1
+      enddo
+    enddo
+
+
+    !-- deallocate statments
+    deallocate(x_pts_1d)
+
+  end subroutine snap_to_sphere_patch
+
+subroutine write_grid_to_file(file_name)
+!==================================================================================================
+!
+! Purpose: write a grid element by element to file
+!
+! Comments:
+!
+! Additional documentation: THIS IS NOT SETUP FOR PARALLEL RUNS ONLY USE ONE PROCESS
+!
+! Unit tests: 
+!
+! Inputs: file_name (char(len=*): string with the name of the file
+!
+! outputs: 
+!
+!
+!==================================================================================================
+  
+  !-- variables
+  use precision_vars, only                       : get_unit
+  use referencevariables, only                 : myprocid, nprocs, ihelems
+  use variables, only                          : xg
+  use initcollocation, only                    : element_properties
+
+  implicit none
+                     
+  !-- input variables
+  character(len=*),optional,intent(in)           :: file_name 
+
+  !-- local variables
+  integer                                        :: iunit, inode, n_pts_3d, ielem
+  integer                                        :: i,j
+  character(len=1024)                            :: numb
+
+  !-- file access variables
+  integer                                        :: ios
+
+  !-- writing to file
+  print *,"writing to: ",file_name
+
+  !-- open file on the master proc
+  if (myprocid==0) then
+    !-- obtain a free Fortarn unit
+    call get_unit(iunit)
+    
+    !-- open the file
+    open(UNIT=iunit,FILE=file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
+    if(ios.NE.0) then 
+      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
+      stop
+    endif
+    
+    !-- write the root process nodal information to file
+    do ielem = ihelems(1), ihelems(2)
+      !-- obtain element properties
+      write(numb,'(I0)')ielem
+      call element_properties(ielem,n_pts_3d=n_pts_3d)
+      write(iunit,*)'element_'//trim(adjustl(numb))//" = [..."
+      do inode = 1,n_pts_3d
+        write(iunit,*)(xg(j,inode,ielem),j=1,3),";"
+      enddo
+      write(iunit,*)"];"
+    enddo
+       !-- close file
+    close(UNIT=iunit)
+  endif
+ 
+end subroutine write_grid_to_file
 
 end module initgrid
 

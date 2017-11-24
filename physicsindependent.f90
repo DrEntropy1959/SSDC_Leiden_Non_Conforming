@@ -15,6 +15,7 @@ module physicsindependent
 
   ! Exceptions, i.e. public subroutines or functions
   public :: physics_independent_setup
+  
 
 contains
 
@@ -164,6 +165,8 @@ contains
 
     call calcnodes_LGL()
 
+!   call transform_grid()
+
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the metrics'
     end if
@@ -222,8 +225,7 @@ contains
     call calcfacenormals_LGL()
 
     call calcfacenormals_Gau()
-
-    if(non_conforming .eqv. .true.) call Modify_Metrics_NonConforming()
+    if(non_conforming .eqv. .true.) call modify_metrics_nonconforming()
 
     if (myprocid == 0) then
       write(*,*) 'Start actual computation'
