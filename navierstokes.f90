@@ -282,7 +282,7 @@ contains
 !                             phipetsc,   philocpetsc,   &
 !                             uelempetsc, uelemlocpetsc, &
 !                             r_x_petsc,  r_x_loc_petsc
-    use mpimod, only: PetscComm1DDataSetup, PetscComm1DDataSetupWENO,    &
+    use mpimod, only: PetscComm0DDataSetup, PetscComm1DDataSetup, PetscComm1DDataSetupWENO,    &
       & PetscComm1DElementDataSetup, PetscComm2DDataSetup, PetscComm2DGeomDataSetup, &
       & PetscComm1DDataSetupWENOGeom, PetscCommShellDataSetup
 
@@ -293,10 +293,11 @@ contains
 
     integer :: nshell
 
-    ! Setup the PETSc parallel communication for exchanging the conservative
-    ! variables at the parallel face element 
-    call PetscComm1DDataSetup(ug,ughst,upetsc,ulocpetsc,                                       &
-                              size(ug,1),size(ug,2), nelems, nodesperproc, size(ughst,2))
+    ! Setup the PETSc parallel communication for exchanging the conservative variables at the parallel face element 
+    call PetscComm1DDataSetup(ug,ughst,upetsc,ulocpetsc, size(ug,1),size(ug,2), nelems, size(ughst,2))
+
+    ! Setup the PETSc parallel communication for exchanging the conservative variables at the parallel face element 
+    call PetscComm0DDataSetup(mut,mutghst,mutpetsc,mutlocpetsc, size(mut,1), nelems, size(mutghst))
 
     ! PETSc parallel communication setup for exchanging the conservative variables at the parallel face element 
     if(discretization == 'SSWENO')then
@@ -1638,8 +1639,9 @@ contains
 
     nodesperelem_max = (npoly_max+1)**ndim
 
-    ! ghost cells for solution
-    allocate(ughst(1:nequations,1:nghost)) ; ughst = 0.0_wp
+    allocate(  ughst(1:nequations,1:nghost)) ;   ughst = 0.0_wp           ! ghost cells for solution
+
+    allocate(mutghst(             1:nghost)) ; mutghst = 0.0_wp           ! turbulent viscosity
     
     if(discretization == 'SSWENO') then
       allocate(ughstWENO(1:nequations,1:nghost))             ; ughstWENO          = 0.0_wp
@@ -1892,9 +1894,10 @@ contains
     use referencevariables
     use nsereferencevariables
 
-    use mpimod, only: UpdateComm1DGhostData, UpdateComm2DGhostData,     &
+    use mpimod, only: UpdateComm0DGhostData,UpdateComm1DGhostData, UpdateComm2DGhostData,     &
                       UpdateComm1DGhostDataWENO, UpdateCommShellGhostData
     use petscvariables, only: upetsc, phipetsc, ulocpetsc, philocpetsc, &
+                              mutpetsc, mutlocpetsc, &
                               upetscWENO,  ulocpetscWENO,  &
                               upetscWENO_Shell, ulocpetscWENO_Shell
     implicit none
@@ -1904,8 +1907,7 @@ contains
     integer :: inode
     integer :: nshell
 
-    call UpdateComm1DGhostData(ug, ughst, upetsc, ulocpetsc,  &
-                              size(ug,1), size(ug,2), nodesperproc, size(ughst,2))
+    call UpdateComm1DGhostData(ug, ughst, upetsc, ulocpetsc, size(ug,1), size(ug,2), size(ughst,2))
 
     ! Update ghost value in the interior plane for WENO p = 3
     if((discretization == 'SSWENO')) then
@@ -1936,6 +1938,8 @@ contains
     end do
 
     if (viscous) then
+
+      if(turbulent_viscosity) call UpdateComm0DGhostData(mut, mutghst, mutpetsc, mutlocpetsc, size(mut,1), size(mutghst))
 
       call viscous_gradients()
 
@@ -3571,9 +3575,9 @@ contains
 
         enddo  On_Elem_0                                                         ! End off-element loop
 
-                                                                                 !  ======================
-        if (ef2e(3,iface,ielem) /= myprocid) then                                !  Parallel data
-                                                                                 !  ======================
+                                                                                 !  ============================================
+        if (ef2e(3,iface,ielem) /= myprocid) then                                !  Parallel NON-CONFORMING data
+                                                                                 !  ============================================
           Off_Elem_0:do k = 1, n_S_2d_Off                                        ! Off-element loop over data
 
            
@@ -3607,9 +3611,9 @@ contains
      
           enddo On_Mortar_0
 
-                                                                                 !  ======================
-        else                                                                     !  Serial data
-                                                                                 !  ======================
+                                                                                 !  ============================================
+        else                                                                     !  Serial NON-CONFORMING data
+                                                                                 !  ============================================
 
           Off_Elem_1:do k = 1, n_S_2d_Off                                        ! Off-element loop over data
 
@@ -3669,7 +3673,7 @@ contains
                                                     phig_2d_On, phig_2d_Off,                       &
                                                     wg_Mort_On, wg_Mort_Off,                       &
                                                    nx_2d_Off, mut_2d_Off, Jx_r_2d_Mort,            &
-                                                    Intrp_On, Extrp_Off)
+                                                   cnt_Mort_Off, Intrp_On, Extrp_Off)
         endif
 
 
@@ -3844,7 +3848,7 @@ contains
                                                   phig_2d_On, phig_2d_Off,                        &
                                                   wg_Mort_On, wg_Mort_Off,                        &
                                                  nx_2d_Off, mut_2d_Off, Jx_r_2d_Mort,             &
-                                                  Intrp_On, Extrp_Off)
+                                                 cnt_Mort_Off, Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, efn2efn_Gau,     &
@@ -3859,6 +3863,7 @@ contains
     integer,                    intent(in) :: n_S_2d_On, n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
     real(wp),  dimension(:),    intent(in) :: x_S_1d_On, x_S_1d_Off, x_S_1d_Mort
     integer,   dimension(:),    intent(in) :: ifacenodes_On, ifacenodes_Off
+    integer,   dimension(:),    intent(in) :: cnt_Mort_Off
     real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
     real(wp),  dimension(:,:),  intent(in) ::             nx_2d_Off
     real(wp),  dimension(:,:),  intent(in) :: wg_Mort_On, wg_Mort_Off
@@ -3921,8 +3926,7 @@ contains
 
         jnode =  n_S_2d_max*(iface-1) + j          ! Index in facial ordering
 
-                                                   ! Index in off-element local facial ordering
-        l     = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
+            l = cnt_Mort_Off(j)                    ! Correct for face orientation and shift back to 1:n_S_2d_Mort
 
        fV_Mort_On(:,j) = - fV_Mort_Off(:,l)        ! Account for different ordering and opposite outward normal
 
@@ -3941,8 +3945,7 @@ contains
 
         nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)        ! Outward facing normal of facial node
 
-        lnode = efn2efn_Gau(4,jnode,ielem)
-        l     = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)
+            l = cnt_Mort_Off(j)                    ! Correct for face orientation and shift back to 1:n_S_2d_Mort
 
         call entropy_to_primitive(wg_Mort_On (:,j),vg_On (:),nequations)
         call entropy_to_primitive(wg_Mort_Off(:,l),vg_Off(:),nequations)
