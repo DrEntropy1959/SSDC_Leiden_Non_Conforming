@@ -94,6 +94,8 @@ module variables
   real(wp), allocatable, dimension(:,:,:)     :: facenodenormal_LGL_shell
   real(wp), allocatable, dimension(:,:,:)     :: facenodenormal_Gau_shell
 
+  integer,  allocatable, dimension(:)         :: nelem_ghst
+
   ! This variable are used with the low-storage-RK
   real(wp), allocatable, dimension(:,:,:)   :: du
   real(wp), allocatable, dimension(:,:,:)   :: dudt

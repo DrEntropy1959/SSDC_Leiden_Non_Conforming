@@ -1858,22 +1858,28 @@ contains
     ! Initialize the global and ghost arrays for the grid
     ! It is run in parallel by all processes
     use referencevariables
-    use variables,       only: xg, xghst_LGL, ef2e
+    use variables,       only: xg, xghst_LGL, ef2e, nelem_ghst
     use petscvariables,  only: xpetsc, xlocpetsc
     use initcollocation, only: element_properties
+    use collocationvariables, only: elem_props
     implicit none
 
     integer :: ielem, iface
     integer :: kelem, kface
+    integer :: icnt, ierr
 
     ! Set number of ghost points to zero. These are LGL points.
     nghost       = 0
     nghost_elem  = 0
     nodesperproc = 0
 
+    if(allocated(nelem_ghst)) deallocate(nelem_ghst) ; allocate(nelem_ghst(ihelems(1):ihelems(2))) ; nelem_ghst(:) = 0
+
     ! count necessary ghost points for each process loop over elements
   
     do ielem = ihelems(1), ihelems(2)
+
+      nelem_ghst(ielem) = nghost
 
       call element_properties(ielem, n_pts_2d=nodesperface, n_pts_3d=nodesperelem)
       nodesperproc = nodesperproc + nodesperelem
@@ -1896,7 +1902,7 @@ contains
         endif
 
       end do
-
+     
     end do
 
     ! allocate the buckets for the actual ghost cells

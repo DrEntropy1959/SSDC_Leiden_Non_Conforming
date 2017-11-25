@@ -295,8 +295,8 @@ contains
 
     ! Setup the PETSc parallel communication for exchanging the conservative
     ! variables at the parallel face element 
-    call PetscComm1DDataSetup(ug,ughst,upetsc,ulocpetsc,size(ug,1),size(ug,2), &
-                             nelems, nodesperproc, size(ughst,2))
+    call PetscComm1DDataSetup(ug,ughst,upetsc,ulocpetsc,                                       &
+                              size(ug,1),size(ug,2), nelems, nodesperproc, size(ughst,2))
 
     ! PETSc parallel communication setup for exchanging the conservative variables at the parallel face element 
     if(discretization == 'SSWENO')then
@@ -316,8 +316,8 @@ contains
 
     ! Setup the PETSc parallel communication for exchanging the gradient of the 
     ! entropy variables at the parallel face element 
-    call PetscComm2DDataSetup(phig,phighst,phipetsc,philocpetsc,nequations,3, &
-      & nodesperelem,nelems,nghost)
+    call PetscComm2DDataSetup(phig,phighst,phipetsc,philocpetsc,                    &
+                     size(phig,1),size(phig,2),size(phig,3), nelems, size(phighst,3))
 
     ! Setup the PETSc parallel communication for exchanging the conservative 
     ! variables in the adjoining parallel element and the geometrical data r_x
@@ -3118,7 +3118,6 @@ contains
     real(wp), allocatable, dimension(:)  :: x_S_1d_On, x_S_1d_Off
     real(wp), allocatable, dimension(:)  :: x_S_1d_Mort, w_S_1d_Mort
 
-
     real(wp), allocatable, dimension(:)   :: mut_2d_Off
     real(wp), allocatable, dimension(:)   :: Jx_r_2d_Mort
 
@@ -3131,6 +3130,7 @@ contains
 
     integer,  allocatable, dimension(:,:) :: kfacenodes_On, kfacenodes_Off
     integer,  allocatable, dimension(:)   :: ifacenodes_On, ifacenodes_Off
+    integer,  allocatable, dimension(:)   :: cnt_Mort_Off
 
     real(wp), allocatable, dimension(:,:,:) :: phig_2d_On, phig_2d_Off
 
@@ -3195,9 +3195,9 @@ contains
                    x_pts_1d=x_S_1d_On,&
                  kfacenodes=kfacenodes_On,&
                  ifacenodes=ifacenodes_On)
-       
-    n_petsc_ghst = 0
 
+    n_petsc_ghst = nelem_ghst(ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
+       
     ! Loop over each face
     faceloop:do iface = 1,nfacesperelem
 
@@ -3456,7 +3456,7 @@ contains
   
           end do
 
-          n_petsc_ghst = n_petsc_ghst + n_S_2d_On                         !  Keep track of position in Ghost stack
+          n_petsc_ghst = n_petsc_ghst + n_S_2d_On                         !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
 
         else if (ef2e(3,iface,ielem) == myprocid) then 
 
@@ -3530,6 +3530,7 @@ contains
 
         allocate( wg_Mort_On (nequations,n_S_2d_Mort))
         allocate( wg_Mort_Off(nequations,n_S_2d_Mort))
+        allocate(cnt_Mort_Off(           n_S_2d_Mort))
 
         allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
         allocate(phig_2d_Off (nequations,ndim,n_S_2d_Off))
@@ -3573,11 +3574,12 @@ contains
                                                                                  !  ======================
         if (ef2e(3,iface,ielem) /= myprocid) then                                !  Parallel data
                                                                                  !  ======================
-
           Off_Elem_0:do k = 1, n_S_2d_Off                                        ! Off-element loop over data
 
+           
                  ug_Off(:    ) =       ughst(:,  n_petsc_ghst + k)               ! conserved variable   in Petsc ghost registers
-            phig_2d_Off(:,:,k) =     phighst(:,:,n_petsc_ghst + k)               ! Viscous derivatives  in Petsc ghost registers
+!           phig_2d_Off(:,:,k) =     phighst(:,:,n_petsc_ghst + k)               ! Viscous derivatives  in Petsc ghost registers
+            phig_2d_Off(:,:,k) =     0.0_wp
 
 !             nx_2d_Off(:,  k) =  nxghst_LGL(:,  n_petsc_ghst + k)               ! Outward facing norma in Petsc ghost registers
               nx_2d_Off(:,  k) = 0.0_wp
@@ -3597,6 +3599,8 @@ contains
             jnode =  n_S_2d_max*(iface-1) + j                                    ! Index in facial ordering
 
             lnode = efn2efn_Gau(3,jnode,ielem)
+
+            cnt_Mort_Off(j) = efn2efn_Gau(3,jnode,ielem)
 
 !           Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_ghst(lnode)) * 0.5_wp
             Jx_r_2d_Mort(j) = 0.0_wp  !  HACK:  Take out
@@ -3626,6 +3630,8 @@ contains
 
             jnode =  n_S_2d_max*(iface-1) + j                                    ! Index in facial ordering
 
+            cnt_Mort_Off(j) = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)  ! Correct for face orientation and shift back to 1:n_S_2d_Mort
+
             lnode = efn2efn_Gau(4,jnode,ielem)
 
             Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_shell(lnode,kelem)) * 0.5_wp
@@ -3647,7 +3653,7 @@ contains
                                                    n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                    n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
                                                    vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
-                                                   Intrp_On, Extrp_Off)
+                                                   cnt_Mort_Off, Intrp_On, Extrp_Off)
  
 ! ========
 !       Viscous interface SATs 
@@ -3669,7 +3675,7 @@ contains
 
         deallocate(vg_2d_On,  vg_2d_Off  )
         deallocate(wg_2d_On,  wg_2d_Off  )
-        deallocate(wg_Mort_On,wg_Mort_Off)
+        deallocate(wg_Mort_On,wg_Mort_Off,cnt_Mort_Off)
         deallocate(Extrp_Off,Extrp_On)
         deallocate(Intrp_On)
         deallocate(x_S_1d_Off,x_S_1d_Mort)
@@ -3702,7 +3708,7 @@ contains
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
                                                      vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
-                                                     Intrp_On, Extrp_Off)
+                                                     cnt_Mort_Off, Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, efn2efn_Gau, gsat
@@ -3716,6 +3722,7 @@ contains
     integer,                    intent(in) :: n_S_2d_On, n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
     real(wp),  dimension(:),    intent(in) :: x_S_1d_On, x_S_1d_Off, x_S_1d_Mort
     integer,   dimension(:),    intent(in) :: ifacenodes_On
+    integer,   dimension(:),    intent(in) :: cnt_Mort_Off
     real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
     real(wp),  dimension(:,:),  intent(in) :: wg_Mort_On, wg_Mort_Off
     real(wp),  dimension(:,:),  intent(in) :: Intrp_On, Extrp_Off
@@ -3763,7 +3770,7 @@ contains
   
           nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)                       ! Outward facing normal on mortar
 
-              l = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)          ! Correct for face orientation and shift back to 1:n_S_2d_Mort
+              l = cnt_Mort_Off(j)                                            ! Correct for face orientation and shift back to 1:n_S_2d_Mort
 
           FC_Mort_On(:,j) = FxB(:,l)*nx(1) + FyB(:,l)*nx(2) + FzB(:,l)*nx(3) ! Outward facing component of f^S on mortar
 
@@ -3795,7 +3802,7 @@ contains
   
         nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)                         ! Outward facing normal of facial node
 
-            l = efn2efn_Gau(4,jnode,ielem) - n_S_2d_max*(kface-1)            ! Index in off-element local facial ordering
+            l = cnt_Mort_Off(j)                                              ! Correct for face orientation and shift back to 1:n_S_2d_Mort
 
        call entropy_to_primitive(wg_Mort_On (:,j),vg_On (:),nequations)      ! Entropy -> primitive variables:  On_element
        call entropy_to_primitive(wg_Mort_Off(:,l),vg_Off(:),nequations)      ! Entropy -> primitive variables: Off_element

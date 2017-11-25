@@ -235,7 +235,6 @@ contains
     ! Set binary sizes for writing the solution vtu files in raw binary vtu format
     call calculate_binary_sizes_vtu()
 
-    return
   end subroutine physics_independent_setup
 
   !============================================================================

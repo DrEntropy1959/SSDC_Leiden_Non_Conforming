@@ -1269,6 +1269,9 @@ contains
       ! Loop over faces
       do iface = 1, nfacesperelem
 
+        kelem = ef2e(2,iface,ielem)
+        call element_properties(kelem, n_pts_2d=n_LGL_2d_Off)
+
         knode = n_LGL_2d * (iface - 1)
 
         ! If on boundary, connect to self
@@ -1280,14 +1283,19 @@ contains
             ! Update facial node index counter
             knode = knode + 1
             
-            ! The first index is the volumetric node index and the second
-            ! index is the element index
-            efn2efn(:,knode,ielem) = (/ ifacenodes(knode), ielem, 0 /)
+            ! The first index is the volumetric node index and the second index is the element index
+            efn2efn(:,knode,ielem) = (/ ifacenodes(knode), ielem, 0 , 0 /)
           
           end do
 
-        ! A conforming parallel interface
+        ! ==========================================================================================
+        !                           Parallel       .and.               Conforming interface
+        ! ==========================================================================================
         else if ((ef2e(3,iface,ielem) /= myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem)) ) then
+
+          !  ==================================================
+          !  Parallel periodic logic in x1, x2, x3 directions
+          !  ==================================================
 
           ! Initialize match_found
           match_found = .false.
@@ -1333,7 +1341,6 @@ contains
                   do jnode = 1, n_LGL_2d
                     
                     ! Coordinates of the jnode
-                    ! ef2e(2) gives the element of the neighbor
                     x2 = xghst_LGL(:,i_low + jnode)
                 
                     ! Extract from x2 the two invaraint coordinates
@@ -1355,7 +1362,7 @@ contains
                       
                       write(*,*)'found a match in parallel path periodic I' 
 
-                      ! Set the volumetric node index of the connected node
+                      ! Set the volumetric node index of the connected node; ef2e(2) gives the element of the neighbor
                       efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
 
                       ! Set the element of the connected node
@@ -1583,45 +1590,38 @@ contains
             end do ! End do loop over the elements that own a periodic face
 
           end if ! End if check periodic face in x3 direction
+ 
+          !  ====================================================================
+          !  Finished Parallel periodic logic:  Begin Parallel non-periodic logic
+          !  ====================================================================
 
           if (match_found .eqv. .false.) then
 
-            ! Loop over the nodes on the face
-            do inode = 1, n_LGL_2d
+            do inode = 1, n_LGL_2d                                               ! Loop over the nodes on the face
 
-              ! Update the facial node index counter
-              knode = knode + 1
+              knode = knode + 1                                                  ! Update the facial node index counter
 
-              ! Save the coordinates of the facial node
-              x1 = xg(:,ifacenodes(knode),ielem)
+              x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
               
-              ! Search for the connected node on face of the connected element
-              do jnode = 1, n_LGL_2d
+              do jnode = 1, n_LGL_2d                                             ! Search for the connected node on face of the connected element
 
-                ! Coordinates of the jnode
-                ! ef2e(2) gives the element of the neighbor
-                x2 = xghst_LGL(:,i_low + jnode)
+                x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
                 
-                ! Check the distance between the two nodes
-                if (magnitude(x1-x2) <= nodetol) then
+                if (magnitude(x1-x2) <= nodetol) then                            ! Check the distance between the two nodes
 
-                  cnt_debug = cnt_debug + 1
-!                 if(myprocid == 0) write(*,*)'found a match in parallel path' , myprocid, i_low, cnt_debug
+                  cnt_debug = cnt_debug + 1                                      ! debugging the counter index
                   
-                  ! Set the volumetric node index of the connected node
-                  efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
+                  efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node, ef2e(2) gives the element of the neighbor
                   
-                  ! Set the element of the connected node
-                  efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
+                  efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                   ! Set the element of the connected node
                   
-                  ! Set the node index in the ghost array
-                  efn2efn(3,knode,ielem) = i_low + jnode
+                  efn2efn(3,knode,ielem) = i_low + jnode                         ! Set the node index in the ghost array
 
-!                 efn2efn(4,knode,ielem) = jnode
+!                 efn2efn(4,knode,ielem) = -1000                                 ! efn2efn(4 still not initialized
                   
-                  exit
+                  exit                                                           ! Found a match, exit the loop
                 
-                end if
+                end if             
               
               end do
               
@@ -1643,21 +1643,20 @@ contains
 
             end do
 
-            ! Update the position in the ghost stack
-            i_low = i_low + n_LGL_2d
+            i_low = i_low + n_LGL_2d                                             ! Update the position in the ghost stack
           
           end if
 
-        ! serial conforming interface
+        ! ==========================================================================================
+        !                           Serial         .and.                  Conforming interface
+        ! ==========================================================================================
         else if ((ef2e(3,iface,ielem) == myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem)) ) then
 
-          ! Initialize match_found
-          match_found = .false.
+          match_found = .false.                                        ! Initialize match_found
 
           if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
 
-            ! Check if the ielem owns a periodic face and if the iface is a
-            ! periodic face
+            ! Check if the ielem owns a periodic face and if the iface is a periodic face
             do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
 
               if (periodic_elem_face_ids_x1(1,i_p_face) == jelems(ielem) .and. &
@@ -1692,8 +1691,7 @@ contains
                   
                   end do
 
-                  ! Search for the connected node on the face of the connected 
-                  ! element
+                  ! Search for the connected node on the face of the connected element
                   do jnode = 1,n_LGL_2d
                     ! Coordinates of the jnode
                     ! ef2e(1) gives the face on the neighboring element and
@@ -1943,47 +1941,39 @@ contains
           
           end if ! End if periodic x3 direction
 
+          !  ==================================================================
+          !  Finished Serial periodic logic:  Begin Serial non-periodic logic
+          !  ==================================================================
+
           if (match_found .eqv. .false.) then
 
-!           write(*,*)'ifacenodes',ifacenodes(:)
-            ! Loop over the nodes on the face
-            do inode = 1, n_LGL_2d
+            do inode = 1, n_LGL_2d                                  ! Loop over the nodes on the face
+ 
+              knode = knode + 1                                     ! Update the facial node index counter
 
-              ! Update the facial node index counter
-              knode = knode + 1
+              x1 = xg(:,ifacenodes(knode),ielem)                    ! Save coordinates of the facial ndoes
 
-              ! Save coordinates of the facial ndoes
-              x1 = xg(:,ifacenodes(knode),ielem)
-
-              ! Search the for connected node on the face of the connected element
-              do jnode = 1, n_LGL_2d
+              do jnode = 1, n_LGL_2d                                ! Search for connected node on connected element face
                 
-                ! Coordinates of the jnode
-                ! ef2e(1) gives the face on the neighboring element and
-                ! ef2e(2) gives the element
-                x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), &
-                  & ef2e(2,iface,ielem))
+                                                                    ! ef2e(1) gives the face on the neighboring element and
+                                                                    ! ef2e(2) gives the element
+                x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), ef2e(2,iface,ielem)) ! Coordinates of the jnode
                
-                ! Check the distance between the two nodes
-                if (magnitude(x1-x2) <= nodetol) then
+                if (magnitude(x1-x2) <= nodetol) then               ! Check the distance between the two nodes
 
-                  ! Set the volumetric node index of the connected node
-                  efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
+                  efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node
                   
-                  ! Set the element of the connected node
-                  efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
+                  efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)      ! Set the element of the connected node
                   
-                  ! Set the index of the connected node
-                  efn2efn(4,knode,ielem) = jnode
+                  efn2efn(4,knode,ielem) = jnode                    ! Set the index of the connected node
                   
                   exit
                 
                 end if
               
-              end do ! End do jnode
+              end do                                                    ! End do jnode
 
               ! Print information at screen if there is a problem and stop computation
-
               if (efn2efn(1,knode,ielem) < 0 .or. efn2efn(2,knode,ielem) < 0) then
                 write(*,*) 'conforming_interface', conforming_interface
                 write(*,*) 'Connectivity error in face-node connectivity_LGL Serial.'
@@ -4512,7 +4502,9 @@ contains
       do ielem = nhex/2+1,nhex
         elem_props(2,ielem) = npoly+2
       enddo
-!     write(*,*)'serial',elem_props(2,:)
+!     do ielem = 1,nhex
+!       write(*,*)'serial',ielem, elem_props(2,ielem)
+!     enddo
 
     endif
 
@@ -6211,7 +6203,8 @@ contains
                 efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
                 
                 ! Set the node index in the ghost array
-                efn2efn_Gau(3,knode,ielem) = i_low + jnode
+!               efn2efn_Gau(3,knode,ielem) = i_low + jnode
+                efn2efn_Gau(3,knode,ielem) = jnode
 
                 exit
               
@@ -7060,8 +7053,8 @@ subroutine write_grid_to_file(file_name)
 !==================================================================================================
   
   !-- variables
-  use precision_vars, only                       : get_unit
-  use referencevariables, only                 : myprocid, nprocs, ihelems
+  use precision_vars, only                     : get_unit
+  use referencevariables, only                 : myprocid, ihelems
   use variables, only                          : xg
   use initcollocation, only                    : element_properties
 
@@ -7072,7 +7065,7 @@ subroutine write_grid_to_file(file_name)
 
   !-- local variables
   integer                                        :: iunit, inode, n_pts_3d, ielem
-  integer                                        :: i,j
+  integer                                        :: j
   character(len=1024)                            :: numb
 
   !-- file access variables
