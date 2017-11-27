@@ -1971,6 +1971,7 @@ contains
     ! indices
     integer :: inode,ielem, jdir
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
+    integer :: ierr
 
     ! loop over all elements
     do ielem = ihelems(1), ihelems(2)
@@ -3117,7 +3118,8 @@ contains
     integer                              :: n_S_1d_On , n_S_1d_Off, n_S_1d_Mort, n_S_1d_max
     integer                              :: n_S_2d_On , n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
     integer                              :: poly_val
-    integer                              :: n_petsc_ghst
+    integer                              :: nghst_volume, nghst_shell
+    integer :: ierr
  
     real(wp), allocatable, dimension(:)  :: x_S_1d_On, x_S_1d_Off
     real(wp), allocatable, dimension(:)  :: x_S_1d_Mort, w_S_1d_Mort
@@ -3200,7 +3202,8 @@ contains
                  kfacenodes=kfacenodes_On,&
                  ifacenodes=ifacenodes_On)
 
-    n_petsc_ghst = nelem_ghst(ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
+    nghst_volume = nelem_ghst(1,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
+    nghst_shell  = nelem_ghst(2,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
        
     ! Loop over each face
     faceloop:do iface = 1,nfacesperelem
@@ -3460,7 +3463,7 @@ contains
   
           end do
 
-          n_petsc_ghst = n_petsc_ghst + n_S_2d_On                         !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
+          nghst_volume = nghst_volume + n_S_2d_On                         !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
 
         else if (ef2e(3,iface,ielem) == myprocid) then 
 
@@ -3581,40 +3584,60 @@ contains
           Off_Elem_0:do k = 1, n_S_2d_Off                                        ! Off-element loop over data
 
            
-                 ug_Off(:    ) =       ughst(:,  n_petsc_ghst + k)               ! conserved variable   in Petsc ghost registers
-!           phig_2d_Off(:,:,k) =     phighst(:,:,n_petsc_ghst + k)               ! Viscous derivatives  in Petsc ghost registers
-            phig_2d_Off(:,:,k) =     0.0_wp
+                 ug_Off(:    ) =           ughst(:,  nghst_volume + k)            ! conserved variable    in Petsc ghost registers
+            phig_2d_Off(:,:,k) =         phighst(:,:,nghst_volume + k)            ! Viscous derivatives   in Petsc ghost registers
+             mut_2d_Off(    k) =         mutghst(    nghst_volume + k)            ! Turbulent viscosity   in Petsc ghost registers
 
-!             nx_2d_Off(:,  k) =  nxghst_LGL(:,  n_petsc_ghst + k)               ! Outward facing norma in Petsc ghost registers
-              nx_2d_Off(:,  k) = 0.0_wp
+              nx_2d_Off(:,  k) =  nxghst_LGL_Shell(:,nghst_shell  + k)            ! Outward facing normal in Petsc ghost registers
+!             if(ielem == 5) write(*,*)'parallel, k',k, nx_2d_Off(:,k)
 
-!            mut_2d_Off(    k) = mutghst(    n_petsc_ghst)                       ! Turbulent viscosity  in Petsc ghost registers
-             mut_2d_Off(    k) = 0.0_wp                                          ! Turbulent viscosity  in Petsc ghost registers
-             
-            call conserved_to_primitive(ug_Off   (:  ),vg_2d_Off(:,k),nequations)! Rotate into primitive variables and store as face plane data
-            call primitive_to_entropy  (vg_2d_Off(:,k),wg_2d_Off(:,k),nequations)! Rotate into entropy   variables and store as face plane data
+            call conserved_to_primitive(ug_Off   (:  ),vg_2d_Off(:,k),nequations) ! Rotate into primitive variables and store as face plane data
+            call primitive_to_entropy  (vg_2d_Off(:,k),wg_2d_Off(:,k),nequations) ! Rotate into entropy   variables and store as face plane data
 
-          enddo Off_Elem_0                                                       ! End off-element loop
+          enddo Off_Elem_0                                                        ! End off-element loop
 
-          n_petsc_ghst = n_petsc_ghst + n_S_2d_Off                               !  Keep track of position in Ghost stack
+!         if(ielem == 5) then
+!           write(*,*)'parallel path for element = ', ielem
+!           do k = 1,size(nxghst_LGL_Shell,2)
+!              write(*,*)'k,nghst_LGL_Shell',k, nxghst_LGL_Shell(1:3,nghst_shell  + k)            ! Outward facing normal in Petsc ghost registers
+!           enddo
+!         endif
+!         if(ielem == 5) then
+!           write(*,*)'parallel path for element = ', ielem
+!           write(*,*)'ielem, nx_2d_off',ielem,maxval(nx_2d_Off(:,:))
+!           write(*,*)'ielem, nx_2d_off',ielem,   sum(nx_2d_Off(:,:))
+!           write(*,*)'ielem, nx_2d_off',ielem,minval(nx_2d_Off(:,:))
+!           write(*,*)'ielem, wg_2d_Off',ielem,maxval(wg_2d_Off(:,:))
+!           write(*,*)'ielem, wg_2d_Off',ielem,   sum(wg_2d_Off(:,:))
+!           write(*,*)'ielem, wg_2d_Off',ielem,minval(wg_2d_Off(:,:))
+!           write(*,*)'ielem, phig_2d_Off',ielem,maxval(phig_2d_Off(:,:,:))
+!           write(*,*)'ielem, phig_2d_Off',ielem,   sum(phig_2d_Off(:,:,:))
+!           write(*,*)'ielem, phig_2d_Off',ielem,minval(phig_2d_Off(:,:,:))
+!           write(*,*)'ielem, mut_2d_Off ',ielem,minval(mut_2d_Off(:))
+!           write(*,*)'ielem, mut_2d_Off ',ielem,   sum(mut_2d_Off(:))
+!           write(*,*)'ielem, mut_2d_Off ',ielem,maxval(mut_2d_Off(:))
+!           write(*,*)'parallel path for element = ', ielem
+!         endif
+
+          nghst_volume = nghst_volume + n_S_2d_Off                                !  Keep track of position in Ghost volume stack
+          nghst_shell  = nghst_shell  + n_S_2d_Off                                !  Keep track of position in Ghost shell  stack
 
           On_Mortar_0:do j = 1, n_S_2d_Mort
 
-            jnode =  n_S_2d_max*(iface-1) + j                                    ! Index in facial ordering
+            jnode =  n_S_2d_max*(iface-1) + j                                     ! Index in facial ordering
 
             lnode = efn2efn_Gau(3,jnode,ielem)
 
             cnt_Mort_Off(j) = efn2efn_Gau(3,jnode,ielem)
 
 !           Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_ghst(lnode)) * 0.5_wp
-            Jx_r_2d_Mort(j) = 0.0_wp  !  HACK:  Take out
+            Jx_r_2d_Mort(j) = 1.0_wp  !  HACK:  Take out
      
           enddo On_Mortar_0
 
                                                                                  !  ============================================
         else                                                                     !  Serial NON-CONFORMING data
                                                                                  !  ============================================
-
           Off_Elem_1:do k = 1, n_S_2d_Off                                        ! Off-element loop over data
 
             lnode =  n_S_2d_Off*(kface-1) + k                                    ! Index in facial ordering
@@ -3622,13 +3645,31 @@ contains
 
               vg_2d_Off(:,  k) =   vg(:,  knode,kelem)                           ! volumetric node data from off element face
             phig_2d_Off(:,:,k) = phig(:,:,knode,kelem)                           ! Viscous derivatives
-
-              nx_2d_Off(:,  k) = Jx_r(    knode,kelem)*facenodenormal(:,lnode,kelem) ! Outward facing normal of facial node
              mut_2d_Off(    k) =  mut(    knode,kelem)                           ! Outward facing normal of facial node
+
+              nx_2d_Off(:,  k) = Jx_facenodenormal_LGL(:,lnode,kelem)            ! Outward facing normal of facial node
+!             if(ielem == 5) write(*,*)'serial, k',k, nx_2d_Off(:,k)
 
             call primitive_to_entropy(vg_2d_Off(:,k),wg_2d_Off(:,k),nequations)  ! Rotate into entropy variables and store as face plane data
 
           enddo Off_Elem_1                                                       ! End off-element loop
+
+!         if(ielem == 5) then
+!           write(*,*)'serial path for element = ', ielem
+!           write(*,*)'ielem, nx_2d_off',ielem,maxval(nx_2d_Off(:,:))
+!           write(*,*)'ielem, nx_2d_off',ielem,   sum(nx_2d_Off(:,:))
+!           write(*,*)'ielem, nx_2d_off',ielem,minval(nx_2d_Off(:,:))
+!           write(*,*)'ielem, wg_2d_Off',ielem,maxval(wg_2d_Off(:,:))
+!           write(*,*)'ielem, wg_2d_Off',ielem,   sum(wg_2d_Off(:,:))
+!           write(*,*)'ielem, wg_2d_Off',ielem,minval(wg_2d_Off(:,:))
+!           write(*,*)'ielem, phig_2d_Off',ielem,maxval(phig_2d_Off(:,:,:))
+!           write(*,*)'ielem, phig_2d_Off',ielem,   sum(phig_2d_Off(:,:,:))
+!           write(*,*)'ielem, phig_2d_Off',ielem,minval(phig_2d_Off(:,:,:))
+!           write(*,*)'ielem, mut_2d_Off ',ielem,minval(mut_2d_Off(:))
+!           write(*,*)'ielem, mut_2d_Off ',ielem,   sum(mut_2d_Off(:))
+!           write(*,*)'ielem, mut_2d_Off ',ielem,maxval(mut_2d_Off(:))
+!           write(*,*)'serial path for element = ', ielem
+!         endif
 
           On_Mortar_1:do j = 1, n_S_2d_Mort
 
@@ -3638,7 +3679,8 @@ contains
 
             lnode = efn2efn_Gau(4,jnode,ielem)
 
-            Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_shell(lnode,kelem)) * 0.5_wp
+!           Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_shell(lnode,kelem)) * 0.5_wp
+            Jx_r_2d_Mort(j) = 1.0_wp  !  HACK:  Take out
      
           enddo On_Mortar_1
 
@@ -4954,6 +4996,7 @@ contains
     integer                                    :: jnode,gnode
     integer                                    :: k_node,k_elem,k_face
     integer                                    :: inb
+    integer                                    :: ierr
 
 
     select case(discretization)
@@ -5182,6 +5225,7 @@ contains
     real(wp), dimension(3)                    :: nx
 
     integer                                   :: i,j,k,l
+    integer                                   :: ierr
 
     real(wp), dimension(N_q,N_S)              :: vgS
     real(wp), dimension(N_q,0:N_S)            :: fnS
@@ -5192,6 +5236,7 @@ contains
     do i=1,N_S
       call conserved_to_primitive(ugS(:,i),vgS(:,i),N_q)
     enddo
+
 
     !  EntropyConsistentFlux is symmetric w.r.t. the Left and Right states
     !  Only the upper half of the matrix are calculated
@@ -5245,6 +5290,7 @@ contains
       enddo
 
     endif
+
 
     return
   end subroutine SS_Euler_Dspec
@@ -6324,10 +6370,10 @@ contains
 
         use referencevariables
         use nsereferencevariables
-        use variables, only: ef2e, efn2efn,        &
-          & phig, phig_err, grad_w_jacobian,                      &
-          & vg, wg, ughst,                                    &
-          & r_x, facenodenormal, efn2efn_Gau
+        use variables,            only: ef2e, efn2efn, efn2efn_Gau,       &
+                                      & phig, phig_err, grad_w_jacobian,  &
+                                      & vg, wg, ughst,                    &
+                                      & r_x, facenodenormal, nelem_ghst
         use collocationvariables, only: nnzgrad,iagrad,jagrad,dagrad,pinv,l10, &
                                       & ldg_flip_flop_sign, alpha_ldg_flip_flop,&
                                       & elem_props, &
@@ -6364,7 +6410,7 @@ contains
         integer :: ielem, iface
         integer :: kelem, kface
         integer :: poly_val
-        integer :: i_low_LGL, i_low_Mort
+        integer :: nghst_volume
 
         real(wp) :: l10_ldg_flip_flop
 
@@ -6424,16 +6470,16 @@ contains
           ! LDC/LDG penalty on phig
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
             
-          i_low_LGL  = 0 ; i_low_Mort = 0 ;
+          nghst_volume = nelem_ghst(1,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
 
           face_loop:do iface = 1, nfacesperelem                 ! loop over faces
   
             if (ef2e(1,iface,ielem) < 0) then                 !  face if cycle for BC or different face-types
 
               cycle
-                                                              !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-                                                              !       Conforming interfaces:  polynomial orders match 
-                                                              !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                                               !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                                               !       CONFORMING INTERFACES:  polynomial orders match 
+                                               !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
             else if (elem_props(2,ielem) == ef2e(4,iface,ielem)) then
                                                                 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
               if (ef2e(3,iface,ielem) /= myprocid) then         !       Off-Processor Contributions to gsat:  Conforming Interface
@@ -6465,7 +6511,7 @@ contains
   
                 end do
 
-                i_low_LGL  = i_low_LGL  + n_S_2d_On
+                nghst_volume = nghst_volume + n_S_2d_On               !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
                                                                 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
               else                                              !       ON-Processor Contributions to gsat:  Conforming Interface
                                                                 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -6493,10 +6539,11 @@ contains
                 end do
 
               endif                                   
+                                               !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+                                               !       NON-CONFORMING INTERFACES:  polynomial orders do NOT match 
+                                               !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+            else if (elem_props(2,ielem) /= ef2e(4,iface,ielem)) then 
 
-                                                                      !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-            else if (elem_props(2,ielem) /= ef2e(4,iface,ielem)) then !       Non-conforming interfaces:  polynomial orders do NOT match 
-                                                                      !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
               n_S_1d_max  = (npoly_max+1)**1
               n_S_2d_max  = (npoly_max+1)**2
               kface       = ef2e(1,iface,ielem)
@@ -6540,11 +6587,13 @@ contains
                           Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
               endif
 
-              if (ef2e(3,iface,ielem) /= myprocid) then       !       Off-Processor Contributions to gsat:  Conforming Interface
-
+                                                                !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+              if (ef2e(3,iface,ielem) /= myprocid) then         !       Parallel Contributions to gsat:  Non-Conforming Interface
+                                                                !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
                 Off_Elem_0:do k = 1, n_S_2d_Off
     
-                  ug_Off(:) = ughst(:,i_low_LGL + k)
+                  ug_Off(:) = ughst(:,  nghst_volume + k)            ! conserved variable    in Petsc ghost registers
+
                   call conserved_to_primitive(ug_Off(:),vg_Off(:),nequations)
                   call primitive_to_entropy  (vg_Off(:),wg_Off(:),nequations)
 
@@ -6552,7 +6601,7 @@ contains
        
                 enddo Off_Elem_0
 
-                i_low_LGL  = i_low_LGL  + n_S_2d_Off
+                nghst_volume = nghst_volume + n_S_2d_Off                !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
 
                 call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
                                        wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off)
@@ -6561,21 +6610,19 @@ contains
           
                   jnode =  n_S_2d_max*(iface-1) + j                     ! Index in facial ordering
           
-                  l = efn2efn_Gau(3,jnode,ielem) - i_low_Mort
+                  l = efn2efn_Gau(3,jnode,ielem)
         
-!                 wg_2d_Mort_On(:,j) = wg_2d_Mort_Off(:,l)
+                  wg_2d_Mort_On(:,j) = wg_2d_Mort_Off(:,l)
 
                 enddo On_Mortar_0
-!
-                i_low_Mort = i_low_Mort + n_S_2d_Mort
-
-              else
-
+                                                                !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+              else                                              !       Serial Contributions to gsat:  Non-Conforming Interface
+                                                                !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
                 Off_Elem_1:do k = 1, n_S_2d_Off
     
-                  lnode =  n_S_2d_Off*(kface-1) + k           ! Index in facial ordering
+                  lnode =  n_S_2d_Off*(kface-1) + k                     ! Index in facial ordering
        
-                  knode = ifacenodes_Off(lnode)               ! Volumetric node index corresponding to facial node index
+                  knode = ifacenodes_Off(lnode)                         ! Volumetric node index corresponding to facial node index
        
                   vg_Off(:)      = vg(:,knode,kelem)
                   call primitive_to_entropy(vg_Off,wg_Off,nequations)
@@ -6603,22 +6650,21 @@ contains
               call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
                                      wg_2d_Mort_On(:,:),wg_2d_On(:,:),Intrp_On)
 
-              On_Elem:do i = 1,n_S_2d_On         !  On-Element face loop
+              On_Elem:do i = 1,n_S_2d_On                                  ! On-Element face loop
     
-                jnode = n_S_2d_On*(iface-1) + i ! Index in facial ordering
+                jnode = n_S_2d_On*(iface-1) + i                           ! Index in facial ordering
 
-                inode = ifacenodes_On(jnode) ! corresponding volumetric node for face node
+                inode = ifacenodes_On(jnode)                              ! corresponding volumetric node for face node
     
-                nx = facenodenormal(:,jnode,ielem) ! outward facing normal of facial node
+                nx = facenodenormal(:,jnode,ielem)                        ! outward facing normal of facial node
 
                 vg_On(:) =   vg(:,inode,ielem)
                 call primitive_to_entropy(vg_On,wg_On,nequations)
-    
-                ! LDC/LDG penalty value
+                                                                          ! LDC/LDG penalty value
                 l10_ldg_flip_flop = l10*(1.0_wp + ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
                 dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg_On(:) - wg_2d_On(:,i))
     
-                ! add LDC/LDG penalty to each physical gradient using the normal
+                                                                          ! add LDC/LDG penalty to each physical gradient using the normal
                 do jdir = 1,ndim
                   phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
                 end do

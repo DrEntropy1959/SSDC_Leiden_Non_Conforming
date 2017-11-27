@@ -2041,7 +2041,8 @@ contains
     nodesperface_max = (npoly_max+1)**(ndim-1)
     allocate(   facenodenormal    (3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
     allocate(Jx_facenodenormal_LGL(3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
-    facenodenormal = 0.0_wp
+       facenodenormal     = -1000000.0_wp
+    Jx_facenodenormal_LGL = -1000000.0_wp
 
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
@@ -2074,6 +2075,7 @@ contains
       end do
 
     end do
+
 
     ! testing facenodenormal calculations
 
@@ -2181,13 +2183,6 @@ contains
           poly_val = n_S_1d_On - npoly
           allocate(Intrp(n_S_1d_On,n_S_1d_Mort)) ;  Intrp(:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On,1:n_S_1d_Mort,poly_val,2) ;
         endif
-
-        ! Restrict all metric data from mortar back to element face
-        istart    = (iface-1)*n_pts_2d_max  + 1
-        iend_Mort = istart + n_S_1d_Mort**2 - 1
-        iend_On   = istart + n_S_1d_On**2   - 1
-        call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-           Jx_facenodenormal_Gau(:,istart:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart:iend_Mort,ielem),Intrp)
 
       end do
 
@@ -2576,7 +2571,7 @@ contains
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
     integer :: nm, m, n, icnt
 
-    logical                                :: testing = .false., testing_metric_comp = .false.
+    logical                                :: testing = .false., testing_metric_comp = .true.
     logical                                :: modify_metrics = .false.
     real(wp)                               :: t1, t2
     real(wp), parameter                    :: tol = 1.0e-12_wp

@@ -224,6 +224,8 @@ contains
     ! Calculate normals
     call calcfacenormals_LGL()
 
+    call PetscNormals_LGL()
+
     call calcfacenormals_Gau()
     if(non_conforming .eqv. .true.) call modify_metrics_nonconforming()
 
