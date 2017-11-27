@@ -2571,7 +2571,7 @@ contains
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
     integer :: nm, m, n, icnt
 
-    logical                                :: testing = .false., testing_metric_comp = .true.
+    logical                                :: testing = .false., testing_metric_comp = .false.
     logical                                :: modify_metrics = .false.
     real(wp)                               :: t1, t2
     real(wp), parameter                    :: tol = 1.0e-12_wp

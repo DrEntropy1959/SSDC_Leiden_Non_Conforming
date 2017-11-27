@@ -2866,7 +2866,6 @@ contains
     integer, allocatable :: iyu(:)
     integer :: ielem, iloc, iface
     integer :: i, kelem, kface, ieq
->>>>>>> bdee8d7ffda689a92a913529f8d173da81d59687
     integer :: n_S_1d_Mort, n_S_2d_Mort, nfacesize
     integer :: ierr
 
