@@ -13,6 +13,9 @@ module petscvariables
   Vec upetsc
   Vec ulocpetsc
 
+  Vec mutpetsc
+  Vec mutlocpetsc
+
   Vec upetscWENO
   Vec ulocpetscWENO
 

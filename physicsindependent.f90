@@ -164,7 +164,9 @@ contains
     ! Collocation points
 
     call calcnodes_LGL()
-    call transform_grid()
+
+!   call transform_grid()
+
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the metrics'
     end if
@@ -222,6 +224,8 @@ contains
     ! Calculate normals
     call calcfacenormals_LGL()
 
+    call PetscNormals_LGL()
+
     call calcfacenormals_Gau()
     if(non_conforming .eqv. .true.) call modify_metrics_nonconforming()
 
@@ -233,7 +237,6 @@ contains
     ! Set binary sizes for writing the solution vtu files in raw binary vtu format
     call calculate_binary_sizes_vtu()
 
-    return
   end subroutine physics_independent_setup
 
   !============================================================================

@@ -1,7 +1,9 @@
 .SUFFIXES: .o .c .f90 .F90
 
 HOSTPC:=$(shell hostname)
-
+#=================================================================================================================
+#  TAB16
+#=================================================================================================================
 ifeq ($(HOSTPC),tab16)
 $(info ${HOSTPC})
 INCLUDESDIR = -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/include\
@@ -14,6 +16,9 @@ LFLAGS  = -L/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/lib\
 CC = gcc
 FC = mpif90
 LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
+#=================================================================================================================
+#  Leiden
+#=================================================================================================================
 else ifeq ($(HOSTPC),Leiden)
 $(info ${HOSTPC})
 INCLUDESDIR = -I/home/carpentr/OpenSourceLib/Lib-Install/include\
@@ -27,6 +32,9 @@ LFLAGS = -L/home/carpentr/OpenSourceLib/Lib-Install/lib\
 CC = gcc
 FC = mpif90
 LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
+#=================================================================================================================
+#  dfernandez-lan
+#=================================================================================================================
 else ifeq ($(HOSTPC),dfernandez-lan)
 $(info ${HOSTPC})
 INCLUDESDIR = -I/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/lib/include\
@@ -54,6 +62,9 @@ LFLAGS = -L/home/nia-visi13/Postdoc2/open_source/deps/openmpi-1.8.3/lib\
 CC = gcc
 FC = mpif90
 LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
+#=================================================================================================================
+#  computer-dcdelrey
+#=================================================================================================================
 else ifeq ($(HOSTPC),computer-dcdelrey)
 $(info ${HOSTPC})
 INCLUDESDIR = -I/home/dcdelrey/Documents/Postdoc2/open_source/deps/openmpi-1.8.3/include\

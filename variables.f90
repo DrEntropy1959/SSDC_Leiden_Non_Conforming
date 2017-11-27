@@ -16,6 +16,7 @@ module variables
   real(wp), allocatable, dimension(:,:) :: xghst_LGL
   real(wp), allocatable, dimension(:,:) :: xghstWENO_partner
   real(wp), allocatable, dimension(:,:) ::   ughst
+  real(wp), allocatable, dimension(:)   :: mutghst
   real(wp), allocatable, dimension(:,:) :: ughstWENO
   real(wp), allocatable, dimension(:,:) :: ughstWENO_partner
 
@@ -68,7 +69,6 @@ module variables
   real(wp), allocatable, dimension(:,:,:)     :: phighst_Gau_Shell         ! (nq,nd,nShell)
 
   real(wp), allocatable, dimension(:,:)       ::  nxghst_LGL_Shell
-  real(wp), allocatable, dimension(:,:)       :: mutghst_LGL_Shell
 
   integer,  allocatable, dimension(:,:,:)     :: efn2efn_LGL               ! ( 4,nshell,nelem)
   integer,  allocatable, dimension(:,:,:)     :: efn2efn_Gau               ! ( 4,nshell,nelem)
@@ -93,6 +93,8 @@ module variables
 
   real(wp), allocatable, dimension(:,:,:)     :: facenodenormal_LGL_shell
   real(wp), allocatable, dimension(:,:,:)     :: facenodenormal_Gau_shell
+
+  integer,  allocatable, dimension(:,:)       :: nelem_ghst
 
   ! This variable are used with the low-storage-RK
   real(wp), allocatable, dimension(:,:,:)   :: du
