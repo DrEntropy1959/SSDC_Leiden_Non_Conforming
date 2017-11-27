@@ -8,13 +8,7 @@ cp zerodat Triangle_3_Isentropic_Vortex.Convergence.Study.csv
      do
        echo "Order: $var1   "
        cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g'  > SSDCstartup
-if [ "$THISHOST" == "tab16" ]; then
        mpirun -np  1 nice -19 ./SSDCNSE > tmp88 ;
-elif [ "$THISHOST" = "Leiden" ]; then
-       mpirun        -np  1 nice -19 ./SSDCNSE > tmp88 ;
-else
-echo "hostname does not exist" ;
-fi
        cp Triangle_3_Isentropic_Vortex.Convergence.Study.csv tmp87
        cat tmp87 tmp88 > Triangle_3_Isentropic_Vortex.Convergence.Study.csv
  done
