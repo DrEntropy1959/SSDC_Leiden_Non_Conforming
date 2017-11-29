@@ -1316,37 +1316,13 @@ contains
                   
                   x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0
-                  
-                  do i_coord = 1,3
-                    
-                    if (i_coord /= p_dir) then
-
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
+                  x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
                   do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
                     
                     x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
                 
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
+                    x2_p(:) = Extract_Parallel_Invariant(p_dir,x2)                   !   Extact the two invariant coordinate locations between parallel faces
 
                     if (magnitude(x1_p-x2_p) <= nodetol) then                        ! Check distance between the two nodes
                       
@@ -1395,37 +1371,13 @@ contains
                   
                   x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0
-                  
-                  do i_coord = 1,3
-                    
-                    if (i_coord /= p_dir) then
-
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
+                  x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
                   do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
                     
                     x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
                 
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
+                    x2_p(:) = Extract_Parallel_Invariant(p_dir,x2)                   !   Extact the two invariant coordinate locations between parallel faces
 
                     if (magnitude(x1_p-x2_p) <= nodetol) then                        ! Check distance between the two nodes
                       
@@ -1472,40 +1424,15 @@ contains
                   
                   x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0
-                  
-                  do i_coord = 1,3
-                    
-                    if (i_coord /= p_dir) then
-
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
+                  x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
                   do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
                     
                     x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
                 
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
+                    x2_p(:) = Extract_Parallel_Invariant(p_dir,x2)                   !   Extact the two invariant coordinate locations between parallel faces
 
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
+                    if (magnitude(x1_p-x2_p) <= nodetol) then                        ! Check distance between the two nodes
                       
                       efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node; ef2e(2) gives the element of the neighbor
 
@@ -1608,54 +1535,21 @@ contains
                   
                   x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0 
+                  x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
-                  do i_coord = 1, 3
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
                     
-                    if (i_coord /= p_dir) then
-                      
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
+                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
+                
+                    x2_p(:) = Extract_Parallel_Invariant(p_dir,x2)                   !   Extact the two invariant coordinate locations between parallel faces
 
-                  ! Search for the connected node on the face of the connected element
-                  do jnode = 1,n_LGL_2d
-                    ! Coordinates of the jnode
-                    ! ef2e(1) gives the face on the neighboring element and
-                    ! ef2e(2) gives the element
-                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), ef2e(2,iface,ielem))
+                    if (magnitude(x1_p-x2_p) <= nodetol) then                        ! Check distance between the two nodes
+                      
+                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node; ef2e(2) gives the element of the neighbor
 
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-                    
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
+                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                   ! Set the element of the connected node
 
-                    ! Check the distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
-                      
-                      ! Set the element of the connected node
-                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
-                      
-                      ! Set the index of the connected node
-                      efn2efn(4,knode,ielem) = jnode
-
-!                     cnt_debug = cnt_debug + 1
+                      efn2efn(4,knode,ielem) = jnode                                 ! Set the node index in the off element matching node
 
                       exit                                                           ! partner jnode found; exit the jnode do loop
                     
@@ -1691,51 +1585,21 @@ contains
                   
                   x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
-                  ! Extract from x1 the two invaraint coordinates
-                  cnt_coord = 0 
+                  x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
-                  do i_coord = 1, 3
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
                     
-                    if (i_coord /= p_dir) then
-                      
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
+                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
+                
+                    x2_p(:) = Extract_Parallel_Invariant(p_dir,x2)                   !   Extact the two invariant coordinate locations between parallel faces
 
-                  do jnode = 1,n_LGL_2d
+                    if (magnitude(x1_p-x2_p) <= nodetol) then                        ! Check distance between the two nodes
+                      
+                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node; ef2e(2) gives the element of the neighbor
 
-                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), ef2e(2,iface,ielem))
+                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                   ! Set the element of the connected node
 
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-                    
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check the distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
-                      
-                      ! Set the element of the connected node
-                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
-                      
-                      ! Set the index of the connected node
-                      efn2efn(4,knode,ielem) = jnode
-
-!                     cnt_debug = cnt_debug + 1
+                      efn2efn(4,knode,ielem) = jnode                                 ! Set the node index in the off element matching node
 
                       exit                                                           ! partner jnode found; exit the jnode do loop
                     
@@ -1771,51 +1635,21 @@ contains
                   
                   x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
-                  ! Extract from x1 the two invariant coordinates
-                  cnt_coord = 0 
+                  x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
-                  do i_coord = 1, 3
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
                     
-                    if (i_coord /= p_dir) then
-                      
-                      cnt_coord = cnt_coord + 1
-                      x1_p(cnt_coord) = x1(i_coord)
-                    
-                    end if
-                  
-                  end do
+                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
+                
+                    x2_p(:) = Extract_Parallel_Invariant(p_dir,x2)                   !   Extact the two invariant coordinate locations between parallel faces
 
-                  do jnode = 1,n_LGL_2d
+                    if (magnitude(x1_p-x2_p) <= nodetol) then                        ! Check distance between the two nodes
+                      
+                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node; ef2e(2) gives the element of the neighbor
 
-                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), ef2e(2,iface,ielem))
+                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                   ! Set the element of the connected node
 
-                    ! Extract from x2 the two invaraint coordinates
-                    cnt_coord = 0
-                    
-                    do i_coord = 1, 3
-                      
-                      if (i_coord /= p_dir) then
-                        
-                        cnt_coord = cnt_coord + 1
-                        x2_p(cnt_coord) = x2(i_coord)
-                      
-                      end if
-                    
-                    end do
-
-                    ! Check the distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
-                      
-                      ! Set the volumetric node index of the connected node
-                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
-                      
-                      ! Set the element of the connected node
-                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
-                      
-                      ! Set the index of the connected node
-                      efn2efn(4,knode,ielem) = jnode
-
-!                     cnt_debug = cnt_debug + 1
+                      efn2efn(4,knode,ielem) = jnode                                 ! Set the node index in the off element matching node
 
                       exit                                                           ! partner jnode found; exit the jnode do loop
                     
