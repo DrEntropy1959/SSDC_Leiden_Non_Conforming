@@ -1297,32 +1297,24 @@ contains
           !  Parallel periodic logic in x1, x2, x3 directions
           !  ==================================================
 
-          ! Initialize match_found
-          match_found = .false.
+          match_found = .false.                                                      ! Initialize match_found
           
-          ! Loop through the elements that owns a periodic face in the x1 direction
-          if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
+          if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then                        ! Loop through the elements that owns a periodic face in the x1 direction
 
-            ! Check if the ielem owns a periodic face and if iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
+            do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))                    ! Check if the ielem owns a periodic face and if iface is a periodic face
 
               if (periodic_elem_face_ids_x1(1,i_p_face) == jelems(ielem) .and. &
                 & periodic_elem_face_ids_x1(2,i_p_face) == iface) then
 
-                ! There is a match: change logical value of match_found
-                match_found = .true.
+                match_found = .true.                                                 ! There is a match: change logical value of match_found
 
-                ! Get the direction of "periodicity"
-                p_dir = periodic_elem_face_ids_x1(3,i_p_face)
+                p_dir = periodic_elem_face_ids_x1(3,i_p_face)                        ! Get the direction of "periodicity"
 
-                ! Loop over the nodes on the face
-                do inode = 1, n_LGL_2d
+                do inode = 1, n_LGL_2d                                               ! Loop over the nodes on the On-Element face
                   
-                  ! Update the facial node index counter
-                  knode = knode + 1
+                  knode = knode + 1                                                  ! Update the facial node index counter
                   
-                  ! Save the coordinates of the facial node
-                  x1 = xg(:,ifacenodes(knode),ielem)
+                  x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
                   ! Extract from x1 the two invaraint coordinates
                   cnt_coord = 0
@@ -1338,10 +1330,9 @@ contains
                   
                   end do
 
-                  do jnode = 1, n_LGL_2d
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
                     
-                    ! Coordinates of the jnode
-                    x2 = xghst_LGL(:,i_low + jnode)
+                    x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
                 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1357,44 +1348,31 @@ contains
                     
                     end do
 
-                    ! Check distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
+                    if (magnitude(x1_p-x2_p) <= nodetol) then                        ! Check distance between the two nodes
                       
-                      write(*,*)'found a match in parallel path periodic I' 
+                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node; ef2e(2) gives the element of the neighbor
 
-                      ! Set the volumetric node index of the connected node; ef2e(2) gives the element of the neighbor
-                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
+                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                   ! Set the element of the connected node
 
-                      ! Set the element of the connected node
-                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
+                      efn2efn(3,knode,ielem) = i_low + jnode                         ! Set the node index in the ghost array
 
-                      ! Set the node index in the ghost array
-                      efn2efn(3,knode,ielem) = i_low + jnode
-
-!                     efn2efn(4,knode,ielem) = jnode
-                      
-                      exit ! partner jnode found; exit the jnode do loop
+                      exit                                                           ! partner jnode found; exit the jnode do loop
                     
                     end if
                   
-                  end do ! End do jnode
+                  end do                                                             ! End do jnode
                 
-                end do ! End do inode 
+                end do                                                               ! End do inode 
 
-                ! Update the position in the ghost stack
-                i_low = i_low + n_LGL_2d
+                i_low = i_low + n_LGL_2d                                             ! Update the position in the ghost stack
 
-              end if ! End if match found
+              end if                                                                 ! End if match found
 
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit 
-              end if
+              if (match_found .eqv. .true.) exit                                     ! If a partner face has been found exit from the loop over the elements that own a periodic face
 
-            end do ! End do loop over the elements that own a periodic face
+            end do                                                                   ! End do loop over the elements that own a periodic face
 
-          end if ! End if check periodic face in x1 direction
+          end if                                                                     ! End if check periodic face in x1 direction
 
           ! Loop through the elements that owns a periodic face in the x2 direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x2(1,:)) /= 0) then
@@ -1411,14 +1389,11 @@ contains
                 ! Get the direction of "periodicity"
                 p_dir = periodic_elem_face_ids_x2(3,i_p_face)
 
-                ! Loop over the nodes on the face
-                do inode = 1, n_LGL_2d
+                do inode = 1, n_LGL_2d                                               ! Loop over the nodes on the On-Element face
                   
-                  ! Update the facial node index counter
-                  knode = knode + 1
+                  knode = knode + 1                                                  ! Update the facial node index counter
                   
-                  ! Save the coordinates of the facial node
-                  x1 = xg(:,ifacenodes(knode),ielem)
+                  x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
                   ! Extract from x1 the two invaraint coordinates
                   cnt_coord = 0
@@ -1434,11 +1409,9 @@ contains
                   
                   end do
 
-                  do jnode = 1, n_LGL_2d
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
                     
-                    ! Coordinates of the jnode
-                    ! ef2e(2) gives the element of the neighbor
-                    x2 = xghst_LGL(:,i_low + jnode)
+                    x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
                 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1454,44 +1427,31 @@ contains
                     
                     end do
 
-                    ! Check distance between the two nodes
-                    if (magnitude(x1_p-x2_p) <= nodetol) then
+                    if (magnitude(x1_p-x2_p) <= nodetol) then                        ! Check distance between the two nodes
                       
-                      write(*,*)'found a match in parallel path periodic II' 
+                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node; ef2e(2) gives the element of the neighbor
 
-                      ! Set the volumetric node index of the connected node
-                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))
+                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                   ! Set the element of the connected node
 
-                      ! Set the element of the connected node
-                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
+                      efn2efn(3,knode,ielem) = i_low + jnode                         ! Set the node index in the ghost array
 
-                      ! Set the node index in the ghost array
-                      efn2efn(3,knode,ielem) = i_low + jnode
-
-!                     efn2efn(4,knode,ielem) = jnode
-                      
-                      exit ! partner jnode found; exit the jnode do loop
+                      exit                                                           ! partner jnode found; exit the jnode do loop
                     
                     end if
                   
-                  end do ! End do jnode
+                  end do                                                             ! End do jnode
                 
-                end do ! End do inode 
+                end do                                                               ! End do inode 
 
-                ! Update the position in the ghost stack
-                i_low = i_low + n_LGL_2d
+                i_low = i_low + n_LGL_2d                                             ! Update the position in the ghost stack
 
-              end if ! End if match found
+              end if                                                                 ! End if match found
 
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit 
-              end if
+              if (match_found .eqv. .true.) exit                                     ! If a partner face has been found exit from the loop over the ! elements that own a periodic face
 
-            end do ! End do loop over the elements that own a periodic face
+            end do                                                                   ! End do loop over the elements that own a periodic face
 
-          end if ! End if check periodic face in x2 direction
+          end if                                                                     ! End if check periodic face in x2 direction
 
           ! Loop through the elements that owns a periodic face in the x3 direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x3(1,:)) /= 0) then
@@ -1502,20 +1462,15 @@ contains
               if (periodic_elem_face_ids_x3(1,i_p_face) == jelems(ielem) .and. &
                 & periodic_elem_face_ids_x3(2,i_p_face) == iface) then
 
-                ! There is a match: change logical value of match_found
-                match_found = .true.
+                match_found = .true.                                                 ! There is a match: change logical value of match_found
 
-                ! Get the direction of "periodicity"
-                p_dir = periodic_elem_face_ids_x3(3,i_p_face)
+                p_dir = periodic_elem_face_ids_x3(3,i_p_face)                        ! Get the direction of "periodicity"
 
-                ! Loop over the nodes on the face
-                do inode = 1, n_LGL_2d
+                do inode = 1, n_LGL_2d                                               ! Loop over the nodes on the On-Element face
                   
-                  ! Update the facial node index counter
-                  knode = knode + 1
+                  knode = knode + 1                                                  ! Update the facial node index counter
                   
-                  ! Save the coordinates of the facial node
-                  x1 = xg(:,ifacenodes(knode),ielem)
+                  x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
                   ! Extract from x1 the two invaraint coordinates
                   cnt_coord = 0
@@ -1531,11 +1486,9 @@ contains
                   
                   end do
 
-                  do jnode = 1, n_LGL_2d
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
                     
-                    ! Coordinates of the jnode
-                    ! ef2e(2) gives the element of the neighbor
-                    x2 = xghst_LGL(:,i_low + jnode)
+                    x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
                 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1553,43 +1506,30 @@ contains
 
                     ! Check distance between the two nodes
                     if (magnitude(x1_p-x2_p) <= nodetol) then
-
-                      write(*,*)'found a match in parallel path periodic III' 
                       
-                      ! Set the volumetric node index of the connected node
-                      efn2efn(1,knode,ielem) = kfacenodes(jnode,&
-                        & ef2e(1,iface,ielem))
+                      efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node; ef2e(2) gives the element of the neighbor
 
-                      ! Set the element of the connected node
-                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)
+                      efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                   ! Set the element of the connected node
 
-                      ! Set the node index in the ghost array
-                      efn2efn(3,knode,ielem) = i_low + jnode
+                      efn2efn(3,knode,ielem) = i_low + jnode                         ! Set the node index in the ghost array
 
-!                     efn2efn(4,knode,ielem) = jnode
-                      
-                      exit ! partner jnode found; exit the jnode do loop
+                      exit                                                           ! partner jnode found; exit the jnode do loop
                     
                     end if
                   
-                  end do ! End do jnode
+                  end do                                                             ! End do jnode
                 
-                end do ! End do inode 
+                end do                                                               ! End do inode 
 
-                ! Update the position in the ghost stack
-                i_low = i_low + n_LGL_2d
+                i_low = i_low + n_LGL_2d                                             ! Update the position in the ghost stack
 
-              end if ! End if match found
+              end if                                                                 ! End if match found
 
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit 
-              end if
+              if (match_found .eqv. .true.) exit                                     ! If a partner face has been found exit from the loop over the ! elements that own a periodic face
 
-            end do ! End do loop over the elements that own a periodic face
+            end do                                                                   ! End do loop over the elements that own a periodic face
 
-          end if ! End if check periodic face in x3 direction
+          end if                                                                     ! End if check periodic face in x3 direction
  
           !  ====================================================================
           !  Finished Parallel periodic logic:  Begin Parallel non-periodic logic
@@ -1597,36 +1537,33 @@ contains
 
           if (match_found .eqv. .false.) then
 
-            do inode = 1, n_LGL_2d                                               ! Loop over the nodes on the face
+            do inode = 1, n_LGL_2d                                                   ! Loop over the nodes on the face
 
-              knode = knode + 1                                                  ! Update the facial node index counter
+              knode = knode + 1                                                      ! Update the facial node index counter
 
-              x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
+              x1 = xg(:,ifacenodes(knode),ielem)                                     ! Save the coordinates of the facial node
               
-              do jnode = 1, n_LGL_2d                                             ! Search for the connected node on face of the connected element
+              do jnode = 1, n_LGL_2d                                                 ! Search for the connected node on face of the connected element
 
-                x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
+                x2 = xghst_LGL(:,i_low + jnode)                                      ! Coordinates of the jnode
                 
-                if (magnitude(x1-x2) <= nodetol) then                            ! Check the distance between the two nodes
+                if (magnitude(x1-x2) <= nodetol) then                                ! Check the distance between the two nodes
 
-                  cnt_debug = cnt_debug + 1                                      ! debugging the counter index
+                  cnt_debug = cnt_debug + 1                                          ! debugging the counter index
                   
-                  efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node, ef2e(2) gives the element of the neighbor
+                  efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))     ! Set the volumetric node index of the connected node, ef2e(2) gives the element of the neighbor
                   
-                  efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                   ! Set the element of the connected node
+                  efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                       ! Set the element of the connected node
                   
-                  efn2efn(3,knode,ielem) = i_low + jnode                         ! Set the node index in the ghost array
+                  efn2efn(3,knode,ielem) = i_low + jnode                             ! Set the node index in the ghost array
 
-!                 efn2efn(4,knode,ielem) = -1000                                 ! efn2efn(4 still not initialized
-                  
-                  exit                                                           ! Found a match, exit the loop
+                  exit                                                               ! Found a match, exit the loop
                 
                 end if             
               
               end do
               
-              ! Print information at screen if there is a problem and stop computation
-              if (jnode > n_LGL_2d .and. myprocid==0) then
+              if (jnode > n_LGL_2d .and. myprocid==0) then                           ! Print information at screen if there is a problem and stop computation
                 write(*,*) 'Connectivity error in face-node connectivity_LGL Parallel.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
                 write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
@@ -1643,7 +1580,7 @@ contains
 
             end do
 
-            i_low = i_low + n_LGL_2d                                             ! Update the position in the ghost stack
+            i_low = i_low + n_LGL_2d                                                 ! Update the position in the ghost stack
           
           end if
 
@@ -1656,26 +1593,20 @@ contains
 
           if (size(periodic_elem_face_ids_x1(1,:)) /= 0) then
 
-            ! Check if the ielem owns a periodic face and if the iface is a periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))
+            do i_p_face = 1, size(periodic_elem_face_ids_x1(1,:))                    ! Check if the ielem owns a periodic face and if the iface is a periodic face
 
               if (periodic_elem_face_ids_x1(1,i_p_face) == jelems(ielem) .and. &
                 & periodic_elem_face_ids_x1(2,i_p_face) == iface) then
 
-                ! There is a match
-                match_found = .true.
+                match_found = .true.                                                 ! There is a match
 
-                ! Get the direction of periodicity
-                p_dir = periodic_elem_face_ids_x1(3,i_p_face)
+                p_dir = periodic_elem_face_ids_x1(3,i_p_face)                        ! Get the direction of periodicity
 
-                ! Loop over the nodes on the face
-                do inode = 1, n_LGL_2d
+                do inode = 1, n_LGL_2d                                               ! Loop over the nodes on the On-Element face
                   
-                  ! Update the facial node index counter
-                  knode = knode + 1
+                  knode = knode + 1                                                  ! Update the facial node index counter
                   
-                  ! Save the coordinates of the facial node
-                  x1 = xg(:,ifacenodes(knode),ielem)
+                  x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
                   ! Extract from x1 the two invaraint coordinates
                   cnt_coord = 0 
@@ -1726,51 +1657,39 @@ contains
 
 !                     cnt_debug = cnt_debug + 1
 
-                      exit ! partner jnode found; exit the jnode do loop
+                      exit                                                           ! partner jnode found; exit the jnode do loop
                     
                     end if
                   
-                  end do ! End do jnode
+                  end do                                                             ! End do jnode
                 
-                end do ! End do inode 
+                end do                                                               ! End do inode 
 
-              end if ! Match found
+              end if                                                                 ! End if match found
 
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit
-              end if
+              if (match_found .eqv. .true.) exit                                     ! If a partner face has been found exit from the loop over the elements that own a periodic face
 
-            end do ! End do loop over the elements that own a periodic face
+            end do                                                                   ! End do loop over the elements that own a periodic face
 
-          end if ! End if periodic x1 direction
+          end if                                                                     ! End if check periodic face in x1 direction
 
-          ! If the iface is not a periodic face  in the x1 direction, check
-          ! if it is a periodic face in the x2 direction
+          ! If the iface is not a periodic face  in the x1 direction, check if it is a periodic face in the x2 direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x2(1,:)) /= 0) then
            
-            ! Check if the ielem owns a periodic face and if the iface is a
-            ! periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x2(1,:))
+            do i_p_face = 1, size(periodic_elem_face_ids_x2(1,:))                    ! Check if the ielem owns a periodic face and if the iface is a periodic face
 
               if (periodic_elem_face_ids_x2(1,i_p_face) == jelems(ielem) .and. &
                 & periodic_elem_face_ids_x2(2,i_p_face) == iface) then
 
-                ! There is a match
-                match_found = .true.
+                match_found = .true.                                                 ! There is a match
 
-                ! Get the direction of periodicity
-                p_dir = periodic_elem_face_ids_x2(3,i_p_face)
+                p_dir = periodic_elem_face_ids_x2(3,i_p_face)                        ! Get the direction of periodicity
 
-                ! Loop over the nodes on the face
-                do inode = 1, n_LGL_2d
+                do inode = 1, n_LGL_2d                                               ! Loop over the nodes on the On-Element face
                   
-                  ! Update the facial node index counter
-                  knode = knode + 1
+                  knode = knode + 1                                                  ! Update the facial node index counter
                   
-                  ! Save the coordinates of the facial node
-                  x1 = xg(:,ifacenodes(knode),ielem)
+                  x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
                   ! Extract from x1 the two invaraint coordinates
                   cnt_coord = 0 
@@ -1786,14 +1705,9 @@ contains
                   
                   end do
 
-                  ! Search for the connected node on the face of the connected 
-                  ! element
                   do jnode = 1,n_LGL_2d
-                    ! Coordinates of the jnode
-                    ! ef2e(1) gives the face on the neighboring element and
-                    ! ef2e(2) gives the element
-                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), &
-                      & ef2e(2,iface,ielem))
+
+                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1823,52 +1737,39 @@ contains
 
 !                     cnt_debug = cnt_debug + 1
 
-                      exit ! partner jnode found; exit the jnode do loop
+                      exit                                                           ! partner jnode found; exit the jnode do loop
                     
                     end if
                   
-                  end do ! End do jnode
+                  end do                                                             ! End do jnode
                 
-                end do ! End do inode 
+                end do                                                               ! End do inode 
 
-              end if ! Match found
+              end if                                                                 ! End if match found
 
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit
-              end if
+              if (match_found .eqv. .true.) exit                                     ! If a partner face has been found exit from the loop over the elements that own a periodic face
 
-            end do ! End do loop over the elements that own a periodic face
-          
-          end if ! End if periodic x2 direction
+            end do                                                                   ! End do loop over the elements that own a periodic face
 
+          end if                                                                     ! End if check periodic face in x2 direction
 
-          ! If the iface is not a periodic face in the x2 direction, check
-          ! if it is a periodic face in the x3 direction
+          ! If the iface is not a periodic face in the x2 direction, check if it is a periodic face in the x3 direction
           if (match_found .eqv. .false. .and. size(periodic_elem_face_ids_x3(1,:)) /= 0) then
            
-            ! Check if the ielem owns a periodic face and if the iface is a
-            ! periodic face
-            do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))
+            do i_p_face = 1, size(periodic_elem_face_ids_x3(1,:))                    ! Check if the ielem owns a periodic face and if the iface is a periodic face
 
               if (periodic_elem_face_ids_x3(1,i_p_face) == jelems(ielem) .and. &
                 & periodic_elem_face_ids_x3(2,i_p_face) == iface) then
 
-                ! There is a match
-                match_found = .true.
+                match_found = .true.                                                 ! There is a match
 
-                ! Get the direction of periodicity
-                p_dir = periodic_elem_face_ids_x3(3,i_p_face)
+                p_dir = periodic_elem_face_ids_x3(3,i_p_face)                        ! Get the direction of periodicity
 
-                ! Loop over the nodes on the face
-                do inode = 1, n_LGL_2d
+                do inode = 1, n_LGL_2d                                               ! Loop over the nodes on the On-Element face
                   
-                  ! Update the facial node index counter
-                  knode = knode + 1
+                  knode = knode + 1                                                  ! Update the facial node index counter
                   
-                  ! Save the coordinates of the facial node
-                  x1 = xg(:,ifacenodes(knode),ielem)
+                  x1 = xg(:,ifacenodes(knode),ielem)                                 ! Save the coordinates of the facial node
                 
                   ! Extract from x1 the two invariant coordinates
                   cnt_coord = 0 
@@ -1884,14 +1785,9 @@ contains
                   
                   end do
 
-                  ! Search for the connected node on the face of the connected 
-                  ! element
                   do jnode = 1,n_LGL_2d
-                    ! Coordinates of the jnode
-                    ! ef2e(1) gives the face on the neighboring element and
-                    ! ef2e(2) gives the element
-                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), &
-                      & ef2e(2,iface,ielem))
+
+                    x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), ef2e(2,iface,ielem))
 
                     ! Extract from x2 the two invaraint coordinates
                     cnt_coord = 0
@@ -1921,25 +1817,21 @@ contains
 
 !                     cnt_debug = cnt_debug + 1
 
-                      exit ! partner jnode found; exit the jnode do loop
+                      exit                                                           ! partner jnode found; exit the jnode do loop
                     
                     end if
                   
-                  end do ! End do jnode
+                  end do                                                             ! End do jnode
                 
-                end do ! End do inode 
+                end do                                                               ! End do inode 
 
-              end if ! Match found
+              end if                                                                 ! End if match found
 
-              ! If a partner face has been found exit from the loop over the 
-              ! elements that own a periodic face
-              if (match_found .eqv. .true.) then
-                exit
-              end if
+              if (match_found .eqv. .true.) exit                                     ! If a partner face has been found exit from the loop over the elements that own a periodic face
 
-            end do ! End do loop over the elements that own a periodic face
-          
-          end if ! End if periodic x3 direction
+            end do                                                                   ! End do loop over the elements that own a periodic face
+
+          end if                                                                     ! End if check periodic face in x3 direction
 
           !  ==================================================================
           !  Finished Serial periodic logic:  Begin Serial non-periodic logic
@@ -1947,25 +1839,24 @@ contains
 
           if (match_found .eqv. .false.) then
 
-            do inode = 1, n_LGL_2d                                  ! Loop over the nodes on the face
+            do inode = 1, n_LGL_2d                                                   ! Loop over the nodes on the face
  
-              knode = knode + 1                                     ! Update the facial node index counter
+              knode = knode + 1                                                      ! Update the facial node index counter
 
-              x1 = xg(:,ifacenodes(knode),ielem)                    ! Save coordinates of the facial ndoes
+              x1 = xg(:,ifacenodes(knode),ielem)                                     ! Save coordinates of the facial ndoes
 
-              do jnode = 1, n_LGL_2d                                ! Search for connected node on connected element face
+              do jnode = 1, n_LGL_2d                                                 ! Search for connected node on connected element face
                 
-                                                                    ! ef2e(1) gives the face on the neighboring element and
-                                                                    ! ef2e(2) gives the element
-                x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)), ef2e(2,iface,ielem)) ! Coordinates of the jnode
+                                                                                     ! ef2e(1) gives the face on the neighboring element and
+                x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem)) ! Coordinates of the jnode
                
-                if (magnitude(x1-x2) <= nodetol) then               ! Check the distance between the two nodes
+                if (magnitude(x1-x2) <= nodetol) then                                ! Check the distance between the two nodes
 
-                  efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem)) ! Set the volumetric node index of the connected node
+                  efn2efn(1,knode,ielem) = kfacenodes(jnode,ef2e(1,iface,ielem))     ! Set the volumetric node index of the connected node
                   
-                  efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)      ! Set the element of the connected node
+                  efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                       ! Set the element of the connected node
                   
-                  efn2efn(4,knode,ielem) = jnode                    ! Set the index of the connected node
+                  efn2efn(4,knode,ielem) = jnode                                     ! Set the index of the connected node
                   
                   exit
                 
@@ -1973,8 +1864,7 @@ contains
               
               end do                                                    ! End do jnode
 
-              ! Print information at screen if there is a problem and stop computation
-              if (efn2efn(1,knode,ielem) < 0 .or. efn2efn(2,knode,ielem) < 0) then
+              if (efn2efn(1,knode,ielem) < 0 .or. efn2efn(2,knode,ielem) < 0) then   ! Print information at screen if there is a problem and stop computation
                 write(*,*) 'conforming_interface', conforming_interface
                 write(*,*) 'Connectivity error in face-node connectivity_LGL Serial.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
@@ -2012,6 +1902,33 @@ contains
     end do ! End do loop elements owned by the processor
 
   end subroutine calculate_face_node_connectivity_LGL
+
+  !============================================================================
+  
+  pure function Extract_Parallel_Invariant(p_dir,x)
+
+    ! Extract from x1 the two invaraint coordinates
+    integer,                intent(in) :: p_dir
+    real(wp), dimension(3), intent(in) :: x
+
+    integer :: cnt_coord, i_coord
+
+    real(wp), dimension(2)             :: Extract_Parallel_Invariant
+
+    continue
+
+        cnt_coord = 0
+
+        do i_coord = 1,3
+
+          if (i_coord /= p_dir) then
+            cnt_coord = cnt_coord + 1
+            Extract_Parallel_Invariant(cnt_coord) = x(i_coord)
+          end if
+
+        end do
+
+   end function Extract_Parallel_Invariant
 
   !============================================================================
   
@@ -4452,9 +4369,18 @@ contains
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: ielem, nhex, iface
-!   integer :: j, icnt
+    integer,  parameter  :: seed = 86457
+    integer,  parameter  :: order_strategy = 2
     real(wp), parameter  :: tol = 1.0e-9_wp
+
+    integer,  dimension(:), allocatable :: irand_order, jrand_order
+
+    integer :: ielem, nhex, iface
+    integer :: i, j, nval, icnt
+
+    real(wp)             :: r
+
+    call srand(seed)
 
     npoly_max = -1000
 
@@ -4470,36 +4396,73 @@ contains
     !  adjust the element polynomials as per directives
     if(non_conforming .eqv. .true.) then
 
-!     do ielem = 1,nhex
-! 
-!       ! NW quad  x <= +tol ; y >= -tol
-!       icnt = 0
-!       do j=1,8
-!         if((vx_master(1,ic2nh(j,ielem)) <= +tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
-!       enddo
-!       if(icnt == 8) elem_props(2,ielem) = npoly+2
-!       ! SE quad  x >= -tol ; y <= +tol
-!       icnt = 0
-!       do j=1,8
-!         if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) <= +tol)) icnt = icnt + 1
-!       enddo
-!       if(icnt == 8) elem_props(2,ielem) = npoly+2
-!       ! NE quad  x, y >= -tol
-!       icnt = 0
-!       do j=1,8
-!         if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
-!       enddo
-!       if(icnt == 8) elem_props(2,ielem) = npoly+3
-!  
-!     enddo
+      select case(order_strategy)
 
-!     write(*,*)'npoly',npoly
-      do ielem = nhex/2+1,nhex
-        elem_props(2,ielem) = npoly+2
-      enddo
-!     do ielem = 1,nhex
-!       write(*,*)'serial',ielem, elem_props(2,ielem)
-!     enddo
+        case(1)   !  Quadrants set to different orders
+
+          do ielem = 1,nhex
+  
+            ! NW quad  x <= +tol ; y >= -tol
+            icnt = 0
+            do j=1,8
+              if((vx_master(1,ic2nh(j,ielem)) <= +tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
+            enddo
+            if(icnt == 8) elem_props(2,ielem) = npoly+2
+            ! SE quad  x >= -tol ; y <= +tol
+            icnt = 0
+            do j=1,8
+              if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) <= +tol)) icnt = icnt + 1
+            enddo
+            if(icnt == 8) elem_props(2,ielem) = npoly+2
+            ! NE quad  x, y >= -tol
+            icnt = 0
+            do j=1,8
+              if((vx_master(1,ic2nh(j,ielem)) >= -tol) .and. (vx_master(2,ic2nh(j,ielem)) >= -tol)) icnt = icnt + 1
+            enddo
+            if(icnt == 8) elem_props(2,ielem) = npoly+3
+   
+          enddo
+
+        case(2)   !  Upper half of elements elevated in order 
+
+          do ielem = nhex/2+1,nhex
+            elem_props(2,ielem) = npoly+2
+          enddo
+
+        case(3)   !  every third one elevated
+
+          do ielem = 1,nhex,3
+            elem_props(2,ielem) = npoly+2
+          enddo
+
+        case(4)  !  randomly elevate polynomials
+
+          nval = nhex / 4
+
+          if(allocated(irand_order)) deallocate(irand_order) ; allocate(irand_order(1:nval))
+          if(allocated(jrand_order)) deallocate(jrand_order) ; allocate(jrand_order(1:nval))
+
+          do i = 1,nval
+            r = rand()
+            irand_order(i) = 1 + floor( r * nhex) 
+          enddo
+
+          jrand_order = isort(irand_order,nval)
+
+          icnt = 1 ; irand_order(1) = jrand_order(1) ;
+
+          do i = 2,nval
+            if(jrand_order(i) /= jrand_order(i-1)) then
+              icnt = icnt + 1
+              irand_order(icnt) = jrand_order(i)
+            endif
+          enddo
+
+          do ielem = 1,icnt
+            elem_props(2,irand_order(ielem)) = npoly+2
+          enddo
+
+      end select
 
     endif
 

@@ -2011,6 +2011,12 @@ contains
 
       end do
 
+!       write(*,*)'VolumeTerms Element = ',ielem
+!       write(*,*)'gsat after',myprocid,ielem,maxval(dudt(:,:,ielem))
+!       write(*,*)'gsat after',myprocid,ielem,   sum(dudt(:,:,ielem))
+!       write(*,*)'gsat after',myprocid,ielem,minval(dudt(:,:,ielem))
+!       write(*,*)'VolumeTerms Element = ',ielem
+
       ! Entropy equation
       if( entropy_viscosity .eqv. .true.) then
 
@@ -3464,6 +3470,11 @@ contains
           end do
 
           nghst_volume = nghst_volume + n_S_2d_On                         !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
+!         write(*,*)'Conforming Parallel Element = ',ielem
+!         write(*,*)'gsat after',myprocid,ielem,maxval(gsat(:,:,ielem))
+!         write(*,*)'gsat after',myprocid,ielem,   sum(gsat(:,:,ielem))
+!         write(*,*)'gsat after',myprocid,ielem,minval(gsat(:,:,ielem))
+!         write(*,*)'Conforming Parallel Element = ',ielem
 
         else if (ef2e(3,iface,ielem) == myprocid) then 
 
@@ -3499,7 +3510,14 @@ contains
   
           end do
 
+!           write(*,*)'Conforming Serial Element = ',ielem, iface
+!           write(*,*)'gsat after',myprocid,ielem,maxval(gsat(:,:,ielem))
+!           write(*,*)'gsat after',myprocid,ielem,   sum(gsat(:,:,ielem))
+!           write(*,*)'gsat after',myprocid,ielem,minval(gsat(:,:,ielem))
+!           write(*,*)'Conforming Serial Element = ',ielem
+
         endif
+
 
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 !       NON-CONFORMING Contributions to gsat
@@ -3589,35 +3607,11 @@ contains
              mut_2d_Off(    k) =         mutghst(    nghst_volume + k)            ! Turbulent viscosity   in Petsc ghost registers
 
               nx_2d_Off(:,  k) =  nxghst_LGL_Shell(:,nghst_shell  + k)            ! Outward facing normal in Petsc ghost registers
-!             if(ielem == 5) write(*,*)'parallel, k',k, nx_2d_Off(:,k)
 
             call conserved_to_primitive(ug_Off   (:  ),vg_2d_Off(:,k),nequations) ! Rotate into primitive variables and store as face plane data
             call primitive_to_entropy  (vg_2d_Off(:,k),wg_2d_Off(:,k),nequations) ! Rotate into entropy   variables and store as face plane data
 
           enddo Off_Elem_0                                                        ! End off-element loop
-
-!         if(ielem == 5) then
-!           write(*,*)'parallel path for element = ', ielem
-!           do k = 1,size(nxghst_LGL_Shell,2)
-!              write(*,*)'k,nghst_LGL_Shell',k, nxghst_LGL_Shell(1:3,nghst_shell  + k)            ! Outward facing normal in Petsc ghost registers
-!           enddo
-!         endif
-!         if(ielem == 5) then
-!           write(*,*)'parallel path for element = ', ielem
-!           write(*,*)'ielem, nx_2d_off',ielem,maxval(nx_2d_Off(:,:))
-!           write(*,*)'ielem, nx_2d_off',ielem,   sum(nx_2d_Off(:,:))
-!           write(*,*)'ielem, nx_2d_off',ielem,minval(nx_2d_Off(:,:))
-!           write(*,*)'ielem, wg_2d_Off',ielem,maxval(wg_2d_Off(:,:))
-!           write(*,*)'ielem, wg_2d_Off',ielem,   sum(wg_2d_Off(:,:))
-!           write(*,*)'ielem, wg_2d_Off',ielem,minval(wg_2d_Off(:,:))
-!           write(*,*)'ielem, phig_2d_Off',ielem,maxval(phig_2d_Off(:,:,:))
-!           write(*,*)'ielem, phig_2d_Off',ielem,   sum(phig_2d_Off(:,:,:))
-!           write(*,*)'ielem, phig_2d_Off',ielem,minval(phig_2d_Off(:,:,:))
-!           write(*,*)'ielem, mut_2d_Off ',ielem,minval(mut_2d_Off(:))
-!           write(*,*)'ielem, mut_2d_Off ',ielem,   sum(mut_2d_Off(:))
-!           write(*,*)'ielem, mut_2d_Off ',ielem,maxval(mut_2d_Off(:))
-!           write(*,*)'parallel path for element = ', ielem
-!         endif
 
           nghst_volume = nghst_volume + n_S_2d_Off                                !  Keep track of position in Ghost volume stack
           nghst_shell  = nghst_shell  + n_S_2d_Off                                !  Keep track of position in Ghost shell  stack
@@ -3648,28 +3642,10 @@ contains
              mut_2d_Off(    k) =  mut(    knode,kelem)                           ! Outward facing normal of facial node
 
               nx_2d_Off(:,  k) = Jx_facenodenormal_LGL(:,lnode,kelem)            ! Outward facing normal of facial node
-!             if(ielem == 5) write(*,*)'serial, k',k, nx_2d_Off(:,k)
 
             call primitive_to_entropy(vg_2d_Off(:,k),wg_2d_Off(:,k),nequations)  ! Rotate into entropy variables and store as face plane data
 
           enddo Off_Elem_1                                                       ! End off-element loop
-
-!         if(ielem == 5) then
-!           write(*,*)'serial path for element = ', ielem
-!           write(*,*)'ielem, nx_2d_off',ielem,maxval(nx_2d_Off(:,:))
-!           write(*,*)'ielem, nx_2d_off',ielem,   sum(nx_2d_Off(:,:))
-!           write(*,*)'ielem, nx_2d_off',ielem,minval(nx_2d_Off(:,:))
-!           write(*,*)'ielem, wg_2d_Off',ielem,maxval(wg_2d_Off(:,:))
-!           write(*,*)'ielem, wg_2d_Off',ielem,   sum(wg_2d_Off(:,:))
-!           write(*,*)'ielem, wg_2d_Off',ielem,minval(wg_2d_Off(:,:))
-!           write(*,*)'ielem, phig_2d_Off',ielem,maxval(phig_2d_Off(:,:,:))
-!           write(*,*)'ielem, phig_2d_Off',ielem,   sum(phig_2d_Off(:,:,:))
-!           write(*,*)'ielem, phig_2d_Off',ielem,minval(phig_2d_Off(:,:,:))
-!           write(*,*)'ielem, mut_2d_Off ',ielem,minval(mut_2d_Off(:))
-!           write(*,*)'ielem, mut_2d_Off ',ielem,   sum(mut_2d_Off(:))
-!           write(*,*)'ielem, mut_2d_Off ',ielem,maxval(mut_2d_Off(:))
-!           write(*,*)'serial path for element = ', ielem
-!         endif
 
           On_Mortar_1:do j = 1, n_S_2d_Mort
 
@@ -3700,7 +3676,6 @@ contains
                                                    n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
                                                    vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
                                                    cnt_Mort_Off, Intrp_On, Extrp_Off)
- 
 ! ========
 !       Viscous interface SATs 
 ! ========
@@ -3714,10 +3689,15 @@ contains
                                                       vg_2d_On,   vg_2d_Off,                       &
                                                     phig_2d_On, phig_2d_Off,                       &
                                                     wg_Mort_On, wg_Mort_Off,                       &
-                                                   nx_2d_Off, mut_2d_Off, Jx_r_2d_Mort,            &
-                                                   cnt_Mort_Off, Intrp_On, Extrp_Off)
+                                                    nx_2d_Off, mut_2d_Off, Jx_r_2d_Mort,           &
+                                                    cnt_Mort_Off, Intrp_On, Extrp_Off)
         endif
 
+!       write(*,*)'NONCONFORMING Element = ',ielem, iface
+!       write(*,*)'gsat after',myprocid,ielem,maxval(gsat(:,:,ielem))
+!       write(*,*)'gsat after',myprocid,ielem,   sum(gsat(:,:,ielem))
+!       write(*,*)'gsat after',myprocid,ielem,minval(gsat(:,:,ielem))
+!       write(*,*)'NONCONFORMING Element = ',ielem
 
         deallocate(vg_2d_On,  vg_2d_Off  )
         deallocate(wg_2d_On,  wg_2d_Off  )
@@ -6506,7 +6486,9 @@ contains
                   dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg_On(:) - wg_Off(:))
                                                                      ! add LDC/LDG penalty to each physical gradient using the normal
                   do jdir = 1,ndim
+! HACK
                     phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
+! HACK
                   end do
   
                 end do
@@ -6534,7 +6516,9 @@ contains
                   dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg_On(:) - wg_Off(:))
                                                                        ! add LDC/LDG penalty to each physical gradient using the normal
                   do jdir = 1,ndim
+! HACK
                     phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
+! HACK
                   end do
                 end do
 
@@ -6666,7 +6650,9 @@ contains
     
                                                                           ! add LDC/LDG penalty to each physical gradient using the normal
                 do jdir = 1,ndim
+!  HACK
                   phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
+!  HACK
                 end do
 
               end do On_Elem
