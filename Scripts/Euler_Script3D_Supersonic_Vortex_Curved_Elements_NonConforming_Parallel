@@ -1,0 +1,20 @@
+THISHOST=$(hostname) ;
+cd ..
+#make clean
+make 
+cp Scripts/Startup/SSDCstartup.Supersonic_Vortex.Convergence.Study.NonConforming.ref SSDCstartup.ref
+cp zerodat Supersonic_Vortex.Convergence.Study.NonConforming.csv
+ for var1 in 1 2 3 4
+   do
+   for var2 in 1 2 3 5 7
+     do
+     echo "Order: $var1 : mpirun -np: $var2  "
+     cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g'  > SSDCstartup
+     mpirun -np  ${var2} nice -19 ./SSDCNSE > tmp88 ;
+     cp Supersonic_Vortex.Convergence.Study.NonConforming.csv tmp87
+     cat tmp87 tmp88 > Supersonic_Vortex.Convergence.Study.NonConforming.csv
+   done
+ done
+#cp   Supersonic_Vortex.Convergence.Study.NonConforming.csv Scripts/Golden/Supersonic_Vortex.Convergence.Study.NonConforming_SSDC_GoldenRoe.csv
+ diff Supersonic_Vortex.Convergence.Study.NonConforming.csv Scripts/Golden/Supersonic_Vortex.Convergence.Study.NonConforming_SSDC_GoldenRoe.csv
+

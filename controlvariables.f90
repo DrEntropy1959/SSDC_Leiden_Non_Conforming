@@ -91,6 +91,7 @@ module controlvariables
 
   logical          :: blprofileread                  = .false.
   integer          :: nblprofiles                    = 1
+  integer          :: p_refine_strategy              = 2
   
   logical          :: perturb_internal_vertices      = .false.
 

@@ -9,11 +9,19 @@ rm stagnation_cylinder_016x008*
 ln -s ./Scripts/Grids/stagnation_cylinder_016x008* .
 rm supersonic_vortex_04x02x01*
 ln -s ./Scripts/Grids/supersonic_vortex_04x02x01* .
+rm supersonic_vortex_016x004*
+ln -s ./Scripts/Grids/supersonic_vortex_016x004* .
 rm Triangle_3*
 ln -s ./Scripts/Grids/Triangle_3* .
 cd Scripts
 echo "Euler Supersonic_Vortex_Curved_Elements_GoldenRoe_SSDC"
 ./Euler_Script3D_Supersonic_Vortex_Curved_Elements_GoldenRoe_SSDC
+echo "Euler Supersonic_Vortex_Curved_Elements_NonConforming_Parallel"
+./Euler_Script3D_Supersonic_Vortex_Curved_Elements_NonConforming_Parallel
+echo "NS Triangle_Serial_NonConforming"
+./NS_Script3D_Convergence_Runner_NonConforming_Triangle_3
+echo "NS shifted cylinder Serial NonConforming"
+./NS_Script3D_Convergence_Runner_NonConforming_Cylinder_Grid
 echo "NS_Cylinder_Stagnation_Curved_Elements_GoldenRoe_SSDC"
 ./NS_Script3D_Cylinder_Stagnation_Curved_Elements_GoldenRoe_SSDC
 echo "NS_Shifted_Cylinder_Stagnation_Curved_Elements_SSDC"
@@ -26,7 +34,3 @@ echo "NS Pencil RoeLF WENO_Element"
 ./NS_Script3D_Convergence_Runner_GoldenWENO_Element
 echo "NS Pencil RoeLF WENO_neighbr"
 ./NS_Script3D_Convergence_Runner_GoldenWENO_Neighbr
-echo "NS Triangle_Serial_NonConforming"
-./NS_Script3D_Convergence_Runner_NonConforming_Triangle_3
-echo "NS shifted cylinder Serial NonConforming"
-./NS_Script3D_Convergence_Runner_NonConforming_Cylinder_Grid

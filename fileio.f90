@@ -720,8 +720,6 @@ contains
 
   !============================================================================
   
-  !============================================================================
-  
   subroutine readSSDCstartup(file_name)
 
     ! Load module
@@ -745,7 +743,8 @@ contains
       &periodic, periodic_distance, Entropy_Correction, variable_viscosity, &
       &heat_entropy_flow_wall_bc, flux_entropy_correction, alpha_ldg_flip_flop, &
       &Riemann_Diss, Riemann_Diss_BC, WENO_Bias, WENO_type, entropy_viscosity,  &
-      & Grid_Topology, cylinder_x0, cylinder_x1, non_conforming, turbulent_viscosity
+      &Grid_Topology, cylinder_x0, cylinder_x1, non_conforming, turbulent_viscosity, &
+      &p_refine_strategy
 
     namelist /GeneralParameters/ runcasename, solutionfile, outputfile, new, &
       & time_averaging, &
@@ -1431,6 +1430,4 @@ contains
           
   !============================================================================
   
-  !============================================================================
-
 end module fileio

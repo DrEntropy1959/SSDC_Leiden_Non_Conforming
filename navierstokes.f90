@@ -3702,6 +3702,7 @@ contains
         deallocate(vg_2d_On,  vg_2d_Off  )
         deallocate(wg_2d_On,  wg_2d_Off  )
         deallocate(wg_Mort_On,wg_Mort_Off,cnt_Mort_Off)
+        deallocate(nx_2d_Off,mut_2d_Off  )
         deallocate(Extrp_Off,Extrp_On)
         deallocate(Intrp_On)
         deallocate(x_S_1d_Off,x_S_1d_Mort)
@@ -3869,8 +3870,8 @@ contains
                                                     vg_2d_On,   vg_2d_Off,                        &
                                                   phig_2d_On, phig_2d_Off,                        &
                                                   wg_Mort_On, wg_Mort_Off,                        &
-                                                 nx_2d_Off, mut_2d_Off, Jx_r_2d_Mort,             &
-                                                 cnt_Mort_Off, Intrp_On, Extrp_Off)
+                                                  nx_2d_Off, mut_2d_Off, Jx_r_2d_Mort,            &
+                                                  cnt_Mort_Off, Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, efn2efn_Gau,     &

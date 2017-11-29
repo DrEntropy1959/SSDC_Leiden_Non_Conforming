@@ -1233,7 +1233,7 @@ contains
     real(wp) :: x1(3), x2(3)
     real(wp), parameter :: nodetol = 1.0e-8_wp
 
-    integer :: i_p_face, p_dir, cnt_coord, i_coord
+    integer :: i_p_face, p_dir
     logical :: match_found, conforming_interface
     real(wp), dimension(2) :: x1_p, x2_p
 
@@ -1880,8 +1880,7 @@ contains
     use initcollocation,      only: element_properties, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
     use collocationvariables, only: Restrct_Gau_2_LGL_1d
 
-    use variables, only: Jx_facenodenormal_Gau, xg_Gau_Shell
-    use variables, only: Jx_facenodenormal_LGL, ef2e
+    use variables, only: Jx_facenodenormal_Gau, xg_Gau_Shell, ef2e
 
     implicit none
 
@@ -1889,7 +1888,6 @@ contains
     integer :: ielem, iface, knode, node_id
     integer :: n_pts_1d_max, n_pts_2d_max
     integer :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort, poly_val
-    integer :: istart, iend_Mort, iend_On
 
     logical                               :: testing = .false.
     real(wp), dimension(:),   allocatable :: x_S_1d_Mort, x_S_1d_On, w_S_1d_Mort
@@ -2290,6 +2288,7 @@ contains
 
   subroutine modify_metrics_nonconforming()
 
+    use controlvariables,     only: verbose
     use referencevariables
     use collocationvariables, only: elem_props
     use initcollocation,      only: GCL_Triple_Qmat_Transpose, element_properties, GCL_Triple_Smat
@@ -2423,7 +2422,8 @@ contains
 
       work3(1:m,1:3) = matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)
 
-      t1 = maxval(abs(work3)) ; if(t1 >= tol) write(*,*)'A a_t - bvec', t1
+      t1 = maxval(abs(work3)) ; 
+      if(t1 >= tol .and. verbose ) write(*,*)'A a_t - bvec', t1
 
       delta_a = matmul( u(1:n,1:m),           &
                   matmul(wI(1:m,1:m),           &
@@ -2502,7 +2502,7 @@ contains
     call MPI_reduce(np_mods, ng_mods,1, mpi_integer, mpi_sum, 0, petsc_comm_world, ierr)
 
     ! Write at screen the L_inf of the metric error
-    if(myprocid == 0 )  then
+    if(myprocid == 0 .and. verbose)  then
       write(*,*)'  Modified Elements and L_inf of modification', ng_mods, maxval(err_max_proc(:))
       write(*,*) '==========================================================='
 
@@ -4196,15 +4196,14 @@ contains
     ! Load modules
     use variables
     use collocationvariables
-    use controlvariables,   only : non_conforming
+    use controlvariables,   only : non_conforming, p_refine_strategy
     use referencevariables, only : npoly, npoly_max, nfacesperelem
     use mpimod
 
     ! Nothing is implicitly defined
     implicit none
    
-    integer,  parameter  :: seed = 86457
-    integer,  parameter  :: order_strategy = 2
+    integer,  parameter  :: seed = 86441
     real(wp), parameter  :: tol = 1.0e-9_wp
 
     integer,  dimension(:), allocatable :: irand_order, jrand_order
@@ -4230,7 +4229,7 @@ contains
     !  adjust the element polynomials as per directives
     if(non_conforming .eqv. .true.) then
 
-      select case(order_strategy)
+      select case(p_refine_strategy)
 
         case(1)   !  Quadrants set to different orders
 
@@ -4257,7 +4256,7 @@ contains
    
           enddo
 
-        case(2)   !  Upper half of elements elevated in order 
+        case(2)   !  Upper half of elements elevated in order  :  default test
 
           do ielem = nhex/2+1,nhex
             elem_props(2,ielem) = npoly+2
@@ -4265,13 +4264,13 @@ contains
 
         case(3)   !  every third one elevated
 
-          do ielem = 1,nhex,3
+          do ielem = 1,nhex,4
             elem_props(2,ielem) = npoly+2
           enddo
 
         case(4)  !  randomly elevate polynomials
 
-          nval = nhex / 4
+          nval = nhex / 10
 
           if(allocated(irand_order)) deallocate(irand_order) ; allocate(irand_order(1:nval))
           if(allocated(jrand_order)) deallocate(jrand_order) ; allocate(jrand_order(1:nval))
