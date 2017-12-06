@@ -2510,10 +2510,71 @@ contains
 
     endif
 
-
   end subroutine modify_metrics_nonConforming
 
-  !============================================================================
+  !============================================================================================
+
+  function face_orientation_hex(elem1,elem2,face1,face2,x1,x2)
+     
+    !  input : 
+    !        elem1, elem2: two adjoining elements 
+    !        face1, face2: local ordering for common faces between two adjoining elements 
+    !        x1, x2:  8 vertices defining hexahedral elements
+    !  output:
+    !        0 <= face_orientation_hex  <= 3 
+    !        0: common ordering  
+    !        1: Counter-clockwise rotation 090^o
+    !        2: Counter-clockwise rotation 180^o
+    !        3: Counter-clockwise rotation 270^o
+
+    use referencevariables
+    use variables, only: ic2nh, vx_master
+
+    implicit none
+
+    integer,                   intent(in   ) :: elem1 ,elem2
+    integer,                   intent(in   ) :: face1 ,face2
+    real(wp),  dimension(3,8), intent(in   ) :: x1,x2
+
+    integer,  parameter                      :: nodetol = 1.0e-10_wp
+
+    real(wp),  dimension(3,4)                :: xface1,xface2
+
+    integer                                  :: j,j1,j2
+    integer                                  :: k,kk,ierr
+    integer                                  :: face_orientation_hex
+
+       kk = hex_8_nverticesperface
+                                                     !   face of element 1 
+       do j = 1, kk                                  !   Sweep over vertices on face
+         j1 = eltypfaces(j,face1)                    !   Which node in element
+         j2 = ic2nh(j1,elem1)                        !   Which vertex is pointed to
+         xface1(:,j) = vx_master(:,j2)               !   load face nodes with vertex coordinates
+       enddo
+                                                     !   face of element 2 
+       do j = 1, kk                                  !   Sweep over vertices on face
+         j1 = eltypfaces(j,face2)                    !   Which node in element
+         j2 = ic2nh(j1,elem2)                        !   Which vertex is pointed to
+         xface2(:,j) = vx_master(:,j2)               !   load face nodes with vertex coordinates
+       enddo
+       do k = 0,kk-1
+          if ( (magnitude(xface1(:,1) -xface2(:,mod(0+k,kk)+1)) <= nodetol)  .and. & ! Check distances between all nodes 
+               (magnitude(xface1(:,2) -xface2(:,mod(1+k,kk)+1)) <= nodetol)  .and. &
+               (magnitude(xface1(:,3) -xface2(:,mod(2+k,kk)+1)) <= nodetol)  .and. &
+               (magnitude(xface1(:,4) -xface2(:,mod(3+k,kk)+1)) <= nodetol) ) then  
+               face_orientation_hex = k
+                exit
+          endif
+       end do
+       if(k >= kk) then
+          write(*,*)'function face_orientation_hex: didnt find a face orientation that matched'
+          write(*,*)'stopping'
+          call PetscFinalize(ierr) ; stop
+       endif
+          
+  end function face_orientation_hex
+
+  !============================================================================================
 
   subroutine Load_Mortar_Metric_Data(ielem,n_LGL_1d,n_LGL_2d,n_LGL_3d,ifacenodes,p_surf,a_t,bvec)
 
@@ -4262,7 +4323,7 @@ contains
             elem_props(2,ielem) = npoly+2
           enddo
 
-        case(3)   !  every third one elevated
+        case(3)   !  every fourth one elevated
 
           do ielem = 1,nhex,4
             elem_props(2,ielem) = npoly+2
@@ -4271,6 +4332,7 @@ contains
         case(4)  !  randomly elevate polynomials
 
           nval = nhex / 10
+          if(nval == 0) nval = 1
 
           if(allocated(irand_order)) deallocate(irand_order) ; allocate(irand_order(1:nval))
           if(allocated(jrand_order)) deallocate(jrand_order) ; allocate(jrand_order(1:nval))
@@ -6004,22 +6066,21 @@ contains
             end do
               
             ! Print information at screen if there is a problem and stop computation
-            if (jnode > n_Gau_2d_Mort .and. myprocid==1) then
-              write(*,*) 'Connectivity error in face-node connectivity_Gau, Parallel.'
-              write(*,*) 'Process ID, element ID, face ID, ef2e'
-              write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-              write(*,*) 'Node coordinates'
-              write(*,*) x1
-              write(*,*) 'Possible partner node coordinates'
+!           if (jnode > n_Gau_2d_Mort .and. myprocid==1) then
+!             write(*,*) 'Connectivity error in face-node connectivity_Gau, Parallel.'
+!             write(*,*) 'Process ID, element ID, face ID, ef2e'
+!             write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
+!             write(*,*) 'Node coordinates'
+!             write(*,*) x1
+!             write(*,*) 'Possible partner node coordinates'
 !             
-!             do jnode = 1, size(xgghst_Gau_Shell,2)
-              do jnode = i_low+1, i_low+n_Gau_2d_Mort
-                x2 = xgghst_Gau_Shell(:,jnode)
-                write(*,*) x2
-              end do 
-              write(*,*) 'Exiting...'
-              call PetscFinalize(ierr) ; stop
-            end if
+!             do jnode = i_low+1, i_low+n_Gau_2d_Mort
+!               x2 = xgghst_Gau_Shell(:,jnode)
+!               write(*,*) x2
+!             end do 
+!             write(*,*) 'Exiting...'
+!             call PetscFinalize(ierr) ; stop
+!           end if
 
           end do
 
