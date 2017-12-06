@@ -1,10 +1,10 @@
 *mapbc
 *b8.ugrid
 tmp*
-*csv
 *ascii
 fort*
 solution/*
 *.o
 *.mod
 Stash
+*.csv
