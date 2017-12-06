@@ -334,7 +334,7 @@ contains
 
     integer            :: n_elems
 
-    integer, parameter :: qdim = 6   !  dimension of first array in ef2e see initgrid.F90 
+    integer, parameter :: qdim = 7   !  dimension of first array in ef2e see initgrid.F90 
                                      !  for definitions of each of the qdim 
 
     continue
@@ -1046,6 +1046,7 @@ contains
             ef2etmp1(4,j,i) = ef2e(4,j,ii)
             ef2etmp1(5,j,i) = ef2e(5,j,ii)
             ef2etmp1(6,j,i) = ef2e(6,j,ii)
+            ef2etmp1(7,j,i) = ef2e(7,j,ii)
             
             ! Original element index of neighbor
             jj = ef2e(2,j,ii)

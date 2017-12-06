@@ -110,11 +110,14 @@ contains
         ! Check the number of processors and the number of elements
         call check_n_procs_n_elems(nprocs,nelems) 
 
-        write(*,*) 'Master node builds connectivity arrays'
+        write(*,*) 'Master node builds connectivity and orientation arrays'
 !       write(*,*) '==============================================================='
 
         ! Create connectivity from the original grid
         call e2e_connectivity_aflr3()  
+
+        ! Establish face orientation between connected faces
+        call face_orientation_aflr3()
 
 !       write(*,*) 'Master node builds element orders if non-conforming'
 !       write(*,*) '==============================================================='

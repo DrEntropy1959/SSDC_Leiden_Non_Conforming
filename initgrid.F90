@@ -18,6 +18,7 @@ module initgrid
   public init_hex_8
   public E2EConnectivity_cgns
   public e2e_connectivity_aflr3
+  public face_orientation_aflr3
   public set_element_orders
   public set_element_orders_Serial
   public calculatepartitions
@@ -2512,14 +2513,50 @@ contains
 
   end subroutine modify_metrics_nonConforming
 
+  !============================================================================
+
+  ! e2e_connectivity_aflr3 - Constructs the element-to-element connectivity
+  ! starting from the information read from the AFLR3 grid.
+
+  subroutine face_orientation_aflr3()   !  SERIAL Routine
+
+!  SERIAL Routine
+!     face orientation between connected elements.  
+!  SERIAL Routine
+
+    ! Load modules
+    use referencevariables, only : nfacesperelem, nelems
+    use variables,          only : ef2e
+
+    ! Nothing is implicitly defined
+    implicit none
+
+    integer :: iface, kface
+    integer :: ielem, kelem
+
+    do ielem = 1,nelems
+       do iface = 1,nfacesperelem
+         kelem = ef2e(2,iface,ielem)
+         kface = ef2e(1,iface,ielem)
+         if((ef2e(1,iface,ielem) <= 0) .or.  &  !  Test for boundary and periodic face which is by definition correctly oriented
+            (ielem == kelem))          then     !  Periodic connection with a single element thickness
+           ef2e(7,iface,ielem) = 0 ;
+           cycle
+         else
+           ef2e(7,iface,ielem) = face_orientation_hex(ielem,kelem,iface,kface)
+         endif
+       enddo
+    enddo
+
+  end subroutine face_orientation_aflr3
+
   !============================================================================================
 
-  function face_orientation_hex(elem1,elem2,face1,face2,x1,x2)
+  function face_orientation_hex(elem1,elem2,face1,face2)
      
     !  input : 
     !        elem1, elem2: two adjoining elements 
     !        face1, face2: local ordering for common faces between two adjoining elements 
-    !        x1, x2:  8 vertices defining hexahedral elements
     !  output:
     !        0 <= face_orientation_hex  <= 3 
     !        0: common ordering  
@@ -2534,7 +2571,6 @@ contains
 
     integer,                   intent(in   ) :: elem1 ,elem2
     integer,                   intent(in   ) :: face1 ,face2
-    real(wp),  dimension(3,8), intent(in   ) :: x1,x2
 
     integer,  parameter                      :: nodetol = 1.0e-10_wp
 
@@ -2543,6 +2579,17 @@ contains
     integer                                  :: j,j1,j2
     integer                                  :: k,kk,ierr
     integer                                  :: face_orientation_hex
+
+    integer,  dimension(4,8), parameter :: perm = reshape(    &
+                                                & (/1,2,3,4,  &
+                                                &   2,3,4,1,  &
+                                                &   3,4,1,2,  &
+                                                &   4,1,2,3,  &
+                                                &   4,3,2,1,  &
+                                                &   1,4,3,2,  &
+                                                &   2,1,4,3,  &
+                                                &   3,2,1,4/),&
+                                                &   (/4,8/) )
 
        kk = hex_8_nverticesperface
                                                      !   face of element 1 
@@ -2557,16 +2604,18 @@ contains
          j2 = ic2nh(j1,elem2)                        !   Which vertex is pointed to
          xface2(:,j) = vx_master(:,j2)               !   load face nodes with vertex coordinates
        enddo
-       do k = 0,kk-1
-          if ( (magnitude(xface1(:,1) -xface2(:,mod(0+k,kk)+1)) <= nodetol)  .and. & ! Check distances between all nodes 
-               (magnitude(xface1(:,2) -xface2(:,mod(1+k,kk)+1)) <= nodetol)  .and. &
-               (magnitude(xface1(:,3) -xface2(:,mod(2+k,kk)+1)) <= nodetol)  .and. &
-               (magnitude(xface1(:,4) -xface2(:,mod(3+k,kk)+1)) <= nodetol) ) then  
-               face_orientation_hex = k
-                exit
+
+       do k = 1,8
+          if ( (magnitude(xface1(:,1) -xface2(:,perm(1,k))) <= nodetol)  .and. & ! Check distances between all nodes 
+               (magnitude(xface1(:,2) -xface2(:,perm(2,k))) <= nodetol)  .and. &
+               (magnitude(xface1(:,3) -xface2(:,perm(3,k))) <= nodetol)  .and. &
+               (magnitude(xface1(:,4) -xface2(:,perm(4,k))) <= nodetol) ) then  
+               face_orientation_hex = k-1
+               exit
           endif
        end do
-       if(k >= kk) then
+       
+       if(k > 8) then
           write(*,*)'function face_orientation_hex: didnt find a face orientation that matched'
           write(*,*)'stopping'
           call PetscFinalize(ierr) ; stop
@@ -2698,7 +2747,7 @@ contains
     !integer, allocatable, dimension(:) :: list_partner_faces
 
     real(wp), parameter  :: diff_toll = 1e-8
-    integer,  parameter  :: qdim = 6             !  dimension of ef2e array
+    integer,  parameter  :: qdim = 7             !  dimension of ef2e array
 
     continue
 
@@ -2731,6 +2780,7 @@ contains
     !                      :  (4,j,k) = Adjoining element polynomial order
     !                      :  (5,j,k) = Number of Adjoining elements
     !                      :  (6,j,k) = HACK self polynomial order assigned to each face
+    !                      :  (7,j,k) = face_orientation
     !                  (Boundary face 
     !                      :  (1,j,k) = Set to -11 
     !                      :  (2,j,k) = -100000000
@@ -2738,6 +2788,7 @@ contains
     !                      :  (4,j,k) = -100000000
     !                      :  (5,j,k) = -100000000
     !                      :  (6,j,k) = -100000000
+    !                      :  (7,j,k) = -100000000
     !
     ! iae2v,jae2v     :    Which vertices belong to each element
 
@@ -4368,6 +4419,7 @@ contains
     !                       :  (4,j,k) = Adjoining element polynomial order
     !                       :  (5,j,k) = Number of Adjoining elements
     !                       :  (6,j,k) = HACK self polynomial order assigned to each face
+    !                       :  (7,j,k) = face orientation of adjoining face (0,1,2,3)
 
     do ielem = 1,nhex
 
@@ -4401,7 +4453,7 @@ contains
     ! Nothing is implicitly defined
     implicit none
    
-    integer :: ielem, iface, qdim, ierr, elem_min, elem_max
+    integer :: ielem, iface, qface, ierr, elem_min, elem_max
 
     ! determine the lowest and highest element process is connected to (including self)
 
@@ -4431,8 +4483,8 @@ contains
     ! ef2e has poly order stored in the parallel ordering 
     do ielem = ihelems(1),ihelems(2)
 
-      qdim = size(ef2e,2)
-      if(sum(ef2e(6,:,ielem))/qdim /= ef2e(6,1,ielem)) then
+      qface = size(ef2e,2)
+      if(sum(ef2e(6,:,ielem))/qface /= ef2e(6,1,ielem)) then
          write(*,*)'mpi bug in transfering ef2e:   Stopping'
          call PetscFinalize(ierr) ; stop ! Finalize MPI and the hooks to PETSc
       endif

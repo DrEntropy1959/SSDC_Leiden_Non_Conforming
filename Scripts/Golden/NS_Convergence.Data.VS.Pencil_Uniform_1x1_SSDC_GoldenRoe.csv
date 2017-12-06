@@ -10,7 +10,7 @@
  ===============================================================
  Master node reads the AFLR3 grid
  ===============================================================
- Master node builds connectivity arrays
+ Master node builds connectivity and orientation arrays
    Number of vertices             =           36
    Number of hexahedrons          =            8
    Number of boundary faces       =           34
@@ -44,7 +44,7 @@
  L1   error:    1.1915379706914767E-004
  L2   error:    3.1912627853188720E-004
  Linf error:    3.2239966845146739E-003
- CPU time:          4.8259
+ CPU time:          4.9375
 
  Solution files written in solution                                                                                                                
 
@@ -59,7 +59,7 @@
  ===============================================================
  Master node reads the AFLR3 grid
  ===============================================================
- Master node builds connectivity arrays
+ Master node builds connectivity and orientation arrays
    Number of vertices             =           68
    Number of hexahedrons          =           16
    Number of boundary faces       =           66
@@ -93,7 +93,7 @@
  L1   error:    7.0246713852432938E-006
  L2   error:    1.9877986734584553E-005
  Linf error:    2.6729495170396689E-004
- CPU time:         10.9068
+ CPU time:         13.4725
 
  Solution files written in solution                                                                                                                
 
@@ -108,7 +108,7 @@
  ===============================================================
  Master node reads the AFLR3 grid
  ===============================================================
- Master node builds connectivity arrays
+ Master node builds connectivity and orientation arrays
    Number of vertices             =          132
    Number of hexahedrons          =           32
    Number of boundary faces       =          130
@@ -142,7 +142,7 @@
  L1   error:    4.6291164031595126E-007
  L2   error:    1.2795775321155016E-006
  Linf error:    1.7718173706882112E-005
- CPU time:         30.2748
+ CPU time:         35.7423
 
  Solution files written in solution                                                                                                                
 

@@ -9,7 +9,7 @@
  ===============================================================
  Master node reads the AFLR3 grid
  ===============================================================
- Master node builds connectivity arrays
+ Master node builds connectivity and orientation arrays
    Number of vertices             =          306
    Number of hexahedrons          =          128
    Number of boundary faces       =          304
@@ -43,7 +43,7 @@
  L1   error:    1.4186205628736315E-002
  L2   error:    8.2857869471080009E-002
  Linf error:    2.3785199062448257     
- CPU time:         22.6082
+ CPU time:         25.9696
 
  Solution files written in solution                                                                                                                
 
