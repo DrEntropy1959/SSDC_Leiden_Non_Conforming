@@ -4,43 +4,48 @@ cd ..
 make 
 cp Scripts/Startup/SSDCstartup.Supersonic_Vortex.Convergence.Study.ref SSDCstartup.ref
 cp zerodat Supersonic_Vortex.Convergence.Study.csv
- for var0 in 0 #1
-   do
-   for var1 in 1 2 3 4
+   for var1 in 2 3 #4
      do
-     #for var2 in 016 032 064 128 #256
-     #for var2 in 012 024 048 096 192 384
-     #for var2 in 016 032 064 128 256
-      for var2 in 064
+       for var2 in 012 016 024 032 048 064 096 128 192 256 #384
        do
        if   [ $var2 -eq 012 ] ; then
            var3="003";
+            xxx="04" ;
        elif [ $var2 -eq 016 ] ; then
            var3="004";
+            xxx="08" ;
        elif [ $var2 -eq 024 ] ; then
            var3="006";
+            xxx="12" ;
        elif [ $var2 -eq 032 ] ; then
            var3="008";
+            xxx="16" ;
        elif [ $var2 -eq 048 ] ; then
            var3="012";
+            xxx="24" ;
        elif [ $var2 -eq 064 ] ; then
            var3="016";
+            xxx="28" ;
        elif [ $var2 -eq 096 ] ; then
            var3="024";
+            xxx="28" ;
        elif [ $var2 -eq 128 ] ; then
            var3="032";
+            xxx="28" ;
        elif [ $var2 -eq 192 ] ; then
            var3="048";
+            xxx="28" ;
        elif [ $var2 -eq 256 ] ; then
            var3="064";
+            xxx="28" ;
        elif [ $var2 -eq 384 ] ; then
            var3="096";
+            xxx="28" ;
        fi
-       echo "OverColl: $var0   Order: $var1   Grid: $var2   Grid: ${var3}  "
+       echo "Order: $var1   Grid: $var2   Grid: ${var3} : nprocs = ${xxx} "
        cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g' | sed 's/XPT/'${var2}'/g' | sed 's/YPT/'${var3}'/g' > SSDCstartup
-       mpirun -np  4 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun -np ${xxx} nice -19 ./SSDCNSE > tmp88 ;
        cp Supersonic_Vortex.Convergence.Study.csv tmp87
        cat tmp87 tmp88 > Supersonic_Vortex.Convergence.Study.csv
      done
    done
- done

@@ -58,10 +58,12 @@ module initgrid
   integer, parameter :: quad_4_nfacesperelem = 4
   integer, parameter :: quad_4_nverticesperface = 2
   integer, allocatable, dimension(:,:), target :: hex_8_faces
+  integer, allocatable, dimension(:,:), target :: hex_8_faces_order
   integer, allocatable, dimension(:), target :: hex_8_facedirections
   integer, parameter :: hex_8_nfacesperelem = 6
   integer, parameter :: hex_8_nverticesperface = 4
   integer, pointer, dimension(:,:) :: eltypfaces
+  integer, pointer, dimension(:,:) :: eltypfaces_Lexo
   integer, pointer, dimension(:) :: elfacedirections
 
   interface
@@ -177,6 +179,14 @@ contains
     hex_8_faces(:,5) = (/ 1, 5, 8, 4 /)
     hex_8_faces(:,6) = (/ 5, 6, 7, 8 /)
 
+    allocate(hex_8_faces_order(nverticesperface,nfacesperelem))
+    hex_8_faces_order(:,1) = (/ 1, 2, 4, 3 /)
+    hex_8_faces_order(:,2) = (/ 1, 2, 5, 6 /)
+    hex_8_faces_order(:,3) = (/ 2, 3, 6, 7 /)
+    hex_8_faces_order(:,4) = (/ 4, 3, 8, 7 /)
+    hex_8_faces_order(:,5) = (/ 1, 4, 5, 8 /)
+    hex_8_faces_order(:,6) = (/ 5, 6, 8, 7 /)
+
     ! the outward signed computational direction of each face
     allocate(hex_8_facedirections(nfacesperelem))
     hex_8_facedirections(1) = -3
@@ -227,6 +237,7 @@ contains
       enddo
     else if (ndim == 3) then
       eltypfaces       => hex_8_faces
+      eltypfaces_Lexo  => hex_8_faces_order
       elfacedirections => hex_8_facedirections
       nverticesperface =  hex_8_nverticesperface
       nfacesperelem    =  hex_8_nfacesperelem
@@ -1720,6 +1731,7 @@ contains
               end if
 
             end do ! End do inode
+!           if(ef2e(7,iface,ielem) /= 0) write(*,*)ef2e(7,iface,ielem),efn2efn(4,knode+1-n_LGL_2d:knode,ielem)
           
           end if ! End if not a periodic face (match_found = .false.)
               
@@ -2594,13 +2606,13 @@ contains
        kk = hex_8_nverticesperface
                                                      !   face of element 1 
        do j = 1, kk                                  !   Sweep over vertices on face
-         j1 = eltypfaces(j,face1)                    !   Which node in element
+         j1 = eltypfaces_Lexo(j,face1)               !   Which node in element
          j2 = ic2nh(j1,elem1)                        !   Which vertex is pointed to
          xface1(:,j) = vx_master(:,j2)               !   load face nodes with vertex coordinates
        enddo
                                                      !   face of element 2 
        do j = 1, kk                                  !   Sweep over vertices on face
-         j1 = eltypfaces(j,face2)                    !   Which node in element
+         j1 = eltypfaces_Lexo(j,face2)               !   Which node in element
          j2 = ic2nh(j1,elem2)                        !   Which vertex is pointed to
          xface2(:,j) = vx_master(:,j2)               !   load face nodes with vertex coordinates
        enddo
