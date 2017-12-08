@@ -48,6 +48,8 @@ module initgrid
   public modify_metrics_nonconforming
   public perturb_vertices_tg_vortex_1
   public transform_grid
+  public write_grid_to_file
+  public write_matrix_to_file_matlab
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
@@ -1792,7 +1794,7 @@ contains
 
     ! indices
     integer :: ielem, kelem, inode, iface, idir, knode
-    integer :: i
+    integer :: i, face_shift, n_pts_1d_max
     integer :: n_LGL_2d, nodesperface_max
 
     real(wp) :: dx
@@ -1806,8 +1808,9 @@ contains
     allocate(   facenodenormal    (3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
     allocate(Jx_facenodenormal_LGL(3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
        facenodenormal     = -1000000.0_wp
-    Jx_facenodenormal_LGL = -1000000.0_wp
+    Jx_facenodenormal_LGL = -5000000.0_wp
 
+    n_pts_1d_max = (npoly_max+1)**1
     ! loop over elements
     do ielem = ihelems(1), ihelems(2)
 
@@ -1818,7 +1821,7 @@ contains
       knode = 0                                  ! reset facial node index counter
                                                  ! compute outward facing normals
       do iface = 1,nfacesperelem                 ! loop over faces
-
+        face_shift = (iface-1)*n_pts_1d_max**2
         do inode = 1,n_LGL_2d                    ! loop over nodes on face
 
           knode = knode + 1                      ! update facial node index counter
@@ -1833,6 +1836,7 @@ contains
              facenodenormal    (:,knode,ielem) =               r_x(idir,:,i,ielem) * dx
                                                  ! outward facing normal using metrics
           Jx_facenodenormal_LGL(:,knode,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
+          !Jx_facenodenormal_LGL(:,inode+face_shift,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
 
         end do
 
@@ -1893,14 +1897,18 @@ contains
     use initcollocation,      only: element_properties, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
     use collocationvariables, only: Restrct_Gau_2_LGL_1d
 
-    use variables, only: Jx_facenodenormal_Gau, xg_Gau_Shell, ef2e
+    use variables, only: Jx_facenodenormal_Gau, Jx_facenodenormal_LGL, xg_Gau_Shell, ef2e
 
-    implicit none
+!-- DAVID DEBUG START
+    use collocationvariables, only: elem_props
+!-- DAVID DEBUG END    implicit none
 
     ! indices
     integer :: ielem, iface, knode, node_id
     integer :: n_pts_1d_max, n_pts_2d_max
-    integer :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort, poly_val
+    integer :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort, poly_val, istart_Mort, istart_On,& 
+               iend_Mort, iend_On, n_s_2d_On
+    integer :: ierr
 
     logical                               :: testing = .false.
     real(wp), dimension(:),   allocatable :: x_S_1d_Mort, x_S_1d_On, w_S_1d_Mort
@@ -1919,7 +1927,8 @@ contains
 
       call element_properties(ielem,              &
                               n_pts_1d=n_S_1d_On, &
-                              x_pts_1d=x_S_1d_On)
+                              x_pts_1d=x_S_1d_On, &
+                              n_pts_2d = n_s_2d_On)
 
       knode = 0                                  !  reset facial node index counter
       node_id = 0
@@ -1946,6 +1955,19 @@ contains
           allocate(Intrp(n_S_1d_On,n_S_1d_Mort)) ;  Intrp(:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_On,1:n_S_1d_Mort,poly_val,2) ;
         endif
 
+        ! Restrict all metric data from mortar back to element face
+        istart_Mort    = (iface-1)*n_pts_2d_max  + 1
+        istart_On    = (iface-1)*n_s_2d_On  + 1
+!        istart_On = istart_Mort
+        iend_Mort = istart_Mort + n_S_1d_Mort**2 - 1
+!        iend_On   = istart_On + n_S_1d_On**2   - 1
+        iend_On = iend_Mort
+
+!        call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
+!           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart_On:iend_On,ielem),Intrp)
+
+        call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
+           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart_On:iend_On,ielem),Intrp)
       end do
 
     end do
@@ -2304,7 +2326,7 @@ contains
     use controlvariables,     only: verbose
     use referencevariables
     use collocationvariables, only: elem_props
-    use initcollocation,      only: GCL_Triple_Qmat_Transpose, element_properties, GCL_Triple_Smat
+    use initcollocation,      only: GCL_Triple_Qmat_Transpose, element_properties, GCL_Triple_HinvDQSEmat
     use eispack_module,       only: svd
     use unary_mod,            only: qsortd
     use variables,            only: r_x, Jx_r, ef2e
@@ -2316,25 +2338,26 @@ contains
     logical, parameter :: matv = .True.
 
     integer,  dimension(:),    allocatable :: ifacenodes
-    real(wp), dimension(:,:),  allocatable :: qmat
+    real(wp), dimension(:,:),  allocatable :: qmat, dmat
     real(wp), dimension(:),    allocatable :: p_surf
 
-    real(wp), dimension(:,:),  allocatable :: Amat, Smat
+    real(wp), dimension(:,:),  allocatable :: Amat, Hinv_3_mat, D_3_mat, Q_3_mat, S_3_mat, E_3_mat
     real(wp), dimension(:,:),  allocatable :: bvec
     real(wp), dimension(:,:),  allocatable :: a_t
     real(wp), dimension(:,:),  allocatable :: u, v
-    real(wp), dimension(:),    allocatable :: w, work, pmat, verror
+    real(wp), dimension(:),    allocatable :: w, work, pmat
+    real(wp), dimension(:,:),  allocatable :: verror
     real(wp), dimension(:,:),  allocatable :: work3
     real(wp), dimension(:,:),  allocatable :: eye, wrk, diag, wI
     real(wp), dimension(:,:),  allocatable :: delta_a
 
     integer,  dimension(:),    allocatable :: perm
     integer :: ielem, inode, ierr
-    integer :: i, iface
+    integer :: i, j, iface
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
     integer :: nm, m, n, icnt
 
-    logical                                :: testing = .false., testing_metric_comp = .false.
+    logical                                :: testing = .true., testing_metric_comp = .true.
     logical                                :: modify_metrics = .false.
     real(wp)                               :: t1, t2
     real(wp), parameter                    :: tol = 1.0e-12_wp
@@ -2347,6 +2370,7 @@ contains
 
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
+    character(len=1024)                            :: numb
 
     np_mods = 0 ; ng_mods = 0 ;
     err_Linf = 0.0_wp
@@ -2368,14 +2392,26 @@ contains
 
       np_mods = np_mods + 1                   !  Count the number of elements that are modified
       
+!      call element_properties(ielem,&
+!                              n_pts_1d=n_pts_1d,&
+!                              n_pts_2d=n_pts_2d,&
+!                              n_pts_3d=n_pts_3d,&
+!                                  qmat=qmat,&
+!                                  pmat=pmat,&
+!                                p_surf=p_surf,&
+!                            ifacenodes=ifacenodes)
+
+
       call element_properties(ielem,&
                               n_pts_1d=n_pts_1d,&
                               n_pts_2d=n_pts_2d,&
                               n_pts_3d=n_pts_3d,&
                                   qmat=qmat,&
+                                  dmat=dmat,&
                                   pmat=pmat,&
                                 p_surf=p_surf,&
                             ifacenodes=ifacenodes)
+
                      
       m = 1*n_pts_3d ; n = 3*n_pts_3d ; nm = max(m,n) ;
 
@@ -2394,6 +2430,11 @@ contains
 
       call SVD(nm,n,m,transpose(Amat),w,matu,u,matv,v,ierr,work)
 
+      !-- construct the pseudo inverse of w
+      do i = 1,m
+        if(w(i) >= tol) wI(i,i) = 1.0_wp / w(i)
+      enddo
+
       if(testing) then
         if(allocated( eye)) deallocate( eye) ; allocate( eye(m,m))  ;  eye(:,:) = 0.0_wp
         if(allocated( wrk)) deallocate( wrk) ; allocate( wrk(m,m))  ;  wrk(:,:) = 0.0_wp
@@ -2405,7 +2446,7 @@ contains
           
         do i = 1,m
           diag(i,i) = w(i)
-          if(w(i) >= tol) wI(i,i) = 1.0_wp / w(i)
+          !if(w(i) >= tol) wI(i,i) = 1.0_wp / w(i)
         enddo
         call qsortd(w(1:m),perm,m)
         wrk(:,:) = matmul(transpose(v(1:m,1:m)),v(1:m,1:m)) &
@@ -2426,6 +2467,15 @@ contains
 
 
       call Load_Mortar_Metric_Data(ielem,n_pts_1d,n_pts_2d,n_pts_3d, ifacenodes, p_surf, a_t, bvec)
+
+!-- DEBUG DAVID START
+!      write(*,*)'======================================'
+!      write(*,*)'ielem = ',ielem
+!      write(*,*)'sum(bvec(:,1)) = ',sum(bvec(:,1))
+!      write(*,*)'sum(bvec(:,2)) = ',sum(bvec(:,2))
+!      write(*,*)'sum(bvec(:,3)) = ',sum(bvec(:,3))
+!      write(*,*)'======================================'
+!-- DEBUG DAVID END
 
 !     minimizing (a - a_t)(a - a_t) / 2 ; subject to M a = b
 !     "t" subscript denotes "target metric values' :  i.e., a_t
@@ -2448,7 +2498,9 @@ contains
       err_Linf = max(err_Linf,err)
 
       a_t(:,:) = a_t(:,:) - delta_a(:,:)
-
+!-- DEBUG DAVID START
+!      write(*,*)'1 error in orginal system = ',maxval(abs(matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)))
+!-- DEBUG DAVID END
 !     New metric coefficients.  Assumes that the Jacobian (Jx_r) remains unchanged
 
       do inode = 1,n_pts_3d
@@ -2462,17 +2514,31 @@ contains
       !-- testing to see if the discrete metric terms satisfy the correct GCL condition
 
       if(testing_metric_comp) then
-        if(allocated(Smat  )) deallocate(Smat  ); allocate(Smat(nm,n)); Smat(:,:) = 0.0_wp
-        if(allocated(verror)) deallocate(verror); allocate(verror(n )); verror(:) = 0.0_wp
+        if(allocated(Hinv_3_mat  )) deallocate(Hinv_3_mat  ); allocate(Hinv_3_mat(m,m)); Hinv_3_mat(:,:) = 0.0_wp
+        if(allocated(D_3_mat  )) deallocate(D_3_mat  ); allocate(D_3_mat(m,n)); D_3_mat(:,:) = 0.0_wp
+        if(allocated(Q_3_mat  )) deallocate(Q_3_mat  ); allocate(Q_3_mat(m,n)); Q_3_mat(:,:) = 0.0_wp
+        if(allocated(S_3_mat  )) deallocate(S_3_mat  ); allocate(S_3_mat(m,n)); S_3_mat(:,:) = 0.0_wp
+        if(allocated(E_3_mat  )) deallocate(E_3_mat  ); allocate(E_3_mat(m,n)); E_3_mat(:,:) = 0.0_wp
+        if(allocated(verror)) deallocate(verror); allocate(verror(n,3)); verror(:,:) = 0.0_wp
 
-        !-- construct matrix with Smat = [Sxi;Seta;Szeta] to be used to check that the metric 
-        !   approximations are correct
-        call GCL_Triple_Smat(n_pts_1d, n_pts_3d, pmat, qmat, Smat) 
 
-        !-- loop over the three computational directions and construct S*Almk
-        do i = 1,3
-          verror = verror+matmul(Smat(1+(i-1)*m:i*m,1:m),a_t(1:m,i))-bvec(1:m,i)
-        enddo
+        call GCL_Triple_HinvDQSEmat(n_pts_1d, n_pts_3d, pmat,dmat,qmat,Hinv_3_mat,D_3_mat,Q_3_mat,S_3_mat,E_3_mat)
+
+!-- DEBUG DAVID START
+        !-- uncomment to write to file
+        !write(numb,'(I0)')ielem
+        !call write_matrix_to_file_matlab(Hinv_3_mat(1:m,1:m),m,m,'Hinvmat_'//trim(adjustl(numb))//'.test')
+        !call write_matrix_to_file_matlab(D_3_mat(1:m,1:n),m,n,'Dmat_'//trim(adjustl(numb))//'.test')
+        !call write_matrix_to_file_matlab(Q_3_mat(1:m,1:n),m,n,'Qmat_'//trim(adjustl(numb))//'.test')
+        !call write_matrix_to_file_matlab(Amat(1:m,1:n),m,n,'QmatT_'//trim(adjustl(numb))//'.test')
+        !call write_matrix_to_file_matlab(S_3_mat(1:m,1:n),m,n,'Smat_'//trim(adjustl(numb))//'.test')
+        !call write_matrix_to_file_matlab(E_3_mat(1:m,1:n),m,n,'Emat_'//trim(adjustl(numb))//'.test')
+!        write(*,*)'==========================================='
+        !-- construct the GCL in a more standard looking form
+        verror = matmul(D_3_mat,a_t)-matmul(Hinv_3_mat,matmul(E_3_mat,a_t)-bvec)
+!        write(*,*)'Alternative check of GCL: ielem = ',ielem,' p = ',n_pts_1d-1, 'error = ',maxval(abs(verror))
+!        write(*,*)'==========================================='
+!-- DEBUG DAVID END
       endif
     
     end do elloop
@@ -2662,7 +2728,8 @@ contains
 
        do i = 1,n_LGL_2d
 
-            knode = (iface-1)*(npoly_max+1)**2 + i
+            !knode = (iface-1)*(npoly_max+1)**2 + i
+             knode = (iface-1)*n_LGL_2d + i
             ! Index in facial ordering
             jnode =  n_LGL_2d*(iface-1)+i
               
@@ -4419,6 +4486,69 @@ contains
           do ielem = 1,icnt
             elem_props(2,irand_order(ielem)) = npoly+2
           enddo
+      case(5)
+        elem_props(2,1) = npoly+1
+        elem_props(2,2) = npoly+2
+        elem_props(2,3) = npoly+2
+      case(6)
+        elem_props(2,1) = npoly+2
+        elem_props(2,2) = npoly+1
+        elem_props(2,3) = npoly+2
+      case(7)
+        elem_props(2,1) = npoly+1
+        elem_props(2,2) = npoly+1
+        elem_props(2,3) = npoly+2
+      case(8)
+        elem_props(2,1) = npoly+2
+        elem_props(2,2) = npoly+1
+        elem_props(2,3) = npoly+1
+        elem_props(2,4) = npoly+1
+        elem_props(2,5) = npoly+1
+        elem_props(2,6) = npoly+1
+        elem_props(2,7) = npoly+1
+        elem_props(2,8) = npoly+1
+      case(9)
+        elem_props(2,1) = npoly+1
+        elem_props(2,2) = npoly+2
+        elem_props(2,3) = npoly+1
+        elem_props(2,4) = npoly+1
+        elem_props(2,5) = npoly+1
+        elem_props(2,6) = npoly+1
+        elem_props(2,7) = npoly+1
+        elem_props(2,8) = npoly+1
+      case(10)
+        do ielem = 1,3**3
+          elem_props(2,ielem) = npoly+1
+        enddo
+        elem_props(2,13) = npoly+2
+        elem_props(2,14) = npoly+2
+        elem_props(2,15) = npoly+2
+        elem_props(2,11) = npoly+2
+        elem_props(2,17) = npoly+2
+        elem_props(2,5) = npoly+2
+        elem_props(2,23) = npoly+2
+
+        !elem_props(2,2) = npoly+2
+        !elem_props(2,11) = npoly+2
+      case(11)
+        do ielem = 1,3**3
+          elem_props(2,ielem) = npoly+2
+        enddo
+        elem_props(2,2) = npoly+1
+        !elem_props(2,23) = npoly+2
+      case(12)
+        do ielem = 1,4**3
+          elem_props(2,ielem) = npoly+1
+        enddo
+        elem_props(2,2) = npoly+1
+      case(13)
+        do ielem = 1,5**3
+          elem_props(2,ielem) = npoly+1
+        enddo
+        elem_props(2,1) = npoly+2
+        elem_props(2,3) = npoly+2
+        elem_props(2,15) = npoly+2
+
 
       end select
 
@@ -5574,6 +5704,13 @@ contains
         n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
         n_Gau_2d_Mort = n_Gau_1d_Mort**2
 
+!-- MAKE SURE THIS IS NEEDED
+!        if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then      ! cycle for conforming interfaces
+!
+!            cycle
+!        endif
+!--
+
         if(allocated(x_Gau_1d_Mort)) deallocate(x_Gau_1d_Mort) ; allocate(x_Gau_1d_Mort(n_Gau_1d_Mort)) ;
         if(allocated(w_Gau_1d_Mort)) deallocate(w_Gau_1d_Mort) ; allocate(w_Gau_1d_Mort(n_Gau_1d_Mort)) ;
 
@@ -6585,8 +6722,8 @@ contains
  
     !-- use statments
     use mpimod
-    use referencevariables, only                 : myprocid, nprocs, ihelems
-    use variables, only                          : xg
+    use referencevariables, only                 : myprocid, nprocs, ihelems, npoly_max, nfacesperelem
+    use variables, only                          : xg, xg_Gau_shell, ef2e
     use precision_vars, only                     : pi
     use initcollocation, only                    : element_properties
   
@@ -6598,13 +6735,18 @@ contains
     integer                                      :: r_tag, r_request_err, r_status
     integer                                      :: inode, ielem
     integer                                      :: n_pts_3d
+    integer                                      :: iface, ishift, i_Gau, n_Gau_2d_max
+    integer                                      :: n_Gau_1d_Mort, n_Gau_2d_Mort
+    integer                                      :: n_LGL_1d_On, n_LGL_1d_Off, order
     real(wp)                                     :: x_min, y_min, z_min
     real(wp)                                     :: x_max, y_max, z_max
     real(wp), allocatable,dimension(:,:,:)       :: xyz_minmax
     real(wp), dimension(3,2)                     :: xyz_loc_minmax
     real(wp)                                     :: x_old, y_old, z_old, x, y, z 
-    real(wp)                                     :: xi, eta, zeta 
+    real(wp)                                     :: xi, eta, zeta, factor 
 
+    !-- set the order of the x, y, and z Taylor expansions of sin
+    order = 1
     x_min = -1000
     !   Parallel determination of the max and min values
 
@@ -6671,24 +6813,97 @@ contains
         xi = (x_old-x_min)/(x_max-x_min)
         eta = (y_old-y_min)/(y_max-y_min)
         zeta = (z_old-z_min)/(z_max-z_min)
-        x = x_old+1.0_wp/10.0_wp*sin(pi*xi)*sin(pi*eta)*sin(pi*zeta)
-        y = y_old+1.0_wp/10.0_wp*exp(1.0_wp-eta)*sin(pi*xi)*sin(pi*zeta)
-        z = z_old+1.0_wp/10.0_wp*exp(1.0_wp-zeta)*sin(pi*xi)*sin(pi*eta)
-        
+
+        !x = x_old+1.0_wp
+        !y = y_old+1.0_wp
+        !z = z_old+1.0_wp
+
+        !x = x_old+abs(x_max-x_min)/10.0_wp*sin(pi*xi)*sin(pi*eta)*sin(pi*zeta)
+        !y = y_old+abs(y_max-y_min)/10.0_wp*sin(pi*xi)*sin(pi*eta)*sin(pi*zeta)
+        !z = z_old+abs(z_max-z_min)/10.0_wp*sin(pi*xi)*sin(pi*eta)*sin(pi*zeta)
+        if(order.eq.1)then
+          factor = pi*xi*pi*eta*pi*zeta
+        elseif(order.eq.3)then
+          factor = (pi*xi-(pi*xi)**3/6.0_wp)*(pi*eta-(pi*eta)**3/6.0_wp)*(pi*zeta-(pi*zeta)**3/6.0_wp)
+        elseif(order.eq.5)then
+          factor = (pi*xi-(pi*xi)**3/6.0_wp+(pi*xi)**5/120.0_wp)*(pi*eta-(pi*eta)**3/6.0_wp+&
+                   (pi*eta)**5/120.0_wp)*(pi*zeta-(pi*zeta)**3/6.0_wp+(pi*zeta)**5/120.0_wp)
+        endif
+
+        x = x_old+abs(x_max-x_min)/10.0_wp*factor 
+        y = y_old+abs(y_max-y_min)/10.0_wp*factor
+        z = z_old+abs(z_max-z_min)/10.0_wp*factor
+          
+        if((abs(x-x_max)>(x_max-x_min)).or.(abs(y-y_max)>(y_max-y_min))&
+           .or.(abs(z-z_max)>(z_max-z_min)))then
+           write(*,*)'inode = ',inode
+           write(*,*)'xi = ',xi,'eta = ',eta,'zeta = ',zeta
+           write(*,*)'x_old = ',x_old,'y_old = ',y_old,'z_old=',z_old
+           write(*,*)'x = ',x,'y = ',y,'z=',z
+        endif
         !-- overwrite old values with new values
         xg(1,inode,ielem) = x; xg(2,inode,ielem) = y; xg(3,inode,ielem) = z
       enddo
     enddo
     
-    !-- write to file ONLY USE WITH ONE PROCESS
-    !if (nprocs==1)then
-    !   call write_grid_to_file('test.txt')
-    !endif
+   !write(*,*)'YOU ARE NOT TRANSFORMING THE GUASS SHELL NODES'
+    if(.true.)then
+    !-- apply the transformation to the Gauss shell nodes on each element localy
+    n_Gau_2d_max = (npoly_max+1)**2
+    !-- loop over elements
+    do ielem = ihelems(1), ihelems(2)
 
-    !-
-    !-- test of the snap to sphere subroutines
-    !call PetscFinalize(i_err); stop
-  end subroutine transform_grid
+      call element_properties(ielem,n_pts_1d=n_LGL_1d_On)
+
+
+      !-- loop over faces
+      do iface = 1,nfacesperelem
+
+        n_LGL_1d_Off  = ef2e(4,iface,ielem)
+        n_Gau_1d_Mort = max(n_LGL_1d_On, n_LGL_1d_Off)
+        n_Gau_2d_Mort = n_Gau_1d_Mort**2
+
+        !-- loop over the face nodes
+        do i_Gau = 1,n_Gau_2d_max  !n_Gau_2d_Mort
+          ishift = (iface-1) * n_Gau_2d_max + i_Gau
+
+          x_old = xg_Gau_shell(1,ishift,ielem)
+          y_old = xg_Gau_shell(2,ishift,ielem)
+          z_old = xg_Gau_shell(3,ishift,ielem)
+
+          xi = (x_old-x_min)/(x_max-x_min)
+          eta = (y_old-y_min)/(y_max-y_min)
+          zeta = (z_old-z_min)/(z_max-z_min)
+
+          !x = x_old+1.0_wp
+          !y = y_old+1.0_wp
+          !z = z_old+1.0_wp
+
+          !x = x_old+abs(x_max-x_min)/10.0_wp*sin(pi*xi)*sin(pi*eta)*sin(pi*zeta)
+          !y = y_old+abs(y_max-y_min)/10.0_wp*sin(pi*xi)*sin(pi*eta)*sin(pi*zeta)
+          !z = z_old+abs(z_max-z_min)/10.0_wp*sin(pi*xi)*sin(pi*eta)*sin(pi*zeta)
+
+          if(order.eq.1)then
+            factor = pi*xi*pi*eta*pi*zeta
+          elseif(order.eq.3)then
+            factor = (pi*xi-(pi*xi)**3/6.0_wp)*(pi*eta-(pi*eta)**3/6.0_wp)*(pi*zeta-(pi*zeta)**3/6.0_wp)
+          elseif(order.eq.5)then
+            factor = (pi*xi-(pi*xi)**3/6.0_wp+(pi*xi)**5/120.0_wp)*(pi*eta-(pi*eta)**3/6.0_wp+&
+                     (pi*eta)**5/120.0_wp)*(pi*zeta-(pi*zeta)**3/6.0_wp+(pi*zeta)**5/120.0_wp)
+          endif
+
+          x = x_old+abs(x_max-x_min)/10.0_wp*factor 
+          y = y_old+abs(y_max-y_min)/10.0_wp*factor
+          z = z_old+abs(z_max-z_min)/10.0_wp*factor
+ 
+          !-- overwrite old values with new values
+          xg_Gau_shell(1,ishift,ielem) = x; xg_Gau_shell(2,ishift,ielem) = y; xg_Gau_shell(3,ishift,ielem) = z
+        enddo
+      enddo
+    enddo
+    endif
+
+    end subroutine transform_grid
 
   subroutine snap_to_sphere(ielem,points,origin,xyz)
   !================================================================================================
@@ -6970,8 +7185,8 @@ subroutine write_grid_to_file(file_name)
   
   !-- variables
   use precision_vars, only                     : get_unit
-  use referencevariables, only                 : myprocid, ihelems
-  use variables, only                          : xg
+  use referencevariables, only                 : myprocid, ihelems, npoly_max, nfacesperelem
+  use variables, only                          : xg, xg_Gau_Shell
   use initcollocation, only                    : element_properties
 
   implicit none
@@ -6980,7 +7195,7 @@ subroutine write_grid_to_file(file_name)
   character(len=*),optional,intent(in)           :: file_name 
 
   !-- local variables
-  integer                                        :: iunit, inode, n_pts_3d, ielem
+  integer                                        :: iunit, inode, iface, ishift, n_pts_3d, ielem
   integer                                        :: j
   character(len=1024)                            :: numb
 
@@ -6988,7 +7203,7 @@ subroutine write_grid_to_file(file_name)
   integer                                        :: ios
 
   !-- writing to file
-  print *,"writing to: ",file_name
+  print *,"writing volume nodes to ",file_name, 'writing mortar nodes to ', 'surf'//file_name 
 
   !-- open file on the master proc
   if (myprocid==0) then
@@ -7015,9 +7230,230 @@ subroutine write_grid_to_file(file_name)
     enddo
        !-- close file
     close(UNIT=iunit)
+
+    !-- obtain a free Fortarn unit
+    call get_unit(iunit)
+    
+    !-- open the file
+    open(UNIT=iunit,FILE='surf'//file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
+    if(ios.NE.0) then 
+      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
+      stop
+    endif
+    
+    !-- write the root mortar nodal locations to file
+    do ielem = ihelems(1), ihelems(2)
+      !-- obtain element properties
+      write(numb,'(I0)')ielem
+      call element_properties(ielem,n_pts_3d=n_pts_3d)
+      write(iunit,*)'surfelement_'//trim(adjustl(numb))//" = [..."
+
+      do iface = 1, nfacesperelem
+        do inode = 1,(npoly_max+1)**2
+          ishift = (iface-1) * (npoly_max+1)**2 + inode
+          write(iunit,*)(xg_Gau_Shell(j,ishift,ielem),j=1,3),";"
+        enddo
+      enddo
+
+      write(iunit,*)"];"
+    enddo
+
+    !-- close file
+    close(UNIT=iunit)
+
   endif
  
 end subroutine write_grid_to_file
+
+subroutine write_matrix_to_file_matlab(A,n,m,file_name)
+!==================================================================================================
+!
+! Purpose: writes a matrix A to file in Matlab format
+!
+! Comments:
+!
+! Additional documentation: THIS IS NOT SETUP FOR PARALLEL RUNS ONLY USE ONE PROCESS
+!
+! Unit tests: 
+!
+! Inputs: A (size(A) = [n,m], real): matrix to be writen to file
+!         n (integer): number of rows
+!         m (integer): number of rows
+!         file_name (char(len=*): string with the name of the file
+! 
+!
+! outputs: 
+!
+!
+!==================================================================================================
+  
+  !-- variables
+  use precision_vars, only                     : get_unit
+  use referencevariables, only                 : myprocid
+
+  implicit none
+                     
+  !-- input variables
+  integer, intent(in)                            :: n, m
+  real(wp),intent(in),dimension(n,m)             :: A
+  character(len=*),optional,intent(in)           :: file_name 
+
+  !-- local variables
+  integer                                        :: iunit
+  integer                                        :: i,j
+  character(len=1024)                            :: numb
+
+  !-- file access variables
+  integer                                        :: ios
+
+  !-- writing to file
+  print *,"writing to: ",file_name
+
+  !-- open file on the master proc
+  if (myprocid==0) then
+    !-- obtain a free Fortarn unit
+    call get_unit(iunit)
+    
+    !-- open the file
+    open(UNIT=iunit,FILE=file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
+    if(ios.NE.0) then 
+      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_matrix_to_file_matlab(), iostat = ",ios
+      stop
+    endif
+    
+    !-- write the root process nodal information to file
+    write(iunit,*)'A = [...'
+    do i = 1,n
+        write(iunit,*)(A(i,j),j=1,m),";"   
+    enddo
+    write(iunit,*)"];"
+
+    !-- close file
+    close(UNIT=iunit)
+  else
+    write(*,*)'trying to write a matrix to file using initgrid:write_matrix_to_file_matlab, during a parallel run'
+  endif
+ 
+end subroutine write_matrix_to_file_matlab
+  subroutine Amat2(x, N, pmat,pinv,qmat,dmat)                                
+    ! Form the differentiation matrix dmat                                  
+    ! This matrix is used to compute the derivative in the Gauss-Labotto points   
+    !NOTE: HAD TO ADD THIS BECAUSE IN modify_metrics_nonconforming ONE OF THE VARIABLES IS Amat
+
+    implicit none
+
+    integer,                  intent(in)    :: N
+    real(wp), dimension(N),   intent(in)    :: x
+    real(wp), dimension(N),   intent(inout) :: pmat,pinv
+    real(wp), dimension(N,N), intent(inout) :: qmat,dmat
+
+    real(wp), allocatable, dimension(:)     :: wk, f, dex
+
+    real(wp)                                :: err, errmax
+    real(wp), parameter                     :: half = 0.50000000000000000000000000_wp
+    logical                                 :: diagnostic = .false.
+
+    integer                                 :: i,j,k
+
+
+    ! Allocate memory
+    allocate(wk(N))
+    allocate(f(N))
+    allocate(dex(N))
+
+    do k = 1,N 
+      wk(k) = 1.0_wp
+      do i = 1,N 
+        if(i/=k) wk(k) = wk(k) * (x(k) - x(i)) 
+      enddo 
+    enddo 
+
+    do i = 1,N 
+      do j = 1,N 
+        if(j/=i) dmat(i,j)=wk(i)/ (wk(j) * (x(i) - x(j)) ) 
+      enddo 
+    enddo 
+    do j = 1,N 
+      dmat(j,j)=0.0_wp
+      do k = 1,N 
+        if(k/=j) dmat(j,j) = dmat(j,j) + 1.0_wp/(x(j) - x(k)) 
+      enddo 
+    enddo 
+
+    pinv(1) = (-dmat(1,1)+dmat(N,N))
+    pinv(N) = pinv(1)
+    do i = 2,(N+1)/2
+      pinv(i) = - (dmat(i,1)*pinv(1)) / dmat(1,i) 
+      pinv(N+1-i) = pinv(i)
+    enddo
+
+    pmat(:) = 1.0_wp / pinv(:)
+
+    do i = 1,N
+      do j = 1,N
+        qmat(i,j) = dmat(i,j)*pmat(i)
+      enddo
+    enddo
+
+    errmax = (qmat(1,1) + half)**2 + (qmat(N,N) - half)**2
+    do i = 1,N
+      do j = 1,N
+        if(((i /= 1) .or. (j /= 1)) .and.  ((i /= N) .or. (j /= N)))then 
+          errmax = errmax + (qmat(i,j) + qmat(j,i))**2
+        endif
+      enddo
+    enddo
+    errmax = sqrt(errmax/N/N)
+
+    !       differentiate exact data to test accuracy of discrete operator
+
+    do i=1,N
+      f(i)    =         x(i)**(N-1)
+      dex(i)  = (N-1) * x(i)**(N-2)
+    enddo 
+    do i = 1,N 
+      wk(i)=0.0_wp
+      do j = 1,N 
+        wk(i) = wk(i) + dmat(i,j) * f(j) 
+      enddo 
+    enddo 
+
+    do i = 1, N
+      err=abs(wk(i)-dex(i)) 
+      if(err.gt.errmax)errmax=err 
+    enddo 
+
+    if(diagnostic) then
+      do i = 1,N
+         write(*,287)i,pmat(i)
+      enddo
+      do i = 1,N
+         do j = i,N
+           write(*,288)i,j,qmat(i,j)
+         enddo
+      enddo
+      stop
+    endif
+ 287  format('      d',i2,' = ',f22.17)
+ 288  format('      q',i2,1x,i2,' = ',f22.17)
+    if(errmax > 1.0e-13_wp) then
+      write(*,*)'x',x
+      write(*,*)'dmat'
+      do i = 1,N
+        write(*,*)(dmat(i,j),j=1,N)
+      enddo
+      write(*,*)'roundoff alert',errmax 
+    endif
+
+    deallocate(f  )
+    deallocate(dex)
+    deallocate(wk )
+
+    !   150 format( 25(f5.2,1x)) 
+    !   160 format( 25(f6.3,1x))
+
+    return 
+  end subroutine Amat2
 
 end module initgrid
 

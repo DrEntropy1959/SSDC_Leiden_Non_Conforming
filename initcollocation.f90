@@ -29,6 +29,7 @@ module initcollocation
   public D_lagrange_basis_function_1d
   public GCL_Triple_Qmat_Transpose
   public GCL_Triple_Smat
+  public GCL_Triple_HinvDQSEmat
 
 contains
 
@@ -618,6 +619,92 @@ contains
     deallocate(stride)
 
   end subroutine GCL_Triple_Qmat_Transpose
+  ! ===================================================================================
+  ! This subroutine calculates the multi-dimensional E operators (the one that 
+  ! approximates a surface integral) for an already set dimension and polynomial 
+  ! approximation. The assumption is that this is an SBP operator with boundary nodes
+  ! ===================================================================================
+
+  subroutine GCL_Triple_HinvDQSEmat(n_pts_1d, n_pts_3d, pmat,dmat,qmat,Hinv_3_mat,D_3_mat,Q_3_mat,S_3_mat,E_3_mat)
+
+    use referencevariables
+
+    implicit none
+
+    integer,                                   intent(in)    :: n_pts_1d, n_pts_3d
+    real(wp), dimension(:),                    intent(in)    :: pmat
+    real(wp),dimension(:,:)                                  :: dmat,qmat
+    real(wp), dimension(:,:),                  intent(inout) :: Hinv_3_mat, D_3_mat,Q_3_mat,S_3_mat,E_3_mat
+
+    integer :: i,j,k,jj,kk,inode, idir
+    integer :: il(2,3), ix(3),iy(3),iz(3)
+    integer, allocatable, dimension(:) :: stride
+    integer :: shift
+    real(wp)                                                :: Emat(n_pts_1d,n_pts_1d)
+
+    !-- construt the one-dimensional Emat matrix
+    Emat = 0.0_wp
+    Emat(1,1) = -1.0_wp
+    Emat(n_pts_1d,n_pts_1d) = 1.0_wp
+    ! high and low indices in each dimension
+    il = 1
+    do idir = 1,ndim
+      il(2,idir) = n_pts_1d
+    end do
+
+    ! stride between columns in each direction
+    allocate(stride(1:ndim))
+    do idir = 1,ndim
+      stride(idir) = n_pts_1d**(idir-1)
+    end do
+    !-- construct Hinv
+    inode = 0
+    ! loop over third direction
+    do k = il(1,3), il(2,3)
+      ! loop over second direction
+      do j = il(1,2), il(2,2)
+        ! loop over first direction
+        do i = il(1,1), il(2,1)
+          inode = inode+1
+          Hinv_3_mat(inode,inode) = 1.0_wp/(pmat(i) * pmat(j) * pmat(k))
+        enddo
+      enddo
+    enddo
+   
+    ! loop over directions
+    do idir = 1, ndim
+      ! reset node counter
+      inode = 0
+      ! loop over third direction
+      do k = il(1,3), il(2,3)
+        ! loop over second direction
+        do j = il(1,2), il(2,2)
+          ! loop over first direction
+          do i = il(1,1), il(2,1)
+            ! index vector
+            ix = (/ i,j,k /)
+            iy = (/ j,k,i /)
+            iz = (/ k,i,j /)
+            ! advance node counter by 1
+            inode = inode+1
+            ! loop over coefficients in gradient operator
+            do kk = 1,n_pts_1d
+              ! column/node corresponding to coefficient
+              jj = stride(idir)*(kk-ix(idir)) + inode
+              ! set coefficient in larger gradient matrix
+              shift = (idir-1) * n_pts_3d
+              D_3_mat(jj,shift+inode) = dmat(kk,ix(idir))
+              Q_3_mat(jj,shift+inode) = qmat(kk,ix(idir)) * pmat(iy(idir)) * pmat(iz(idir))
+              E_3_mat(jj,shift+inode) = Emat(kk,ix(idir)) * pmat(iy(idir)) * pmat(iz(idir))
+              S_3_mat(jj,shift+inode) = Q_3_mat(jj,shift+inode)-0.5_wp*E_3_mat(jj,shift+inode)
+            end do
+          end do
+        end do
+      end do
+    end do
+
+
+  end subroutine GCL_Triple_HinvDQSEmat
 
   ! ===================================================================================
   ! This subroutine calculates the multi-dimensional Smat operators 
