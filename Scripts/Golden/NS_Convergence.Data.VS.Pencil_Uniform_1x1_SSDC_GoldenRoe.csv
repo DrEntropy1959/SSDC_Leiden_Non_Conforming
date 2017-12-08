@@ -44,7 +44,7 @@
  L1   error:    1.1915379706914767E-004
  L2   error:    3.1912627853188720E-004
  Linf error:    3.2239966845146739E-003
- CPU time:          4.8331
+ CPU time:          4.8003
 
  Solution files written in solution                                                                                                                
 
@@ -93,7 +93,7 @@
  L1   error:    7.0246713852432938E-006
  L2   error:    1.9877986734584553E-005
  Linf error:    2.6729495170396689E-004
- CPU time:         11.5703
+ CPU time:         11.1825
 
  Solution files written in solution                                                                                                                
 
@@ -142,7 +142,7 @@
  L1   error:    4.6291164031595083E-007
  L2   error:    1.2795775321155014E-006
  Linf error:    1.7718173706882112E-005
- CPU time:         32.5159
+ CPU time:         30.0672
 
  Solution files written in solution                                                                                                                
 
