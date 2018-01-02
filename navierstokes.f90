@@ -865,8 +865,10 @@ contains
     xi = (root_Tl*vl(1))/(root_Tr*vr(1))
     gs = (xi-one)/(xi+one)
     us = gs*gs
-    al = exp(-us/seps)
     s1 = half / (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
+
+!   al = Exp_Series(-us/seps)
+    al = exp(-us/seps)
     ut = log(xi)
     s1 = ftmp * (al * s1 + (one-al) * gs * ut / (ut*ut + sdiv2) )
 
@@ -874,8 +876,10 @@ contains
     xi = root_Tl_I/root_Tr_I
     gs = (xi-one)/(xi+one)
     us = gs*gs
-    al = exp(-us/seps)
     s2 = half / (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
+
+!   al = Exp_Series(-us/seps)
+    al = exp(-us/seps)
     ut = log(xi)
     s2 = tinvav * (al * s2 + (one-al) * gs * ut / (ut*ut + sdiv2) )
 
@@ -899,6 +903,34 @@ contains
 
     return
   end function EntropyConsistentFlux
+
+!===================================================================================================
+
+  pure function Exp_Series(x)
+
+    implicit none
+
+    real(wp),  intent(in)   :: x
+
+    real(wp), dimension(0:4), parameter :: a = (/139230.0_wp  ,16380.0_wp  ,      &
+                                                    238.875_wp,    0.875_wp,      &
+                                                  7.10227272727272727272727e-4_wp/)
+    real(wp), dimension(0:4), parameter :: b = (/-69615.0_wp   ,-2388.75_wp,      &
+                                                    -17.0625_wp,-   0.03125_wp,   &
+                                                   -7.891414141414141e-6_wp/)
+
+    real(wp)  :: Exp_Series
+
+    real(wp)  :: t1, t2, x2
+
+      x2 = x*x
+
+      t1 = (a(0) + x2*(a(1) + x2*(a(2) + x2*(a(3) + x2*a(4)))))   ;
+      t2 = (b(0) + x2*(b(1) + x2*(b(2) + x2*(b(3) + x2*b(4)))))*x ;
+
+      Exp_Series = (t1 - t2) / (t1 + t2)
+
+  end function Exp_Series
 
 !===================================================================================================
 
