@@ -1,0 +1,20 @@
+THISHOST=$(hostname) ;
+cd ..
+#make clean
+make 
+cp Scripts/Startup/SSDCstartup.Viscous_Shock.Convergence.Study.NonConforming.Parallel.ref SSDCstartup.ref
+cp zerodat Viscous_Shock.Convergence.Study.NonConforming.Parallel.csv
+ for var1 in 1 2 3 #4
+   do
+   for var2 in 1 2 3 4 5 7
+     do
+     echo "Order: $var1 : mpirun -np: $var2  "
+     cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g'  > SSDCstartup
+     mpirun -np  ${var2} nice -19 ./SSDCNSE > tmp88 ;
+     cp Viscous_Shock.Convergence.Study.NonConforming.Parallel.csv tmp87
+     cat tmp87 tmp88 > Viscous_Shock.Convergence.Study.NonConforming.Parallel.csv
+   done
+ done
+#cp   Viscous_Shock.Convergence.Study.NonConforming.Parallel.csv Scripts/Golden/Viscous_Shock.Convergence.Study.NonConforming.Parallel_SSDC_GoldenRoe.csv
+ diff Viscous_Shock.Convergence.Study.NonConforming.Parallel.csv Scripts/Golden/Viscous_Shock.Convergence.Study.NonConforming.Parallel_SSDC_GoldenRoe.csv
+

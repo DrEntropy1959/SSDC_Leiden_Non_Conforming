@@ -22,6 +22,8 @@ echo "NS Triangle_Serial_NonConforming"
 ./NS_Script3D_Convergence_Runner_NonConforming_Triangle_3
 echo "NS shifted cylinder Serial NonConforming"
 ./NS_Script3D_Convergence_Runner_NonConforming_Cylinder_Grid
+echo "NS shifted cylinder Parallel NonConforming"
+./NS_Script3D_ViscousShock_Curved_Elements_NonConforming_Parallel
 echo "NS_Cylinder_Stagnation_Curved_Elements_GoldenRoe_SSDC"
 ./NS_Script3D_Cylinder_Stagnation_Curved_Elements_GoldenRoe_SSDC
 echo "NS_Shifted_Cylinder_Stagnation_Curved_Elements_SSDC"

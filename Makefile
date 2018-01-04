@@ -189,7 +189,7 @@ TARGET = SSDCNSE
 
 
 all: $(TARGET)
-	@echo  Simple compiler named SSDCNSE has been compiled
+	@echo  SSDC code has been compiled, creating executable named SSDCNSE
 
 
 $(TARGET) : $(OBJS)
