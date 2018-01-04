@@ -1901,7 +1901,7 @@ contains
           nghost         = nghost          + nodesperface           ! if face neighbor is off process, then add ghost face    nodes
           nghost_elem    = nghost_elem     + nodesperelem           ! if face neighbor is off process, then add ghost element nodes
 
-          if (elem_props(2,ielem) == ef2e(4,iface,ielem)) nghost_NonCon  = nghost_NonCon   + nodesperface           ! if face neighbor is off process, and non-conforming then add ghost face    nodes
+          if (elem_props(2,ielem) /= ef2e(4,iface,ielem)) nghost_NonCon  = nghost_NonCon   + nodesperface           ! if face neighbor is off process, and non-conforming then add ghost face    nodes
 
         endif
 

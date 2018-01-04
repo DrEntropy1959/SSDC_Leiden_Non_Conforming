@@ -3706,6 +3706,7 @@ contains
                                                    n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                    n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                    n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
+                                                   pinv,                                           &
                                                    vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
                                                    cnt_Mort_Off, Intrp_On, Extrp_Off)
 ! ========
@@ -3718,6 +3719,7 @@ contains
                                                     n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,           &
                                                     n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,           &
                                                     n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,           &
+                                                    pinv,                                          &
                                                       vg_2d_On,   vg_2d_Off,                       &
                                                     phig_2d_On, phig_2d_Off,                       &
                                                     wg_Mort_On, wg_Mort_Off,                       &
@@ -3766,12 +3768,12 @@ contains
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
+                                                     pinv,                                           &
                                                      vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
                                                      cnt_Mort_Off, Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, efn2efn_Gau, gsat
-    use collocationvariables, only: pinv
     use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
 
     implicit none
@@ -3780,6 +3782,7 @@ contains
     integer,                    intent(in) :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort
     integer,                    intent(in) :: n_S_2d_On, n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
     real(wp),  dimension(:),    intent(in) :: x_S_1d_On, x_S_1d_Off, x_S_1d_Mort
+    real(wp),  dimension(:),    intent(in) :: pinv
     integer,   dimension(:),    intent(in) :: ifacenodes_On
     integer,   dimension(:),    intent(in) :: cnt_Mort_Off
     real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
@@ -3899,6 +3902,7 @@ contains
                                                   n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                   n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                   n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
+                                                  pinv,                                           &
                                                     vg_2d_On,   vg_2d_Off,                        &
                                                   phig_2d_On, phig_2d_Off,                        &
                                                   wg_Mort_On, wg_Mort_Off,                        &
@@ -3908,7 +3912,7 @@ contains
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, efn2efn_Gau,     &
                                   & gsat, mut
-    use collocationvariables, only: pinv, l00, l01, ldg_flip_flop_sign, alpha_ldg_flip_flop
+    use collocationvariables, only: l00, l01, ldg_flip_flop_sign, alpha_ldg_flip_flop
     use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
 
     implicit none
@@ -3919,6 +3923,7 @@ contains
     real(wp),  dimension(:),    intent(in) :: x_S_1d_On, x_S_1d_Off, x_S_1d_Mort
     integer,   dimension(:),    intent(in) :: ifacenodes_On, ifacenodes_Off
     integer,   dimension(:),    intent(in) :: cnt_Mort_Off
+    real(wp),  dimension(:),    intent(in) :: pinv
     real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
     real(wp),  dimension(:,:),  intent(in) ::             nx_2d_Off
     real(wp),  dimension(:,:),  intent(in) :: wg_Mort_On, wg_Mort_Off
@@ -6439,6 +6444,7 @@ contains
                                 x_pts_1d=x_S_1d_On,   &
                                 n_pts_2d=n_S_2d_On,   &
                                 n_pts_3d=n_S_3d_On,   &
+                                    pinv=pinv,        &
                                  nnzgrad=nnzgrad,     &
                                   iagrad=iagrad,      &
                                   jagrad=jagrad,      &
@@ -6485,9 +6491,9 @@ contains
             
           nghst_volume = nelem_ghst(1,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
 
-          face_loop:do iface = 1, nfacesperelem                 ! loop over faces
+          face_loop:do iface = 1, nfacesperelem               ! loop over faces
   
-            if (ef2e(1,iface,ielem) < 0) then                 !  face if cycle for BC or different face-types
+            if (ef2e(1,iface,ielem) < 0) then                 ! face if cycle for BC or different face-types
 
               cycle
                                                !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -6519,9 +6525,7 @@ contains
                   dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg_On(:) - wg_Off(:))
                                                                      ! add LDC/LDG penalty to each physical gradient using the normal
                   do jdir = 1,ndim
-! HACK
                     phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
-! HACK
                   end do
   
                 end do
@@ -6549,9 +6553,7 @@ contains
                   dphi(:) = l10_ldg_flip_flop*pinv(1)*(wg_On(:) - wg_Off(:))
                                                                        ! add LDC/LDG penalty to each physical gradient using the normal
                   do jdir = 1,ndim
-! HACK
                     phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
-! HACK
                   end do
                 end do
 
@@ -6683,9 +6685,7 @@ contains
     
                                                                           ! add LDC/LDG penalty to each physical gradient using the normal
                 do jdir = 1,ndim
-!  HACK
                   phig(:,jdir,inode,ielem) = phig(:,jdir,inode,ielem) + dphi(:)*nx(jdir)
-!  HACK
                 end do
 
               end do On_Elem
