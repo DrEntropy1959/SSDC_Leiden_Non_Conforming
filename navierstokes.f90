@@ -808,94 +808,67 @@ contains
 
 !===================================================================================================
 
-  pure function EntropyConsistentFlux(vl,vr,Jx,neqin)
+! pure function EntropyConsistentFlux(vl,vr,Jx,neq)
+       function EntropyConsistentFlux(vl,vr,Jx,neq)
+
     ! this function calculates the normal entropy consistent
     ! flux based on left and right states of primitive variables.
     ! it is consistent with the nondimensionalization employed
     ! herein and follows directly from the work of Ismail and Roe,
     ! DOI: 10.1016/j.jcp.2009.04.021
+
     use nsereferencevariables, only: gM2I, gm1og, gp1og, gm1M2
+
     implicit none
+
     ! Arguments
     ! =========
-    ! number of equations
-    integer,  intent(in)                   :: neqin
-    ! left and right states
-    real(wp), intent(in), dimension(neqin) :: vl, vr
-    ! metrics scaled by jacobian
-    real(wp), intent(in), dimension(3)     :: Jx
+    integer,  intent(in)                   :: neq      ! number of equations
+
+    real(wp), intent(in), dimension(neq)   :: vl, vr   ! left and right states
+
+    real(wp), intent(in), dimension(3)     :: Jx       ! metrics scaled by jacobian
   
     ! Function
     ! ========
-    real(wp), dimension(neqin) :: EntropyConsistentFlux
-  
+    real(wp), dimension(neq) :: EntropyConsistentFlux
+
     ! Local Variables
     ! ===============
-    ! temporary variables (dimension is legacy from different code)
-    real(wp), dimension(neqin) :: vhat
 
-    ! inverse and square roots of temperature states
-    real(wp) :: root_Tl_I, root_Tr_I, root_Tl, root_Tr
-    ! average of inverse temperature and its inverse
-    real(wp) :: tinvav, tinvavinv
+    real(wp), dimension(neq) :: vhat           ! temporary variables
 
-    ! prevent division by zero
-    real(wp), parameter :: sdiv2 = 1e-030_wp
-    ! log degenerates in multiple cases (see reference for use)
-    real(wp), parameter :: seps = 1.0e-04_wp
-    real(wp) :: xi, gs, us, ut, ftmp
-    real(wp) :: s1, s2, al
+    real(wp) :: root_Tl  , root_Tr             !   sqrt[T_i], i=L,R
+    real(wp) :: root_Tl_I, root_Tr_I           ! 1/sqrt[T_i], i=L,R
 
-    ! normal mass flux (mdot), Pressure,  Temperature
-    real(wp) :: mdot, P, T
+    real(wp) :: tinvav, tinvavinv              ! average of inverse temperature and its inverse
 
-    ! Sqrt[temperature] and Sqrt[temperature]^{-1} are used a lot
-    root_Tl   = sqrt(vl(5)) ; root_Tr   = sqrt(vr(5))
-    root_Tl_I = one/root_Tl ; root_Tr_I = one/root_Tr
+    real(wp) :: s1, s2                         ! Logarithmic averages of density and temperature
+
+    real(wp) :: mdot, P, T                     ! normal mass flux (mdot), Pressure,  Temperature
+
+    continue
+
+    root_Tl   = sqrt(vl(5))    ; root_Tr   = sqrt(vr(5))            ! Sqrt[T_i] 
+    root_Tl_I = 1.0_wp/root_Tl ; root_Tr_I = 1.0_wp/root_Tr         ! Sqrt[T_i]^{-1}
     tinvav    = root_Tl_I   + root_Tr_I
-    tinvavinv = one/tinvav
+    tinvavinv = 1.0_wp/tinvav
   
-    ! velocity
-    vhat(2:4) = (vl(2:4)*root_Tl_I + vr(2:4)*root_Tr_I)*tinvavinv
+    vhat(2:4) = (vl(2:4)*root_Tl_I + vr(2:4)*root_Tr_I)*tinvavinv   ! velocity
 
-    ! pressure
-    ftmp = vl(1)*root_Tl + vr(1)*root_Tr
-    P    = ftmp*tinvavinv
+    P = (vl(1)*root_Tl + vr(1)*root_Tr) * tinvavinv                 ! pressure
 
-    ! logarithmic averages used in density and temperature
-    ! calculate s1
-    xi = (root_Tl*vl(1))/(root_Tr*vr(1))
-    gs = (xi-one)/(xi+one)
-    us = gs*gs
-    s1 = half / (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
+    s1 = Logarithmic_Average(root_Tl*vl(1),root_Tr*vr(1))           ! Logarithmic average of rho/Sqrt(T)
 
-!   al = Exp_Series(-us/seps)
-    al = exp(-us/seps)
-    ut = log(xi)
-    s1 = ftmp * (al * s1 + (one-al) * gs * ut / (ut*ut + sdiv2) )
+    s2 = Logarithmic_Average(root_Tl_I    ,root_Tr_I    )           ! Logarithmic average of   1/Sqrt(T)
 
-    ! calculate s2
-    xi = root_Tl_I/root_Tr_I
-    gs = (xi-one)/(xi+one)
-    us = gs*gs
-    s2 = half / (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
+    vhat(1) = 0.5_wp *tinvav * s1                                   ! density
 
-!   al = Exp_Series(-us/seps)
-    al = exp(-us/seps)
-    ut = log(xi)
-    s2 = tinvav * (al * s2 + (one-al) * gs * ut / (ut*ut + sdiv2) )
+    T = 0.5_wp * (gm1og * P + gp1og * s1/s2) / vhat(1)              ! temperature
 
-    ! density
-    vhat(1) = half *tinvav*s1
+    vhat(5) = T + 0.5_wp * gm1M2 * dot_product(vhat(2:4),vhat(2:4)) ! total enthalpy
 
-    ! temperature
-    T = half * (gm1og * P + gp1og*s1/s2) / vhat(1)
-
-    ! total enthalpy
-    vhat(5) = gm1M2*half*dot_product(vhat(2:4),vhat(2:4)) + T
-
-    ! normal mass flow rate
-    mdot = vhat(1)*dot_product(vhat(2:4),Jx)
+    mdot = vhat(1)*dot_product(vhat(2:4),Jx)                        ! normal mass flow rate
 
     EntropyConsistentFlux(1) = mdot
     EntropyConsistentFlux(2) = mdot*vhat(2) + Jx(1) * P * gM2I
@@ -903,13 +876,12 @@ contains
     EntropyConsistentFlux(4) = mdot*vhat(4) + Jx(3) * P * gM2I
     EntropyConsistentFlux(5) = mdot*vhat(5)
 
-    return
   end function EntropyConsistentFlux
 
 !===================================================================================================
 
-       function Logarithmic_Average(a,b)
-! pure function Logarithmic_Average(a,b)
+!      function Logarithmic_Average(a,b)
+  pure function Logarithmic_Average(a,b)
 
     use variables, only: Log_Ave_Counter
 
@@ -928,9 +900,9 @@ contains
 !   real(wp),                 parameter :: eps = 2.7e-03_wp
 
 !  Logarithmic expansion valid to us = 0.0226, or ratio =  1.353
-!   real(wp), dimension(0:3), parameter :: c = (/1.0_wp,21.0_wp/13.0_wp,105.0_wp/143.0_wp,35.0_wp/429.0_wp /)
-!   real(wp), dimension(0:3), parameter :: d = (/2.0_wp,100.0_wp/39.0_wp,566.0_wp/715.0_wp,512.0_wp/15015.0_wp /)
-!   real(wp),                 parameter :: eps = 2.2e-02_wp
+    real(wp), dimension(0:3), parameter :: c = (/1.0_wp,21.0_wp/13.0_wp,105.0_wp/143.0_wp,35.0_wp/429.0_wp /)
+    real(wp), dimension(0:3), parameter :: d = (/2.0_wp,100.0_wp/39.0_wp,566.0_wp/715.0_wp,512.0_wp/15015.0_wp /)
+    real(wp),                 parameter :: eps = 2.0e-02_wp
 
 !  Logarithmic expansion valid to us = 0.0677, or ratio =  1.703
 !   real(wp), dimension(0:4), parameter :: c = (/1.0_wp,36.0_wp/17.0_wp,126.0_wp/85.0_wp, &
@@ -957,15 +929,15 @@ contains
 !   real(wp),                 parameter :: eps = 2.0e-01_wp
 
 !  Logarithmic expansion valid to us = 0.315, or ratio =  3.560
-    real(wp), dimension(0:7), parameter :: c = (/1.0_wp,105.0_wp/29.0_wp,455.0_wp/87.0_wp,  &
-                                                 1001.0_wp/261.0_wp,1001.0_wp/667.0_wp,    &
-                                                 1001.0_wp/3335.0_wp,1001.0_wp/38019.0_wp, &
-                                                 143.0_wp/215441.0_wp/)
-    real(wp), dimension(0:7), parameter :: d = (/2.0_wp,572.0_wp/87.0_wp,3674.0_wp/435.0_wp,  &
-                                                 3256.0_wp/609.0_wp, 31054.0_wp/18009.0_wp,   &
-                                         86644.0_wp/330165.0_wp, 3622802.0_wp/244652265.0_wp, &
-                                                 8388608.0_wp/62386327575.0_wp /)
-    real(wp),                 parameter :: eps = 3.0e-01_wp
+!   real(wp), dimension(0:7), parameter :: c = (/1.0_wp,105.0_wp/29.0_wp,455.0_wp/87.0_wp,  &
+!                                                1001.0_wp/261.0_wp,1001.0_wp/667.0_wp,    &
+!                                                1001.0_wp/3335.0_wp,1001.0_wp/38019.0_wp, &
+!                                                143.0_wp/215441.0_wp/)
+!   real(wp), dimension(0:7), parameter :: d = (/2.0_wp,572.0_wp/87.0_wp,3674.0_wp/435.0_wp,  &
+!                                                3256.0_wp/609.0_wp, 31054.0_wp/18009.0_wp,   &
+!                                        86644.0_wp/330165.0_wp, 3622802.0_wp/244652265.0_wp, &
+!                                                8388608.0_wp/62386327575.0_wp /)
+!   real(wp),                 parameter :: eps = 3.0e-01_wp
 
 
 
@@ -978,16 +950,16 @@ contains
     us  = gs*gs
     ave = a + b 
 
-    if(                        (us <= 1.0e-8_wp)) Log_Ave_Counter( 1) = Log_Ave_Counter( 1) + 1
-    if((1.0e-8_wp <= us) .and. (us <= 1.0e-7_wp)) Log_Ave_Counter( 2) = Log_Ave_Counter( 2) + 1
-    if((1.0e-7_wp <= us) .and. (us <= 1.0e-6_wp)) Log_Ave_Counter( 3) = Log_Ave_Counter( 3) + 1
-    if((1.0e-6_wp <= us) .and. (us <= 1.0e-5_wp)) Log_Ave_Counter( 4) = Log_Ave_Counter( 4) + 1
-    if((1.0e-5_wp <= us) .and. (us <= 1.0e-4_wp)) Log_Ave_Counter( 5) = Log_Ave_Counter( 5) + 1
-    if((1.0e-4_wp <= us) .and. (us <= 1.0e-3_wp)) Log_Ave_Counter( 6) = Log_Ave_Counter( 6) + 1
-    if((1.0e-3_wp <= us) .and. (us <= 1.0e-2_wp)) Log_Ave_Counter( 7) = Log_Ave_Counter( 7) + 1
-    if((1.0e-2_wp <= us) .and. (us <= 1.0e-1_wp)) Log_Ave_Counter( 8) = Log_Ave_Counter( 8) + 1
-    if((1.0e-1_wp <= us) .and. (us <= 1.0e-0_wp)) Log_Ave_Counter( 9) = Log_Ave_Counter( 9) + 1
-    if((      eps <= us)                        ) Log_Ave_Counter(10) = Log_Ave_Counter(10) + 1
+!   if(                        (us <= 1.0e-8_wp)) Log_Ave_Counter( 1) = Log_Ave_Counter( 1) + 1
+!   if((1.0e-8_wp <= us) .and. (us <= 1.0e-7_wp)) Log_Ave_Counter( 2) = Log_Ave_Counter( 2) + 1
+!   if((1.0e-7_wp <= us) .and. (us <= 1.0e-6_wp)) Log_Ave_Counter( 3) = Log_Ave_Counter( 3) + 1
+!   if((1.0e-6_wp <= us) .and. (us <= 1.0e-5_wp)) Log_Ave_Counter( 4) = Log_Ave_Counter( 4) + 1
+!   if((1.0e-5_wp <= us) .and. (us <= 1.0e-4_wp)) Log_Ave_Counter( 5) = Log_Ave_Counter( 5) + 1
+!   if((1.0e-4_wp <= us) .and. (us <= 1.0e-3_wp)) Log_Ave_Counter( 6) = Log_Ave_Counter( 6) + 1
+!   if((1.0e-3_wp <= us) .and. (us <= 1.0e-2_wp)) Log_Ave_Counter( 7) = Log_Ave_Counter( 7) + 1
+!   if((1.0e-2_wp <= us) .and. (us <= 1.0e-1_wp)) Log_Ave_Counter( 8) = Log_Ave_Counter( 8) + 1
+!   if((1.0e-1_wp <= us) .and. (us <= 1.0e-0_wp)) Log_Ave_Counter( 9) = Log_Ave_Counter( 9) + 1
+!   if((      eps <= us)                        ) Log_Ave_Counter(10) = Log_Ave_Counter(10) + 1
 
     if(us <= eps) then
       Logarithmic_Average =                                               &
@@ -995,16 +967,16 @@ contains
 !           (d(0)-us*d(1))
 !     ave * (c(0)-us*(c(1)-us*c(2))) / &
 !           (d(0)-us*(d(1)-us*d(2)))
-!     ave * (c(0)-us*(c(1)-us*(c(2)-us*c(3)))) / &
-!           (d(0)-us*(d(1)-us*(d(2)-us*d(3))))
+      ave * (c(0)-us*(c(1)-us*(c(2)-us*c(3)))) / &
+            (d(0)-us*(d(1)-us*(d(2)-us*d(3))))
 !     ave * (c(0)-us*(c(1)-us*(c(2)-us*(c(3)-us*c(4))))) / &
 !           (d(0)-us*(d(1)-us*(d(2)-us*(d(3)-us*d(4)))))
 !     ave * (c(0)-us*(c(1)-us*(c(2)-us*(c(3)-us*(c(4)-us*c(5)))))) / &
 !           (d(0)-us*(d(1)-us*(d(2)-us*(d(3)-us*(d(4)-us*d(5))))))
 !     ave * (c(0)-us*(c(1)-us*(c(2)-us*(c(3)-us*(c(4)-us*(c(5)-us*c(6))))))) / &
 !           (d(0)-us*(d(1)-us*(d(2)-us*(d(3)-us*(d(4)-us*(d(5)-us*d(6)))))))
-      ave * (c(0)-us*(c(1)-us*(c(2)-us*(c(3)-us*(c(4)-us*(c(5)-us*(c(6)-us*c(7)))))))) / &
-            (d(0)-us*(d(1)-us*(d(2)-us*(d(3)-us*(d(4)-us*(d(5)-us*(d(6)-us*d(7))))))))
+!     ave * (c(0)-us*(c(1)-us*(c(2)-us*(c(3)-us*(c(4)-us*(c(5)-us*(c(6)-us*c(7)))))))) / &
+!           (d(0)-us*(d(1)-us*(d(2)-us*(d(3)-us*(d(4)-us*(d(5)-us*(d(6)-us*d(7))))))))
     else
       Logarithmic_Average = ave * gs / log(xi) 
     endif
@@ -1041,7 +1013,7 @@ contains
 
 !===================================================================================================
 
-  subroutine EntropyConsistentFlux_Vectors(vl,vr,neqin,fx,fy,fz)
+  subroutine EntropyConsistentFlux_Vectors(vl,vr,neq,fx,fy,fz)
 
     !  Checked for accuracy :  10/25/2017
 
@@ -1055,17 +1027,17 @@ contains
     ! Arguments
     ! =========
     ! number of equations
-    integer,  intent(in)                   :: neqin
+    integer,  intent(in)                   :: neq
     ! left and right states
-    real(wp), intent(in), dimension(neqin) :: vl, vr
+    real(wp), intent(in), dimension(neq) :: vl, vr
 
     ! left and right states
-    real(wp), intent(out), dimension(neqin) :: fx,fy,fz
+    real(wp), intent(out), dimension(neq) :: fx,fy,fz
 
     ! Local Variables
     ! ===============
     ! temporary variables (dimension is legacy from different code)
-    real(wp), dimension(neqin) :: vhat
+    real(wp), dimension(neq) :: vhat
 
     ! inverse and square roots of temperature states
     real(wp) :: root_Tl_I, root_Tr_I, root_Tl, root_Tr
@@ -1145,7 +1117,7 @@ contains
 
 !===================================================================================================
 ! pure function Entropy_KE_Consistent_Flux(vl,vr,Jx,nq)
-  function Entropy_KE_Consistent_Flux(vl,vr,Jx,nq)
+       function Entropy_KE_Consistent_Flux(vl,vr,Jx,nq)
 
     ! this function calculates the normal entropy consistent
     ! flux based on left and right states of primitive variables.
@@ -1186,56 +1158,22 @@ contains
     ! ===============
     real(wp), dimension(nq) :: vave
 
-    ! prevent division by zero and 
-    real(wp), parameter :: sdiv2 = 1e-030_wp
-    ! log degenerates in multiple cases (toggle between asymptotic expression and actual logarithm)
-    real(wp), parameter :: seps = 1.0e-02_wp
-    real(wp) :: xi, fs, us, ut, F
-    real(wp) :: alr,alB
+    real(wp) :: mdot, P, rhotil, Btil, bL, bR, Keave                ! normal mass flux (mdot), Pressure, Logave density and temperature
 
+    vave(1:5) = 0.5_wp * (vl(1:5) + vr(1:5))                        ! Average Density & velocity
 
-    ! normal mass flux (mdot), Pressure, Logave density and temperature
-    real(wp) :: mdot, P, rhotil, Btil, bL, bR, Bave, Keave
+    bL = 1.0_wp/vl(5) ; bR = 1.0_wp/vr(5)                           ! inverse Temperature (defined as B)
 
-    ! Average Density & velicity
-    vave(1:5) = half * (vl(1:5) + vr(1:5))
+    P  = 2.0_wp * gM2I * vave(1) / (bL + bR)                        ! Pressure
 
-    ! average inverse Temperature (defined as B) and Pressure
-    bL = 1.0_wp/vl(5) ; bR = 1.0_wp/vr(5) ; Bave   = half * (bL + bR)
-    P  = gM2I * vave(1) / Bave
+    Keave = 0.25_wp * ( + vL(2)*vL(2)+vL(3)*vL(3)+vL(4)*vL(4)  &    ! Average KE 
+                        + vR(2)*vR(2)+vR(3)*vR(3)+vR(4)*vR(4) )
 
-    ! Average KE 
-    ! Keave = half*half*(dot_product(vL(2:4),vL(2:4)) + dot_product(vR(2:4),vR(2:4)))
-      Keave = half*half*( + vL(2)*vL(2)+vL(3)*vL(3)+vL(4)*vL(4)  &
-                          + vR(2)*vR(2)+vR(3)*vR(3)+vR(4)*vR(4) )
+    rhotil = Logarithmic_Average(vl(1),vr(1))                       ! logarithmic average of density
 
-    ! logarithmic average of density
-    xi = vl(1)/vr(1)
-    fs = (xi-one)/(xi+one)
-    us = fs * fs
-    alr= exp(-us/seps)
-    F  = half / (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
-!   F  = (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
-    ut = log(xi)
+      Btil = Logarithmic_Average(   bL,   bR)                       ! logarithmic average of  B = 1/T
 
-    rhotil = 2.0_wp * vave(1) * (alr * F + (one-alr) * fs * ut / (ut*ut + sdiv2) )
-!   rhotil = vave(1) / (al * F + half*(one-al) * fs * ut / (fs*fs + sdiv2) )
-
-    ! logarithmic average of  B = 1 / temperature
-    xi = bL/bR
-    fs = (xi-one)/(xi+one)
-    us = fs * fs
-    alB= exp(-us/seps)
-    F  = half / (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
-!   F  = (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
-    ut = log(xi)
-
-    Btil   = 2.0_wp * Bave * (alB * F + (one-alB) * fs * ut / (ut*ut + sdiv2) )
-!   Btil   = Bave / (al * F + half*(one-al) * fs * ut / (fs*fs + sdiv2) )
-
-    ! normal mass flow rate
-    ! mdot = rhotil*dot_product(vave(2:4),Jx)
-      mdot = rhotil*(vave(2)*Jx(1)+vave(3)*Jx(2)+vave(4)*Jx(3))
+      mdot = rhotil*(vave(2)*Jx(1)+vave(3)*Jx(2)+vave(4)*Jx(3))     ! normal mass flow rate
 
     Entropy_KE_Consistent_Flux(1) = mdot
     Entropy_KE_Consistent_Flux(2) = mdot*vave(2) + Jx(1) * P
@@ -1352,7 +1290,7 @@ contains
 
 !===================================================================================================
 
-  pure function dUdV(Vin,neqin)
+  pure function dUdV(Vin,neq)
     ! Checked MHC 08_09_13
     ! this function calculates the jacobian of the
     ! conserved variables with respect to the primitive
@@ -1360,12 +1298,12 @@ contains
     use nsereferencevariables
     implicit none
     ! number of equations
-    integer, intent(in) :: neqin
+    integer, intent(in) :: neq
     ! primitive variables
-    real(wp), intent(in) :: Vin(neqin)
+    real(wp), intent(in) :: Vin(neq)
 
     ! output jacobian
-    real(wp) :: dUdV(neqin,neqin)
+    real(wp) :: dUdV(neq,neq)
 
     ! local convenience
     real(wp) :: ht
@@ -1392,7 +1330,7 @@ contains
 
   !============================================================================
 
-  pure function dVdU(Vin,neqin)
+  pure function dVdU(Vin,neq)
     ! Checked MHC 08_09_13
     ! this function calculates the jacobian of the
     ! primitive variables with respect to the conserved
@@ -1400,12 +1338,12 @@ contains
     use nsereferencevariables
     implicit none
     ! number of equations
-    integer, intent(in) :: neqin
+    integer, intent(in) :: neq
     ! primitive variables
-    real(wp), intent(in) :: Vin(neqin)
+    real(wp), intent(in) :: Vin(neq)
 
     ! output jacobian
-    real(wp) :: dVdU(neqin,neqin)
+    real(wp) :: dVdU(neq,neq)
 
     real(wp) :: rhoinv
     real(wp) :: ht
@@ -2428,7 +2366,7 @@ contains
       230  format('P',I2,1x,'  l1 error:  ', e17.10,1x,  &
                             '  l2 error:  ', e17.10,1x,  &
                             'linf error:  ', e17.10,1x)
-!     write(*,'(10(f12.6,1x))') 1.0_wp*Log_Ave_Counter(:)/sum(Log_Ave_Counter(:))
+!     write(*,'(10(f9.4,1x))') 1.0_wp*Log_Ave_Counter(:)/sum(Log_Ave_Counter(:))
     end if
 
     close(unit=40)
