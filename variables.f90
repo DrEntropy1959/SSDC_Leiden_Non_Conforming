@@ -169,6 +169,9 @@ module variables
   real(wp), allocatable, dimension(:,:,:,:) :: grad_w_jacobian
 
   ! Kinetic energy
+  integer,  dimension(10) :: Log_Ave_Counter
+
+  ! Kinetic energy
   real(wp), dimension(2) :: kinetic_energy
 
   ! Enstrophy

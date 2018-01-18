@@ -95,7 +95,7 @@ contains
     ! Load modules
     use variables, only: vg, wg, ug, xg, omega, &
                          specific_entropy, mean_vg, time_ave_prod_vel_comp, &
-                         reynolds_stress, mut
+                         reynolds_stress, mut, Log_Ave_Counter
     use initcollocation, only: element_properties
     use referencevariables
     use nsereferencevariables
@@ -187,6 +187,8 @@ contains
     ! For our call to InitialSubroutine we need the viscous fluxes
     allocate(fvtmp(nequations))
     allocate(phitmp(nequations,ndim))
+
+    Log_Ave_Counter = 0
 
     if (new .eqv. .true.) then
 
@@ -906,6 +908,111 @@ contains
 
 !===================================================================================================
 
+       function Logarithmic_Average(a,b)
+! pure function Logarithmic_Average(a,b)
+
+    use variables, only: Log_Ave_Counter
+
+    implicit none
+
+    real(wp),  intent(in) :: a,b
+
+!  Logarithmic expansion valid to us = 0.00000894, or ratio =  1.006
+!   real(wp), dimension(0:1), parameter :: c = (/1.0_wp,3.0_wp/5.0_wp/)
+!   real(wp), dimension(0:1), parameter :: d = (/2.0_wp,8.0_wp/15.0_wp/)
+!   real(wp),                 parameter :: eps = 8.9e-06_wp
+
+!  Logarithmic expansion valid to us = 0.00276, or ratio =  1.111
+!   real(wp), dimension(0:2), parameter :: c = (/1.0_wp,10.0_wp/9.0_wp,5.0_wp/21.0_wp /)
+!   real(wp), dimension(0:2), parameter :: d = (/2.0_wp,14.0_wp/9.0_wp,128.0_wp/945.0_wp /)
+!   real(wp),                 parameter :: eps = 2.7e-03_wp
+
+!  Logarithmic expansion valid to us = 0.0226, or ratio =  1.353
+!   real(wp), dimension(0:3), parameter :: c = (/1.0_wp,21.0_wp/13.0_wp,105.0_wp/143.0_wp,35.0_wp/429.0_wp /)
+!   real(wp), dimension(0:3), parameter :: d = (/2.0_wp,100.0_wp/39.0_wp,566.0_wp/715.0_wp,512.0_wp/15015.0_wp /)
+!   real(wp),                 parameter :: eps = 2.2e-02_wp
+
+!  Logarithmic expansion valid to us = 0.0677, or ratio =  1.703
+!   real(wp), dimension(0:4), parameter :: c = (/1.0_wp,36.0_wp/17.0_wp,126.0_wp/85.0_wp, &
+!                                                84.0_wp/221.0_wp,63.0_wp/2431.0_wp/)
+!   real(wp), dimension(0:4), parameter :: d = (/2.0_wp,182.0_wp/51.0_wp,166.0_wp/85.0_wp, &
+!                                              2578.0_wp/7735.0_wp,32768.0_wp/3828825.0_wp/)
+!   real(wp),                 parameter :: eps = 6.7e-02_wp
+
+!  Logarithmic expansion valid to us = 0.135, or ratio =  2.165
+!   real(wp), dimension(0:5), parameter :: c = (/1.0_wp, 55.0_wp/21.0_wp, 330.0_wp/133.0_wp, &
+!                                       330.0_wp/323.0_wp, 55.0_wp/323.0_wp, 33.0_wp/4199.0_wp/)
+!   real(wp), dimension(0:5), parameter :: d = (/2.0_wp, 32.0_wp/7.0_wp, 3092.0_wp/855.0_wp, &
+!                       7808.0_wp/6783.0_wp, 17926.0_wp/142443.0_wp, 131072.0_wp/61108047.0_wp/)
+!   real(wp),                 parameter :: eps = 1.3e-01_wp
+
+!  Logarithmic expansion valid to us = 0.221, or ratio =  2.776
+!   real(wp), dimension(0:6), parameter :: c = (/1.0_wp,78.0_wp/25.0_wp,429.0_wp/115.0_wp,  &
+!                                                1716.0_wp/805.0_wp, 1287.0_wp/2185.0_wp,   &
+!                                                2574.0_wp/37145.0_wp, 429.0_wp/185725.0_wp/)
+!   real(wp), dimension(0:6), parameter :: d = (/2.0_wp,418.0_wp/75.0_wp,3324.0_wp/575.0_wp,  &
+!                                               55116.0_wp/20125.0_wp,399118.0_wp/688275.0_wp,&
+!                                               1898954.0_wp/42902475.0_wp,                   &
+!                                               2097152.0_wp/3904125225.0_wp/)
+!   real(wp),                 parameter :: eps = 2.0e-01_wp
+
+!  Logarithmic expansion valid to us = 0.315, or ratio =  3.560
+    real(wp), dimension(0:7), parameter :: c = (/1.0_wp,105.0_wp/29.0_wp,455.0_wp/87.0_wp,  &
+                                                 1001.0_wp/261.0_wp,1001.0_wp/667.0_wp,    &
+                                                 1001.0_wp/3335.0_wp,1001.0_wp/38019.0_wp, &
+                                                 143.0_wp/215441.0_wp/)
+    real(wp), dimension(0:7), parameter :: d = (/2.0_wp,572.0_wp/87.0_wp,3674.0_wp/435.0_wp,  &
+                                                 3256.0_wp/609.0_wp, 31054.0_wp/18009.0_wp,   &
+                                         86644.0_wp/330165.0_wp, 3622802.0_wp/244652265.0_wp, &
+                                                 8388608.0_wp/62386327575.0_wp /)
+    real(wp),                 parameter :: eps = 3.0e-01_wp
+
+
+
+    real(wp)              :: xi, gs, us, ave
+
+    real(wp)              :: Logarithmic_Average
+
+    xi  = a/b
+    gs  = (xi-1.0_wp)/(xi+1.0_wp)
+    us  = gs*gs
+    ave = a + b 
+
+    if(                        (us <= 1.0e-8_wp)) Log_Ave_Counter( 1) = Log_Ave_Counter( 1) + 1
+    if((1.0e-8_wp <= us) .and. (us <= 1.0e-7_wp)) Log_Ave_Counter( 2) = Log_Ave_Counter( 2) + 1
+    if((1.0e-7_wp <= us) .and. (us <= 1.0e-6_wp)) Log_Ave_Counter( 3) = Log_Ave_Counter( 3) + 1
+    if((1.0e-6_wp <= us) .and. (us <= 1.0e-5_wp)) Log_Ave_Counter( 4) = Log_Ave_Counter( 4) + 1
+    if((1.0e-5_wp <= us) .and. (us <= 1.0e-4_wp)) Log_Ave_Counter( 5) = Log_Ave_Counter( 5) + 1
+    if((1.0e-4_wp <= us) .and. (us <= 1.0e-3_wp)) Log_Ave_Counter( 6) = Log_Ave_Counter( 6) + 1
+    if((1.0e-3_wp <= us) .and. (us <= 1.0e-2_wp)) Log_Ave_Counter( 7) = Log_Ave_Counter( 7) + 1
+    if((1.0e-2_wp <= us) .and. (us <= 1.0e-1_wp)) Log_Ave_Counter( 8) = Log_Ave_Counter( 8) + 1
+    if((1.0e-1_wp <= us) .and. (us <= 1.0e-0_wp)) Log_Ave_Counter( 9) = Log_Ave_Counter( 9) + 1
+    if((      eps <= us)                        ) Log_Ave_Counter(10) = Log_Ave_Counter(10) + 1
+
+    if(us <= eps) then
+      Logarithmic_Average =                                               &
+!     ave * (c(0)-us*c(1)) / &
+!           (d(0)-us*d(1))
+!     ave * (c(0)-us*(c(1)-us*c(2))) / &
+!           (d(0)-us*(d(1)-us*d(2)))
+!     ave * (c(0)-us*(c(1)-us*(c(2)-us*c(3)))) / &
+!           (d(0)-us*(d(1)-us*(d(2)-us*d(3))))
+!     ave * (c(0)-us*(c(1)-us*(c(2)-us*(c(3)-us*c(4))))) / &
+!           (d(0)-us*(d(1)-us*(d(2)-us*(d(3)-us*d(4)))))
+!     ave * (c(0)-us*(c(1)-us*(c(2)-us*(c(3)-us*(c(4)-us*c(5)))))) / &
+!           (d(0)-us*(d(1)-us*(d(2)-us*(d(3)-us*(d(4)-us*d(5))))))
+!     ave * (c(0)-us*(c(1)-us*(c(2)-us*(c(3)-us*(c(4)-us*(c(5)-us*c(6))))))) / &
+!           (d(0)-us*(d(1)-us*(d(2)-us*(d(3)-us*(d(4)-us*(d(5)-us*d(6)))))))
+      ave * (c(0)-us*(c(1)-us*(c(2)-us*(c(3)-us*(c(4)-us*(c(5)-us*(c(6)-us*c(7)))))))) / &
+            (d(0)-us*(d(1)-us*(d(2)-us*(d(3)-us*(d(4)-us*(d(5)-us*(d(6)-us*d(7))))))))
+    else
+      Logarithmic_Average = ave * gs / log(xi) 
+    endif
+
+    end function Logarithmic_Average
+
+!===================================================================================================
+
   pure function Exp_Series(x)
 
     implicit none
@@ -1039,6 +1146,7 @@ contains
 !===================================================================================================
 ! pure function Entropy_KE_Consistent_Flux(vl,vr,Jx,nq)
   function Entropy_KE_Consistent_Flux(vl,vr,Jx,nq)
+
     ! this function calculates the normal entropy consistent
     ! flux based on left and right states of primitive variables.
     ! it is consistent with the strange nondimensionalization employed herein 
@@ -1056,7 +1164,7 @@ contains
 !
 !   Both the ``rho'' or ``T'' logarithmic means are formed
 
-    use nsereferencevariables, only: gM2I, gm1M2, gamI
+    use nsereferencevariables, only: gM2I, gm1M2, gamI!, gm1og
     implicit none
     ! Arguments
     ! =========
@@ -1066,6 +1174,9 @@ contains
     real(wp), intent(in), dimension(nq) :: vl, vr
     ! metrics scaled by jacobian
     real(wp), intent(in), dimension(3)  :: Jx
+
+!   real(wp),             dimension(nq) :: wl, wr
+!   real(wp)                            :: err
   
     ! Function
     ! ========
@@ -1143,7 +1254,7 @@ contains
 !                   ((vl(2)-vR(2))*vave(1) + (vl(1)-vR(1))*vave(2))*Jx(1) +  &
 !                   ((vl(3)-vR(3))*vave(1) + (vl(1)-vR(1))*vave(3))*Jx(2) +  &
 !                   ((vl(4)-vR(4))*vave(1) + (vl(1)-vR(1))*vave(4))*Jx(3) )
-!   if(abs(err) >= 2.0e-05_wp) then
+!   if(abs(err) >= 1.0e-14_wp) then
 !     write(*,*)'error in Chandreshekar',err
 !     write(*,*)'alr, alB',alr,alb
 !     write(*,*)'rho in Chandreshekar',vl(1),vr(1)
@@ -2214,7 +2325,7 @@ contains
   subroutine nse_calcerror(tin)
     ! This subroutine calculates the L1, L2 and Linfinity errors
     ! when the exact solution is known.
-    use variables, only: ug, vg, xg, Jx_r, phig, mut
+    use variables, only: ug, vg, xg, Jx_r, phig, mut, Log_Ave_Counter
     use collocationvariables, only: pvol
     use initcollocation,  only: element_properties
     use referencevariables
@@ -2224,7 +2335,8 @@ contains
     ! Time of evaluation
     real(wp), intent(in) :: tin
     ! Indices
-    integer :: inode,ielem, i
+    integer :: inode, ielem, i
+    integer, dimension(10) :: Log_Ave_Counter_sum
 
     ! Errors
     real(wp) :: l1(2),    l2(2),    linf
@@ -2302,6 +2414,10 @@ contains
     call mpi_allreduce(linf,linfmax,1, &
       & MPI_DEFAULT_WP,MPI_MAX,petsc_comm_world,ierr)
 
+    ! Reduce counter information for Log_Averages 
+    call mpi_allreduce(Log_Ave_Counter,Log_Ave_Counter_sum,8, &
+      & MPI_INT,MPI_SUM,petsc_comm_world,ierr)
+
     if (myprocid == 0) then
 
       write(*,*) 'P',nodesperedge-1
@@ -2312,6 +2428,7 @@ contains
       230  format('P',I2,1x,'  l1 error:  ', e17.10,1x,  &
                             '  l2 error:  ', e17.10,1x,  &
                             'linf error:  ', e17.10,1x)
+!     write(*,'(10(f12.6,1x))') 1.0_wp*Log_Ave_Counter(:)/sum(Log_Ave_Counter(:))
     end if
 
     close(unit=40)
@@ -5004,7 +5121,7 @@ contains
     integer :: inode, jdir, ipen
     integer :: i, k
 
-    real(wp), dimension(nequations,N_S)        :: ugS, vgS, wgS, fgS, d_fgS
+    real(wp), dimension(nequations,N_S)        :: ugS, vgS, fgS, d_fgS
     real(wp), dimension(         3,N_S)        :: JnS
 
     integer,  dimension(2)                     :: faceLR
@@ -5061,7 +5178,6 @@ contains
           do i = 1,N_S
             inode    = Pencil_Coord(N_S,jdir,ipen,i)  
             ugS(:,i) =   ug(     :,inode,ielem)    !  Neqns
-            wgS(:,i) =   wg(     :,inode,ielem)    !  Neqns
             JnS(:,i) = Jx_r(inode,ielem)*r_x(jdir,:,inode,ielem)
           enddo
 
@@ -5150,7 +5266,6 @@ contains
           do i = 1,N_S
             inode    = Pencil_Coord(N_S,jdir,ipen,i)  
             ugS(:,i) =   ug(     :,inode,ielem)    !  Neqns
-            wgS(:,i) =   wg(     :,inode,ielem)    !  Neqns
             JnS(:,i) = Jx_r(inode,ielem)*r_x(jdir,:,inode,ielem)
           enddo
              
@@ -5265,8 +5380,9 @@ contains
 
       do i=1,N_S-1
           do j=i+1,N_S
-                    nx(:) = half*(JnS(:,i) + JnS(:,j))
-            SSFlux(:,i,j) = 2.0_wp * EntropyConsistentFlux(vgS(:,i),vgS(:,j),nx,N_q) 
+                    nx(:) = 0.5_wp *(JnS(:,i) + JnS(:,j))
+            SSFlux(:,i,j) = 2.0_wp * EntropyConsistentFlux     (vgS(:,i),vgS(:,j),nx,N_q) 
+!           SSFlux(:,i,j) = 2.0_wp * Entropy_KE_Consistent_Flux(vgS(:,i),vgS(:,j),nx,N_q) ! (Entropy Flux)
             SSFlux(:,j,i) = SSFlux(:,i,j)
         enddo
       enddo
@@ -5284,11 +5400,12 @@ contains
     else
 
       fnS(:,:) = 0.0_wp ;
+
       do i=1,N_S-1
-  
         do j=i+1,N_S
-                  nx(:) = half*(JnS(:,i) + JnS(:,j))
-          SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*EntropyConsistentFlux(vgS(:,i),vgS(:,j),nx,N_q) 
+                  nx(:) = 0.5_wp *(JnS(:,i) + JnS(:,j))
+          SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*EntropyConsistentFlux     (vgS(:,i),vgS(:,j),nx,N_q) 
+!         SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*Entropy_KE_Consistent_Flux(vgS(:,i),vgS(:,j),nx,N_q) ! (Entropy Flux)
         enddo
   
         fnS(:,i) = 0.0_wp
@@ -5297,7 +5414,6 @@ contains
             fnS(:,i) = fnS(:,i) + SSFlux(:,l,k)
           enddo
         enddo
-
       enddo
 
       fnS(:,  0) = normalflux  (vgS(:,  1),JnS(:,  1),N_q)
@@ -5309,8 +5425,6 @@ contains
 
     endif
 
-
-    return
   end subroutine SS_Euler_Dspec
 
 !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -5359,14 +5473,15 @@ contains
     do i=1,N_S-1
 
       do j=i+1,N_S
-                nx(:) = half * (JnS(:,i) + JnS(:,j))
-        SSFlux(:,i,j) = two  * qmat(i,j)*EntropyConsistentFlux(vgS(:,i),vgS(:,j),nx,N_q) 
+                nx(:) = 0.5_wp * (JnS(:,i) + JnS(:,j))
+        SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*EntropyConsistentFlux     (vgS(:,i),vgS(:,j),nx,N_q) 
+!       SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*Entropy_KE_Consistent_Flux(vgS(:,i),vgS(:,j),nx,N_q) ! (Entropy Flux)
         
         select case (flux_entropy_correction)
           case ('normal')
-            DSFlux(:,i,j) = two  * qmat(i,j)*normalflux    (half*(vgS(:,i)+vgS(:,j)),nx,N_q)
+            DSFlux(:,i,j) = 2.0_wp * qmat(i,j)*normalflux    (0.5_wp*(vgS(:,i)+vgS(:,j)),nx,N_q)
           case ('Honein-Moin')
-            DSFlux(:,i,j) = two  * qmat(i,j)*HoneinMoinFlux(vgS(:,i),vgS(:,j),nx,N_q)
+            DSFlux(:,i,j) = 2.0_wp * qmat(i,j)*HoneinMoinFlux(vgS(:,i),vgS(:,j),nx,N_q)
           case default
             write(*,*) 'The flux selected to be use for the entropy correction is unknown.'
             write(*,*) 'Check the subroutine SS_Stabilized_Euler_Dspec()'
@@ -6082,7 +6197,7 @@ contains
   
         do j=i+1,ixd
                nxave(:) = half * (nxint(:,i) + nxint(:,j))
-          SSFlux(:,i,j) = two  * qmat(i,j)*EntropyConsistentFlux(vint(:,i),vint(:,j),nxave,nq)
+          SSFlux(:,i,j) = two  * qmat(i,j)*EntropyConsistentFlux     (vint(:,i),vint(:,j),nxave,nq)
 !         SSFlux(:,i,j) = two  * qmat(i,j)*Entropy_KE_Consistent_Flux(vint(:,i),vint(:,j),nxave,nq)
 !         DSFlux(:,i,j) = two  * qmat(i,j)*HoneinMoinFlux(vint(:,i),vint(:,j),nxave,nq)
         enddo
