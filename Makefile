@@ -24,7 +24,8 @@ else ifeq ($(HOSTPC),Leiden)
 $(info ${HOSTPC})
 INCLUDESDIR = -I/home/carpentr/OpenSourceLib/Lib-Install/include\
               -I/home/carpentr/OpenSourceLib/Lib-Install/petsc-3.5/include
-FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+ FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -march=corei7 -Ofast $(INCLUDESDIR)
 #FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
 #FCFLAGS = -g -Wall -Wmaybe-uninitialized -Wextra -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -ffpe-trap=zero,overflow,underflow -finit-real=nan $(INCLUDESDIR)
 CFLAGS = -Ofast  $(INCLUDESDIR)

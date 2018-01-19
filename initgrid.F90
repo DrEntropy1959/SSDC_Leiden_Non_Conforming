@@ -1900,7 +1900,7 @@ contains
     use variables, only: Jx_facenodenormal_Gau, Jx_facenodenormal_LGL, xg_Gau_Shell, ef2e
 
 !-- DAVID DEBUG START
-    use collocationvariables, only: elem_props
+!   use collocationvariables, only: elem_props
 !-- DAVID DEBUG END    implicit none
 
     ! indices
@@ -1908,7 +1908,6 @@ contains
     integer :: n_pts_1d_max, n_pts_2d_max
     integer :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort, poly_val, istart_Mort, istart_On,& 
                iend_Mort, iend_On, n_s_2d_On
-    integer :: ierr
 
     logical                               :: testing = .false.
     real(wp), dimension(:),   allocatable :: x_S_1d_Mort, x_S_1d_On, w_S_1d_Mort
@@ -2353,7 +2352,7 @@ contains
 
     integer,  dimension(:),    allocatable :: perm
     integer :: ielem, inode, ierr
-    integer :: i, j, iface
+    integer :: i, iface
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
     integer :: nm, m, n, icnt
 
@@ -2370,7 +2369,6 @@ contains
 
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
-    character(len=1024)                            :: numb
 
     np_mods = 0 ; ng_mods = 0 ;
     err_Linf = 0.0_wp
@@ -6189,7 +6187,6 @@ contains
     integer :: n_Gau_1d_max , n_Gau_2d_max , n_Gau_shell_max
     integer :: n_Gau_1d_Mort, n_Gau_2d_Mort
     integer :: n_LGL_1d_On  , n_LGL_1d_Off
-    integer :: ierr
 
     continue
 
@@ -7301,7 +7298,6 @@ subroutine write_matrix_to_file_matlab(A,n,m,file_name)
   !-- local variables
   integer                                        :: iunit
   integer                                        :: i,j
-  character(len=1024)                            :: numb
 
   !-- file access variables
   integer                                        :: ios

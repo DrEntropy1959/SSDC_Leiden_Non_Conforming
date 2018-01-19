@@ -880,10 +880,10 @@ contains
 
 !===================================================================================================
 
-!      function Logarithmic_Average(a,b)
-  pure function Logarithmic_Average(a,b)
+       function Logarithmic_Average(a,b)
+! pure function Logarithmic_Average(a,b)
 
-    use variables, only: Log_Ave_Counter
+!   use variables, only: Log_Ave_Counter
 
     implicit none
 
@@ -909,14 +909,14 @@ contains
 !                                                84.0_wp/221.0_wp,63.0_wp/2431.0_wp/)
 !   real(wp), dimension(0:4), parameter :: d = (/2.0_wp,182.0_wp/51.0_wp,166.0_wp/85.0_wp, &
 !                                              2578.0_wp/7735.0_wp,32768.0_wp/3828825.0_wp/)
-!   real(wp),                 parameter :: eps = 6.7e-02_wp
+!   real(wp),                 parameter :: eps = 6.0e-02_wp
 
 !  Logarithmic expansion valid to us = 0.135, or ratio =  2.165
 !   real(wp), dimension(0:5), parameter :: c = (/1.0_wp, 55.0_wp/21.0_wp, 330.0_wp/133.0_wp, &
 !                                       330.0_wp/323.0_wp, 55.0_wp/323.0_wp, 33.0_wp/4199.0_wp/)
 !   real(wp), dimension(0:5), parameter :: d = (/2.0_wp, 32.0_wp/7.0_wp, 3092.0_wp/855.0_wp, &
 !                       7808.0_wp/6783.0_wp, 17926.0_wp/142443.0_wp, 131072.0_wp/61108047.0_wp/)
-!   real(wp),                 parameter :: eps = 1.3e-01_wp
+!   real(wp),                 parameter :: eps = 1.1e-01_wp
 
 !  Logarithmic expansion valid to us = 0.221, or ratio =  2.776
 !   real(wp), dimension(0:6), parameter :: c = (/1.0_wp,78.0_wp/25.0_wp,429.0_wp/115.0_wp,  &
@@ -1022,78 +1022,53 @@ contains
     ! it is consistent with the nondimensionalization employed
     ! herein and follows directly from the work of Ismail and Roe,
     ! DOI: 10.1016/j.jcp.2009.04.021
+
     use nsereferencevariables, only: gM2I, gm1og, gp1og, gm1M2
+
     implicit none
+
     ! Arguments
     ! =========
-    ! number of equations
-    integer,  intent(in)                   :: neq
-    ! left and right states
-    real(wp), intent(in), dimension(neq) :: vl, vr
+    integer,  intent(in)                   :: neq      ! number of equations
 
-    ! left and right states
-    real(wp), intent(out), dimension(neq) :: fx,fy,fz
+    real(wp), intent(in), dimension(neq)   :: vl, vr   ! left and right states
+
+    real(wp), intent(out), dimension(neq)  :: fx,fy,fz ! left and right states
 
     ! Local Variables
     ! ===============
-    ! temporary variables (dimension is legacy from different code)
-    real(wp), dimension(neq) :: vhat
 
-    ! inverse and square roots of temperature states
-    real(wp) :: root_Tl_I, root_Tr_I, root_Tl, root_Tr
-    ! average of inverse temperature and its inverse
-    real(wp) :: tinvav, tinvavinv
+    real(wp), dimension(neq) :: vhat           ! temporary variables
 
-    ! prevent division by zero
-    real(wp), parameter :: sdiv2 = 1e-030_wp
-    ! log degenerates in multiple cases (see reference for use)
-    real(wp), parameter :: seps = 1.0e-04_wp
-    real(wp) :: xi, gs, us, ut, ftmp
-    real(wp) :: s1, s2, al
+    real(wp) :: root_Tl  , root_Tr             !   sqrt[T_i], i=L,R
+    real(wp) :: root_Tl_I, root_Tr_I           ! 1/sqrt[T_i], i=L,R
 
-    ! normal mass flux (mdot), Pressure,  Temperature
-    real(wp) :: P, T
+    real(wp) :: tinvav, tinvavinv              ! average of inverse temperature and its inverse
 
-    ! Sqrt[temperature] and Sqrt[temperature]^{-1} are used a lot
-    root_Tl   = sqrt(vl(5)) ; root_Tr   = sqrt(vr(5))
-    root_Tl_I = one/root_Tl ; root_Tr_I = one/root_Tr
+    real(wp) :: s1, s2                         ! Logarithmic averages of density and temperature
+
+    real(wp) :: P, T                           ! normal mass flux (mdot), Pressure,  Temperature
+
+    continue
+
+    root_Tl   = sqrt(vl(5))    ; root_Tr   = sqrt(vr(5))            ! Sqrt[T_i] 
+    root_Tl_I = 1.0_wp/root_Tl ; root_Tr_I = 1.0_wp/root_Tr         ! Sqrt[T_i]^{-1}
     tinvav    = root_Tl_I   + root_Tr_I
-    tinvavinv = one/tinvav
-  
-    ! velocity
-    vhat(2:4) = (vl(2:4)*root_Tl_I + vr(2:4)*root_Tr_I)*tinvavinv
+    tinvavinv = 1.0_wp/tinvav
 
-    ! pressure
-    ftmp = vl(1)*root_Tl + vr(1)*root_Tr
-    P    = ftmp*tinvavinv
+    vhat(2:4) = (vl(2:4)*root_Tl_I + vr(2:4)*root_Tr_I)*tinvavinv   ! velocity
 
-    ! logarithmic averages used in density and temperature
-    ! calculate s1
-    xi = (root_Tl*vl(1))/(root_Tr*vr(1))
-    gs = (xi-one)/(xi+one)
-    us = gs*gs
-    al = exp(-us/seps)
-    s1 = half / (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
-    ut = log(xi)
-    s1 = ftmp * (al * s1 + (one-al) * gs * ut / (ut*ut + sdiv2) )
+    P = (vl(1)*root_Tl + vr(1)*root_Tr) * tinvavinv                 ! pressure
 
-    ! calculate s2
-    xi = root_Tl_I/root_Tr_I
-    gs = (xi-one)/(xi+one)
-    us = gs*gs
-    al = exp(-us/seps)
-    s2 = half / (one + us*(third + us*(fifth + us*(seventh + us*ninth) ) ) )
-    ut = log(xi)
-    s2 = tinvav * (al * s2 + (one-al) * gs * ut / (ut*ut + sdiv2) )
+    s1 = Logarithmic_Average(root_Tl*vl(1),root_Tr*vr(1))           ! Logarithmic average of rho/Sqrt(T)
 
-    ! density
-    vhat(1) = half *tinvav*s1
+    s2 = Logarithmic_Average(root_Tl_I    ,root_Tr_I    )           ! Logarithmic average of   1/Sqrt(T)
 
-    ! temperature
-    T = half * (gm1og * P + gp1og*s1/s2) / vhat(1)
+    vhat(1) = 0.5_wp *tinvav * s1                                   ! density
 
-    ! total enthalpy
-    vhat(5) = gm1M2*half*dot_product(vhat(2:4),vhat(2:4)) + T
+    T = 0.5_wp * (gm1og * P + gp1og * s1/s2) / vhat(1)              ! temperature
+
+    vhat(5) = T + 0.5_wp * gm1M2 * dot_product(vhat(2:4),vhat(2:4)) ! total enthalpy
 
     fx(1) = vhat(1)*vhat(2)
     fx(2) = vhat(1)*vhat(2)*vhat(2) + P * gM2I
@@ -2052,7 +2027,6 @@ contains
     ! indices
     integer :: inode,ielem, jdir
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
-    integer :: ierr
 
     ! loop over all elements
     do ielem = ihelems(1), ihelems(2)
@@ -2263,7 +2237,7 @@ contains
   subroutine nse_calcerror(tin)
     ! This subroutine calculates the L1, L2 and Linfinity errors
     ! when the exact solution is known.
-    use variables, only: ug, vg, xg, Jx_r, phig, mut, Log_Ave_Counter
+    use variables, only: ug, vg, xg, Jx_r, phig, mut!, Log_Ave_Counter
     use collocationvariables, only: pvol
     use initcollocation,  only: element_properties
     use referencevariables
@@ -2274,7 +2248,7 @@ contains
     real(wp), intent(in) :: tin
     ! Indices
     integer :: inode, ielem, i
-    integer, dimension(10) :: Log_Ave_Counter_sum
+!   integer, dimension(10) :: Log_Ave_Counter_sum
 
     ! Errors
     real(wp) :: l1(2),    l2(2),    linf
@@ -2353,8 +2327,8 @@ contains
       & MPI_DEFAULT_WP,MPI_MAX,petsc_comm_world,ierr)
 
     ! Reduce counter information for Log_Averages 
-    call mpi_allreduce(Log_Ave_Counter,Log_Ave_Counter_sum,8, &
-      & MPI_INT,MPI_SUM,petsc_comm_world,ierr)
+!   call mpi_allreduce(Log_Ave_Counter,Log_Ave_Counter_sum,8, &
+!     & MPI_INT,MPI_SUM,petsc_comm_world,ierr)
 
     if (myprocid == 0) then
 
@@ -3167,7 +3141,8 @@ contains
     use variables
     use referencevariables
     use nsereferencevariables
-    use controlvariables, only: heat_entropy_flow_wall_bc, Riemann_Diss_BC
+    use controlvariables, only: heat_entropy_flow_wall_bc, Riemann_Diss_BC,  &
+                                entropy_flux_BC
     use collocationvariables, only: l01, l00, Sfix, elem_props,              &
                                  Restrct_Gau_2_LGL_1d, Prolong_LGL_2_Gau_1d
 
@@ -3212,7 +3187,6 @@ contains
     integer                              :: n_S_2d_On , n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
     integer                              :: poly_val
     integer                              :: nghst_volume, nghst_shell
-    integer :: ierr
  
     real(wp), allocatable, dimension(:)  :: x_S_1d_On, x_S_1d_Off
     real(wp), allocatable, dimension(:)  :: x_S_1d_Mort, w_S_1d_Mort
@@ -3354,8 +3328,12 @@ contains
                              +   LocalLaxF_factor*evmax*(ug(:,inode,ielem)-ustar) )
                 fstar = fLLF
               case('Roe')
-                fstar = EntropyConsistentFlux(vg(:,inode,ielem), vstar, nx, nequations ) ! (Entropy Flux)
- !              fstar = Entropy_KE_Consistent_Flux(vg(:,inode,ielem), vstar, nx, nequations ) ! (Entropy Flux)
+                select case(entropy_flux_BC)
+                  case('Ismail_Roe'   ) 
+                     fstar = EntropyConsistentFlux     (vg(:,inode,ielem), vstar, nx, nequations ) ! (Entropy Flux)
+                  case('Chandrashekar') 
+                     fstar = Entropy_KE_Consistent_Flux(vg(:,inode,ielem), vstar, nx, nequations ) ! (Entropy Flux)
+                end select
                 fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wstar(:)) )
             end select
 
@@ -3828,7 +3806,7 @@ contains
                                                      cnt_Mort_Off, Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
-    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, efn2efn_Gau, gsat
+    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat
     use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
 
     implicit none
@@ -3965,8 +3943,7 @@ contains
                                                   cnt_Mort_Off, Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
-    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, efn2efn_Gau,     &
-                                  & gsat, mut
+    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, mut
     use collocationvariables, only: l00, l01, ldg_flip_flop_sign, alpha_ldg_flip_flop
     use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
 
@@ -3996,7 +3973,7 @@ contains
     real(wp), allocatable, dimension(:,:) :: IP_2d_On, IP_2d_Mort
 
     integer                               :: i, j, k, l
-    integer                               :: inode, jnode, lnode
+    integer                               :: inode, jnode
 
     real(wp), dimension(nequations,nequations) :: hatc_Ave, matrix_ip
 
@@ -5069,7 +5046,6 @@ contains
     integer                                    :: jnode,gnode
     integer                                    :: k_node,k_elem,k_face
     integer                                    :: inb
-    integer                                    :: ierr
 
 
     select case(discretization)
@@ -5280,6 +5256,7 @@ contains
 
     use variables
     use referencevariables
+    use controlvariables, only: entropy_flux
 
     implicit none 
 
@@ -5296,7 +5273,6 @@ contains
     real(wp), dimension(3)                    :: nx
 
     integer                                   :: i,j,k,l
-    integer                                   :: ierr
 
     real(wp), dimension(N_q,N_S)              :: vgS
     real(wp), dimension(N_q,0:N_S)            :: fnS
@@ -5308,22 +5284,32 @@ contains
       call conserved_to_primitive(ugS(:,i),vgS(:,i),N_q)
     enddo
 
+    SSFlux(:,:,:) = 0.0_wp ;
 
     !  EntropyConsistentFlux is symmetric w.r.t. the Left and Right states
     !  Only the upper half of the matrix are calculated
     !  Interior Diagonals are not calculated because d[[i,i]] = 0 for i /= 1, i/= N_F
+
     if(.not. flux) then
 
-      SSFlux = 0.0_wp
-
-      do i=1,N_S-1
-          do j=i+1,N_S
-                    nx(:) = 0.5_wp *(JnS(:,i) + JnS(:,j))
-            SSFlux(:,i,j) = 2.0_wp * EntropyConsistentFlux     (vgS(:,i),vgS(:,j),nx,N_q) 
-!           SSFlux(:,i,j) = 2.0_wp * Entropy_KE_Consistent_Flux(vgS(:,i),vgS(:,j),nx,N_q) ! (Entropy Flux)
-            SSFlux(:,j,i) = SSFlux(:,i,j)
-        enddo
-      enddo
+      select case(entropy_flux)
+        case('Ismail_Roe')
+          do i=1,N_S-1
+              do j=i+1,N_S
+                        nx(:) = 0.5_wp *(JnS(:,i) + JnS(:,j))
+                SSFlux(:,i,j) = 2.0_wp * EntropyConsistentFlux     (vgS(:,i),vgS(:,j),nx,N_q)
+                SSFlux(:,j,i) = SSFlux(:,i,j)
+            enddo
+          enddo
+        case('Chandrashekar') 
+          do i=1,N_S-1
+              do j=i+1,N_S
+                        nx(:) = 0.5_wp *(JnS(:,i) + JnS(:,j))
+                SSFlux(:,i,j) = 2.0_wp * Entropy_KE_Consistent_Flux(vgS(:,i),vgS(:,j),nx,N_q)
+                SSFlux(:,j,i) = SSFlux(:,i,j)
+            enddo
+          enddo
+      end select
 
       SSFlux(:,  1,  1) = 2.0_wp * normalflux( vgS(:,  1), JnS(:,  1), N_q )
       SSFlux(:,N_S,N_S) = 2.0_wp * normalflux( vgS(:,N_S), JnS(:,N_S), N_q )
@@ -5337,22 +5323,36 @@ contains
 
     else
 
-      fnS(:,:) = 0.0_wp ;
-
-      do i=1,N_S-1
-        do j=i+1,N_S
-                  nx(:) = 0.5_wp *(JnS(:,i) + JnS(:,j))
-          SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*EntropyConsistentFlux     (vgS(:,i),vgS(:,j),nx,N_q) 
-!         SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*Entropy_KE_Consistent_Flux(vgS(:,i),vgS(:,j),nx,N_q) ! (Entropy Flux)
-        enddo
+      select case(entropy_flux)
+        case('Ismail_Roe')
+          do i=1,N_S-1
+            do j=i+1,N_S
+                      nx(:) = 0.5_wp *(JnS(:,i) + JnS(:,j))
+              SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*EntropyConsistentFlux     (vgS(:,i),vgS(:,j),nx,N_q) 
+            enddo
   
-        fnS(:,i) = 0.0_wp
-        do k=i+1,N_S
-          do l=1,i
-            fnS(:,i) = fnS(:,i) + SSFlux(:,l,k)
+            fnS(:,i) = 0.0_wp
+            do k=i+1,N_S
+              do l=1,i
+                fnS(:,i) = fnS(:,i) + SSFlux(:,l,k)
+              enddo
+            enddo
           enddo
-        enddo
-      enddo
+        case('Chandrashekar') 
+          do i=1,N_S-1
+            do j=i+1,N_S
+                      nx(:) = 0.5_wp *(JnS(:,i) + JnS(:,j))
+              SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*Entropy_KE_Consistent_Flux(vgS(:,i),vgS(:,j),nx,N_q)
+            enddo
+  
+            fnS(:,i) = 0.0_wp
+            do k=i+1,N_S
+              do l=1,i
+                fnS(:,i) = fnS(:,i) + SSFlux(:,l,k)
+              enddo
+            enddo
+          enddo
+      end select
 
       fnS(:,  0) = normalflux  (vgS(:,  1),JnS(:,  1),N_q)
       fnS(:,N_S) = normalflux  (vgS(:,N_S),JnS(:,N_S),N_q)
@@ -5371,8 +5371,7 @@ contains
 
     use variables
     use referencevariables
-    use controlvariables, only: flux_entropy_correction
-!   use collocationvariables
+    use controlvariables, only: flux_entropy_correction, entropy_flux
 
     implicit none 
 
@@ -5398,8 +5397,6 @@ contains
 
     real(wp)                                  :: bbS,dsS,deltaS
 
-
-
     !  Rotate pencil from conserved variables to primitive variables
     do i=1,N_S
       call conserved_to_primitive(ugS(:,i),vgS(:,i),N_q)
@@ -5407,36 +5404,71 @@ contains
     enddo
 
     !  Form Entropy Fluxes 0:N_S
-    fnS(:,:) = 0.0_wp ; fnD(:,:) = 0.0_wp ;
-    do i=1,N_S-1
+       fnS(:,:)   = 0.0_wp ;    fnD(:,:)   = 0.0_wp ;
+    SSFlux(:,:,:) = 0.0_wp ; DSFlux(:,:,:) = 0.0_wp ;
 
-      do j=i+1,N_S
-                nx(:) = 0.5_wp * (JnS(:,i) + JnS(:,j))
-        SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*EntropyConsistentFlux     (vgS(:,i),vgS(:,j),nx,N_q) 
-!       SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*Entropy_KE_Consistent_Flux(vgS(:,i),vgS(:,j),nx,N_q) ! (Entropy Flux)
-        
-        select case (flux_entropy_correction)
-          case ('normal')
-            DSFlux(:,i,j) = 2.0_wp * qmat(i,j)*normalflux    (0.5_wp*(vgS(:,i)+vgS(:,j)),nx,N_q)
-          case ('Honein-Moin')
-            DSFlux(:,i,j) = 2.0_wp * qmat(i,j)*HoneinMoinFlux(vgS(:,i),vgS(:,j),nx,N_q)
-          case default
-            write(*,*) 'The flux selected to be use for the entropy correction is unknown.'
-            write(*,*) 'Check the subroutine SS_Stabilized_Euler_Dspec()'
-            write(*,*) 'Exting....'
-            stop
-        end select
-      enddo
+    select case(entropy_flux)
 
-      fnS(:,i) = 0.0_wp ; fnD(:,i) = 0.0_wp ;
-      do k=i+1,N_S
-        do l=1,i
-          fnS(:,i) = fnS(:,i) + SSFlux(:,l,k)
-          fnD(:,i) = fnD(:,i) + DSFlux(:,l,k)
+      case('Ismail_Roe')
+
+        do i=1,N_S-1
+          do j=i+1,N_S
+                    nx(:) = 0.5_wp * (JnS(:,i) + JnS(:,j))
+            SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*EntropyConsistentFlux     (vgS(:,i),vgS(:,j),nx,N_q) 
+            
+            select case (flux_entropy_correction)
+              case ('normal')
+                DSFlux(:,i,j) = 2.0_wp * qmat(i,j)*normalflux    (0.5_wp*(vgS(:,i)+vgS(:,j)),nx,N_q)
+              case ('Honein-Moin')
+                DSFlux(:,i,j) = 2.0_wp * qmat(i,j)*HoneinMoinFlux(vgS(:,i),vgS(:,j),nx,N_q)
+              case default
+                write(*,*) 'The flux selected to be use for the entropy correction is unknown.'
+                write(*,*) 'Check the subroutine SS_Stabilized_Euler_Dspec()'
+                write(*,*) 'Exting....'
+                stop
+            end select
+          enddo
+
+          fnS(:,i) = 0.0_wp ; fnD(:,i) = 0.0_wp ;
+          do k=i+1,N_S
+            do l=1,i
+              fnS(:,i) = fnS(:,i) + SSFlux(:,l,k)
+              fnD(:,i) = fnD(:,i) + DSFlux(:,l,k)
+            enddo
+          enddo
         enddo
-      enddo
 
-    enddo
+      case('Chandrashekar')
+
+        do i=1,N_S-1
+          do j=i+1,N_S
+                    nx(:) = 0.5_wp * (JnS(:,i) + JnS(:,j))
+            SSFlux(:,i,j) = 2.0_wp * qmat(i,j)*Entropy_KE_Consistent_Flux(vgS(:,i),vgS(:,j),nx,N_q)
+            
+            select case (flux_entropy_correction)
+              case ('normal')
+                DSFlux(:,i,j) = 2.0_wp * qmat(i,j)*normalflux    (0.5_wp*(vgS(:,i)+vgS(:,j)),nx,N_q)
+              case ('Honein-Moin')
+                DSFlux(:,i,j) = 2.0_wp * qmat(i,j)*HoneinMoinFlux(vgS(:,i),vgS(:,j),nx,N_q)
+              case default
+                write(*,*) 'The flux selected to be use for the entropy correction is unknown.'
+                write(*,*) 'Check the subroutine SS_Stabilized_Euler_Dspec()'
+                write(*,*) 'Exting....'
+                stop
+            end select
+          enddo
+
+          fnS(:,i) = 0.0_wp ; fnD(:,i) = 0.0_wp ;
+          do k=i+1,N_S
+            do l=1,i
+              fnS(:,i) = fnS(:,i) + SSFlux(:,l,k)
+              fnD(:,i) = fnD(:,i) + DSFlux(:,l,k)
+            enddo
+          enddo
+        enddo
+      case default 
+
+    end select
 
     fnS(:,  0) = normalflux(vgS(:,  1),JnS(:,  1),N_q) ; fnD(:,  0) = fnS(:,  0)
     fnS(:,N_S) = normalflux(vgS(:,N_S),JnS(:,N_S),N_q) ; fnD(:,N_S) = fnS(:,N_S)
@@ -5457,7 +5489,6 @@ contains
       dfn(:,i) = pinv(i) * (fnD(:,i) - fnD(:,i-1))
     enddo
 
-    return
   end subroutine SS_Stabilized_Euler_Dspec
 
 !=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
@@ -6295,7 +6326,7 @@ contains
 
       use precision_vars
   
-      use controlvariables,     only: Riemann_Diss
+      use controlvariables,     only: Riemann_Diss, entropy_flux_BC
       use collocationvariables, only: l01, l00, Sfix, ldg_flip_flop_sign, alpha_ldg_flip_flop
 
 
@@ -6336,8 +6367,14 @@ contains
 
            case('Roe')
 
-             fstar = EntropyConsistentFlux(vg_On(:), vg_Off(:), nx, neq ) &
-                 & + half * matmul(smat,evabs*matmul(transpose(smat), wg_On(:)-wg_Off(:)) )
+             select case(entropy_flux_BC)
+               case('Ismail_Roe')
+                 fstar = EntropyConsistentFlux     (vg_On(:), vg_Off(:), nx, neq )
+               case('Chandrashekar') 
+                 fstar = Entropy_KE_Consistent_Flux(vg_On(:), vg_Off(:), nx, neq )
+             end select
+
+             fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg_On(:)-wg_Off(:)) )
 
            case('LocalLaxF')
              call primitive_to_conserved(vg_On (:),ug_On (:),neq)
@@ -6360,8 +6397,14 @@ contains
              endif
              if(switch.gt.1.0_wp)switch = 1.0_wp
 
-             fstar = EntropyConsistentFlux(vg_On(:), vg_Off(:), nx, neq ) &
-                 & + half * matmul(smat,evabs*matmul(transpose(smat), wg_On(:)-wg_Off(:)) )
+             select case(entropy_flux_BC)
+               case('Ismail_Roe')
+                 fstar = EntropyConsistentFlux     (vg_On(:), vg_Off(:), nx, neq )
+               case('Chandrashekar') 
+                 fstar = Entropy_KE_Consistent_Flux(vg_On(:), vg_Off(:), nx, neq )
+             end select
+
+             fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg_On(:)-wg_Off(:)) )
 
              fLLF  = half * ( normalflux( vg_On (:), nx, neq )    &
                           +   normalflux( vg_Off(:), nx, neq )    &

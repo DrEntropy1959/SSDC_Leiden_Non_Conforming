@@ -19,6 +19,8 @@ module controlvariables
   character(120) :: flux_entropy_correction  = 'normal'
   character(120) :: Riemann_Diss             = 'Roe'
   character(120) :: Riemann_Diss_BC          = 'Roe'
+  character(120) :: Entropy_Flux             = 'Ismail_Roe'
+  character(120) :: Entropy_Flux_BC          = 'Ismail_Roe'
 
   character(120) :: Grid_Topology            = 'linear'  !  'cylinder'
   real(wp), dimension(3) :: cylinder_x0, cylinder_x1

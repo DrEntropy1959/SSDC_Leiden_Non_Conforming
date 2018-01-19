@@ -1987,7 +1987,6 @@ contains
     implicit none
 
     integer :: ielem, iface
-    integer :: ierr
     integer :: n_S_1d_Off, n_S_1d_On, n_S_1d_Mort
 
     nghost_Gau_shell = 0
