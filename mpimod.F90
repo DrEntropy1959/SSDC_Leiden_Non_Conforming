@@ -2694,8 +2694,7 @@ contains
         ! face of neighbor
         kface = ef2e(1,iface,ielem)
 
-        call element_properties(kelem,         &
-                       n_pts_2d=nodesperface)
+        call element_properties(kelem, n_pts_2d=nodesperface)
 
         ! loop over nodes on neighbor face
         do i = 1, nodesperface
@@ -2742,7 +2741,6 @@ contains
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
     use collocationvariables, only: elem_props
-    use initcollocation,      only: element_properties
     implicit none
 
     ! Arguments
@@ -2771,13 +2769,6 @@ contains
     ntot  = nq * nk * nelems
     ntotG = nq * ngh
 
-    nfacesize = nk / nfacesperelem
-
-    if(nfacesize*nfacesperelem /= nk) then
-      write(*,*)'wrong sizes in PetscComm_1D_Mortar: stopping'
-      call PetscFinalize(ierr) ; stop
-    end if
-
     ! allocate memory for ghost locations
     allocate(iyu(ntotG))
 
@@ -2802,10 +2793,6 @@ contains
 
               iloc = iloc+1                          ! advance position in ghost array
                                                      ! set position of ghost in global vector containing solution data
-!             iyu(iloc) = nq * nk *(kelem-1)        & ! skip over previous elements
-!                       + nq * nfacesize *(kface-1) & ! nk/nfacesperelem is face dimension
-!                       + nq*(i-1)                  & ! skip over previous eqns
-!                       + ieq                         ! eqn
               iyu(iloc) = nq * nk *(kelem-1)         & ! skip over previous elements
                         + nq * n_S_2D_Off *(kface-1) & ! nk/nfacesperelem is face dimension
                         + nq*(i-1)                   & ! skip over previous eqns

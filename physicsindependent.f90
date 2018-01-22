@@ -43,7 +43,7 @@ contains
     integer :: i_err
 
 !-- DEBUG DAVID START
-    integer ielem
+!   integer ielem
 !-- DEBUG DAVID END
     continue
 

@@ -32,8 +32,7 @@ contains
     use nsereferencevariables,  only: viscous
     use variables,              only: ug, ughst, uelemghst, &
                                     & velemghst, welemghst, r_x, r_x_ghst 
-    use referencevariables,     only: nequations, nodesperelem, ihelems, nghost, &
-                                    & nghost_elem, ndim, nodesperproc
+    use referencevariables,     only: nequations, nghost_elem, ndim
     use navierstokes,           only: conserved_to_primitive, primitive_to_entropy
     use petscvariables,         only: upetsc, ulocpetsc, uelempetsc, uelemlocpetsc, &
                                     & r_x_petsc,r_x_loc_petsc

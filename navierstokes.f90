@@ -285,6 +285,7 @@ contains
 !                             uelempetsc, uelemlocpetsc, &
 !                             r_x_petsc,  r_x_loc_petsc
     use mpimod, only: PetscComm0DDataSetup, PetscComm1DDataSetup, PetscComm1DDataSetupWENO,    &
+      & PetscComm1D_LGL_Shell_DataSetup, &
       & PetscComm1DElementDataSetup, PetscComm2DDataSetup, PetscComm2DGeomDataSetup, &
       & PetscComm1DDataSetupWENOGeom, PetscCommShellDataSetup
 
@@ -309,11 +310,17 @@ contains
       call PetscComm1DDataSetupWENO(ug,ughstWENO,upetscWENO,ulocpetscWENO,nequations, &
       & nodesperelem,nelems,nghost)
 
-      call PetscComm1DDataSetupWENOGeom(xgWENO_partner,xghstWENO_partner,xpetscWENO_partner, &
-      & xlocpetscWENO_partner,3,nshell,nelems,nghost)
+!     call PetscComm1D_LGL_Shell_DataSetup(ugWENO_partner,ughstWENO_partner,upetscWENO_Shell, &
+!     & ulocpetscWENO_Shell,nequations,nshell,nelems,nghost)
 
       call PetscCommShellDataSetup(ugWENO_partner,ughstWENO_partner,upetscWENO_Shell, &
       & ulocpetscWENO_Shell,nequations,nshell,nelems,nghost)
+
+      allocate(xgWENO_partner(3,nshell,ihelems(1):ihelems(2))) ; xgWENO_partner = -10000.0_wp ;
+      allocate(xghstWENO_partner(3,nghost)) ; xghstWENO_partner = 0.0_wp
+
+      call PetscComm1DDataSetupWENOGeom(xgWENO_partner,xghstWENO_partner,xpetscWENO_partner, &
+      & xlocpetscWENO_partner,3,nshell,nelems,nghost)
 
     endif
 
@@ -1112,6 +1119,7 @@ contains
 !   Both the ``rho'' or ``T'' logarithmic means are formed
 
     use nsereferencevariables, only: gM2I, gm1M2, gamI!, gm1og
+
     implicit none
     ! Arguments
     ! =========
@@ -5145,6 +5153,7 @@ contains
              uL(:) = ug(:,k_node,k_elem)
 !           uLL(:) = ug(:,WENO_Adjoining_Data(k_node,k_face),k_elem)
             uLL(:) = ugWENO_partner(:,gnode,k_elem)
+
 !           t1 = abs(maxval(uLLT(:)-uLL(:)))
 !           if(t1 >= tol1) write(*,*)t1
           endif
@@ -5810,6 +5819,7 @@ contains
       real(wp)                         :: x66
 
       integer                          :: i,j,k,l,n
+      integer                          :: iL, iH
 
       if    (WENO_type == 'Neighbr_WENO') then
         x66 = x66F     ! +0.357911_wp  (Full WENO involving neighbors)
@@ -5915,6 +5925,7 @@ contains
           nxL(:)     = nxint(:,3)
           nxR(:)     = nxint(:,4)
           nxave(:)   = 0.5_wp*(nxL(:) + nxR(:))
+          iL = 1 ;  iH = 6 ;
         elseif(i.eq.3.and.inb.ne.+1)then
           uin(1:nq,1:4) = uint(1:nq,1:4)
           uin(1:nq,5)   = uR(1:nq)
@@ -5929,6 +5940,7 @@ contains
           nxL(:)     = nxint(:,3)
           nxR(:)     = nxint(:,4)
           nxave(:)   = 0.5_wp*(nxL(:) + nxR(:))
+          iL = 1 ;  iH = 6 ;
         else
           uin(1:nq,1:4) = uint(1:nq,1:4)
           uin(1:nq,5:6) = zero
@@ -5941,10 +5953,11 @@ contains
           nxL(:)     = nxint(:,i  )
           nxR(:)     = nxint(:,i+1)
           nxave(:)   = 0.5_wp*(nxL(:) + nxR(:))
+          iL = 1 ;  iH = 4 ;
         endif
         
         uhat(:) = 0.0_wp ; metr(:) = 0.0_wp ; cav2(:) = 0.0_wp ;
-        do j = 1,6
+        do j = iL,iH
           call conserved_to_primitive(uin(:,j),vin(:,j),nq)    ! primitives
 
           uhat(j)  =  abs(dot_product(vin(2:4,j),nin(:,j)))! normal velocity  |u.n|
@@ -5952,7 +5965,7 @@ contains
           cav2(j)  = sqrt(gamma0*vin(5,j)/gM2) * metr(j)   ! Speed of sound * metric scaling
         enddo
 
-        lambda     = maxval(uhat(:) + cav2(:))             !  Max eigenvalue in pencil
+        lambda     = maxval(uhat(iL:iH) + cav2(iL:iH))             !  Max eigenvalue in pencil
 
         do j = 1,6
           fcp(:,j) = normalflux(vin(:,j),nin(:,j),nq) + lambda * uin(:,j)

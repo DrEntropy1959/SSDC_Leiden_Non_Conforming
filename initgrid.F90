@@ -4954,10 +4954,7 @@ contains
 !   allocate WENO face node arrays
     nodespershell = nfacesperelem*nodesperface
     allocate(xgWENO_self   (3,nodespershell,ihelems(1):ihelems(2))) ; xgWENO_self    = -10000.0_wp ;
-    allocate(xgWENO_partner(3,nodespershell,ihelems(1):ihelems(2))) ; xgWENO_partner = -10000.0_wp ;
     allocate(XIWENO_partner(3,nodespershell,ihelems(1):ihelems(2))) ; XIWENO_partner = -10000.0_wp ;
-    allocate(xghstWENO_partner(3,nghost)) ; xghstWENO_partner = 0.0_wp
-
 
     ! Build the local interpolated physical value for each face element.
 
@@ -5040,7 +5037,9 @@ contains
     ! DECODE physical position (xgWENO_partner) into computational coordinates
 
     extrnal_xi_cnt = 0 ; XI_max = 1.0_wp ; rnorm_max = 0.0_wp ;
+
     XIWENO_partner(:,:,:) = +0.5_wp
+
     do ielem = ihelems(1), ihelems(2)            ! loop over volumetric elements
 
       call WENO_Mapping_Coefs(xg(:,:,ielem),nodesperelem,comp2phys_coeffs)
@@ -5051,27 +5050,18 @@ contains
         else
           do ipen = 1,nodesperface
              jnode = nodesperface*(iface-1) + ipen
+
              XIWENO_partner(:,jnode,ielem) = xi_guess(xg(:,:,ielem),xgWENO_partner(:,jnode,ielem),nodesperelem)
-!            write(*,*)'xgwenopartner',xgWENO_partner(:,jnode,ielem)
-!            write(*,*)'XIwenopartner',XIWENO_partner(:,jnode,ielem)
+
              call WENO_xi_val(comp2phys_coeffs,XIWENO_partner(:,jnode,ielem),xgWENO_partner(:,jnode,ielem),rnorm)
+
              if(rnorm >= rnorm_max) rnorm_max = rnorm
              tmp = maxval(abs(XIWENO_partner(:,jnode,ielem)))
              if( tmp > 1.0_wp + tol) then
                 if( tmp >= XI_max) XI_max = tmp
                 extrnal_xi_cnt = extrnal_xi_cnt + 1
-   !            write(*,*)ielem,iface,ipen,XIWENO_partner(:,jnode,ielem)
              endif
-!            write(*,*)jnode,XIWENO_partner(1,jnode,ielem),XIWENO_partner(2,jnode,ielem),XIWENO_partner(3,jnode,ielem)
-!            Test the (x0,y0,z0) -> (xi0,eta0,zeta0) decode step for a uniform grid.  Comment if non-uniform
- !           tol = 1.0e-10_wp
- !           do i = 1,3
- !             tmp = abs(XIWENO_partner(i,jnode,ielem))
- !             t1  = tmp - 1.0_wp      
- !             t2  = tmp - 1.0_wp/sqrt5
- !             if(min(t1,t2) >= tol) write(*,*)'error in XIWENO_partner',XIWENO_partner(i,jnode,ielem)
- !           enddo
-!
+ 
           enddo
         end if
 
