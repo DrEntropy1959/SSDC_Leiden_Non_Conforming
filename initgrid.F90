@@ -4951,10 +4951,6 @@ contains
       elem_props(2,ielem) = ef2e(6,1,ielem) 
 
       do iface = 1,nfacesperelem
-         write(*,*)'ielem = ',ielem
-         write(*,*)'ef2e(2,iface,ielem) = ',ef2e(2,iface,ielem)
-         write(*,*)'elem_props(2,ef2e(2,iface,ielem) = ',elem_props(2,ef2e(2,iface,ielem))
-         write(*,*)'ef2e(4,iface,ielem) = ',ef2e(4,iface,ielem)
          if( (elem_props(2,ef2e(2,iface,ielem)) /= -1000) .and.  &
              (elem_props(2,ef2e(2,iface,ielem)) /= ef2e(4,iface,ielem)) ) then
              write(*,*)'something wrong in set_element_orders: parallel.  Stopping'
