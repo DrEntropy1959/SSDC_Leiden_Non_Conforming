@@ -3535,8 +3535,8 @@ contains
             gnode = efn2efn(3,jnode,ielem)                                ! Index in Petsc ghost stack (not volumetric stack)
             
             if(nonconforming_element) then
-!             nx = - nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
-              nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
+              nx = - nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
+!             nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
             else
               nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
             endif
@@ -3581,9 +3581,9 @@ contains
             knode = efn2efn(1,jnode,ielem)                        ! Volumetric index of partner node
               
             if(nonconforming_element) then
-!             lnode = (kface-1)*n_S_2d_On + efn2efn(4,jnode,ielem)
-!             nx = - Jx_r(knode,kelem)*facenodenormal(:,lnode,kelem)  ! Off Element (same element order, flipped sign)
-              nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node
+              lnode = (kface-1)*n_S_2d_On + efn2efn(4,jnode,ielem)
+              nx = - Jx_r(knode,kelem)*facenodenormal(:,lnode,kelem)  ! Off Element (same element order, flipped sign)
+!             nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node
             else
               nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node (On-Element)
             endif
