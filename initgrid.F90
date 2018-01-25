@@ -917,7 +917,7 @@ contains
         do i = 1,6
           !-- determine the radius and ensure that all 4 points have the same radius 
           do j = 1,4
-            r(j) = sqrt( (points_surf(i,i,1)-origin(1))**2 + (points_surf(i,j,2)-origin(2))**2 + (points_surf(i,j,3)-origin(3)) )
+            r(j) = magnitude(points_surf(i,j,:)-origin(:)) 
           enddo
 
           if ( (abs(r(1)-r(2)).GE.tol).OR.(abs(r(1)-r(3)).GE.tol).OR.(abs(r(1)-r(4)).GE.tol) ) then
@@ -945,6 +945,7 @@ contains
 
               ! xi_2 = 0
               call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
+
             elseif(i.EQ.3)then
               do i1d = 1,nE                                 ! loop over nodes on edge
                 dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
@@ -1145,9 +1146,9 @@ contains
 
     !-- determine the radius and ensure that all 4 points have the same radius 
     do i = 1,4
-      r(i) = sqrt( (points(i,1)-origin(1))**2 + (points(i,2)-origin(2))**2 + (points(i,3)-origin(3)) )
+     r(i) = magnitude(points(i,:)-origin(:)) 
     enddo
-
+  
     if ( (abs(r(1)-r(2)).GE.tol).OR.(abs(r(1)-r(3)).GE.tol).OR.(abs(r(1)-r(4)).GE.tol) ) then
       write(*,*)'the four points that have been provided to initgrid: snap_to_sphere_patch do not have the same radius'
       call PetscFinalize(i_err); stop
