@@ -174,19 +174,7 @@ contains
 !-- DEBUG DAVID START
     call calc_Gau_shell_pts_all_hexas()
 !-- DEBUG DAVID END
-!    call transform_grid()
 
-!-- DEBUG DAVID START
-    !-- write to file ONLY USE WITH ONE PROCESS
-    if (nprocs==1)then
-       if(.false.)then
-         call write_grid_to_file('test.tf')
-       endif
-    else
-      !write(*,*)' Mesh not writtent to file as this is a parallel run'
-      !call PetscFinalize(i_err); stop 
-    endif
-!-- DEBUG DAVID END    
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the metrics'
     end if
@@ -250,6 +238,8 @@ contains
 
     call calcfacenormals_Gau()
     if(non_conforming .eqv. .true.) call modify_metrics_nonconforming()
+    
+    call calcfacenormals_LGL()
 !-- DEBUG DAVID START
 !    !-- check if the computed metrics at the mortar are the same
 !    do ielem = 1,ihelems(1), ihelems(2)
