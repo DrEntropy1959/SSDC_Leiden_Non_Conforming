@@ -1901,7 +1901,7 @@ contains
           nghost         = nghost          + nodesperface           ! if face neighbor is off process, then add ghost face    nodes
           nghost_elem    = nghost_elem     + nodesperelem           ! if face neighbor is off process, then add ghost element nodes
 
-          if (elem_props(2,ielem) /= ef2e(4,iface,ielem)) nghost_NonCon  = nghost_NonCon   + nodesperface           ! if face neighbor is off process, and non-conforming then add ghost face    nodes
+          nghost_NonCon  = nghost_NonCon   + nodesperface           ! if face neighbor is off process, and non-conforming then add ghost face    nodes
 
         endif
 
@@ -1928,7 +1928,7 @@ contains
     ! It is run in parallel by all processes
 
     use referencevariables
-    use variables,            only: Jx_facenodenormal_LGL, nxghst_LGL_Shell, ef2e
+    use variables,            only: Jx_facenodenormal_LGL, nxghst_LGL_shell, ef2e
     use petscvariables,       only: nxpetsc_shell, nxlocpetsc_shell
     use initcollocation,      only: element_properties
     use collocationvariables, only: elem_props
@@ -1946,7 +1946,8 @@ contains
       do iface = 1, nfacesperelem
 
         ! if face neighbor is off process and non-conforming then count ghost nodes
-        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+!       if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+        if(ef2e(3,iface,ielem) == myprocid) then
             cycle
         else
 
@@ -2760,7 +2761,7 @@ contains
     integer, allocatable :: iyu(:)
     integer :: ielem, iloc, iface
     integer :: i, kelem, kface, ieq
-    integer :: n_S_2d_Off, nfacesize
+    integer :: n_S_2d_Off, nfacesize, elem_cnt
     integer :: ierr
 
     xinit  = 0.0_wp
@@ -2778,7 +2779,7 @@ contains
       do iface = 1,nfacesperelem                     ! loop over faces on elem
 
                                                      ! do nothing if neighbor is on process or conforming
-        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+        if(ef2e(3,iface,ielem) == myprocid) then
             cycle
         else
 
@@ -2794,9 +2795,9 @@ contains
               iloc = iloc+1                          ! advance position in ghost array
                                                      ! set position of ghost in global vector containing solution data
               iyu(iloc) = nq * nk *(kelem-1)         & ! skip over previous elements
-                        + nq * n_S_2D_Off *(kface-1) & ! nk/nfacesperelem is face dimension
-                        + nq*(i-1)                   & ! skip over previous eqns
-                        + ieq                         ! eqn
+                        + nq * (kface-1)*n_S_2d_Off  & ! face dimension
+                        + nq * (i-1)                 & ! skip over previous eqns
+                        + ieq                        ! eqn
 
             end do
 
@@ -3811,7 +3812,7 @@ contains
 
       do iface = 1, nfacesperelem                           ! loop over 6 faces
 
-        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+        if(ef2e(3,iface,ielem) == myprocid) then
             cycle
         else
 
@@ -3861,7 +3862,7 @@ contains
       do iface = 1,nfacesperelem                            ! loop over faces
 
                                                             ! if face neighbor is off process and non-conforming then count ghost nodes
-        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+        if(ef2e(3,iface,ielem) == myprocid) then
             cycle
         else
 

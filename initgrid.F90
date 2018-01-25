@@ -1649,7 +1649,7 @@ contains
                 
                   x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
-                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the Off-Element face
                     
                     x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
                 
@@ -1704,7 +1704,7 @@ contains
                 
                   x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
-                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the Off-Element face
                     
                     x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
                 
@@ -1757,7 +1757,7 @@ contains
                 
                   x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
-                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the Off-Element face
                     
                     x2 = xghst_LGL(:,i_low + jnode)                                  ! Coordinates of the jnode
                 
@@ -1801,7 +1801,7 @@ contains
 
               x1 = xg(:,ifacenodes(knode),ielem)                                     ! Save the coordinates of the facial node
               
-              do jnode = 1, n_LGL_2d                                                 ! Search for the connected node on face of the connected element
+              do jnode = 1, n_LGL_2d                                                 ! Loop over the nodes on the Off-Element face
 
                 x2 = xghst_LGL(:,i_low + jnode)                                      ! Coordinates of the jnode
                 
@@ -1868,7 +1868,7 @@ contains
                 
                   x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
-                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the Off-Element face
                     
                     x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
                 
@@ -1918,7 +1918,7 @@ contains
                 
                   x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
-                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the Off-Element face
                     
                     x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
                 
@@ -1968,7 +1968,7 @@ contains
                 
                   x1_p(:) = Extract_Parallel_Invariant(p_dir,x1)                     !   Extact the two invariant coordinate locations between parallel faces
 
-                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the On-Element face
+                  do jnode = 1, n_LGL_2d                                             ! Loop over the nodes on the Off-Element face
                     
                     x2 = xg(:,kfacenodes(jnode,ef2e(1,iface,ielem)),ef2e(2,iface,ielem))
                 
@@ -2110,7 +2110,7 @@ contains
     implicit none
 
     ! indices
-    integer :: ielem, kelem, inode, iface, idir, knode
+    integer :: ielem, kelem, inode, jnode, knode, lnode, iface, kface, idir
     integer :: i, face_shift, n_pts_1d_max
     integer :: n_LGL_2d, nodesperface_max
 
@@ -2155,7 +2155,7 @@ contains
              facenodenormal    (:,knode,ielem) =               r_x(idir,:,i,ielem) * dx
                                                  ! outward facing normal using metrics
           Jx_facenodenormal_LGL(:,knode,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
-          !Jx_facenodenormal_LGL(:,inode+face_shift,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
+         !Jx_facenodenormal_LGL(:,inode+face_shift,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
 
         end do
 
@@ -2181,22 +2181,31 @@ contains
 
             else                                            !  Serial conforming path
 
-              knode = n_LGL_2d * (iface - 1)                ! stride through shell ordering 
               kelem = ef2e(2,iface,ielem)                   ! adjoining element
-              do inode = 1,n_LGL_2d                         ! loop over nodes on face
-                knode = knode + 1
+              kface = ef2e(1,iface,ielem)                   ! face on element
+
+              do i = 1,n_LGL_2d                             ! loop over nodes on face
+
                 if(ef2e(1,iface,ielem) > 0)then
 
-                  i = (ef2e(1,iface,ielem)-1)*n_LGL_2d + efn2efn(4,knode,ielem)
+                  jnode =  n_LGL_2d*(iface-1) + i             ! Index in facial ordering
+            
+                  inode = kfacenodes(i,iface)                 ! Volumetric node index corresponding to facial node index
 
-                  w1(:) = facenodenormal(1:3,knode,ielem)*Jx_r(kfacenodes(inode,iface),ielem)
-                  w2(:) = facenodenormal(1:3,   i ,kelem)*Jx_r(efn2efn(1,knode,ielem) ,kelem)
+                  knode = efn2efn(1,jnode,ielem)              ! Volumetric node index of adjoining face point 
 
+                  lnode = (kface-1)*n_LGL_2d + efn2efn(4,jnode,ielem)
+
+                  w1(:) = facenodenormal(1:3,jnode,ielem)*Jx_r(inode,ielem)
+                  w2(:) = facenodenormal(1:3,lnode,kelem)*Jx_r(knode,kelem)
+ 
                   if(magnitude(w1+w2) >= 1.0e-10_wp) then
                     write(*,*)'facenodenormals are incorrect' ; write(*,*)w1,w2 ;
 
                   endif
+
                 endif
+
               end do
             endif
           endif

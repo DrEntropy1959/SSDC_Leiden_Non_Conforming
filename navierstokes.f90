@@ -3215,7 +3215,8 @@ contains
 
     real(wp), allocatable, dimension(:,:,:) :: phig_2d_On, phig_2d_Off
 
-    logical,  parameter :: testing         = .false.
+    logical,  parameter :: testing                = .false.
+    logical             :: nonconforming_element  = .false.
 
     real(wp), parameter :: mirror          = -1.0_wp
     real(wp), parameter :: no_slip         = -0.0_wp
@@ -3280,6 +3281,14 @@ contains
     nghst_volume = nelem_ghst(1,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
     nghst_shell  = nelem_ghst(2,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
        
+    nonconforming_element = .false.
+    do iface = 1,nfacesperelem
+       if (ef2e(4,iface,ielem) /= elem_props(2,ielem)) then
+          nonconforming_element = .true.
+          exit
+       endif
+    enddo
+
     ! Loop over each face
     faceloop:do iface = 1,nfacesperelem
 
@@ -3514,6 +3523,9 @@ contains
           !       Off Processor Contributions to gsat:  Conforming Interface straddles parallel partition
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
+          kelem = ef2e(2,iface,ielem)                              ! adjoining element
+          kface = ef2e(1,iface,ielem)                              ! face on element
+
           do i = 1,  n_S_2d_On
 
             jnode =  n_S_2d_On*(iface-1) + i                              ! Index in facial ordering
@@ -3522,7 +3534,13 @@ contains
             
             gnode = efn2efn(3,jnode,ielem)                                ! Index in Petsc ghost stack (not volumetric stack)
             
-            nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)          ! Outward facing normal of facial node
+            if(nonconforming_element) then
+!             nx = - nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
+              nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
+            else
+              nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
+            endif
+            
   
             ug_On(:)  = ug   (:,inode,ielem)
             ug_Off(:) = ughst(:,gnode)
@@ -3543,17 +3561,16 @@ contains
           end do
 
           nghst_volume = nghst_volume + n_S_2d_On                         !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
-!         write(*,*)'Conforming Parallel Element = ',ielem
-!         write(*,*)'gsat after',myprocid,ielem,maxval(gsat(:,:,ielem))
-!         write(*,*)'gsat after',myprocid,ielem,   sum(gsat(:,:,ielem))
-!         write(*,*)'gsat after',myprocid,ielem,minval(gsat(:,:,ielem))
-!         write(*,*)'Conforming Parallel Element = ',ielem
+          nghst_shell  = nghst_shell  + n_S_2d_On                         !  Keep track of position in Ghost shell  stack (On and Off are the same)
 
         else if (ef2e(3,iface,ielem) == myprocid) then 
 
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
           !       On-Processor Contributions to gsat:  Conforming Interface is on-process
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+          kelem = ef2e(2,iface,ielem)                             ! adjoining element
+          kface = ef2e(1,iface,ielem)                             ! face on element
 
           do i = 1, n_S_2d_On
         
@@ -3563,9 +3580,13 @@ contains
               
             knode = efn2efn(1,jnode,ielem)                        ! Volumetric index of partner node
               
-            kelem = efn2efn(2,jnode,ielem)                        ! Element index of partner node
-            
-            nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node
+            if(nonconforming_element) then
+!             lnode = (kface-1)*n_S_2d_On + efn2efn(4,jnode,ielem)
+!             nx = - Jx_r(knode,kelem)*facenodenormal(:,lnode,kelem)  ! Off Element (same element order, flipped sign)
+              nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node
+            else
+              nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node (On-Element)
+            endif
             
             vg_On(:)  = vg(:,inode,ielem)
             vg_Off(:) = vg(:,knode,kelem)
