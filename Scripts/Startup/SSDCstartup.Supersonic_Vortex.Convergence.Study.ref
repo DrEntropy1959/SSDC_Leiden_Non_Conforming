@@ -13,6 +13,8 @@
  l10 = -0.5,
  variable_viscosity = .false.,
  Grid_Topology = 'cylinder',
+ entropy_flux = 'Chandrashekar'
+ entropy_flux_BC = 'Chandrashekar'
  cylinder_x0(1:3) = 0.0,0.0,0.0,
  cylinder_x1(1:3) = 0.0,0.0,1.0,
  /

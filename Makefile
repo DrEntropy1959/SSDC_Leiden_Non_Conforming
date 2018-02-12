@@ -8,7 +8,8 @@ ifeq ($(HOSTPC),tab16)
 $(info ${HOSTPC})
 INCLUDESDIR = -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/include\
               -I/ump/fldmd/home/mhcarpen/OpenSourceLib/Lib-Install/petsc-3.5.2/include
-FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+ FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -Ofast $(INCLUDESDIR)
+#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
 #FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -fbounds-check -O3 $(INCLUDESDIR)
 #FCFLAGS = -g -Wall -Wmaybe-uninitialized -Wextra -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -ffpe-trap=zero,overflow,underflow -finit-real=nan $(INCLUDESDIR)
 CFLAGS  = -Ofast  $(INCLUDESDIR)
