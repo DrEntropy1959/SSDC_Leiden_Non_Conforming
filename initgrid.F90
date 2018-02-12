@@ -760,6 +760,15 @@ contains
 
     real(wp), dimension(:), allocatable  :: xi
 
+    integer                                             :: n_pts_1d_neighbor, i1d, ii, jj, kk, cnt
+
+    real(wp), allocatable                               :: points_surf(:,:,:)
+    real(wp), dimension(3)                              :: origin
+    real(wp), dimension(4)                              :: r
+    real(wp),allocatable                                :: xyz_elem(:,:) 
+
+    real(wp), parameter                          :: tol = 10**(-12)
+
     ! number of nodes in each element
     nodesperelem_max = (npoly_max+1)**ndim
 
@@ -888,26 +897,191 @@ contains
           xl(:,nE,nE, :) = curved_connector_parabola(nE,xl(:,nE,nE, 1),xl(:,nE,nE,nE),xi) ! xi_1 = 1, xi_2 = 1
           xl(:,nE, 1, :) = curved_connector_parabola(nE,xl(:,nE, 1, 1),xl(:,nE, 1,nE),xi) ! xi_1 = 1, xi_2 = 0
         end if
+      case('sphere')
 
+        !-- set the origin
+        origin(1) = 0.0_wp; origin(2) = 0.0_wp; origin(3) = 0.0_wp
+
+        !-- which faces are on the sphere
+        !-- extract the points for each surface: points_surf(# surfaces, points number, coordiantes)
+        if(allocated(points_surf)) deallocate(points_surf); allocate(points_surf(6,4,3)); points_surf(:,:,:) = 0.0_wp
+
+        do i = 1,6
+          points_surf(i,1,:) = vx(:,e2v(1,ielem))
+          points_surf(i,2,:) = vx(:,e2v(4,ielem))
+          points_surf(i,3,:) = vx(:,e2v(3,ielem))
+          points_surf(i,4,:) = vx(:,e2v(2,ielem))
+        enddo
+
+        !-- determine if the surface is on the sphere
+        do i = 1,6
+          !-- determine the radius and ensure that all 4 points have the same radius 
+          do j = 1,4
+            r(j) = magnitude(points_surf(i,j,:)-origin(:)) 
+          enddo
+
+          if ( (abs(r(1)-r(2)).GE.tol).OR.(abs(r(1)-r(3)).GE.tol).OR.(abs(r(1)-r(4)).GE.tol) ) then
+            !-- surface is not on the sphere
+            if(i.EQ.1)then
+              do i1d = 1,nE                                 ! loop over nodes on edge
+                dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+                dx = xl(:,nE, 1, 1)-xl(:, 1, 1, 1) ; xl(:, i1d, 1, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_2 = 0, xi_3 = 0
+                dx = xl(:,nE,nE, 1)-xl(:,nE, 1, 1) ; xl(:,nE, i1d, 1) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_3 = 0
+                dx = xl(:,nE,nE, 1)-xl(:, 1,nE, 1) ; xl(:, i1d,nE, 1) = xl(:, 1,nE, 1) + dr*dx ! xi_2 = 1, xi_3 = 0
+                dx = xl(:, 1,nE, 1)-xl(:, 1, 1, 1) ; xl(:, 1, i1d, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_3 = 0
+              enddo
+              
+              ! xi_3 = 0
+              call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
+
+            elseif(i.EQ.2)then
+              do i1d = 1,nE                                 ! loop over nodes on edge
+                dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+                dx = xl(:,nE, 1, 1)-xl(:, 1, 1, 1) ; xl(:, i1d, 1, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_2 = 0, xi_3 = 0
+                dx = xl(:,nE, 1,nE)-xl(:,nE, 1, 1) ; xl(:,nE, 1, i1d) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_2 = 0
+                dx = xl(:,nE, 1,nE)-xl(:, 1, 1,nE) ; xl(:, i1d, 1,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_2 = 0, xi_3 = 1
+                dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
+              enddo
+
+              ! xi_2 = 0
+              call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
+
+            elseif(i.EQ.3)then
+              do i1d = 1,nE                                 ! loop over nodes on edge
+                dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+                dx = xl(:,nE,nE, 1)-xl(:,nE, 1, 1) ; xl(:,nE, i1d, 1) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_3 = 0
+                dx = xl(:,nE,nE,nE)-xl(:,nE,nE, 1) ; xl(:,nE,nE, i1d) = xl(:,nE,nE, 1) + dr*dx ! xi_1 = 1, xi_2 = 1
+                dx = xl(:,nE,nE,nE)-xl(:,nE, 1,nE) ; xl(:,nE, i1d,nE) = xl(:,nE, 1,nE) + dr*dx ! xi_1 = 1, xi_3 = 1
+                dx = xl(:,nE, 1,nE)-xl(:,nE, 1, 1) ; xl(:,nE, 1, i1d) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_2 = 0
+              enddo
+
+              ! xi_1 = 1
+              call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
+
+            elseif(i.EQ.4)then
+              do i1d = 1,nE                                 ! loop over nodes on edge
+                dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+                dx = xl(:,nE,nE, 1)-xl(:, 1,nE, 1) ; xl(:, i1d,nE, 1) = xl(:, 1,nE, 1) + dr*dx ! xi_2 = 1, xi_3 = 0
+                dx = xl(:,nE,nE,nE)-xl(:,nE,nE, 1) ; xl(:,nE,nE, i1d) = xl(:,nE,nE, 1) + dr*dx ! xi_1 = 1, xi_2 = 1
+                dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
+                dx = xl(:, 1,nE,nE)-xl(:, 1,nE, 1) ; xl(:, 1,nE, i1d) = xl(:, 1,nE, 1) + dr*dx ! xi_1 = 0, xi_2 = 1
+              enddo
+
+              ! xi_2 = 1
+              call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
+
+            elseif(i.EQ.5)then
+              do i1d = 1,nE                                 ! loop over nodes on edge
+                dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+                dx = xl(:, 1,nE, 1)-xl(:, 1, 1, 1) ; xl(:, 1, i1d, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_3 = 0
+                dx = xl(:, 1,nE,nE)-xl(:, 1,nE, 1) ; xl(:, 1,nE, i1d) = xl(:, 1,nE, 1) + dr*dx ! xi_1 = 0, xi_2 = 1   
+                dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
+                dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
+              enddo
+
+              ! xi_1 = 0
+              call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
+
+            elseif(i.EQ.6)then
+              do i1d = 1,nE                                 ! loop over nodes on edge
+                dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+                dx = xl(:,nE, 1,nE)-xl(:, 1, 1,nE) ; xl(:, i1d, 1,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_2 = 0, xi_3 = 1
+                dx = xl(:,nE,nE,nE)-xl(:,nE, 1,nE) ; xl(:,nE, i1d,nE) = xl(:,nE, 1,nE) + dr*dx ! xi_1 = 1, xi_3 = 1
+                dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
+                dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
+              enddo
+
+              ! xi_3 = 1
+              call TFI2D(xl(:, :, :,nE),nE,x_LGL_1d)
+            endif
+          else
+            !-- surface is on the sphere
+            !-- find the number of nodes (1d) in the neighbor element
+            n_pts_1d_neighbor = ef2e(4,i,ielem)+1
+               
+            if(allocated(xyz_elem)) deallocate(xyz_elem); allocate(xyz_elem(nE**2,3)); xyz_elem(:,:) = 0.0_wp
+            call snap_to_sphere_patch_new(points_surf(i,:,:),origin,nE,n_pts_1d_neighbor,xyz_elem)
+
+            !-- populate the xl on the ith face
+            if(i.EQ.1)then
+              cnt = 1
+              ii = 1
+              do jj = 1,nE
+                do kk = 1,nE
+                   xl(1:3,ii,jj,kk) = xyz_elem(cnt,3)
+                  cnt = cnt+1
+                enddo
+              enddo
+            elseif(i.EQ.2)then
+              cnt = 1
+              jj = 1
+              do ii = 1,nE
+                do kk = 1,nE
+                   xl(1:3,ii,jj,kk) = xyz_elem(cnt,3)
+                  cnt = cnt+1
+                enddo
+              enddo
+            elseif(i.EQ.3)then
+              cnt = 1
+              kk = nE
+              do ii = 1,nE
+                do jj = 1,nE
+                   xl(1:3,ii,jj,kk) = xyz_elem(cnt,3)
+                  cnt = cnt+1
+                enddo
+              enddo
+            elseif(i.EQ.4)then
+              cnt = 1
+              jj = nE
+              do ii = 1,nE
+                do kk = 1,nE
+                   xl(1:3,ii,jj,kk) = xyz_elem(cnt,3)
+                  cnt = cnt+1
+                enddo
+              enddo
+            elseif(i.EQ.5)then
+              cnt = 1
+              kk = 1
+              do ii = 1,nE
+                do jj = 1,nE
+                   xl(1:3,ii,jj,kk) = xyz_elem(cnt,3)
+                  cnt = cnt+1
+                enddo
+              enddo
+            elseif(i.Eq.6)then
+              cnt = 1
+              ii = nE
+              do jj = 1,nE
+                do kk = 1,nE
+                   xl(1:3,ii,jj,kk) = xyz_elem(cnt,3)
+                  cnt = cnt+1
+                enddo
+              enddo
+            endif 
+          endif        
+        enddo
       end select
 
       ! build faces
-      if (ndim > 1) then
-        ! xi_3 = 0
-        call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
-      end if
-      if (ndim > 2) then
-        ! xi_3 = 1
-        call TFI2D(xl(:, :, :,nE),nE,x_LGL_1d)
-        ! xi_2 = 0
-        call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
-        ! xi_2 = 1
-        call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
-        ! xi_1 = 0
-        call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
-        ! xi_1 = 1
-        call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
-      end if
+      if(Grid_Topology.EQ.'sphere')then
+      else
+        if (ndim > 1) then
+          ! xi_3 = 0
+          call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
+        end if
+        if (ndim > 2) then
+          ! xi_3 = 1
+          call TFI2D(xl(:, :, :,nE),nE,x_LGL_1d)
+          ! xi_2 = 0
+          call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
+          ! xi_2 = 1
+          call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
+          ! xi_1 = 0
+          call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
+          ! xi_1 = 1
+          call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
+        end if
+      endif
       ! build volumes
       if (ndim > 2) then
         call TFI3D(xl(:,:,:,:),nE,x_LGL_1d)
@@ -924,9 +1098,153 @@ contains
         end do
       end do
     end do
+
     deallocate(xl)
+    deallocate(xi)
+    deallocate(x_LGL_1d)
+    if(allocated(points_surf))deallocate(points_surf)
 
   end subroutine calcnodes_LGL
+
+  subroutine snap_to_sphere_patch_new(points,origin,n_pts_1d_elem,n_pts_1d_neighbor,xyz_elem)
+  !================================================================================================
+  !
+  ! Purpose: takes the grid and subjects it to a transformation
+  !
+  ! inputs:
+  !         points = array with the 4 surface points
+  !         origin = origin of the sphere
+  !         n_pts_1d_elem = number of points in the one dimensional nodal distribution on the element
+  !         n_pts_1d_neighbor = number of points in the one dimensional nodal distribution on the neighbor element
+  !         xyz = array with the (x,y,z) points of the patch
+  !
+  !================================================================================================
+ 
+    !-- use statments
+    use initcollocation, only                    : Gauss_Legendre_points, lagrange_basis_function_1d
+  
+    implicit none
+
+    !-- input variables
+    integer, intent(in)                          :: n_pts_1d_elem, n_pts_1d_neighbor
+    real(wp), intent(in), dimension(4,3)         :: points
+    real(wp), intent(in), dimension(3)           :: origin
+    real(wp), intent(inout),dimension(n_pts_1d_elem**2,3) :: xyz_elem
+
+    !-- local variables
+    integer                                      :: inode_elem, inode_neighbor
+    integer                                      :: i, i_elem, j_elem, i_neighbor, j_neighbor
+    integer                                      :: i_err
+    real(wp), allocatable, dimension(:)          :: x_pts_1d_elem, x_pts_1d_neighbor
+    real(wp), allocatable, dimension(:)          :: w_1d_elem, w_1d_neighbor
+    real(wp), dimension(4)                       :: r, theta_points, phi_points
+    real(wp)                                     :: theta, phi, theta_min, theta_max, phi_min, phi_max
+    real(wp)                                     :: xi, eta, Lxi, Leta
+    real(wp), dimension(n_pts_1d_neighbor**2,3)  :: xyz_neighbor
+
+    real(wp), parameter                          :: tol = 10**(-12)
+
+    !-- determine the radius and ensure that all 4 points have the same radius 
+    do i = 1,4
+     r(i) = magnitude(points(i,:)-origin(:)) 
+    enddo
+  
+    if ( (abs(r(1)-r(2)).GE.tol).OR.(abs(r(1)-r(3)).GE.tol).OR.(abs(r(1)-r(4)).GE.tol) ) then
+      write(*,*)'the four points that have been provided to initgrid: snap_to_sphere_patch do not have the same radius'
+      call PetscFinalize(i_err); stop
+    endif
+
+    !-- determine min/max theta, phi
+    do i = 1,4
+      theta_points(i) = acos( (points(i,3)-origin(3))/r(1) )
+
+      !-- logic to bar against negative theta and theta greater than pi
+      if( theta_points(i).LE.0.0_wp) then 
+        theta_points(i) = abs(theta_points(i))
+      endif
+      if( theta_points(i)> pi ) then
+        theta_points(i) = 2.0_wp*pi-theta_points(i)
+      endif
+
+      phi_points(i) = atan( (points(i,2)-origin(2))/(points(i,1)-origin(1)) )
+
+      !-- logic to bar against negative phi
+      if ( phi_points(i)< 0.0_wp) then
+        phi_points(i) = 2.0_wp*pi+phi_points(i)
+      endif
+
+    enddo
+
+    theta_min = minval(theta_points); theta_max = maxval(theta_points)
+    phi_min = minval(phi_points);     phi_max = maxval(phi_points)
+                
+    !-- obtain the one-dimensional nodal distributions
+    if(allocated(x_pts_1d_elem)) deallocate(x_pts_1d_elem); &
+      allocate(x_pts_1d_elem(n_pts_1d_elem)); x_pts_1d_elem = 0.0_wp
+    if(allocated(x_pts_1d_neighbor)) deallocate(x_pts_1d_neighbor); &
+      allocate(x_pts_1d_elem(n_pts_1d_elem)); x_pts_1d_neighbor = 0.0_wp
+    if(allocated(w_1d_elem)) deallocate(w_1d_elem); &
+      allocate(w_1d_elem(n_pts_1d_neighbor)); w_1d_elem = 0.0_wp
+    if(allocated(w_1d_neighbor)) deallocate(w_1d_neighbor); &
+     allocate(w_1d_elem(n_pts_1d_neighbor)); w_1d_neighbor = 0.0_wp
+
+    !-- construct the one dimensional nodal distributions in computational space
+    call Gauss_Lobatto_Legendre_points(n_pts_1d_elem,x_pts_1d_elem,w_1d_elem)
+    call Gauss_Lobatto_Legendre_points(n_pts_1d_neighbor,x_pts_1d_neighbor,w_1d_neighbor)
+
+    !-- construct the nodal distribution based on the neighbor polynomial
+    inode_neighbor = 1
+    do i_neighbor = 1,n_pts_1d_neighbor
+      do j_neighbor = 1,n_pts_1d_neighbor
+        xi = x_pts_1d_neighbor(i_neighbor)
+        eta = x_pts_1d_neighbor(j_neighbor)
+
+        theta = (theta_max-theta_min)/2.0_wp*xi+(theta_max+theta_min)/2.0_wp
+        phi = (phi_max-phi_min)/2.0_wp*eta+(phi_max+phi_min)/2.0_wp
+
+        xyz_neighbor(inode_neighbor,1) = origin(1)+r(1)*cos(phi)*sin(theta)
+        xyz_neighbor(inode_neighbor,2) = origin(2)+r(1)*sin(phi)*cos(theta)
+        xyz_neighbor(inode_neighbor,3) = origin(3)+r(1)*cos(theta)
+  
+        inode_neighbor = inode_neighbor+1
+      enddo
+    enddo
+   
+   !-- evaluate the interpolant through the nodes stored in xyz_neighbor at the 
+   !   at the computational nodes of elem
+   inode_elem = 1
+   do i_elem = 1,n_pts_1d_elem
+     do j_elem = 1,n_pts_1d_elem
+
+       xyz_elem(inode_elem,1:3) = 0.0_wp
+       inode_neighbor = 1
+
+       do i_neighbor = 1,n_pts_1d_elem
+         do j_neighbor = 1,n_pts_1d_elem
+           xi = x_pts_1d_neighbor(i_neighbor)
+           eta = x_pts_1d_neighbor(j_neighbor)
+
+           Lxi = lagrange_basis_function_1d(xi, i_elem, x_pts_1d_neighbor, n_pts_1d_neighbor)
+           Leta = lagrange_basis_function_1d(eta, i_elem, x_pts_1d_neighbor, n_pts_1d_neighbor)
+
+           xyz_elem(inode_elem,1:3) = xyz_elem(inode_elem,1:3)+Lxi*Leta*xyz_neighbor(inode_neighbor,1:3)
+
+           inode_neighbor = inode_neighbor+1
+         enddo
+       enddo
+
+       inode_elem = inode_elem+1  
+     
+     enddo
+   enddo
+
+    !-- deallocate statments
+    deallocate(x_pts_1d_elem)
+    deallocate(w_1d_elem)
+    deallocate(x_pts_1d_neighbor)
+    deallocate(w_1d_neighbor)
+
+  end subroutine snap_to_sphere_patch_new
 
 ! =============================================================================
 
@@ -1805,7 +2123,9 @@ contains
     ! number of nodes in each element
 
     nodesperface_max = (npoly_max+1)**(ndim-1)
+    if(allocated(facenodenormal)) deallocate(facenodenormal)
     allocate(   facenodenormal    (3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
+    if(allocated(Jx_facenodenormal_LGL)) deallocate(Jx_facenodenormal_LGL)
     allocate(Jx_facenodenormal_LGL(3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
        facenodenormal     = -1000000.0_wp
     Jx_facenodenormal_LGL = -5000000.0_wp
@@ -2744,7 +3064,8 @@ contains
             inode = ifacenodes(jnode)
               
             ! Outward facing normal of facial node
-            if (ef2e(4,iface,ielem) == elem_props(2,ielem)) then !    Conforming interface
+            !if (ef2e(4,iface,ielem) == elem_props(2,ielem)) then !    Conforming interface-- ORIGINAL
+            if ((ef2e(4,iface,ielem) == elem_props(2,ielem)).OR.(ef2e(1,iface,ielem) < 0)) then !    Conforming interface or a boundary
               nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
 !             t1 = maxval(abs(nx(:) - Jx_facenodenormal_LGL(:,knode,ielem)))
 !             if(t1 >= 1.0e-10_wp) write(*,*)'metric differences: iface',iface, t1
@@ -7176,7 +7497,7 @@ subroutine write_grid_to_file(file_name)
   !-- variables
   use precision_vars, only                     : get_unit
   use referencevariables, only                 : myprocid, ihelems, npoly_max, nfacesperelem
-  use variables, only                          : xg, xg_Gau_Shell
+  use variables, only                          : xg, xg_Gau_Shell, Jx_r, r_x, x_r
   use initcollocation, only                    : element_properties
 
   implicit none
@@ -7186,8 +7507,8 @@ subroutine write_grid_to_file(file_name)
 
   !-- local variables
   integer                                        :: iunit, inode, iface, ishift, n_pts_3d, ielem
-  integer                                        :: j
-  character(len=1024)                            :: numb
+  integer                                        :: j,k
+  character(len=1024)                            :: numb,numb2
 
   !-- file access variables
   integer                                        :: ios
@@ -7251,9 +7572,78 @@ subroutine write_grid_to_file(file_name)
     !-- close file
     close(UNIT=iunit)
 
+    !-- open the file
+    open(UNIT=iunit,FILE='J'//file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
+    if(ios.NE.0) then 
+      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
+      stop
+    endif
+
+    !-- write the root process Jacobian information to file
+    do ielem = ihelems(1), ihelems(2)
+      !-- obtain element properties
+      write(numb,'(I0)')ielem
+      call element_properties(ielem,n_pts_3d=n_pts_3d)
+      write(iunit,*)'Jx_r_'//trim(adjustl(numb))//" = [..."
+      do inode = 1,n_pts_3d
+        write(iunit,*)Jx_r(inode,ielem),";"
+      enddo
+      write(iunit,*)"];"
+    enddo
+       !-- close file
+    close(UNIT=iunit)
+
+    !-- open the file
+    open(UNIT=iunit,FILE='r_x'//file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
+    if(ios.NE.0) then 
+      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
+      stop
+    endif
+
+    !-- write the root process r_x information to file
+    do ielem = ihelems(1), ihelems(2)
+      !-- obtain element properties
+      write(numb,'(I0)')ielem
+      call element_properties(ielem,n_pts_3d=n_pts_3d)
+      do inode = 1,n_pts_3d
+        write(numb2,'(I0)')inode
+        write(iunit,*)'r_x_'//trim(adjustl(numb))//'(1:3,1:3,'//trim(adjustl(numb2))//') = [...'
+        do j = 1,3
+          write(iunit,*)(r_x(j,k,inode,ielem),k=1,3),";"
+        enddo
+        write(iunit,*)"];"
+      enddo
+    enddo
+       !-- close file
+    close(UNIT=iunit)
+
+    !-- open the file
+    open(UNIT=iunit,FILE='x_r'//file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
+    if(ios.NE.0) then 
+      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
+      stop
+    endif
+
+    !-- write the root process x_r information to file
+    do ielem = ihelems(1), ihelems(2)
+      !-- obtain element properties
+      write(numb,'(I0)')ielem
+      call element_properties(ielem,n_pts_3d=n_pts_3d)
+      do inode = 1,n_pts_3d
+        write(numb2,'(I0)')inode
+        write(iunit,*)'x_r_'//trim(adjustl(numb))//'(1:3,1:3,'//trim(adjustl(numb2))//') = [...'
+        do j = 1,3
+          write(iunit,*)(x_r(j,k,inode,ielem),k=1,3),";"
+        enddo
+        write(iunit,*)"];"
+      enddo
+    enddo
+       !-- close file
+    close(UNIT=iunit)
   endif
  
 end subroutine write_grid_to_file
+
 
 subroutine write_matrix_to_file_matlab(A,n,m,file_name)
 !==================================================================================================
