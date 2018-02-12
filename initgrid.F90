@@ -5398,17 +5398,11 @@ contains
       enddo
 
     enddo
-!   write(*,*)'extrnal_xi_cnt',myprocid,extrnal_xi_cnt
     extrnal_xi_sum = 0 ;
-    call mpi_allreduce(extrnal_xi_cnt,extrnal_xi_sum,1, &
-      & MPI_INT,MPI_SUM,petsc_comm_world,i_err)
-!   if(myprocid == 0) write(*,*)'i_err',i_err
+    call mpi_allreduce(extrnal_xi_cnt,extrnal_xi_sum,1, MPI_INT,MPI_SUM,petsc_comm_world,i_err)
 
-    call mpi_allreduce(XI_max,XI_max_Glob,1, &
-      & MPI_DEFAULT_WP,MPI_MAX,petsc_comm_world,i_err)
-!   if(myprocid == 0) write(*,*)'i_err',i_err
-
-
+    XI_max_Glob = 0.0_wp ;
+    call mpi_allreduce(XI_max,XI_max_Glob,1, MPI_DEFAULT_WP,MPI_MAX,petsc_comm_world,i_err)
 
     if((extrnal_xi_sum > 0) .and. (myprocid == 0)) then
      write(*,*)'number (and XI_max) of SSWENO extrapolants outside -1<=xi<=1 ',extrnal_xi_sum, XI_max_Glob
