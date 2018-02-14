@@ -22,8 +22,10 @@ module controlvariables
   character(120) :: Entropy_Flux             = 'Ismail_Roe'
   character(120) :: Entropy_Flux_BC          = 'Ismail_Roe'
 
-  character(120) :: Grid_Topology            = 'linear'  !  'cylinder'
+  character(120) :: Grid_Topology            = 'linear'  !  'cylinder' 'sphere'
   real(wp), dimension(3) :: cylinder_x0, cylinder_x1
+  real(wp)               :: radius
+  real(wp), dimension(3) :: origin
 
   integer   :: itimestep
   integer   :: restart_time_steps = 0

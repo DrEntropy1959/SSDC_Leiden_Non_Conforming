@@ -36,14 +36,21 @@ contains
     use fileio
     use mpimod
     use write_solution_file
-
+!-- DEBUG DAVID START
+    use referencevariables,  only: ihelems, nfacesperelem, nelems
+    use variables, only: Jx_r, facenodenormal, Jx_facenodenormal_LGL
+    use initcollocation,      only: element_properties
+    use variables,            only: ef2e
+!-- DEBUG DAVID END
     ! Nothing is implicitly defined
     implicit none
 
     integer :: i_err
 
 !-- DEBUG DAVID START
-!   integer ielem
+   integer ielem, iface, i, n_pts_2d, inode, jnode
+  integer,  allocatable, dimension(:,:) :: kfacenodes_On
+
 !-- DEBUG DAVID END
     continue
 
@@ -106,10 +113,8 @@ contains
           
         write(*,*) 'Master node reads the AFLR3 grid'
         write(*,*) '==============================================================='
-
         ! Read only the necessary information from the datafile
         call aflr3ReadUnstructuredGrid(casefile)
-
         ! Check the number of processors and the number of elements
         call check_n_procs_n_elems(nprocs,nelems) 
 
@@ -134,10 +139,8 @@ contains
 
         ! Metis calculates the partitions
         call calculatepartitions() 
-
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
-
       end if
 
       ! Push element connectivity to all processes
@@ -171,9 +174,7 @@ contains
 
     call calcnodes_LGL()
 
-!-- DEBUG DAVID START
     call calc_Gau_shell_pts_all_hexas()
-!-- DEBUG DAVID END
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the metrics'
@@ -187,10 +188,8 @@ contains
       write(*,*) '==============================================================='
     end if
 
-!-- DEBUG DAVID START
-!    call calc_Gau_shell_pts_all_hexas()
-!-- DEBUG DAVID END
     call calc_Jacobian_Gau_shell_all_hexas()
+
 
     ! Setup collocated nodes connectivity
     call facenodesetup_LGL_Driver()
@@ -232,23 +231,28 @@ contains
     end if
 
     ! Calculate normals
-    call calcfacenormals_LGL()
+    call calcfacenormals_LGL(.false.)
 
     call PetscNormals_LGL()
 
     call calcfacenormals_Gau()
+
     if(non_conforming .eqv. .true.) call modify_metrics_nonconforming()
-    
-    call calcfacenormals_LGL()
-!-- DEBUG DAVID START
-!    !-- check if the computed metrics at the mortar are the same
-!    do ielem = 1,ihelems(1), ihelems(2)
-!      do iface = 1,nfacesperelem
-!        !-- logic to determine if the face is conforming or not
-!        !write(*,*)'ielem = ',ielem,' iface = ',ifacce
-!      enddo
-!    enddo
-!-- DEBUG DAVID END
+   
+    call calcfacenormals_LGL(.true.)
+
+!-- uncomment to write solution to file in a way that can be read by Matlab
+!    !-- write to file ONLY USE WITH ONE PROCESS
+!    if(.true.)then
+!      if (nprocs==1)then
+!        call write_grid_to_file('true.tf')
+!      else
+!        write(*,*)' Mesh not writtent to file as this is a parallel run'
+!        call PetscFinalize(i_err); stop 
+!      endif
+!    endif
+!-- end of write to file
+
     if (myprocid == 0) then
       write(*,*) 'Start actual computation'
       write(*,*) '==============================================================='

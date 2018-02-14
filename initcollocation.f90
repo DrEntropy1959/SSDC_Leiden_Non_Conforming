@@ -2012,8 +2012,6 @@ contains
 
     continue
 
-    write(*,*) p
-
     select case(p)
 
     case(02) !       P = 1 ;

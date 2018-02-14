@@ -122,6 +122,10 @@ contains
     use dkinetic_energy_dt_enstrophy
     use tools_IO
 
+!-- DEBUG DAVID START
+    use variables, only: vg, ug, wg
+    use initcollocation,      only: element_properties
+!-- DEBUG DAVID END
     ! Nothing is implicitly defined
     implicit none
 
@@ -131,7 +135,9 @@ contains
 !   integer :: i_unit, io_status
 !   logical :: negTemp = .false.
 !   character(120) :: message
-
+!-- DEBUG DAVID START
+    integer :: ielem,inode
+!-- DEBUG DAVID END
     continue
 
     ! Set time step counter to zero
@@ -139,7 +145,6 @@ contains
 
     ! Compute primitive variables, entropy variables and CNG gradients
     call nse_reconcilestates()
-
     ! Compute interesting quantities and write output if needed
 !   call post_process_ts_0(itimestep,timeglobal)
 
@@ -176,7 +181,6 @@ contains
 
         ! calculate time derivative 
         call physics_timederivative()
-
         if (irkstep == 1) then
           if (write_dke_dt) then 
             call compute_dkinetic_energy_dt()
@@ -188,7 +192,9 @@ contains
 
         ! Update primitive, entropy variables and CNG gradients
         call nse_reconcilestates()
-
+!-- DEBUG DAVID START
+!        call PetscFinalize(i_err); stop
+!-- DEBUG DAVID END
       end do rkloop
 
       ! Update global time
