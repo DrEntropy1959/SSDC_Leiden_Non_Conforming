@@ -123,37 +123,40 @@ contains
     use controlvariables
     use variables
 !   use navierstokes, only : supersonicvortexFull
+    use navierstokes, only : isentropicVortexFull
 
-!   integer :: ielem, inode
+    integer :: ielem, inode
 
-!   real(wp), dimension(3)   :: ctmp
-!   real(wp), dimension(5)   :: fvtmp
-!   real(wp), dimension(5,3) :: phitmp
+    real(wp), dimension(3)   :: ctmp
+    real(wp), dimension(5)   :: fvtmp
+    real(wp), dimension(5,3) :: phitmp
 
-!   real(wp), dimension(1:nequations,nodesperelem,ihelems(1):ihelems(2)) :: exact
-!   exact = 0.0_wp
+    real(wp), dimension(1:nequations,nodesperelem,ihelems(1):ihelems(2)) :: exact
+    exact = 0.0_wp
 
-!   do ielem = ihelems(1), ihelems(2)
-!     ! Loop over nodes in each element
-!     do inode = 1, nodesperelem
-!       ! Use exact solution routine to initialize data
+    do ielem = ihelems(1), ihelems(2)
+      ! Loop over nodes in each element
+      do inode = 1, nodesperelem
+        ! Use exact solution routine to initialize data
 !       call supersonicvortexFull( &
-!         exact(:,inode,ielem), &
-!         phitmp, &
-!         fvtmp, &
-!         ctmp, &
-!         xg(:,inode,ielem), &
-!         0.0_wp, &
-!         nequations, &
-!         ndim, &
-!         mut(inode,ielem)) ! (navierstokes)
-!     enddo
-!   enddo
+        call isentropicvortexFull( &
+          exact(:,inode,ielem), &
+          phitmp, &
+          fvtmp, &
+          ctmp, &
+          xg(:,inode,ielem), &
+          timeglobal, &
+          nequations, &
+          ndim, &
+          mut(inode,ielem)) ! (navierstokes)
+  !       0.0_wp, &
+      enddo
+    enddo
 
     ! Write ASCII file
     if (write_solution_formatted) then
 
-!     exact(:,:,:) = log10(abs(exact(:,:,:) - vg(:,:,:))+1.0e-16_wp)
+      exact(:,:,:) = log10(abs(exact(:,:,:) - vg(:,:,:))+1.0e-16_wp)
 
       ! Write header file
       call write_header_ascii_vtu_file()

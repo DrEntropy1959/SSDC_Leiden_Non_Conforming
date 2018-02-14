@@ -1097,6 +1097,109 @@ contains
   end subroutine EntropyConsistentFlux_vectors
 
 !===================================================================================================
+
+  pure function Entropy_KE_Consistent_Flux_AVX_512(vl,vr,Jx)
+
+    ! this function calculates the normal entropy consistent
+    ! flux based on left and right states of primitive variables.
+    ! it is consistent with the strange nondimensionalization employed herein 
+    ! The logarithmic means follow Ismail and Roe, DOI: 10.1016/j.jcp.2009.04.021
+    ! while the KE / S flux follows Chandrashekar
+
+    ! Logarithmic mean for arbitrary variable ``a'' => DOI: 10.1016/j.jcp.2009.04.021
+    ! \tilde{a} = (aL - aR) / (ln(aL) - ln(aR))
+    ! Define xi = aL/aR ; f(xi) = ((xi-1)/ (xi+1)) ; u(xi) = f * f
+    ! \tilde{a} = (aL + aR) / ln(xi) * f(xi) 
+    ! \tilde{a} uses the asymptotic expansion of Ln() for values of () -> 1
+    
+    ! Both the ``rho'' or ``T'' logarithmic means are formed
+
+    use nsereferencevariables, only: gM2I, gm1M2, gamI
+
+    implicit none
+    ! Arguments
+    ! =========
+    real(wp), intent(in), dimension(8,5) :: vl, vr                  ! left and right states
+    real(wp), intent(in), dimension(8,3) :: Jx                      ! metrics scaled by jacobian
+
+!   Logarithmic expansion valid to us = 0.135, or ratio =  2.165
+    real(wp), dimension(0:5), parameter :: c = (/1.0_wp, 55.0_wp/21.0_wp, 330.0_wp/133.0_wp, &
+                                        330.0_wp/323.0_wp, 55.0_wp/323.0_wp, 33.0_wp/4199.0_wp/)
+
+    real(wp), dimension(0:5), parameter :: d = (/2.0_wp, 32.0_wp/7.0_wp, 3092.0_wp/855.0_wp, &
+                        7808.0_wp/6783.0_wp, 17926.0_wp/142443.0_wp, 131072.0_wp/61108047.0_wp/)
+
+    real(wp),                 parameter :: eps = 1.1e-01_wp
+
+    ! Function
+    ! ========
+    real(wp), dimension(8,5)             :: Entropy_KE_Consistent_Flux_AVX_512
+
+    ! Local temporary Variables
+    ! ===============
+    real(wp), dimension(8,5) :: vave
+
+    real(wp), dimension(8)   :: mdot, P, rhotil, Btil, bL, bR, Keave  ! normal mass flux (mdot), Pressure, Logave density \& temperature
+    real(wp), dimension(8)   :: xi, gs, us, ave, a, b
+
+    integer                  :: i
+
+    vave(:,1:5) = 0.5_wp * (vl(:,1:5) + vr(:,1:5))                  ! Average Density & velocity
+
+    bL(:) = 1.0_wp/vl(:,5) ; bR(:) = 1.0_wp/vr(:,5)                 ! inverse Temperature (defined as B)
+
+    P(:)  = 2.0_wp * gM2I * vave(:,1) / (bL(:) + bR(:))             ! Pressure
+
+    Keave(:) = 0.25_wp * ( + vL(:,2)*vL(:,2)+vL(:,3)*vL(:,3)+vL(:,4)*vL(:,4)  &    ! Average KE 
+                           + vR(:,2)*vR(:,2)+vR(:,3)*vR(:,3)+vR(:,4)*vR(:,4) )
+
+    xi(:)  = vL(:,1)/vR(:,1)
+    gs(:)  = (xi(:)-1.0_wp)/(xi(:)+1.0_wp)
+    us(:)  = gs(:)*gs(:)
+    ave(:) = a(:) + b(:)
+
+    rhotil(:) = ave(:) * (c(0)-us(:)*(c(1)-us(:)*(c(2)-us(:)*(c(3)-us(:)*(c(4)-us(:)*c(5)))))) / &
+                         (d(0)-us(:)*(d(1)-us(:)*(d(2)-us(:)*(d(3)-us(:)*(d(4)-us(:)*d(5))))))
+
+    if(maxval(us(:)) >= eps) then
+      do i = 1,8
+        if(us(i) >= eps) then 
+          rhotil(i) = ave(i) * gs(i) / log(xi(i))
+        endif
+      enddo
+    endif
+ 
+    xi(:)  = bL(:)/bR(:)
+    gs(:)  = (xi(:)-1.0_wp)/(xi(:)+1.0_wp)
+    us(:)  = gs(:)*gs(:)
+    ave(:) = a(:) + b(:)
+
+    Btil(:) =   ave(:) * (c(0)-us(:)*(c(1)-us(:)*(c(2)-us(:)*(c(3)-us(:)*(c(4)-us(:)*c(5)))))) / &
+                         (d(0)-us(:)*(d(1)-us(:)*(d(2)-us(:)*(d(3)-us(:)*(d(4)-us(:)*d(5))))))
+
+    if(maxval(us(:)) >= eps) then
+      do i = 1,8
+        if(us(i) >= eps) then 
+          Btil(i) = ave(i) * gs(i) / log(xi(i))
+        endif
+      enddo
+    endif
+
+    mdot(:) = rhotil(:)*(vave(:,2)*Jx(:,1)+vave(:,3)*Jx(:,2)+vave(:,4)*Jx(:,3))     ! normal mass flow rate
+
+    Entropy_KE_Consistent_Flux_AVX_512(:,1) = mdot(:)
+    Entropy_KE_Consistent_Flux_AVX_512(:,2) = mdot(:)*vave(:,2) + Jx(:,1) * P(:)
+    Entropy_KE_Consistent_Flux_AVX_512(:,3) = mdot(:)*vave(:,3) + Jx(:,2) * P(:)
+    Entropy_KE_Consistent_Flux_AVX_512(:,4) = mdot(:)*vave(:,4) + Jx(:,3) * P(:)
+    Entropy_KE_Consistent_Flux_AVX_512(:,5) = mdot(:)*(gamI/Btil(:) - gm1M2*Keave(:)) &
+                                            + gm1M2 * ( Entropy_KE_Consistent_Flux_AVX_512(:,2) * vave(:,2) + &
+                                                        Entropy_KE_Consistent_Flux_AVX_512(:,3) * vave(:,3) + &
+                                                        Entropy_KE_Consistent_Flux_AVX_512(:,4) * vave(:,4) )
+
+  end function Entropy_KE_Consistent_Flux_AVX_512
+
+!===================================================================================================
+
 ! pure function Entropy_KE_Consistent_Flux(vl,vr,Jx,nq)
        function Entropy_KE_Consistent_Flux(vl,vr,Jx,nq)
 
@@ -6010,7 +6113,7 @@ contains
       use nsereferencevariables
       use precision_vars
       use collocationvariables
-      use controlvariables, only: WENO_Bias
+      use controlvariables, only: WENO_Bias, entropy_flux
       use interpolation
 
       implicit none
@@ -6044,7 +6147,7 @@ contains
       real(wp), dimension(3,  6)       :: nin
       real(wp), dimension(6)           :: uhat, metr, cav2
       real(wp), dimension(nq,ixd,ixd)  :: SSFlux, DSFlux
-      real(wp), dimension(nq,0:ixd)    :: fbarW, fbarC, fnS, fnK
+      real(wp), dimension(nq,0:ixd)    :: fbarW, fbarC, fnS!, fnK
 
       ! Interpolation coefs and target values
       real(wp), dimension(5,6)         :: Tar
@@ -6268,7 +6371,7 @@ contains
 
         ! split target weights
         dh  = Tar(i+1,:)
-        dhp = half*(dh+theta*abs(dh))
+        dhp = 0.5_wp*(dh+theta*abs(dh))
         dhm = dhp-dh
         Lsigp = sum(dhp) ; dhp = dhp/Lsigp
         Lsigm = sum(dhm) ; dhm = dhm/Lsigm
@@ -6345,7 +6448,7 @@ contains
 
 !       split target weights
         dh  = Tar(i+1,:)
-        dhp = half*(dh+theta*abs(dh))
+        dhp = 0.5_wp*(dh+theta*abs(dh))
         dhm = dhp-dh
         Lsigp = sum(dhp) ; dhp = dhp/Lsigp
         Lsigm = sum(dhm) ; dhm = dhm/Lsigm
@@ -6426,21 +6529,33 @@ contains
       enddo
 
       !  Form Entropy Fluxes 0:N_F
-      fnS(:,:) = 0.0_wp ; fnK(:,:) = 0.0_wp ;
+      fnS(:,:) = 0.0_wp ; !fnK(:,:) = 0.0_wp ;
       do i=1,ixd-1
   
-        do j=i+1,ixd
-               nxave(:) = half * (nxint(:,i) + nxint(:,j))
-          SSFlux(:,i,j) = two  * qmat(i,j)*EntropyConsistentFlux     (vint(:,i),vint(:,j),nxave,nq)
-!         SSFlux(:,i,j) = two  * qmat(i,j)*Entropy_KE_Consistent_Flux(vint(:,i),vint(:,j),nxave,nq)
+        select case(entropy_flux)
+    
+          case('Ismail_Roe')
+
+            do j=i+1,ixd
+                   nxave(:) = 0.5_wp * (nxint(:,i) + nxint(:,j))
+              SSFlux(:,i,j) = two  * qmat(i,j)*EntropyConsistentFlux     (vint(:,i),vint(:,j),nxave,nq)
+            enddo
 !         DSFlux(:,i,j) = two  * qmat(i,j)*HoneinMoinFlux(vint(:,i),vint(:,j),nxave,nq)
-        enddo
   
-        fnS(:,i) = 0.0_wp ; fnK(:,i) = 0.0_wp ;
+          case('Chandrashekar')
+
+            do j=i+1,ixd
+                   nxave(:) = 0.5_wp * (nxint(:,i) + nxint(:,j))
+              SSFlux(:,i,j) = two  * qmat(i,j)*Entropy_KE_Consistent_Flux(vint(:,i),vint(:,j),nxave,nq)
+            enddo
+
+        end select
+
+        fnS(:,i) = 0.0_wp ; !fnK(:,i) = 0.0_wp ;
         do k=i+1,ixd
           do l=1,i
             fnS(:,i) = fnS(:,i) + SSFlux(:,l,k)
-            fnK(:,i) = fnK(:,i) + DSFlux(:,l,k)
+!           fnK(:,i) = fnK(:,i) + DSFlux(:,l,k)
           enddo
         enddo
   
@@ -6642,7 +6757,7 @@ contains
                  fstar = Entropy_KE_Consistent_Flux(vg_On(:), vg_Off(:), nx_Off, neq )
              end select
 
-             fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg_On(:)-wg_Off(:)) )
+             fstar = fstar + 0.5_wp * matmul(smat,evabs*matmul(transpose(smat), wg_On(:)-wg_Off(:)) )
 
            case('LocalLaxF')
              call primitive_to_conserved(vg_On (:),ug_On (:),neq)
@@ -6650,6 +6765,7 @@ contains
              fLLF  = half * ( normalflux( vg_On (:), nx_On, neq )    &
                           +   normalflux( vg_Off(:), nx_Off, neq )    &
                           +   LocalLaxF_factor*evmax*(ug_On(:)-ug_Off(:)) )
+
              fstar = fLLF
 
            case('RoeLF')
@@ -6672,7 +6788,7 @@ contains
                  fstar = Entropy_KE_Consistent_Flux(vg_On(:), vg_Off(:), nx_Off, neq )
              end select
 
-             fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg_On(:)-wg_Off(:)) )
+             fstar = fstar + 0.5_wp * matmul(smat,evabs*matmul(transpose(smat), wg_On(:)-wg_Off(:)) )
 
              fLLF  = half * ( normalflux( vg_On (:), nx_Off, neq )    &
                           +   normalflux( vg_Off(:), nx_Off, neq )    &
@@ -6757,8 +6873,8 @@ contains
 
          evmax = maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax)
 
-!        SAT_Vis_Diss = - half * matmul(smat,evabs*matmul(          sinv , ug_On (:)-ug_Off(:)) )
-         SAT_Vis_Diss = - half * matmul(smat,evabs*matmul(transpose(smat), wg_On (:)-wg_Off(:)) )
+!        SAT_Vis_Diss = - 0.5_wp * matmul(smat,evabs*matmul(          sinv , ug_On (:)-ug_Off(:)) )
+         SAT_Vis_Diss = - 0.5_wp * matmul(smat,evabs*matmul(transpose(smat), wg_On (:)-wg_Off(:)) )
 
           return
      end function
