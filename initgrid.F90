@@ -3057,7 +3057,7 @@ contains
     implicit none
     ! indices
     integer :: ielem, inode, jnode, idir, jdir
-    integer :: i,j,k,l,ii
+    integer :: i,j,k,l,ii, iE
     integer :: nodesperelem_max, n_LGL_3d
 
 
@@ -3070,6 +3070,8 @@ contains
 
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
+
+    logical :: symmetric = .true.
 
     continue 
 
@@ -3147,136 +3149,117 @@ contains
 
         ! Special formulas are used to ensure that GCLs are satisfied in each direction
 
-        do inode = 1, n_LGL_3d
-          ! dxi_1/dx_1
-          j = 1 ; k = 1 ;
-          r_x(j,k,inode,ielem) = 0.0_wp
-          jdir = 3
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) + dagrad(jdir,i)*x_r(2,2,jnode,ielem)*xg(3,jnode,ielem)
-          end do
-          jdir = 2
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) - dagrad(jdir,i)*x_r(2,3,jnode,ielem)*xg(3,jnode,ielem)
+        iE = ielem                                 !  New variable strictly cosmetic so formulae are shorter
+        r_x(:,:,:,ielem) = 0.0_wp
+
+        if(symmetric) then
+
+          do inode = 1, n_LGL_3d
+
+            jdir = 2
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(1,1,inode,iE) = r_x(1,1,inode,iE) + dagrad(jdir,i)*( + x_r(3,3,j,iE)*xg(2,j,iE) - x_r(2,3,j,iE)*xg(3,j,iE)) ! dxi_1/dx_1
+              r_x(1,2,inode,iE) = r_x(1,2,inode,iE) + dagrad(jdir,i)*( + x_r(1,3,j,iE)*xg(3,j,iE) - x_r(3,3,j,iE)*xg(1,j,iE)) ! dxi_1/dx_2
+              r_x(1,3,inode,iE) = r_x(1,3,inode,iE) + dagrad(jdir,i)*( + x_r(2,3,j,iE)*xg(1,j,iE) - x_r(1,3,j,iE)*xg(2,j,iE)) ! dxi_1/dx_3
+            end do
+            jdir = 3
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(1,1,inode,iE) = r_x(1,1,inode,iE) + dagrad(jdir,i)*( + x_r(2,2,j,iE)*xg(3,j,iE) - x_r(3,2,j,iE)*xg(2,j,iE)) ! dxi_1/dx_1
+              r_x(1,2,inode,iE) = r_x(1,2,inode,iE) + dagrad(jdir,i)*( + x_r(3,2,j,iE)*xg(1,j,iE) - x_r(1,2,j,iE)*xg(3,j,iE)) ! dxi_1/dx_2
+              r_x(1,3,inode,iE) = r_x(1,3,inode,iE) + dagrad(jdir,i)*( + x_r(1,2,j,iE)*xg(2,j,iE) - x_r(2,2,j,iE)*xg(1,j,iE)) ! dxi_1/dx_3
+            end do
+  
+            jdir = 3
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(2,1,inode,iE) = r_x(2,1,inode,iE) + dagrad(jdir,i)*( + x_r(3,1,j,iE)*xg(2,j,iE) - x_r(2,1,j,iE)*xg(3,j,iE)) ! dxi_2/dx_1
+              r_x(2,2,inode,iE) = r_x(2,2,inode,iE) + dagrad(jdir,i)*( + x_r(1,1,j,iE)*xg(3,j,iE) - x_r(3,1,j,iE)*xg(1,j,iE)) ! dxi_2/dx_2
+              r_x(2,3,inode,iE) = r_x(2,3,inode,iE) + dagrad(jdir,i)*( + x_r(2,1,j,iE)*xg(1,j,iE) - x_r(1,1,j,iE)*xg(2,j,iE)) ! dxi_2/dx_3
+            end do
+            jdir = 1
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(2,1,inode,iE) = r_x(2,1,inode,iE) + dagrad(jdir,i)*( + x_r(2,3,j,iE)*xg(3,j,iE) - x_r(3,3,j,iE)*xg(2,j,iE)) ! dxi_2/dx_1
+              r_x(2,2,inode,iE) = r_x(2,2,inode,iE) + dagrad(jdir,i)*( + x_r(3,3,j,iE)*xg(1,j,iE) - x_r(1,3,j,iE)*xg(3,j,iE)) ! dxi_2/dx_2
+              r_x(2,3,inode,iE) = r_x(2,3,inode,iE) + dagrad(jdir,i)*( + x_r(1,3,j,iE)*xg(2,j,iE) - x_r(2,3,j,iE)*xg(1,j,iE)) ! dxi_2/dx_3
+            end do
+  
+            jdir = 1
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(3,1,inode,iE) = r_x(3,1,inode,iE) + dagrad(jdir,i)*( + x_r(3,2,j,iE)*xg(2,j,iE) - x_r(2,2,j,iE)*xg(3,j,iE)) ! dxi_3/dx_1
+              r_x(3,2,inode,iE) = r_x(3,2,inode,iE) + dagrad(jdir,i)*( + x_r(1,2,j,iE)*xg(3,j,iE) - x_r(3,2,j,iE)*xg(1,j,iE)) ! dxi_3/dx_2
+              r_x(3,3,inode,iE) = r_x(3,3,inode,iE) + dagrad(jdir,i)*( + x_r(2,2,j,iE)*xg(1,j,iE) - x_r(1,2,j,iE)*xg(2,j,iE)) ! dxi_3/dx_3
+            end do
+            jdir = 2
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(3,1,inode,iE) = r_x(3,1,inode,iE) + dagrad(jdir,i)*( + x_r(2,1,j,iE)*xg(3,j,iE) - x_r(3,1,j,iE)*xg(2,j,iE)) ! dxi_3/dx_1
+              r_x(3,2,inode,iE) = r_x(3,2,inode,iE) + dagrad(jdir,i)*( + x_r(3,1,j,iE)*xg(1,j,iE) - x_r(1,1,j,iE)*xg(3,j,iE)) ! dxi_3/dx_2
+              r_x(3,3,inode,iE) = r_x(3,3,inode,iE) + dagrad(jdir,i)*( + x_r(1,1,j,iE)*xg(2,j,iE) - x_r(2,1,j,iE)*xg(1,j,iE)) ! dxi_3/dx_3
+            end do
+
+            r_x(:,:,inode,iE) = 0.5_wp * r_x(:,:,inode,iE)/Jx_r(inode,iE)
+
           end do
 
-          ! dxi_1/dx_2
-          j = 1 ; k = 2 ;
-          r_x(j,k,inode,ielem) = 0.0_wp
-          jdir = 3
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) + dagrad(jdir,i)*x_r(3,2,jnode,ielem)*xg(1,jnode,ielem)
-          end do
-          jdir = 2
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) - dagrad(jdir,i)*x_r(3,3,jnode,ielem)*xg(1,jnode,ielem)
+        else
+
+          do inode = 1, n_LGL_3d
+
+            jdir = 2
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(1,1,inode,iE) = r_x(1,1,inode,iE) + dagrad(jdir,i)*(                            - x_r(2,3,j,iE)*xg(3,j,iE)) ! dxi_1/dx_1
+              r_x(1,2,inode,iE) = r_x(1,2,inode,iE) + dagrad(jdir,i)*(                            - x_r(3,3,j,iE)*xg(1,j,iE)) ! dxi_1/dx_2
+              r_x(1,3,inode,iE) = r_x(1,3,inode,iE) + dagrad(jdir,i)*(                            - x_r(1,3,j,iE)*xg(2,j,iE)) ! dxi_1/dx_3
+            end do
+            jdir = 3
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(1,1,inode,iE) = r_x(1,1,inode,iE) + dagrad(jdir,i)*( + x_r(2,2,j,iE)*xg(3,j,iE)                           ) ! dxi_1/dx_1
+              r_x(1,2,inode,iE) = r_x(1,2,inode,iE) + dagrad(jdir,i)*( + x_r(3,2,j,iE)*xg(1,j,iE)                           ) ! dxi_1/dx_2
+              r_x(1,3,inode,iE) = r_x(1,3,inode,iE) + dagrad(jdir,i)*( + x_r(1,2,j,iE)*xg(2,j,iE)                           ) ! dxi_1/dx_3
+            end do
+  
+            jdir = 3
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(2,1,inode,iE) = r_x(2,1,inode,iE) + dagrad(jdir,i)*(                            - x_r(2,1,j,iE)*xg(3,j,iE)) ! dxi_2/dx_1
+              r_x(2,2,inode,iE) = r_x(2,2,inode,iE) + dagrad(jdir,i)*(                            - x_r(3,1,j,iE)*xg(1,j,iE)) ! dxi_2/dx_2
+              r_x(2,3,inode,iE) = r_x(2,3,inode,iE) + dagrad(jdir,i)*(                            - x_r(1,1,j,iE)*xg(2,j,iE)) ! dxi_2/dx_3
+            end do
+            jdir = 1
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(2,1,inode,iE) = r_x(2,1,inode,iE) + dagrad(jdir,i)*( + x_r(2,3,j,iE)*xg(3,j,iE)                           ) ! dxi_2/dx_1
+              r_x(2,2,inode,iE) = r_x(2,2,inode,iE) + dagrad(jdir,i)*( + x_r(3,3,j,iE)*xg(1,j,iE)                           ) ! dxi_2/dx_2
+              r_x(2,3,inode,iE) = r_x(2,3,inode,iE) + dagrad(jdir,i)*( + x_r(1,3,j,iE)*xg(2,j,iE)                           ) ! dxi_2/dx_3
+            end do
+  
+            jdir = 1
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(3,1,inode,iE) = r_x(3,1,inode,iE) + dagrad(jdir,i)*(                            - x_r(2,2,j,iE)*xg(3,j,iE)) ! dxi_3/dx_1
+              r_x(3,2,inode,iE) = r_x(3,2,inode,iE) + dagrad(jdir,i)*(                            - x_r(3,2,j,iE)*xg(1,j,iE)) ! dxi_3/dx_2
+              r_x(3,3,inode,iE) = r_x(3,3,inode,iE) + dagrad(jdir,i)*(                            - x_r(1,2,j,iE)*xg(2,j,iE)) ! dxi_3/dx_3
+            end do
+            jdir = 2
+            do i = iagrad(inode), iagrad(inode+1)-1
+              j = jagrad(jdir,i)
+              r_x(3,1,inode,iE) = r_x(3,1,inode,iE) + dagrad(jdir,i)*( + x_r(2,1,j,iE)*xg(3,j,iE)                           ) ! dxi_3/dx_1
+              r_x(3,2,inode,iE) = r_x(3,2,inode,iE) + dagrad(jdir,i)*( + x_r(3,1,j,iE)*xg(1,j,iE)                           ) ! dxi_3/dx_2
+              r_x(3,3,inode,iE) = r_x(3,3,inode,iE) + dagrad(jdir,i)*( + x_r(1,1,j,iE)*xg(2,j,iE)                           ) ! dxi_3/dx_3
+            end do
+
+            r_x(:,:,inode,ielem) = r_x(:,:,inode,ielem)/Jx_r(inode,ielem)
+
           end do
 
-          ! dxi_1/dx_3
-          j = 1 ; k = 3 ;
-          r_x(j,k,inode,ielem) = 0.0_wp
-          jdir = 3
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) + dagrad(jdir,i)*x_r(1,2,jnode,ielem)*xg(2,jnode,ielem)
-          end do
-          jdir = 2
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) - dagrad(jdir,i)*x_r(1,3,jnode,ielem)*xg(2,jnode,ielem)
-          end do
+        endif   !  symmetric portion of loop
 
-          ! dxi_2/dx_1
-          j = 2 ; k = 1 ;
-          r_x(j,k,inode,ielem) = 0.0_wp
-          jdir = 1
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) + dagrad(jdir,i)*x_r(2,3,jnode,ielem)*xg(3,jnode,ielem)
-          end do
-          jdir = 3
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) - dagrad(jdir,i)*x_r(2,1,jnode,ielem)*xg(3,jnode,ielem)
-          end do
-
-          ! dxi_2/dx_2
-          j = 2 ; k = 2 ;
-          r_x(j,k,inode,ielem) = 0.0_wp
-          jdir = 1
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) + dagrad(jdir,i)*x_r(3,3,jnode,ielem)*xg(1,jnode,ielem)
-          end do
-          jdir = 3
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) - dagrad(jdir,i)*x_r(3,1,jnode,ielem)*xg(1,jnode,ielem)
-          end do
-
-          ! dxi_2/dx_3
-          j = 2 ; k = 3 ;
-          r_x(j,k,inode,ielem) = 0.0_wp
-          jdir = 1
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) + dagrad(jdir,i)*x_r(1,3,jnode,ielem)*xg(2,jnode,ielem)
-          end do
-          jdir = 3
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) - dagrad(jdir,i)*x_r(1,1,jnode,ielem)*xg(2,jnode,ielem)
-          end do
-
-          ! dxi_3/dx_1
-          j = 3 ; k = 1 ;
-          r_x(j,k,inode,ielem) = 0.0_wp
-          jdir = 2
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) + dagrad(jdir,i)*x_r(2,1,jnode,ielem)*xg(3,jnode,ielem)
-          end do
-          jdir = 1
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) - dagrad(jdir,i)*x_r(2,2,jnode,ielem)*xg(3,jnode,ielem)
-          end do
-
-          ! dxi_3/dx_2
-          j = 3 ; k = 2 ;
-          r_x(j,k,inode,ielem) = 0.0_wp
-          jdir = 2
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) + dagrad(jdir,i)*x_r(3,1,jnode,ielem)*xg(1,jnode,ielem)
-          end do
-          jdir = 1
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) - dagrad(jdir,i)*x_r(3,2,jnode,ielem)*xg(1,jnode,ielem)
-          end do
-
-          ! dxi_3/dx_3
-          j = 3 ; k = 3 ;
-          r_x(j,k,inode,ielem) = 0.0_wp
-          jdir = 2
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) + dagrad(jdir,i)*x_r(1,1,jnode,ielem)*xg(2,jnode,ielem)
-          end do
-          jdir = 1
-          do i = iagrad(inode), iagrad(inode+1)-1
-            jnode = jagrad(jdir,i)
-            r_x(j,k,inode,ielem) = r_x(j,k,inode,ielem) - dagrad(jdir,i)*x_r(1,2,jnode,ielem)*xg(2,jnode,ielem)
-          end do
-
-          r_x(:,:,inode,ielem) = r_x(:,:,inode,ielem)/Jx_r(inode,ielem)
-
-        end do
       end if
 
 !     Metric Test
