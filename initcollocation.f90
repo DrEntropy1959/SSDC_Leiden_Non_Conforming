@@ -264,7 +264,7 @@ contains
     integer,  dimension(:),      allocatable, optional, intent(inout) :: ifacenodes
 
     real(wp), dimension(:),      allocatable, optional, intent(inout) :: x_pts_1d
- 
+    
     if(elem_props(1,ielem) == 1) then 
       if    (elem_props(2,ielem) == npoly+1) then
         if(present(n_pts_1d))then; n_pts_1d = n_LGL_1d_p0 ; endif

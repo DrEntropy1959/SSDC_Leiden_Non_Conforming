@@ -2190,16 +2190,16 @@ contains
 !endif
 !-- DAVID DEBUG END
 !-- DAVID DEBUG START
-!if(maxval(abs(dudt(:,inode,ielem))).GE.1.0e-11_wp)then
-!     write(*,*)'============================================='
-!     write(*,*)'ielem = ',ielem,' inode = ',inode
-!     write(*,*)'maxva(abs(dudt)) = ',maxval(abs(dudt(:,inode,ielem)))
-!     write(*,*)'maxval(abs(vol)) = ', maxval(abs(- divf(:,1,inode,ielem) &                 
-!                                 & - divf(:,2,inode,ielem) &
-!                                 & - divf(:,3,inode,ielem) ))
-!    write(*,*)'maxval(abs(sat)) = ',maxval(abs(gsat(:  ,inode,ielem)))
-!     write(*,*)'============================================='
-!endif
+if(maxval(abs(dudt(:,inode,ielem))).GE.1.0e-11_wp)then
+     write(*,*)'============================================='
+     write(*,*)'ielem = ',ielem,' inode = ',inode
+     write(*,*)'maxva(abs(dudt)) = ',maxval(abs(dudt(:,inode,ielem)))
+     write(*,*)'maxval(abs(vol)) = ', maxval(abs(- divf(:,1,inode,ielem) &                 
+                                 & - divf(:,2,inode,ielem) &
+                                 & - divf(:,3,inode,ielem) ))
+    write(*,*)'maxval(abs(sat)) = ',maxval(abs(gsat(:  ,inode,ielem)))
+     write(*,*)'============================================='
+endif
 !-- DAVID DEBUG END
       end do
 
@@ -3277,7 +3277,7 @@ contains
     use referencevariables
     use nsereferencevariables
     use controlvariables, only: heat_entropy_flow_wall_bc, Riemann_Diss_BC,  &
-                                entropy_flux_BC
+                                entropy_flux_BC, SAT_type
     use collocationvariables, only: l01, l00, Sfix, elem_props,              &
                                  Restrct_Gau_2_LGL_1d, Prolong_LGL_2_Gau_1d
 
@@ -3375,6 +3375,7 @@ contains
     real(wp), dimension(nequations,3)  :: grad_entr_int_normal,grad_entr_int_tangent
 
     real(wp), dimension(3)             :: unit_normal, normal_vel, tangent_vel, ref_vel_vector
+    integer                            :: i_err
     
     ! allocate local arrays
     allocate(ustar(nequations))
@@ -3396,7 +3397,7 @@ contains
 
     ! initialize penalty
     gsat(:,:,ielem) = 0.0_wp
-       
+
     ! establish ``on-element'' face information
     call element_properties(ielem,&
                    n_pts_1d=n_S_1d_On,&
@@ -3442,7 +3443,15 @@ contains
           
             ! Outward facing normal of facial node
             nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
-            nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)
+            if(SAT_type.EQ."mod_metric")then
+              nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)
+            elseif(SAT_type.EQ."mod_SAT")then
+              nx_Off = nx
+            else
+              write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
+                SAT_type,' ending computation'
+                call PetscFinalize(i_err); stop
+            endif
             
             ! Compute the boundary state
             call conserved_to_primitive( ug(:,inode,ielem), vg(:,inode,ielem), nequations ) ! (navierstokes)
@@ -3489,7 +3498,15 @@ contains
 !                     fstar = Entropy_KE_Consistent_Flux(vg(:,inode,ielem), vstar, nx, nequations ) ! (Entropy Flux)
                      fstar = Entropy_KE_Consistent_Flux(vg(:,inode,ielem), vstar, nx_Off, nequations ) ! (Entropy Flux)
                 end select
-                fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wstar(:)) )
+                if(SAT_type.EQ."mod_metric")then
+                  fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wstar(:)) )
+                elseif(SAT_type.EQ."mod_SAT")then
+                  write(*,*)' navierstokes: SAT_Penalty you have turned off dissipation on the boundary SAT'
+                  fstar = fstar
+                else
+                  write(*,*)'navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',SAT_type
+                  call PetscFinalize(i_err); stop
+                endif
             end select
 
             fstarV = normalviscousflux( vg(:,inode,ielem), phig(:,:,inode,ielem), nx, nequations,mut(inode,ielem)) &
@@ -3920,14 +3937,29 @@ contains
 !=========
 !       Inviscid interface SATs (skew-symmetric portion + Upwind Entropy Stable dissipation)
 !=========
-
-        call Inviscid_SAT_Non_Conforming_Interface(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
-                                                   n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
-                                                   n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
-                                                   n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
-                                                   pinv,                                           &
-                                                   vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
-                                                   cnt_Mort_Off, Intrp_On, Extrp_Off)
+        if(SAT_type.EQ."mod_metric")then
+          !-- modified metric approach
+          call Inviscid_SAT_Non_Conforming_Interface(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+                                                     n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                     n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                     n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
+                                                     pinv,                                           &
+                                                     vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
+                                                     cnt_Mort_Off, Intrp_On, Extrp_Off)
+        elseif(SAT_type.EQ."mod_SAT")then
+          !-- modified SAT approach
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+                                                     n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                     n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                     n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
+                                                     pinv,                                           &
+                                                     vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
+                                                     cnt_Mort_Off, Intrp_On, Extrp_Off)
+        else
+          write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
+            SAT_type,' ending computation'
+          call PetscFinalize(i_err); stop
+        endif
 ! ========
 !       Viscous interface SATs 
 ! ========
@@ -4129,8 +4161,7 @@ contains
   !       ielem: current element you are on
   !       iface: current face you are on
   !       kface: face of adjoining element
-  !       ifacenodes_On: ifacenodes(nodesperface*nfacesperelem) kfacenode flattened into a single vector 
-  !       kfacenodes_On: kfacenodes(nodesperface,nfacesperelem) volumetric node index of face node
+  !       ifacenodes_On: ifacenodes(nodesperface*nfacesperelem) kfacenode flattened into a single vector volumetric node index of face node
   !       n_S_2d_max: maximum number of nodes on a face
   !       n_S_1d_On: number of nodes in each direction for ielem
   !       n_S_2d_On: number of nodes on each face for ielem
@@ -4141,11 +4172,18 @@ contains
   !       n_S_1d_Mort: number of nodes in each direction on the Morter
   !       n_S_2d_Mort: number of nodes on the mortar face
   !       x_S_1d_Mort: one-dimensional computational coordiantes on the Mortar
-  !       pinv:
-  !       vg_1d_On: two dimensional 
+  !       pinv: vector with the norm weights in one-dimension
+  !       vg_2d_On: two dimensional array (dim,n_S_2d_On) holding the primative variables over the iface of element ielem 
+  !       vg_2d_Off: two dimensional array (dim,n_S_2d_Off) holding the primative variables over the iface of element kelem 
+  !       wg_Mort_On: two dimensional array (dim,n_S_2d_Mort) holding the projection of the entropy variables form ielem to the mortar
+  !       wg_Mort_Off:two dimensional array (dim,n_S_2d_Mort) holding the projection of the entropy variables form kelem to the mortar
+  !       cnt_Mort_Off: vector size n_S_2d_Mort gives the correspondance between the jth mortar nod for the ielem to the node on the kelem
+  !       Intrp_On: from the mortar to ielem
+  !       Extrp_Off: from kelem to the mortar
+  !
   ! Outputs
   ! 
-  ! Notes: HERE
+  ! Notes: HERE100
   !
   !=============================================================================
   subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
@@ -4157,12 +4195,14 @@ contains
                                                      cnt_Mort_Off, Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
-    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat
-    use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
+    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, ef2e
+    use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, element_properties
+    use initgrid,             only: elfacedirections
+
 
     implicit none
 
-    integer,                    intent(in) :: ielem, iface, kface
+    integer,                    intent(in) :: ielem, iface
     integer,                    intent(in) :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort
     integer,                    intent(in) :: n_S_2d_On, n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
     real(wp),  dimension(:),    intent(in) :: x_S_1d_On, x_S_1d_Off, x_S_1d_Mort
@@ -4173,7 +4213,7 @@ contains
     real(wp),  dimension(:,:),  intent(in) :: wg_Mort_On, wg_Mort_Off
     real(wp),  dimension(:,:),  intent(in) :: Intrp_On, Extrp_Off
     
-    real(wp),  dimension(ndim)             :: nx
+    real(wp),  dimension(ndim)             :: nx, nx_On, nx_Off
     real(wp),  dimension(nequations)       :: fn, fstar
     real(wp),  dimension(nequations)       :: vg_On, vg_Off
 
@@ -4182,9 +4222,12 @@ contains
     real(wp), allocatable, dimension(:,:) :: FC_Mort_On
     real(wp), allocatable, dimension(:,:) :: Up_diss_Mort, Up_diss_On
 
+    integer,  dimension(:),   allocatable :: kfacenodes_Off
+
     integer                               :: i, j, k, l
     integer                               :: ival, jval
-    integer                               :: inode, jnode
+    integer                               :: inode, jnode, kelem, kface,temp
+    real(wp)                              :: dx_On, dx_Off
 
     continue
 
@@ -4197,12 +4240,38 @@ contains
 !=========
 !         Skew-symmetric matrix portion of SATs (Entropy Stable through Mortar)
 !=========
+      kelem = ef2e(2,iface,ielem)
+      kface = ef2e(1,iface,ielem)
+
+      ! establish ``off-element'' face information
+      call element_properties(kelem,n_pts_2d=temp,ifacenodes=kfacenodes_Off)
 
       On_Element_1:do i = 1, n_S_2d_On                                       ! On_Element Loop over 2D LGL points
-        
-        Off_Element_1:do k = 1, n_S_2d_Off                                   ! Off_Element Loop over 2D LGL points
+ 
+        jnode =  n_S_2d_On*(iface-1) + i                                     ! Index in facial ordering
+              
+        inode = ifacenodes_On(jnode)                                         ! Volumetric node index corresponding to facial node index
 
+        dx_On = sign(1.0_wp,real(elfacedirections(iface),wp))                    ! remove the sign of the component of the unit normal in computational space
+
+        nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)*dx_On            ! On element metric terms
+                
+        Off_Element_1:do k = 1, n_S_2d_Off                                   ! Off_Element Loop over 2D LGL points
+         
+          !-- scaled outward facing normal for kelement at face node k
+          jnode =  n_S_2d_Off*(kface-1) + k                                     ! Index in facial ordering
+
+          inode = kfacenodes_Off(jnode)                                         ! Volumetric node index corresponding to facial node index
+
+          dx_Off = sign(1.0_wp,real(elfacedirections(kface),wp))                     ! remove sign of the component of the unit normal in computational space
+
+          nx_Off = Jx_r(inode,kelem)*facenodenormal(:,jnode,kelem)*dx_Off              ! Off element metric terms
+ 
           call EntropyConsistentFlux_Vectors(vg_2d_On(:,i), vg_2d_Off(:,k), nequations, FxA(:,k), FyA(:,k), FzA(:,k)) ! (Entropy Flux vectors)
+          
+          FxA(:,k) = dx_On*0.5_wp*(nx_On(1)+nx_Off(1))*FxA(:,k) 
+          FyA(:,k) = dx_On*0.5_wp*(nx_On(2)+nx_Off(2))*FyA(:,k)
+          FzA(:,k) = dx_On*0.5_wp*(nx_On(3)+nx_Off(3))*FzA(:,k) 
 
         enddo Off_Element_1                                                  ! End Off_Element
 
@@ -4212,13 +4281,9 @@ contains
 
         On_Mortar_1:do j = 1, n_S_2d_Mort                                    ! Mortar loop over 2D Gauss points
   
-          jnode =  n_S_2d_max*(iface-1) + j                                  ! Index in Mortar facial ordering
-  
-          nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)                       ! Outward facing normal on mortar
+          l = cnt_Mort_Off(j)                                                 ! Correct for face orientation and shift back to 1:n_S_2d_Mort
 
-              l = cnt_Mort_Off(j)                                            ! Correct for face orientation and shift back to 1:n_S_2d_Mort
-
-          FC_Mort_On(:,j) = FxB(:,l)*nx(1) + FyB(:,l)*nx(2) + FzB(:,l)*nx(3) ! Outward facing component of f^S on mortar
+          FC_Mort_On(:,j) = FxB(:,l) + FyB(:,l) + FzB(:,l) ! Outward facing component of f^S on mortar
 
         enddo On_Mortar_1                                                    ! End Mortar loop
 
@@ -4241,7 +4306,8 @@ contains
 !=========
 !         Inviscid interface dissipation (Entropy Stable Upwinding of SATs)
 !=========
-
+write(*,*)'naviersotkes: Inviscid_SAT_Non_Conforming_Interface_Mod_SAT upwinding turned off'
+if(.false.)then
       On_Mortar_2:do j = 1, n_S_2d_Mort                                      ! Mortar loop over data
   
         jnode =  n_S_2d_max*(iface-1) + j                                    ! Index in facial ordering (bucket is padded so n_S_2d_max is needed)
@@ -4274,7 +4340,7 @@ contains
       deallocate(FxB,FyB,FzB)
       deallocate(FC_Mort_On)
       deallocate(Up_diss_On,Up_diss_Mort)
-
+endif
   end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT
 
   !============================================================================

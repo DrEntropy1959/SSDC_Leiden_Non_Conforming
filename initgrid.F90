@@ -68,6 +68,8 @@ module initgrid
   integer, pointer, dimension(:,:) :: eltypfaces_Lexo
   integer, pointer, dimension(:) :: elfacedirections
 
+  public elfacedirections
+
   interface
     integer(c_int) function calcMetisPartitions(ne, nv, nps, xadj, adj, ncommon, &
         epart, npart, nnz) &
@@ -736,7 +738,7 @@ contains
     ! each element. Currently we assume that all elements are
     ! straight sided, but this can be remedied by incorporating
     ! CAD or analytical surface data. 
-    use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin
+    use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin, SAT_type
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
@@ -982,7 +984,12 @@ contains
 
               call element_properties(kelem_face2,       &
                                       n_pts_1d=nkelem_face2)           
+
               nmin = minval((/nE,nkelem_face1,nkelem_face2/))
+
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
               
               !-- this is not a boundary element and we have to make a comparison against one more element 
               !-- touching the connector
@@ -1012,6 +1019,9 @@ contains
               call element_properties(kelem_face3,       &
                                       n_pts_1d=nkelem_face3)           
               nmin = minval((/nE,nkelem_face1,nkelem_face3/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1033,6 +1043,9 @@ contains
               call element_properties(kelem_face4,       &
                                       n_pts_1d=nkelem_face4)           
               nmin = minval((/nE,nkelem_face1,nkelem_face4/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1054,6 +1067,9 @@ contains
               call element_properties(kelem_face5,       &
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face1,nkelem_face5/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1128,6 +1144,9 @@ contains
               call element_properties(kelem_face1,       &
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face2,nkelem_face1/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1149,6 +1168,9 @@ contains
               call element_properties(kelem_face3,       &
                                       n_pts_1d=nkelem_face3)           
               nmin = minval((/nE,nkelem_face2,nkelem_face3/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1170,6 +1192,9 @@ contains
               call element_properties(kelem_face6,       &
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face2,nkelem_face6/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1191,6 +1216,9 @@ contains
               call element_properties(kelem_face5,       &
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face2,nkelem_face5/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1258,6 +1286,9 @@ contains
               call element_properties(kelem_face1,       &
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face3,nkelem_face1/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1279,6 +1310,9 @@ contains
               call element_properties(kelem_face4,       &
                                       n_pts_1d=nkelem_face4)           
               nmin = minval((/nE,nkelem_face3,nkelem_face4/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1300,6 +1334,9 @@ contains
               call element_properties(kelem_face6,       &
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face3,nkelem_face6/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1321,6 +1358,9 @@ contains
               call element_properties(kelem_face1,       &
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face3,nkelem_face1/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1387,6 +1427,9 @@ contains
               call element_properties(kelem_face1,       &
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face4,nkelem_face1/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1408,6 +1451,9 @@ contains
               call element_properties(kelem_face3,       &
                                       n_pts_1d=nkelem_face3)           
               nmin = minval((/nE,nkelem_face4,nkelem_face3/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1429,6 +1475,9 @@ contains
               call element_properties(kelem_face6,       &
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face4,nkelem_face6/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp/2.0_wp)),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1450,6 +1499,9 @@ contains
               call element_properties(kelem_face5,       &
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face4,nkelem_face5/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1500,6 +1552,9 @@ contains
               call element_properties(kelem_face1,       &
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face1,nkelem_face5/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1521,6 +1576,9 @@ contains
               call element_properties(kelem_face4,       &
                                       n_pts_1d=nkelem_face4)           
               nmin = minval((/nE,nkelem_face1,nkelem_face4/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1542,6 +1600,9 @@ contains
               call element_properties(kelem_face6,       &
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face1,nkelem_face6/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1563,6 +1624,9 @@ contains
               call element_properties(kelem_face2,       &
                                       n_pts_1d=nkelem_face2)           
               nmin = minval((/nE,nkelem_face1,nkelem_face2/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1613,6 +1677,9 @@ contains
               call element_properties(kelem_face2,       &
                                       n_pts_1d=nkelem_face2)           
               nmin = minval((/nE,nkelem_face6,nkelem_face2/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1634,6 +1701,9 @@ contains
               call element_properties(kelem_face3,       &
                                       n_pts_1d=nkelem_face3)           
               nmin = minval((/nE,nkelem_face6,nkelem_face3/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1655,6 +1725,9 @@ contains
               call element_properties(kelem_face4,       &
                                       n_pts_1d=nkelem_face4)           
               nmin = minval((/nE,nkelem_face6,nkelem_face4/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
@@ -1676,6 +1749,9 @@ contains
               call element_properties(kelem_face5,       &
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face6,nkelem_face5/))
+              if(SAT_type.EQ."mod_SAT")then
+                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+              endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp

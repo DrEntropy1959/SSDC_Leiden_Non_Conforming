@@ -237,22 +237,31 @@ contains
 
     call calcfacenormals_Gau()
 
-    if(non_conforming .eqv. .true.) call modify_metrics_nonconforming()
+    if((non_conforming .eqv. .true.).AND.(SAT_type.EQ."mod_metric")) call modify_metrics_nonconforming()
    
     call calcfacenormals_LGL(.true.)
 
 !-- uncomment to write solution to file in a way that can be read by Matlab
-!    !-- write to file ONLY USE WITH ONE PROCESS
-!    if(.true.)then
-!      if (nprocs==1)then
-!        call write_grid_to_file('true.tf')
-!      else
-!        write(*,*)' Mesh not writtent to file as this is a parallel run'
-!        call PetscFinalize(i_err); stop 
-!      endif
-!    endif
+    !-- write to file ONLY USE WITH ONE PROCESS
+    if(.true.)then
+      if (nprocs==1)then
+        call write_grid_to_file('true.tf')
+      else
+        write(*,*)' Mesh not writtent to file as this is a parallel run'
+        call PetscFinalize(i_err); stop 
+      endif
+    endif
 !-- end of write to file
 
+!-- DAVID DEBUG SART
+     write(*,*)'face 1: element = ',ef2e(2,1,2),' face = ',ef2e(1,1,2) 
+     write(*,*)'face 2: element = ',ef2e(2,2,2),' face = ',ef2e(1,2,2) 
+     write(*,*)'face 3: element = ',ef2e(2,3,2),' face = ',ef2e(1,3,2) 
+     write(*,*)'face 4: element = ',ef2e(2,4,2),' face = ',ef2e(1,4,2) 
+     write(*,*)'face 5: element = ',ef2e(2,5,2),' face = ',ef2e(1,5,2) 
+     write(*,*)'face 6: element = ',ef2e(2,6,2),' face = ',ef2e(1,6,2) 
+
+!-- DAVID DEBUG END
     if (myprocid == 0) then
       write(*,*) 'Start actual computation'
       write(*,*) '==============================================================='
