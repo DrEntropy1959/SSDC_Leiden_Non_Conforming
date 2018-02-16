@@ -738,7 +738,8 @@ contains
     ! each element. Currently we assume that all elements are
     ! straight sided, but this can be remedied by incorporating
     ! CAD or analytical surface data. 
-    use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin, SAT_type
+    use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin, SAT_type,&
+                                symmetric
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
@@ -978,6 +979,7 @@ contains
               !-- find the element number of the adjoining element to face 1 and 2
               kelem_face1 = ef2e(2,1,ielem)
               kelem_face2 = ef2e(2,2,ielem)
+
               !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
               call element_properties(kelem_face1,       &
                                       n_pts_1d=nkelem_face1)
@@ -985,20 +987,18 @@ contains
               call element_properties(kelem_face2,       &
                                       n_pts_1d=nkelem_face2)           
 
+
               nmin = minval((/nE,nkelem_face1,nkelem_face2/))
 
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
               
-              !-- this is not a boundary element and we have to make a comparison against one more element 
-              !-- touching the connector
-              if (ef2e(1,iface,ielem) > 0) then
-                
-                !nmin = minval((/nmin,n4/))
-              endif
-
-
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
               if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
 
@@ -1012,15 +1012,24 @@ contains
               !-- find the element number of the adjoining element to face 1 and 3
               kelem_face1 = ef2e(2,1,ielem)
               kelem_face3 = ef2e(2,3,ielem)
+
               !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
               call element_properties(kelem_face1,       &
                                       n_pts_1d=nkelem_face1)
 
               call element_properties(kelem_face3,       &
                                       n_pts_1d=nkelem_face3)           
+
+
               nmin = minval((/nE,nkelem_face1,nkelem_face3/))
+
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1036,15 +1045,23 @@ contains
               !-- find the element number of the adjoining element to face 1 and 4
               kelem_face1 = ef2e(2,1,ielem)
               kelem_face4 = ef2e(2,4,ielem)
+
               !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
               call element_properties(kelem_face1,       &
                                       n_pts_1d=nkelem_face1)
 
               call element_properties(kelem_face4,       &
                                       n_pts_1d=nkelem_face4)           
+
               nmin = minval((/nE,nkelem_face1,nkelem_face4/))
+
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1068,7 +1085,12 @@ contains
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face1,nkelem_face5/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1137,6 +1159,7 @@ contains
               !-- find the element number of the adjoining element to face 2 and 1
               kelem_face2 = ef2e(2,2,ielem)
               kelem_face1 = ef2e(2,1,ielem)
+
               !-- find the polynomial order of the elements that share this connector (elements that touch face 2 and face 1)
               call element_properties(kelem_face2,       &
                                       n_pts_1d=nkelem_face2)
@@ -1145,7 +1168,12 @@ contains
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face2,nkelem_face1/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1169,7 +1197,12 @@ contains
                                       n_pts_1d=nkelem_face3)           
               nmin = minval((/nE,nkelem_face2,nkelem_face3/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1193,7 +1226,12 @@ contains
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face2,nkelem_face6/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1217,7 +1255,12 @@ contains
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face2,nkelem_face5/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1229,22 +1272,12 @@ contains
                                                        x_LGL_1d,x_LGL_1d_min,r(1),origin) 
             endif     
             
-            !if(ielem.EQ.1)then
-            !  call write_matrix_to_file_matlab(xl(:, :, 1, 1),3,nE,'connector112.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1, :),3,nE,'connector212.tf')
-            !  call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector312.tf')
-            !  call write_matrix_to_file_matlab(xl(:, 1, 1, :),3,nE,'connector412.tf')
-            !elseif(ielem.EQ.2)then
-            !  call write_matrix_to_file_matlab(xl(:, :, 1, 1),3,nE,'connector122.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1, :),3,nE,'connector222.tf')
-            !  call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector322.tf')
-            !  call write_matrix_to_file_matlab(xl(:, 1, 1, :),3,nE,'connector422.tf')
-            !elseif(ielem.EQ.3)then
-            !  call write_matrix_to_file_matlab(xl(:, :, 1, 1),3,nE,'connector132.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1, :),3,nE,'connector232.tf')
-            !  call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector332.tf')
-            !  call write_matrix_to_file_matlab(xl(:, 1, 1, :),3,nE,'connector432.tf')
-            !endif         
+           ! if(ielem.EQ.2)then
+           !   call write_matrix_to_file_matlab(xl(:, :, 1, 1),3,nE,'connector1_2_2.tf')
+           !   call write_matrix_to_file_matlab(xl(:,nE, 1, :),3,nE,'connector2_2_2.tf')
+           !   call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector3_2_2.tf')
+           !   call write_matrix_to_file_matlab(xl(:, 1, 1, :),3,nE,'connector4_2_2.tf')
+           ! endif         
 
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
@@ -1255,14 +1288,10 @@ contains
               ! xi_2 = 0
               call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
             endif  
-            !if(ielem.EQ.1)then
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,1,1:nE),nE,nE,'x12.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,1,1:nE),nE,nE,'y12.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,1,1:nE),nE,nE,'z12.tf')
-            !else
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,1,1:nE),nE,nE,'x22.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,1,1:nE),nE,nE,'y22.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,1,1:nE),nE,nE,'z22.tf')
+            !if(ielem.EQ.2)then
+            !  call write_matrix_to_file_matlab(xl(1,1:nE,1,1:nE),nE,nE,'x2_2.tf')
+            !  call write_matrix_to_file_matlab(xl(2,1:nE,1,1:nE),nE,nE,'y2_2.tf')
+            !  call write_matrix_to_file_matlab(xl(3,1:nE,1,1:nE),nE,nE,'z2_2.tf')
             !endif 
 !-- face 3
           elseif(iface.EQ.3)then
@@ -1287,7 +1316,12 @@ contains
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face3,nkelem_face1/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1311,7 +1345,12 @@ contains
                                       n_pts_1d=nkelem_face4)           
               nmin = minval((/nE,nkelem_face3,nkelem_face4/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1335,7 +1374,12 @@ contains
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face3,nkelem_face6/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1359,7 +1403,12 @@ contains
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face3,nkelem_face1/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1370,22 +1419,12 @@ contains
               xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
                                                        x_LGL_1d,x_LGL_1d_min,r(1),origin) 
              endif 
-            !if(ielem.EQ.1)then
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1, 1),3,nE,'connector113.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE,nE, 1),3,nE,'connector213.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1,nE),3,nE,'connector313.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1, 1),3,nE,'connector413.tf')
-            !elseif(ielem.EQ.2)then
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1, 1),3,nE,'connector123.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE,nE, 1),3,nE,'connector223.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1,nE),3,nE,'connector323.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1, 1),3,nE,'connector423.tf')
-            !elseif(ielem.EQ.3)then
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1, 1),3,nE,'connector133.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE,nE, 1),3,nE,'connector233.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1,nE),3,nE,'connector333.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, 1, 1),3,nE,'connector433.tf')
-            !endif  
+           ! if(ielem.EQ.98)then
+           !   call write_matrix_to_file_matlab(xl(:,nE, 1, 1),3,nE,'connector1_98_3.tf')
+           !   call write_matrix_to_file_matlab(xl(:,nE,nE, 1),3,nE,'connector2_98_3.tf')
+           !   call write_matrix_to_file_matlab(xl(:,nE, 1,nE),3,nE,'connector3_98_3.tf')
+           !   call write_matrix_to_file_matlab(xl(:,nE, 1, 1),3,nE,'connector4_98_3.tf')
+           ! endif  
 
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
@@ -1396,15 +1435,11 @@ contains
               ! xi_1 = 1
               call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
             endif  
-            !if(ielem.EQ.1)then
-            !  call write_matrix_to_file_matlab(xl(1,nE,1:nE,1:nE),nE,nE,'x13.tf')
-            !  call write_matrix_to_file_matlab(xl(2,nE,1:nE,1:nE),nE,nE,'y13.tf')
-            !  call write_matrix_to_file_matlab(xl(3,nE,1:nE,1:nE),nE,nE,'z13.tf')
-            !else
-            !  call write_matrix_to_file_matlab(xl(1,nE,1:nE,1:nE),nE,nE,'x23.tf')
-            !  call write_matrix_to_file_matlab(xl(2,nE,1:nE,1:nE),nE,nE,'y23.tf')
-            !  call write_matrix_to_file_matlab(xl(3,nE,1:nE,1:nE),nE,nE,'z23.tf')
-            !endif
+           ! if(ielem.EQ.98)then
+           !   call write_matrix_to_file_matlab(xl(1,nE,1:nE,1:nE),nE,nE,'x98_3.tf')
+           !   call write_matrix_to_file_matlab(xl(2,nE,1:nE,1:nE),nE,nE,'y98_3.tf')
+           !   call write_matrix_to_file_matlab(xl(3,nE,1:nE,1:nE),nE,nE,'z98_3.tf')
+           ! endif
 !-- face 4
           elseif(iface.EQ.4)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1428,7 +1463,12 @@ contains
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face4,nkelem_face1/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1452,7 +1492,12 @@ contains
                                       n_pts_1d=nkelem_face3)           
               nmin = minval((/nE,nkelem_face4,nkelem_face3/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1476,7 +1521,12 @@ contains
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face4,nkelem_face6/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp/2.0_wp)),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp/2.0_wp)),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1500,7 +1550,12 @@ contains
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face4,nkelem_face5/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1553,7 +1608,12 @@ contains
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face1,nkelem_face5/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                 if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else        
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1577,7 +1637,12 @@ contains
                                       n_pts_1d=nkelem_face4)           
               nmin = minval((/nE,nkelem_face1,nkelem_face4/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1601,7 +1666,12 @@ contains
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face1,nkelem_face6/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1625,7 +1695,12 @@ contains
                                       n_pts_1d=nkelem_face2)           
               nmin = minval((/nE,nkelem_face1,nkelem_face2/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1678,7 +1753,12 @@ contains
                                       n_pts_1d=nkelem_face2)           
               nmin = minval((/nE,nkelem_face6,nkelem_face2/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1702,7 +1782,12 @@ contains
                                       n_pts_1d=nkelem_face3)           
               nmin = minval((/nE,nkelem_face6,nkelem_face3/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1726,7 +1811,12 @@ contains
                                       n_pts_1d=nkelem_face4)           
               nmin = minval((/nE,nkelem_face6,nkelem_face4/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1750,7 +1840,12 @@ contains
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face6,nkelem_face5/))
               if(SAT_type.EQ."mod_SAT")then
-                nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                if(symmetric)then
+                  !-- symmetric computation of the metrics
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                else
+                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+                endif
               endif
 
               if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
@@ -1849,6 +1944,186 @@ contains
     deallocate(x_LGL_1d)
 
   end subroutine calcnodes_LGL
+  !================================================================================================
+  !
+  ! Purpose: This function determines what the second common element between two elements ielem and 
+  !          kelem; it is elem2 in the picture below
+  ! iface = 1
+  !   connector 1 =  xi_2 = 0, xi_3 = 0
+  !
+  !      ---------   ---------
+  !      | ielem |   | kelem |
+  !      |       |   |       |
+  !      ---------   ---------
+  !      ---------   ---------
+  !      | elem1  |  | elem2 |
+  !      |        |  |       |
+  !      ----------  ---------
+  !
+  !
+  ! inputs:
+  !         ielem, kelem, elem1 = element numbers
+  !
+  ! Output:
+  !         common_element: element number for elem2
+  !
+  ! Notes:
+  !================================================================================================
+!  function nmin_connector(ielem,iface,connector)
+!    use variables, only: boundaryelems, ef2e
+!   
+!    implicit none
+!    integer, intent(in)    :: ielem,kelem,elem1
+!    integer                :: common_element
+!    integer, dimension(6)  :: lielem, lkelem
+!    integer                :: iface
+!
+!    !-- determine two of the touching elements, the assumption is that the mesh is such that
+!    !    the connector (c) is between 4 elements (note that the position of ielem is determined by the iface)
+!    !      ---------   ---------
+!    !      | ielem |   | elem3 |
+!    !      |       |   |       |
+!    !      ---------   ---------
+!    !      --------- c  ---------
+!    !      | elem1  |  | elem2 |
+!    !      |        |  |       |
+!    !      ----------  ---------
+!
+!    !-- determine the number number of nodes in one-dimension of the two elements that touch element
+!    !   ielem
+!    if(iface.EQ.1)then
+!      if(connector.EQ.1)then
+!        !-- connector at xi_2 = 0, xi_3 = 0
+!        !-- find the element number of the adjoining element to face 1 and 2
+!        kelem1 = ef2e(2,1,ielem)
+!        kelem2 = ef2e(2,2,ielem)
+!      elseif(connector.EQ.2)then
+!        !-- connector at xi_1 = 1, xi_3 = 0
+!        !-- find the element number of the adjoining element to face 1 and 3
+!        kelem_face1 = ef2e(2,1,ielem)
+!        kelem_face3 = ef2e(2,3,ielem)
+!      elseif(connector.EQ.3)then
+!        !-- connector at xi_2 = 1, xi_3 = 0
+!        !-- find the element number of the adjoining element to face 1 and 4
+!        kelem_face1 = ef2e(2,1,ielem)
+!        kelem_face4 = ef2e(2,4,ielem)
+!      elseif(connector.EQ.4)then
+!        !-- connector at xi_1 = 0, xi_3 = 0
+!        !-- find the element number of the adjoining element to face 1 and 5
+!        kelem_face1 = ef2e(2,1,ielem)
+!        kelem_face5 = ef2e(2,5,ielem)
+!      endif
+!    elseif(iface.EQ.2)then
+!      if(connector.EQ.1)then
+!        !-- connector at xi_2 = 0, xi_3 = 0
+!        !-- find the element number of the adjoining element to face 2 and 1
+!        kelem_face2 = ef2e(2,2,ielem)
+!        kelem_face1 = ef2e(2,1,ielem)
+!      elseif(connector.EQ.2)then
+!        !-- connector at xi_1 = 1, xi_2 = 0
+!        !-- find the element number of the adjoining element to face 2 and 3
+!        kelem_face2 = ef2e(2,2,ielem)
+!        kelem_face3 = ef2e(2,3,ielem)
+!      elseif(connector.EQ.3)then
+!        !-- connector at xi_2 = 0, xi_3 = 1
+!        !-- find the element number of the adjoining element to face 2 and 6
+!        kelem_face2 = ef2e(2,2,ielem)
+!        kelem_face6 = ef2e(2,6,ielem)
+!      elseif(connector.EQ.4)then
+!        !-- connector at xi_1 = 0, xi_2 = 0
+!        !-- find the element number of the adjoining element to face 2 and 5
+!        kelem_face2 = ef2e(2,2,ielem)
+!        kelem_face5 = ef2e(2,5,ielem)
+!      endif
+!    elseif(iface.EQ.3)then
+!      if(connector.EQ.1)then
+!!      !-- connector at xi_1 = 1, xi_3 = 0
+!!      !-- find the element number of the adjoining element to face 3 and 1
+!      kelem_face3 = ef2e(2,3,ielem)
+!      kelem_face1 = ef2e(2,1,ielem)
+!      elseif(connector.EQ.2)then
+!      !-- connector at xi_1 = 1, xi_2 = 1
+!      !-- find the element number of the adjoining element to face 3 and 4
+!      kelem_face3 = ef2e(2,3,ielem)
+!      kelem_face4 = ef2e(2,4,ielem)
+!      elseif(connector.EQ.3)then
+!      !-- connector at xi_1 = 1, xi_3 = 1
+!      !-- find the element number of the adjoining element to face 3 and 6
+!      kelem_face3 = ef2e(2,3,ielem)
+!      kelem_face6 = ef2e(2,6,ielem)
+!      elseif(connector.EQ.4)then
+!      !-- connector at xi_1 = 1, xi_2 = 0
+!      !-- find the element number of the adjoining element to face 3 and 1
+!      kelem_face3 = ef2e(2,3,ielem)
+!      kelem_face1 = ef2e(2,1,ielem)
+!      endif
+!    elseif(iface.EQ.4)then
+!      if(connector.EQ.1)then
+!      !-- connector at xi_2 = 1, xi_3 = 0
+!      !-- find the element number of the adjoining element to face 4 and 1
+!      kelem_face4 = ef2e(2,4,ielem)
+!      kelem_face1 = ef2e(2,1,ielem)
+!      elseif(connector.EQ.2)then
+!      !-- connector at xi_1 = 1, xi_2 = 1
+!      !-- find the element number of the adjoining element to face 4 and 3
+!      kelem_face4 = ef2e(2,4,ielem)
+!      kelem_face3 = ef2e(2,3,ielem)
+!      elseif(connector.EQ.3)then
+!      !-- connector at xi_2 = 1, xi_3 = 1
+!      !-- find the element number of the adjoining element to face 4 and 6
+!      kelem_face4 = ef2e(2,4,ielem)
+!      kelem_face6 = ef2e(2,6,ielem)
+!      elseif(connector.EQ.4)then
+!      !-- connector at xi_1 = 0, xi_2 = 1
+!      !-- find the element number of the adjoining element to face 4 and 5
+!      kelem_face4 = ef2e(2,4,ielem)
+!      kelem_face5 = ef2e(2,5,ielem)
+!      endif
+!    elseif(iface.EQ.5)then
+!      if(connector.EQ.1)then
+!        !-- connector at xi_1 = 0, xi_3 = 0
+!        !-- find the element number of the adjoining element to face 5 and 1
+!        kelem_face5 = ef2e(2,5,ielem)
+!        kelem_face1 = ef2e(2,1,ielem)
+!      elseif(connector.EQ.2)then
+!      elseif(connector.EQ.3)then
+!      elseif(connector.EQ.4)then
+!      endif
+!    elseif(iface.EQ.6)then
+!    endif
+!    
+!    !-- determine the fourth element that is commone with the connector
+!    common_element = -1
+!    !-- construct the list of touching elements for ielem and kelem
+!    do iface = 1,6
+!      lielem(iface) = ef2e(2,iface,ielem)
+!      lkelem(iface) = ef2e(2,iface,kelem)
+!    enddo
+!
+!   !-- determine the common element
+!   do iface = 1,6
+!     if((lielem(iface).EQ.lkelem(iface)).AND.(lielem(iface).NE.elem1))then
+!       common_element = lielem(iface)
+!     endif
+!   enddo
+!
+!   !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
+!   call element_properties(kelem1,n_pts_1d=nkelem1)
+!   call element_properties(kelem2,n_pts_1d=nkelem2) 
+!   call element_properties(kelem3,n_pts_1d=nkelem3)
+! 
+!   nmin = minval((/nE,nkelem1,nkelem2,nkelem3/))
+!
+!   if(SAT_type.EQ."mod_SAT")then
+!     if(symmetric)then
+!       !-- symmetric computation of the metrics
+!       nmin = nmin-numb
+!      else
+!        nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
+!      endif
+!   endif
+!  
+!  end function nmin_connector
   !================================================================================================
   !
   ! Purpose: Constructs a patch of nodes on the sphere. It takes a straight patch with the nodal 
@@ -3128,6 +3403,7 @@ contains
     use variables, only: xg, x_r, r_x, Jx_r, dx_min_elem
     use collocationvariables, only: nnzgrad, iagrad, jagrad, dagrad, pvol
     use initcollocation, only: element_properties
+    use controlvariables, only: symmetric
     use mpimod
 
     implicit none
@@ -3146,8 +3422,6 @@ contains
 
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
-
-    logical :: symmetric = .true.
 
     continue 
 

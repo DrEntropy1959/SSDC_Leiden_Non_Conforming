@@ -2190,16 +2190,16 @@ contains
 !endif
 !-- DAVID DEBUG END
 !-- DAVID DEBUG START
-if(maxval(abs(dudt(:,inode,ielem))).GE.1.0e-11_wp)then
-     write(*,*)'============================================='
-     write(*,*)'ielem = ',ielem,' inode = ',inode
-     write(*,*)'maxva(abs(dudt)) = ',maxval(abs(dudt(:,inode,ielem)))
-     write(*,*)'maxval(abs(vol)) = ', maxval(abs(- divf(:,1,inode,ielem) &                 
-                                 & - divf(:,2,inode,ielem) &
-                                 & - divf(:,3,inode,ielem) ))
-    write(*,*)'maxval(abs(sat)) = ',maxval(abs(gsat(:  ,inode,ielem)))
-     write(*,*)'============================================='
-endif
+!if(maxval(abs(dudt(:,inode,ielem))).GE.1.0e-11_wp)then
+!     write(*,*)'============================================='
+!     write(*,*)'ielem = ',ielem,' inode = ',inode
+!     write(*,*)'maxva(abs(dudt)) = ',maxval(abs(dudt(:,inode,ielem)))
+!     write(*,*)'maxval(abs(vol)) = ', maxval(abs(- divf(:,1,inode,ielem) &                 
+!                                 & - divf(:,2,inode,ielem) &
+!                                 & - divf(:,3,inode,ielem) ))
+!    write(*,*)'maxval(abs(sat)) = ',maxval(abs(gsat(:  ,inode,ielem)))
+!     write(*,*)'============================================='
+!endif
 !-- DAVID DEBUG END
       end do
 
