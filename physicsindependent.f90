@@ -237,7 +237,7 @@ contains
 
     call calcfacenormals_Gau()
 
-    if(non_conforming .eqv. .true.) call modify_metrics_nonconforming()
+    if((non_conforming .eqv. .true.).AND.(SAT_type.EQ."mod_metric")) call modify_metrics_nonconforming()
    
     call calcfacenormals_LGL(.true.)
 

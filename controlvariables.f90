@@ -21,6 +21,7 @@ module controlvariables
   character(120) :: Riemann_Diss_BC          = 'Roe'
   character(120) :: Entropy_Flux             = 'Ismail_Roe'
   character(120) :: Entropy_Flux_BC          = 'Ismail_Roe'
+  character(120) :: SAT_type                 = 'mod_metric'
 
   character(120) :: Grid_Topology            = 'linear'  !  'cylinder' 'sphere'
   real(wp), dimension(3) :: cylinder_x0, cylinder_x1
@@ -67,6 +68,7 @@ module controlvariables
   logical          :: variable_viscosity             = .false.
   logical          :: Dt_by_CFL                      = .false.
   logical          :: non_conforming                 = .false.
+  logical          :: symmetric                      = .true.
 
   logical          :: write_restart                  = .true.
   character(120)   :: write_restart_dir              = 'restart'
