@@ -3071,7 +3071,7 @@ contains
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
 
-    logical :: symmetric = .true.
+    logical :: symmetric = .false.      ! Symmetric form (.true) is taken from Sjogreen.Yee.Vinokur.LLNL_TR_637397.HOFD.Metrics.GCL.Moving.Meshes.pdf
 
     continue 
 
