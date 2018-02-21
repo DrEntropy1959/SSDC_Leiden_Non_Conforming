@@ -739,7 +739,7 @@ contains
     ! straight sided, but this can be remedied by incorporating
     ! CAD or analytical surface data. 
     use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin, SAT_type,&
-                                symmetric
+                                symmetric_metric
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
@@ -991,7 +991,7 @@ contains
               nmin = minval((/nE,nkelem_face1,nkelem_face2/))
 
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1024,7 +1024,7 @@ contains
               nmin = minval((/nE,nkelem_face1,nkelem_face3/))
 
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1056,7 +1056,7 @@ contains
               nmin = minval((/nE,nkelem_face1,nkelem_face4/))
 
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1085,7 +1085,7 @@ contains
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face1,nkelem_face5/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1168,7 +1168,7 @@ contains
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face2,nkelem_face1/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1197,7 +1197,7 @@ contains
                                       n_pts_1d=nkelem_face3)           
               nmin = minval((/nE,nkelem_face2,nkelem_face3/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1226,7 +1226,7 @@ contains
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face2,nkelem_face6/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1255,7 +1255,7 @@ contains
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face2,nkelem_face5/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1316,7 +1316,7 @@ contains
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face3,nkelem_face1/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1345,7 +1345,7 @@ contains
                                       n_pts_1d=nkelem_face4)           
               nmin = minval((/nE,nkelem_face3,nkelem_face4/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1374,7 +1374,7 @@ contains
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face3,nkelem_face6/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1403,7 +1403,7 @@ contains
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face3,nkelem_face1/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1463,7 +1463,7 @@ contains
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face4,nkelem_face1/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1492,7 +1492,7 @@ contains
                                       n_pts_1d=nkelem_face3)           
               nmin = minval((/nE,nkelem_face4,nkelem_face3/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1521,7 +1521,7 @@ contains
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face4,nkelem_face6/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1550,7 +1550,7 @@ contains
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face4,nkelem_face5/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1608,7 +1608,7 @@ contains
                                       n_pts_1d=nkelem_face1)           
               nmin = minval((/nE,nkelem_face1,nkelem_face5/))
               if(SAT_type.EQ."mod_SAT")then
-                 if(symmetric)then
+                 if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else        
@@ -1637,7 +1637,7 @@ contains
                                       n_pts_1d=nkelem_face4)           
               nmin = minval((/nE,nkelem_face1,nkelem_face4/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1666,7 +1666,7 @@ contains
                                       n_pts_1d=nkelem_face6)           
               nmin = minval((/nE,nkelem_face1,nkelem_face6/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1695,7 +1695,7 @@ contains
                                       n_pts_1d=nkelem_face2)           
               nmin = minval((/nE,nkelem_face1,nkelem_face2/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1753,7 +1753,7 @@ contains
                                       n_pts_1d=nkelem_face2)           
               nmin = minval((/nE,nkelem_face6,nkelem_face2/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1782,7 +1782,7 @@ contains
                                       n_pts_1d=nkelem_face3)           
               nmin = minval((/nE,nkelem_face6,nkelem_face3/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1811,7 +1811,7 @@ contains
                                       n_pts_1d=nkelem_face4)           
               nmin = minval((/nE,nkelem_face6,nkelem_face4/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -1840,7 +1840,7 @@ contains
                                       n_pts_1d=nkelem_face5)           
               nmin = minval((/nE,nkelem_face6,nkelem_face5/))
               if(SAT_type.EQ."mod_SAT")then
-                if(symmetric)then
+                if(symmetric_metric)then
                   !-- symmetric computation of the metrics
                   nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
                 else
@@ -2115,7 +2115,7 @@ contains
 !   nmin = minval((/nE,nkelem1,nkelem2,nkelem3/))
 !
 !   if(SAT_type.EQ."mod_SAT")then
-!     if(symmetric)then
+!     if(symmetric_metric)then
 !       !-- symmetric computation of the metrics
 !       nmin = nmin-numb
 !      else
@@ -3403,7 +3403,7 @@ contains
     use variables, only: xg, x_r, r_x, Jx_r, dx_min_elem
     use collocationvariables, only: nnzgrad, iagrad, jagrad, dagrad, pvol
     use initcollocation, only: element_properties
-    use controlvariables, only: symmetric
+    use controlvariables, only: symmetric_metric
     use mpimod
 
     implicit none
@@ -3423,7 +3423,6 @@ contains
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
 
-!   logical :: symmetric = .false.      ! Symmetric form (.true) is taken from Sjogreen.Yee.Vinokur.LLNL_TR_637397.HOFD.Metrics.GCL.Moving.Meshes.pdf
 
     continue 
 
@@ -3504,7 +3503,7 @@ contains
         iE = ielem                                 !  New variable strictly cosmetic so formulae are shorter
         r_x(:,:,:,ielem) = 0.0_wp
 
-        if(symmetric) then
+        if(symmetric_metric) then        !   Symmetric form (.true) is taken from Sjogreen.Yee.Vinokur.LLNL_TR_637397.HOFD.Metrics.GCL.Moving.Meshes.pdf
 
           do inode = 1, n_LGL_3d
 
@@ -3606,11 +3605,11 @@ contains
               r_x(3,3,inode,iE) = r_x(3,3,inode,iE) + dagrad(jdir,i)*( + x_r(1,1,j,iE)*xg(2,j,iE)                           ) ! dxi_3/dx_3
             end do
 
-            r_x(:,:,inode,ielem) = r_x(:,:,inode,ielem)/Jx_r(inode,ielem)
+            r_x(:,:,inode,iE) = r_x(:,:,inode,iE)/Jx_r(inode,iE)
 
           end do
 
-        endif   !  symmetric portion of loop
+        endif   !  symmetric_metric portion of loop
 
       end if
 
@@ -3865,6 +3864,7 @@ contains
       err_Linf = max(err_Linf,err)
 
       a_t(:,:) = a_t(:,:) - delta_a(:,:)
+
 !-- DEBUG DAVID START
 !      write(*,*)'1 error in orginal system = ',maxval(abs(matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)))
 !      write(*,*)'diff in original metrics = ',maxval(abs(delta_a))
