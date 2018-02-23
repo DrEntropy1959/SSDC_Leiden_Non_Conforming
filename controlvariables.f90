@@ -68,7 +68,7 @@ module controlvariables
   logical          :: variable_viscosity             = .false.
   logical          :: Dt_by_CFL                      = .false.
   logical          :: non_conforming                 = .false.
-  logical          :: symmetric                      = .true.
+  logical          :: symmetric                      = .false.
 
   logical          :: write_restart                  = .true.
   character(120)   :: write_restart_dir              = 'restart'
