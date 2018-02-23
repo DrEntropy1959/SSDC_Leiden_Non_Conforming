@@ -193,7 +193,7 @@ contains
         ! Update primitive, entropy variables and CNG gradients
         call nse_reconcilestates()
 !-- DEBUG DAVID START
-!        call PetscFinalize(i_err); stop
+!       call PetscFinalize(i_err); stop
 !-- DEBUG DAVID END
       end do rkloop
 

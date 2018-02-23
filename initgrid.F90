@@ -765,12 +765,7 @@ contains
 
     integer                                             :: n_pts_1d_neighbor, i1d, ii, jj, kk, cnt
 
-    integer                                             :: kelem_face1, kelem_face2, kelem_face3,&
-                                                           kelem_face4, kelem_face5, kelem_face6
-
-    integer                                             :: nkelem_face1, nkelem_face2, nkelem_face3,&
-                                                           nkelem_face4, nkelem_face5, nkelem_face6,&
-                                                           nmin, n4
+    integer                                             ::nmin
 
     real(wp), allocatable                              :: x_LGL_1d_min(:), w_LGL_1d_min(:)
 
@@ -972,151 +967,7 @@ contains
               dx = xl(:,nE,nE, 1)-xl(:,nE, 1, 1) ; xl(:,nE, i1d, 1) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_3 = 0
               dx = xl(:,nE,nE, 1)-xl(:, 1,nE, 1) ; xl(:, i1d,nE, 1) = xl(:, 1,nE, 1) + dr*dx ! xi_2 = 1, xi_3 = 0
               dx = xl(:, 1,nE, 1)-xl(:, 1, 1, 1) ; xl(:, 1, i1d, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_3 = 0
-            enddo
-            !-- check the four connectors to see if they lay on the sphere
-            if( (abs(r(1)-r(2)).LE.tol) )then
-              !-- connector at xi_2 = 0, xi_3 = 0
-              !-- find the element number of the adjoining element to face 1 and 2
-              kelem_face1 = ef2e(2,1,ielem)
-              kelem_face2 = ef2e(2,2,ielem)
-
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
-              call element_properties(kelem_face1,       &
-                                      n_pts_1d=nkelem_face1)
-
-              call element_properties(kelem_face2,       &
-                                      n_pts_1d=nkelem_face2)           
-
-
-              nmin = minval((/nE,nkelem_face1,nkelem_face2/))
-
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-              
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, :, 1, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-            endif  
-            if( (abs(r(2)-r(3)).LE.tol) )then
-              !-- connector at xi_1 = 1, xi_3 = 0
-              !-- find the element number of the adjoining element to face 1 and 3
-              kelem_face1 = ef2e(2,1,ielem)
-              kelem_face3 = ef2e(2,3,ielem)
-
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
-              call element_properties(kelem_face1,       &
-                                      n_pts_1d=nkelem_face1)
-
-              call element_properties(kelem_face3,       &
-                                      n_pts_1d=nkelem_face3)           
-
-
-              nmin = minval((/nE,nkelem_face1,nkelem_face3/))
-
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, nE, :, 1) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-            endif           
-            if( (abs(r(3)-r(4)).LE.tol) )then
-              !-- connector at xi_2 = 1, xi_3 = 0
-              !-- find the element number of the adjoining element to face 1 and 4
-              kelem_face1 = ef2e(2,1,ielem)
-              kelem_face4 = ef2e(2,4,ielem)
-
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
-              call element_properties(kelem_face1,       &
-                                      n_pts_1d=nkelem_face1)
-
-              call element_properties(kelem_face4,       &
-                                      n_pts_1d=nkelem_face4)           
-
-              nmin = minval((/nE,nkelem_face1,nkelem_face4/))
-
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
-            endif
-            if( (abs(r(4)-r(1)).LE.tol) )then
-              !-- connector at xi_1 = 0, xi_3 = 0
-              !-- find the element number of the adjoining element to face 1 and 5
-              kelem_face1 = ef2e(2,1,ielem)
-              kelem_face5 = ef2e(2,5,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
-              call element_properties(kelem_face1,       &
-                                      n_pts_1d=nkelem_face1)
-
-              call element_properties(kelem_face5,       &
-                                      n_pts_1d=nkelem_face5)           
-              nmin = minval((/nE,nkelem_face1,nkelem_face5/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-            endif 
-            ! if(ielem.EQ.1)then
-            !  call write_matrix_to_file_matlab(xl(:, :, 1, 1),3,nE,'connector111.tf')
-            !  call write_matrix_to_file_matlab(xl(:, nE, :, 1),3,nE,'connector211.tf')
-            !  call write_matrix_to_file_matlab(xl(:, :,nE, 1),3,nE,'connector311.tf')
-            !  call write_matrix_to_file_matlab(xl(:, 1, :, 1),3,nE,'connector411.tf')
-            !elseif(ielem.EQ.2)then
-            !  call write_matrix_to_file_matlab(xl(:, :, 1, 1),3,nE,'connector121.tf')
-            !  call write_matrix_to_file_matlab(xl(:, nE, :, 1),3,nE,'connector221.tf')
-            !  call write_matrix_to_file_matlab(xl(:, :,nE, 1),3,nE,'connector321.tf')
-            !  call write_matrix_to_file_matlab(xl(:, 1, :, 1),3,nE,'connector421.tf')
-            !elseif(ielem.EQ.3)then
-            !  call write_matrix_to_file_matlab(xl(:, :, 1, 1),3,nE,'connector131.tf')
-            !  call write_matrix_to_file_matlab(xl(:, nE, :, 1),3,nE,'connector231.tf')
-            !  call write_matrix_to_file_matlab(xl(:, :,nE, 1),3,nE,'connector331.tf')
-            !  call write_matrix_to_file_matlab(xl(:, 1, :, 1),3,nE,'connector431.tf')
-            !endif           
+            enddo         
             
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
@@ -1125,24 +976,79 @@ contains
                call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1:nE,1))
               
             else
+              !-- check the four connectors to see if they lay on the sphere
+              if( (abs(r(1)-r(2)).LE.tol) )then
+                !-- connector at xi_2 = 0, xi_3 = 0
+                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,1)
+                endif
+              
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, :, 1, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+              endif  
+              if( (abs(r(2)-r(3)).LE.tol) )then
+                !-- connector at xi_1 = 1, xi_3 = 0
+                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,2)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, nE, :, 1) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+              endif           
+              if( (abs(r(3)-r(4)).LE.tol) )then
+                !-- connector at xi_2 = 1, xi_3 = 0
+                if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,3)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
+              endif
+              if( (abs(r(4)-r(1)).LE.tol) )then
+                !-- connector at xi_1 = 0, xi_3 = 0
+                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                   nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,4)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+              endif 
+
               ! xi_3 = 0
               call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
-            endif 
-
-            !if(ielem.EQ.1)then
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,1:nE,1),nE,nE,'x11.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,1:nE,1),nE,nE,'y11.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,1:nE,1),nE,nE,'z11.tf')
-            !elseif(ielem.EQ.2)then
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,1:nE,1),nE,nE,'x21.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,1:nE,1),nE,nE,'y21.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,1:nE,1),nE,nE,'z21.tf')
-            !elseif(ielem.EQ.3)then
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,1:nE,1),nE,nE,'x31.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,1:nE,1),nE,nE,'y31.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,1:nE,1),nE,nE,'z31.tf')
-            !endif
-
+            endif
   
 !-- face 2   
           elseif(iface.EQ.2)then
@@ -1153,131 +1059,6 @@ contains
               dx = xl(:,nE, 1,nE)-xl(:, 1, 1,nE) ; xl(:, i1d, 1,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_2 = 0, xi_3 = 1
               dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
             enddo
-            !-- check to see if the connectors lay on the sphere
-            if( (abs(r(1)-r(2)).LE.tol) )then
-              !-- connector at xi_2 = 0, xi_3 = 0
-              !-- find the element number of the adjoining element to face 2 and 1
-              kelem_face2 = ef2e(2,2,ielem)
-              kelem_face1 = ef2e(2,1,ielem)
-
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 2 and face 1)
-              call element_properties(kelem_face2,       &
-                                      n_pts_1d=nkelem_face2)
-
-              call element_properties(kelem_face1,       &
-                                      n_pts_1d=nkelem_face1)           
-              nmin = minval((/nE,nkelem_face2,nkelem_face1/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, :, 1, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-            endif  
-            if( (abs(r(2)-r(3)).LE.tol) )then
-              !-- connector at xi_1 = 1, xi_2 = 0
-              !-- find the element number of the adjoining element to face 2 and 3
-              kelem_face2 = ef2e(2,2,ielem)
-              kelem_face3 = ef2e(2,3,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 2 and face 3)
-              call element_properties(kelem_face2,       &
-                                      n_pts_1d=nkelem_face2)
-
-              call element_properties(kelem_face3,       &
-                                      n_pts_1d=nkelem_face3)           
-              nmin = minval((/nE,nkelem_face2,nkelem_face3/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-            endif           
-            if( (abs(r(3)-r(4)).LE.tol) )then
-              !-- connector at xi_2 = 0, xi_3 = 1
-              !-- find the element number of the adjoining element to face 2 and 6
-              kelem_face2 = ef2e(2,2,ielem)
-              kelem_face6 = ef2e(2,6,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 2 and face 6)
-              call element_properties(kelem_face2,       &
-                                      n_pts_1d=nkelem_face2)
-
-              call element_properties(kelem_face6,       &
-                                      n_pts_1d=nkelem_face6)           
-              nmin = minval((/nE,nkelem_face2,nkelem_face6/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, :, 1,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
-            endif
-            if( (abs(r(4)-r(1)).LE.tol) )then
-              !-- connector at xi_1 = 0, xi_2 = 0
-              !-- find the element number of the adjoining element to face 2 and 5
-              kelem_face2 = ef2e(2,2,ielem)
-              kelem_face5 = ef2e(2,5,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 2 and face 5)
-              call element_properties(kelem_face2,       &
-                                      n_pts_1d=nkelem_face2)
-
-              call element_properties(kelem_face5,       &
-                                      n_pts_1d=nkelem_face5)           
-              nmin = minval((/nE,nkelem_face2,nkelem_face5/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, 1, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-            endif     
-            
-           ! if(ielem.EQ.2)then
-           !   call write_matrix_to_file_matlab(xl(:, :, 1, 1),3,nE,'connector1_2_2.tf')
-           !   call write_matrix_to_file_matlab(xl(:,nE, 1, :),3,nE,'connector2_2_2.tf')
-           !   call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector3_2_2.tf')
-           !   call write_matrix_to_file_matlab(xl(:, 1, 1, :),3,nE,'connector4_2_2.tf')
-           ! endif         
 
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
@@ -1285,14 +1066,81 @@ contains
               !write(*,*)'ielem = ',ielem, 'face 2 on the sphere'
               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1,1:nE))
             else
+              !-- check to see if the connectors lay on the sphere
+              if( (abs(r(1)-r(2)).LE.tol) )then
+                !-- connector at xi_2 = 0, xi_3 = 0
+                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,1)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, :, 1, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+              endif  
+              if( (abs(r(2)-r(3)).LE.tol) )then
+                !-- connector at xi_1 = 1, xi_2 = 0
+                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,2)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+              endif           
+              if( (abs(r(3)-r(4)).LE.tol) )then
+                !-- connector at xi_2 = 0, xi_3 = 1
+                if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,3)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, :, 1,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
+              endif
+              if( (abs(r(4)-r(1)).LE.tol) )then
+                !-- connector at xi_1 = 0, xi_2 = 0
+                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,4)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, 1, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+              endif     
+            
               ! xi_2 = 0
               call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
             endif  
-            !if(ielem.EQ.2)then
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,1,1:nE),nE,nE,'x2_2.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,1,1:nE),nE,nE,'y2_2.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,1,1:nE),nE,nE,'z2_2.tf')
-            !endif 
+
+
 !-- face 3
           elseif(iface.EQ.3)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1302,144 +1150,87 @@ contains
               dx = xl(:,nE,nE,nE)-xl(:,nE, 1,nE) ; xl(:,nE, i1d,nE) = xl(:,nE, 1,nE) + dr*dx ! xi_1 = 1, xi_3 = 1
               dx = xl(:,nE, 1,nE)-xl(:,nE, 1, 1) ; xl(:,nE, 1, i1d) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_2 = 0
             enddo
-            !-- check to see if the connectors lay on the sphere
-            if( (abs(r(1)-r(2)).LE.tol) )then
-              !-- connector at xi_1 = 1, xi_3 = 0
-              !-- find the element number of the adjoining element to face 3 and 1
-              kelem_face3 = ef2e(2,3,ielem)
-              kelem_face1 = ef2e(2,1,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 3 and face 1)
-              call element_properties(kelem_face3,       &
-                                      n_pts_1d=nkelem_face3)
-
-              call element_properties(kelem_face1,       &
-                                      n_pts_1d=nkelem_face1)           
-              nmin = minval((/nE,nkelem_face3,nkelem_face1/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:,nE, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-            endif  
-            if( (abs(r(2)-r(3)).LE.tol) )then
-              !-- connector at xi_1 = 1, xi_2 = 1
-              !-- find the element number of the adjoining element to face 3 and 4
-              kelem_face3 = ef2e(2,3,ielem)
-              kelem_face4 = ef2e(2,4,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 3 and face 4)
-              call element_properties(kelem_face3,       &
-                                      n_pts_1d=nkelem_face3)
-
-              call element_properties(kelem_face4,       &
-                                      n_pts_1d=nkelem_face4)           
-              nmin = minval((/nE,nkelem_face3,nkelem_face4/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-            endif           
-            if( (abs(r(3)-r(4)).LE.tol) )then
-              !-- connector at xi_1 = 1, xi_3 = 1
-              !-- find the element number of the adjoining element to face 3 and 6
-              kelem_face3 = ef2e(2,3,ielem)
-              kelem_face6 = ef2e(2,6,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 3 and face 6)
-              call element_properties(kelem_face3,       &
-                                      n_pts_1d=nkelem_face3)
-
-              call element_properties(kelem_face6,       &
-                                      n_pts_1d=nkelem_face6)           
-              nmin = minval((/nE,nkelem_face3,nkelem_face6/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:,nE, :,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
-            endif
-            if( (abs(r(4)-r(1)).LE.tol) )then
-              !-- connector at xi_1 = 1, xi_2 = 0
-              !-- find the element number of the adjoining element to face 3 and 1
-              kelem_face3 = ef2e(2,3,ielem)
-              kelem_face1 = ef2e(2,1,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 3 and face 1)
-              call element_properties(kelem_face3,       &
-                                      n_pts_1d=nkelem_face3)
-
-              call element_properties(kelem_face1,       &
-                                      n_pts_1d=nkelem_face1)           
-              nmin = minval((/nE,nkelem_face3,nkelem_face1/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-             endif 
-           ! if(ielem.EQ.98)then
-           !   call write_matrix_to_file_matlab(xl(:,nE, 1, 1),3,nE,'connector1_98_3.tf')
-           !   call write_matrix_to_file_matlab(xl(:,nE,nE, 1),3,nE,'connector2_98_3.tf')
-           !   call write_matrix_to_file_matlab(xl(:,nE, 1,nE),3,nE,'connector3_98_3.tf')
-           !   call write_matrix_to_file_matlab(xl(:,nE, 1, 1),3,nE,'connector4_98_3.tf')
-           ! endif  
-
+ 
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
                  .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
              !  write(*,*)'ielem = ',ielem, 'face 3 on the sphere'
               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,nE,1:nE,1:nE))
             else
+              !-- check to see if the connectors lay on the sphere
+              if( (abs(r(1)-r(2)).LE.tol) )then
+                !-- connector at xi_1 = 1, xi_3 = 0
+                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then 
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,1)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:,nE, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+              endif  
+              if( (abs(r(2)-r(3)).LE.tol) )then
+                !-- connector at xi_1 = 1, xi_2 = 1
+                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,2)
+                endif
+  
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+            
+                xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+              endif           
+              if( (abs(r(3)-r(4)).LE.tol) )then
+                !-- connector at xi_1 = 1, xi_3 = 1
+                if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,3)
+                endif
+  
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:,nE, :,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
+              endif
+              if( (abs(r(4)-r(1)).LE.tol) )then
+                !-- connector at xi_1 = 1, xi_2 = 0
+                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,4)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+            
+                xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+               endif 
+ 
               ! xi_1 = 1
               call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
             endif  
-           ! if(ielem.EQ.98)then
-           !   call write_matrix_to_file_matlab(xl(1,nE,1:nE,1:nE),nE,nE,'x98_3.tf')
-           !   call write_matrix_to_file_matlab(xl(2,nE,1:nE,1:nE),nE,nE,'y98_3.tf')
-           !   call write_matrix_to_file_matlab(xl(3,nE,1:nE,1:nE),nE,nE,'z98_3.tf')
-           ! endif
+
 !-- face 4
           elseif(iface.EQ.4)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1449,142 +1240,86 @@ contains
               dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
               dx = xl(:, 1,nE,nE)-xl(:, 1,nE, 1) ; xl(:, 1,nE, i1d) = xl(:, 1,nE, 1) + dr*dx ! xi_1 = 0, xi_2 = 1
             enddo
-            !-- check to see if the connectors lay on the sphere
-            if( (abs(r(1)-r(2)).LE.tol) )then
-              !-- connector at xi_2 = 1, xi_3 = 0
-              !-- find the element number of the adjoining element to face 4 and 1
-              kelem_face4 = ef2e(2,4,ielem)
-              kelem_face1 = ef2e(2,1,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 4 and face 1)
-              call element_properties(kelem_face4,       &
-                                      n_pts_1d=nkelem_face4)
-
-              call element_properties(kelem_face1,       &
-                                      n_pts_1d=nkelem_face1)           
-              nmin = minval((/nE,nkelem_face4,nkelem_face1/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-            endif  
-            if( (abs(r(2)-r(3)).LE.tol) )then
-              !-- connector at xi_1 = 1, xi_2 = 1
-              !-- find the element number of the adjoining element to face 4 and 3
-              kelem_face4 = ef2e(2,4,ielem)
-              kelem_face3 = ef2e(2,3,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 4 and face 3)
-              call element_properties(kelem_face4,       &
-                                      n_pts_1d=nkelem_face4)
-
-              call element_properties(kelem_face3,       &
-                                      n_pts_1d=nkelem_face3)           
-              nmin = minval((/nE,nkelem_face4,nkelem_face3/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-            endif           
-            if( (abs(r(3)-r(4)).LE.tol) )then
-              !-- connector at xi_2 = 1, xi_3 = 1
-              !-- find the element number of the adjoining element to face 4 and 6
-              kelem_face4 = ef2e(2,4,ielem)
-              kelem_face6 = ef2e(2,6,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 4 and face 6)
-              call element_properties(kelem_face4,       &
-                                      n_pts_1d=nkelem_face4)
-
-              call element_properties(kelem_face6,       &
-                                      n_pts_1d=nkelem_face6)           
-              nmin = minval((/nE,nkelem_face4,nkelem_face6/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp/2.0_wp)),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, :,nE,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
-            endif
-            if( (abs(r(4)-r(1)).LE.tol) )then
-              !-- connector at xi_1 = 0, xi_2 = 1
-              !-- find the element number of the adjoining element to face 4 and 5
-              kelem_face4 = ef2e(2,4,ielem)
-              kelem_face5 = ef2e(2,5,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 4 and face 5)
-              call element_properties(kelem_face4,       &
-                                      n_pts_1d=nkelem_face4)
-
-              call element_properties(kelem_face5,       &
-                                      n_pts_1d=nkelem_face5)           
-              nmin = minval((/nE,nkelem_face4,nkelem_face5/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, 1,nE, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-            endif
-
+ 
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
                  .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
              !  write(*,*)'ielem = ',ielem, 'face 4 on the sphere'
               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,nE,1:nE))
             else
+              !-- check to see if the connectors lay on the sphere
+              if( (abs(r(1)-r(2)).LE.tol) )then
+                !-- connector at xi_2 = 1, xi_3 = 0
+                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,1)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+              endif  
+              if( (abs(r(2)-r(3)).LE.tol) )then
+                !-- connector at xi_1 = 1, xi_2 = 1
+                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+                  !-- this connector is on the surface            
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,2)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+              endif           
+              if( (abs(r(3)-r(4)).LE.tol) )then
+                !-- connector at xi_2 = 1, xi_3 = 1
+                if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,3)
+                endif
+  
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, :,nE,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
+              endif
+              if( (abs(r(4)-r(1)).LE.tol) )then
+                !-- connector at xi_1 = 0, xi_2 = 1
+                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,4)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, 1,nE, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+              endif
+
               ! xi_2 = 1
               call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
             endif  
-            !if(ielem.EQ.1)then
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,nE,1:nE),nE,nE,'x14.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,nE,1:nE),nE,nE,'y14.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,nE,1:nE),nE,nE,'z14.tf')
-            !else
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,nE,1:nE),nE,nE,'x24.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,nE,1:nE),nE,nE,'y24.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,nE,1:nE),nE,nE,'z24.tf')
-            !endif
 !-- face 5
           elseif(iface.EQ.5)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1594,142 +1329,86 @@ contains
               dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
               dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
             enddo
-            !-- check to see if the connectors lay on the sphere
-            if( (abs(r(1)-r(2)).LE.tol) )then
-              !-- connector at xi_1 = 0, xi_3 = 0
-              !-- find the element number of the adjoining element to face 5 and 1
-              kelem_face5 = ef2e(2,5,ielem)
-              kelem_face1 = ef2e(2,1,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 5 and face 1)
-              call element_properties(kelem_face5,       &
-                                      n_pts_1d=nkelem_face5)
-
-              call element_properties(kelem_face1,       &
-                                      n_pts_1d=nkelem_face1)           
-              nmin = minval((/nE,nkelem_face1,nkelem_face5/))
-              if(SAT_type.EQ."mod_SAT")then
-                 if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else        
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-            endif  
-            if( (abs(r(2)-r(3)).LE.tol) )then
-              !-- connector at xi_1 = 0, xi_2 = 1
-              !-- find the element number of the adjoining element to face 5 and 4
-              kelem_face5 = ef2e(2,5,ielem)
-              kelem_face4 = ef2e(2,4,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 5 and face 4)
-              call element_properties(kelem_face5,       &
-                                      n_pts_1d=nkelem_face5)
-
-              call element_properties(kelem_face4,       &
-                                      n_pts_1d=nkelem_face4)           
-              nmin = minval((/nE,nkelem_face1,nkelem_face4/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, 1,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-            endif           
-            if( (abs(r(3)-r(4)).LE.tol) )then
-              !-- connector at xi_1 = 0, xi_3 = 1
-              !-- find the element number of the adjoining element to face 5 and 6
-              kelem_face5 = ef2e(2,5,ielem)
-              kelem_face6 = ef2e(2,6,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 5 and face 6)
-              call element_properties(kelem_face5,       &
-                                      n_pts_1d=nkelem_face5)
-
-              call element_properties(kelem_face6,       &
-                                      n_pts_1d=nkelem_face6)           
-              nmin = minval((/nE,nkelem_face1,nkelem_face6/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, 1, :,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
-            endif
-            if( (abs(r(4)-r(1)).LE.tol) )then
-              !-- connector at xi_1 = 0, xi_2 = 0
-              !-- find the element number of the adjoining element to face 5 and 2
-              kelem_face5 = ef2e(2,5,ielem)
-              kelem_face2 = ef2e(2,2,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 5 and face 2)
-              call element_properties(kelem_face5,       &
-                                      n_pts_1d=nkelem_face5)
-
-              call element_properties(kelem_face2,       &
-                                      n_pts_1d=nkelem_face2)           
-              nmin = minval((/nE,nkelem_face1,nkelem_face2/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, 1, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-            endif
-
+ 
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
                  .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
               ! write(*,*)'ielem = ',ielem, 'face 5 on the sphere'
               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1,1:nE,1:nE))
             else
+              !-- check to see if the connectors lay on the sphere
+              if( (abs(r(1)-r(2)).LE.tol) )then
+                !-- connector at xi_1 = 0, xi_3 = 0
+                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,1)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+              endif  
+              if( (abs(r(2)-r(3)).LE.tol) )then
+                !-- connector at xi_1 = 0, xi_2 = 1
+                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,2)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, 1,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+              endif           
+              if( (abs(r(3)-r(4)).LE.tol) )then
+                !-- connector at xi_1 = 0, xi_3 = 1
+                if((abs(r(3)-radius).LE.toL).AND.(abs(r(4)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,3)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, 1, :,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
+              endif
+              if( (abs(r(4)-r(1)).LE.tol) )then
+                !-- connector at xi_1 = 0, xi_2 = 0
+                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,4)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, 1, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+              endif
+
               ! xi_1 = 0
               call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
             endif  
-            !if(ielem.EQ.1)then
-            !  call write_matrix_to_file_matlab(xl(1,1,1:nE,1:nE),nE,nE,'x15.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1,1:nE,1:nE),nE,nE,'y15.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1,1:nE,1:nE),nE,nE,'z15.tf')
-            !else
-            !  call write_matrix_to_file_matlab(xl(1,1,1:nE,1:nE),nE,nE,'x25.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1,1:nE,1:nE),nE,nE,'y25.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1,1:nE,1:nE),nE,nE,'z25.tf')
-            !endif
 !-- face 6
           elseif(iface.EQ.6)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1739,140 +1418,6 @@ contains
               dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
               dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
             enddo
-            !-- check to see if the connectors lay on the sphere
-            if( (abs(r(1)-r(2)).LE.tol) )then
-              !-- connector at xi_2 = 0, xi_3 = 1
-              !-- find the element number of the adjoining element to face 6 and 2
-              kelem_face6 = ef2e(2,6,ielem)
-              kelem_face2 = ef2e(2,2,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 6 and face 2)
-              call element_properties(kelem_face6,       &
-                                      n_pts_1d=nkelem_face6)
-
-              call element_properties(kelem_face2,       &
-                                      n_pts_1d=nkelem_face2)           
-              nmin = minval((/nE,nkelem_face6,nkelem_face2/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, :, 1,nE) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-            endif  
-            if( (abs(r(2)-r(3)).LE.tol) )then
-              !-- connector at xi_1 = 1, xi_3 = 1
-              !-- find the element number of the adjoining element to face 6 and 3
-              kelem_face6 = ef2e(2,6,ielem)
-              kelem_face3 = ef2e(2,3,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 6 and face 3)
-              call element_properties(kelem_face6,       &
-                                      n_pts_1d=nkelem_face6)
-
-              call element_properties(kelem_face3,       &
-                                      n_pts_1d=nkelem_face3)           
-              nmin = minval((/nE,nkelem_face6,nkelem_face3/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:,nE, :,nE) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin)
-            endif           
-            if( (abs(r(3)-r(4)).LE.tol) )then
-              !-- connector at xi_2 = 1, xi_3 = 1
-              !-- find the element number of the adjoining element to face 6 and 4
-              kelem_face6 = ef2e(2,6,ielem)
-              kelem_face4 = ef2e(2,4,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 6 and face 4)
-              call element_properties(kelem_face6,       &
-                                      n_pts_1d=nkelem_face6)
-
-              call element_properties(kelem_face4,       &
-                                      n_pts_1d=nkelem_face4)           
-              nmin = minval((/nE,nkelem_face6,nkelem_face4/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, :,nE,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
-            endif
-            if( (abs(r(4)-r(1)).LE.tol) )then
-              !-- connector at xi_1 = 0, xi_3 = 1
-              !-- find the element number of the adjoining element to face 6 and 5
-              kelem_face6 = ef2e(2,6,ielem)
-              kelem_face5 = ef2e(2,5,ielem)
-              !-- find the polynomial order of the elements that share this connector (elements that touch face 6 and face 5)
-              call element_properties(kelem_face6,       &
-                                      n_pts_1d=nkelem_face6)
-
-              call element_properties(kelem_face5,       &
-                                      n_pts_1d=nkelem_face5)           
-              nmin = minval((/nE,nkelem_face6,nkelem_face5/))
-              if(SAT_type.EQ."mod_SAT")then
-                if(symmetric_metric)then
-                  !-- symmetric computation of the metrics
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                else
-                  nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-                endif
-              endif
-
-              if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-              if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-              call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-              xl(:, 1, :,nE) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-            endif
-
-            !if(ielem.EQ.1)then
-            !  call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector116.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, :,nE),3,nE,'connector216.tf')
-            !  call write_matrix_to_file_matlab(xl(:, :,nE,nE),3,nE,'connector316.tf')
-            !  call write_matrix_to_file_matlab(xl(:, 1, :,nE),3,nE,'connector416.tf')
-            !elseif(ielem.EQ.2)then
-            !  call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector126.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, :,nE),3,nE,'connector226.tf')
-            !  call write_matrix_to_file_matlab(xl(:, :,nE,nE),3,nE,'connector326.tf')
-            !  call write_matrix_to_file_matlab(xl(:, 1, :,nE),3,nE,'connector426.tf')
-            !elseif(ielem.EQ.3)then
-            !  call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector136.tf')
-            !  call write_matrix_to_file_matlab(xl(:,nE, :,nE),3,nE,'connector236.tf')
-            !  call write_matrix_to_file_matlab(xl(:, :,nE,nE),3,nE,'connector336.tf')
-            !  call write_matrix_to_file_matlab(xl(:, 1, :,nE),3,nE,'connector436.tf')
-            !endif 
 
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
@@ -1880,22 +1425,101 @@ contains
              !  write(*,*)'ielem = ',ielem, 'face 6 on the sphere'
               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1:nE,nE))
             else
+              !-- check to see if the connectors lay on the sphere
+              if( (abs(r(1)-r(2)).LE.tol) )then
+                !-- connector at xi_2 = 0, xi_3 = 1
+                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,1)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, :, 1,nE) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+              endif  
+              if( (abs(r(2)-r(3)).LE.tol) )then
+                !-- connector at xi_1 = 1, xi_3 = 1
+                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,2)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:,nE, :,nE) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin)
+              endif           
+              if( (abs(r(3)-r(4)).LE.tol) )then
+                !-- connector at xi_2 = 1, xi_3 = 1
+                if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,3)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, :,nE,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
+              endif
+              if( (abs(r(4)-r(1)).LE.tol) )then
+                !-- connector at xi_1 = 0, xi_3 = 1
+                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+                  !-- this connector is on the surface
+                  nmin = nE
+                else
+                  nmin = nmin_connector(ielem,iface,nE,4)
+                endif
+
+                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+
+                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+          
+                xl(:, 1, :,nE) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
+              endif
+
               ! xi_3 = 1
               call TFI2D(xl(:, :, :,nE),nE,x_LGL_1d)
             endif  
-            !if(ielem.EQ.1)then
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,1:nE,nE),nE,nE,'x16.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,1:nE,nE),nE,nE,'y16.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,1:nE,nE),nE,nE,'z16.tf')
-            !elseif(ielem.EQ.2)then
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,1:nE,nE),nE,nE,'x26.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,1:nE,nE),nE,nE,'y26.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,1:nE,nE),nE,nE,'z26.tf')
-            !elseif(ielem.EQ.3)then
-            !  call write_matrix_to_file_matlab(xl(1,1:nE,1:nE,nE),nE,nE,'x36.tf')
-            !  call write_matrix_to_file_matlab(xl(2,1:nE,1:nE,nE),nE,nE,'y36.tf')
-            !  call write_matrix_to_file_matlab(xl(3,1:nE,1:nE,nE),nE,nE,'z36.tf')
-            !endif
+!-- for debug purposes to write various things to file
+!            if(ielem.EQ.2)then
+!              call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector2_6_1.tf')
+!              call write_matrix_to_file_matlab(xl(:,nE, :,nE),3,nE,'connector2_6_2.tf')
+!              call write_matrix_to_file_matlab(xl(:, :,nE,nE),3,nE,'connector2_6_3.tf')
+!              call write_matrix_to_file_matlab(xl(:, 1, :,nE),3,nE,'connector2_6_4.tf')
+!              call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector2_2_3_face6.tf')
+!            elseif(ielem.EQ.98)then
+!              call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector98_6_1.tf')
+!              call write_matrix_to_file_matlab(xl(:,nE, :,nE),3,nE,'connector98_6_2.tf')
+!              call write_matrix_to_file_matlab(xl(:, :,nE,nE),3,nE,'connector98_6_3.tf!')
+!              call write_matrix_to_file_matlab(xl(:, 1, :,nE),3,nE,'connector98_6_4.tf')
+!            endif
+!            if(ielem.EQ.2)then
+!              call write_matrix_to_file_matlab(xl(1,1:nE,1:nE,nE),nE,nE,'x2_6.tf')
+!              call write_matrix_to_file_matlab(xl(2,1:nE,1:nE,nE),nE,nE,'y2_6.tf')
+!              call write_matrix_to_file_matlab(xl(3,1:nE,1:nE,nE),nE,nE,'z2_6.tf')
+!            elseif(ielem.EQ.98)then
+!              call write_matrix_to_file_matlab(xl(1,1:nE,1:nE,nE),nE,nE,'x98_6.tf')
+!              call write_matrix_to_file_matlab(xl(2,1:nE,1:nE,nE),nE,nE,'y98_6.tf')
+!              call write_matrix_to_file_matlab(xl(3,1:nE,1:nE,nE),nE,nE,'z98_6.tf')
+!            endif
           endif
       enddo face_do
     end select
@@ -1969,161 +1593,195 @@ contains
   !
   ! Notes:
   !================================================================================================
-!  function nmin_connector(ielem,iface,connector)
-!    use variables, only: boundaryelems, ef2e
-!   
-!    implicit none
-!    integer, intent(in)    :: ielem,kelem,elem1
-!    integer                :: common_element
-!    integer, dimension(6)  :: lielem, lkelem
-!    integer                :: iface
-!
-!    !-- determine two of the touching elements, the assumption is that the mesh is such that
-!    !    the connector (c) is between 4 elements (note that the position of ielem is determined by the iface)
-!    !      ---------   ---------
-!    !      | ielem |   | elem3 |
-!    !      |       |   |       |
-!    !      ---------   ---------
-!    !      --------- c  ---------
-!    !      | elem1  |  | elem2 |
-!    !      |        |  |       |
-!    !      ----------  ---------
-!
-!    !-- determine the number number of nodes in one-dimension of the two elements that touch element
-!    !   ielem
-!    if(iface.EQ.1)then
-!      if(connector.EQ.1)then
-!        !-- connector at xi_2 = 0, xi_3 = 0
-!        !-- find the element number of the adjoining element to face 1 and 2
-!        kelem1 = ef2e(2,1,ielem)
-!        kelem2 = ef2e(2,2,ielem)
-!      elseif(connector.EQ.2)then
-!        !-- connector at xi_1 = 1, xi_3 = 0
-!        !-- find the element number of the adjoining element to face 1 and 3
-!        kelem_face1 = ef2e(2,1,ielem)
-!        kelem_face3 = ef2e(2,3,ielem)
-!      elseif(connector.EQ.3)then
-!        !-- connector at xi_2 = 1, xi_3 = 0
-!        !-- find the element number of the adjoining element to face 1 and 4
-!        kelem_face1 = ef2e(2,1,ielem)
-!        kelem_face4 = ef2e(2,4,ielem)
-!      elseif(connector.EQ.4)then
-!        !-- connector at xi_1 = 0, xi_3 = 0
-!        !-- find the element number of the adjoining element to face 1 and 5
-!        kelem_face1 = ef2e(2,1,ielem)
-!        kelem_face5 = ef2e(2,5,ielem)
-!      endif
-!    elseif(iface.EQ.2)then
-!      if(connector.EQ.1)then
-!        !-- connector at xi_2 = 0, xi_3 = 0
-!        !-- find the element number of the adjoining element to face 2 and 1
-!        kelem_face2 = ef2e(2,2,ielem)
-!        kelem_face1 = ef2e(2,1,ielem)
-!      elseif(connector.EQ.2)then
-!        !-- connector at xi_1 = 1, xi_2 = 0
-!        !-- find the element number of the adjoining element to face 2 and 3
-!        kelem_face2 = ef2e(2,2,ielem)
-!        kelem_face3 = ef2e(2,3,ielem)
-!      elseif(connector.EQ.3)then
-!        !-- connector at xi_2 = 0, xi_3 = 1
-!        !-- find the element number of the adjoining element to face 2 and 6
-!        kelem_face2 = ef2e(2,2,ielem)
-!        kelem_face6 = ef2e(2,6,ielem)
-!      elseif(connector.EQ.4)then
-!        !-- connector at xi_1 = 0, xi_2 = 0
-!        !-- find the element number of the adjoining element to face 2 and 5
-!        kelem_face2 = ef2e(2,2,ielem)
-!        kelem_face5 = ef2e(2,5,ielem)
-!      endif
-!    elseif(iface.EQ.3)then
-!      if(connector.EQ.1)then
-!!      !-- connector at xi_1 = 1, xi_3 = 0
-!!      !-- find the element number of the adjoining element to face 3 and 1
-!      kelem_face3 = ef2e(2,3,ielem)
-!      kelem_face1 = ef2e(2,1,ielem)
-!      elseif(connector.EQ.2)then
-!      !-- connector at xi_1 = 1, xi_2 = 1
-!      !-- find the element number of the adjoining element to face 3 and 4
-!      kelem_face3 = ef2e(2,3,ielem)
-!      kelem_face4 = ef2e(2,4,ielem)
-!      elseif(connector.EQ.3)then
-!      !-- connector at xi_1 = 1, xi_3 = 1
-!      !-- find the element number of the adjoining element to face 3 and 6
-!      kelem_face3 = ef2e(2,3,ielem)
-!      kelem_face6 = ef2e(2,6,ielem)
-!      elseif(connector.EQ.4)then
-!      !-- connector at xi_1 = 1, xi_2 = 0
-!      !-- find the element number of the adjoining element to face 3 and 1
-!      kelem_face3 = ef2e(2,3,ielem)
-!      kelem_face1 = ef2e(2,1,ielem)
-!      endif
-!    elseif(iface.EQ.4)then
-!      if(connector.EQ.1)then
-!      !-- connector at xi_2 = 1, xi_3 = 0
-!      !-- find the element number of the adjoining element to face 4 and 1
-!      kelem_face4 = ef2e(2,4,ielem)
-!      kelem_face1 = ef2e(2,1,ielem)
-!      elseif(connector.EQ.2)then
-!      !-- connector at xi_1 = 1, xi_2 = 1
-!      !-- find the element number of the adjoining element to face 4 and 3
-!      kelem_face4 = ef2e(2,4,ielem)
-!      kelem_face3 = ef2e(2,3,ielem)
-!      elseif(connector.EQ.3)then
-!      !-- connector at xi_2 = 1, xi_3 = 1
-!      !-- find the element number of the adjoining element to face 4 and 6
-!      kelem_face4 = ef2e(2,4,ielem)
-!      kelem_face6 = ef2e(2,6,ielem)
-!      elseif(connector.EQ.4)then
-!      !-- connector at xi_1 = 0, xi_2 = 1
-!      !-- find the element number of the adjoining element to face 4 and 5
-!      kelem_face4 = ef2e(2,4,ielem)
-!      kelem_face5 = ef2e(2,5,ielem)
-!      endif
-!    elseif(iface.EQ.5)then
-!      if(connector.EQ.1)then
-!        !-- connector at xi_1 = 0, xi_3 = 0
-!        !-- find the element number of the adjoining element to face 5 and 1
-!        kelem_face5 = ef2e(2,5,ielem)
-!        kelem_face1 = ef2e(2,1,ielem)
-!      elseif(connector.EQ.2)then
-!      elseif(connector.EQ.3)then
-!      elseif(connector.EQ.4)then
-!      endif
-!    elseif(iface.EQ.6)then
-!    endif
-!    
-!    !-- determine the fourth element that is commone with the connector
-!    common_element = -1
-!    !-- construct the list of touching elements for ielem and kelem
-!    do iface = 1,6
-!      lielem(iface) = ef2e(2,iface,ielem)
-!      lkelem(iface) = ef2e(2,iface,kelem)
-!    enddo
-!
-!   !-- determine the common element
-!   do iface = 1,6
-!     if((lielem(iface).EQ.lkelem(iface)).AND.(lielem(iface).NE.elem1))then
-!       common_element = lielem(iface)
-!     endif
-!   enddo
-!
-!   !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
-!   call element_properties(kelem1,n_pts_1d=nkelem1)
-!   call element_properties(kelem2,n_pts_1d=nkelem2) 
-!   call element_properties(kelem3,n_pts_1d=nkelem3)
-! 
-!   nmin = minval((/nE,nkelem1,nkelem2,nkelem3/))
-!
-!   if(SAT_type.EQ."mod_SAT")then
-!     if(symmetric_metric)then
-!       !-- symmetric computation of the metrics
-!       nmin = nmin-numb
-!      else
-!        nmin = maxval((/floor((nmin-1.0_wp)/2.0_wp),1/))+1
-!      endif
-!   endif
-!  
-!  end function nmin_connector
+  function nmin_connector(ielem,iface,nE,connector)
+    use variables, only: boundaryelems, ef2e 
+    use controlvariables, only: SAT_type
+    use initcollocation, only: element_properties
+   
+    implicit none
+    integer, intent(in)    :: ielem, iface, nE, connector
+    integer                :: nmin_connector, kelem1, kelem2, kelem3, nkelem1, nkelem2, nkelem3
+    integer, dimension(6)  :: lkelem1, lkelem2 
+    integer                :: faceloop, faceloop2
+
+    !-- determine two of the touching elements, the assumption is that the mesh is such that
+    !    the connector (c) is between 4 elements (note that the position of ielem is determined by the iface)
+    !      ---------   ---------
+    !      | ielem |   | elem3 |
+    !      |       |   |       |
+    !      ---------   ---------
+    !      --------- c  ---------
+    !      | elem1  |  | elem2 |
+    !      |        |  |       |
+    !      ----------  ---------
+
+    !-- determine the number number of nodes in one-dimension of the two elements that touch element
+    !   ielem
+    if(iface.EQ.1)then
+      if(connector.EQ.1)then
+        !-- connector at xi_2 = 0, xi_3 = 0
+        !-- find the element number of the adjoining element to face 1 and 2
+        kelem1 = ef2e(2,1,ielem)
+        kelem2 = ef2e(2,2,ielem)
+      elseif(connector.EQ.2)then
+        !-- connector at xi_1 = 1, xi_3 = 0
+        !-- find the element number of the adjoining element to face 1 and 3
+        kelem1 = ef2e(2,1,ielem)
+        kelem2 = ef2e(2,3,ielem)
+      elseif(connector.EQ.3)then
+        !-- connector at xi_2 = 1, xi_3 = 0
+        !-- find the element number of the adjoining element to face 1 and 4
+        kelem1 = ef2e(2,1,ielem)
+        kelem2 = ef2e(2,4,ielem)
+      elseif(connector.EQ.4)then
+        !-- connector at xi_1 = 0, xi_3 = 0
+        !-- find the element number of the adjoining element to face 1 and 5
+        kelem1 = ef2e(2,1,ielem)
+        kelem2 = ef2e(2,5,ielem)
+      endif
+    elseif(iface.EQ.2)then
+      if(connector.EQ.1)then
+        !-- connector at xi_2 = 0, xi_3 = 0
+        !-- find the element number of the adjoining element to face 2 and 1
+        kelem1 = ef2e(2,2,ielem)
+        kelem2 = ef2e(2,1,ielem)
+      elseif(connector.EQ.2)then
+        !-- connector at xi_1 = 1, xi_2 = 0
+        !-- find the element number of the adjoining element to face 2 and 3
+        kelem1 = ef2e(2,2,ielem)
+        kelem2 = ef2e(2,3,ielem)
+      elseif(connector.EQ.3)then
+        !-- connector at xi_2 = 0, xi_3 = 1
+        !-- find the element number of the adjoining element to face 2 and 6
+        kelem1 = ef2e(2,2,ielem)
+        kelem2 = ef2e(2,6,ielem)
+      elseif(connector.EQ.4)then
+        !-- connector at xi_1 = 0, xi_2 = 0
+        !-- find the element number of the adjoining element to face 2 and 5
+        kelem1 = ef2e(2,2,ielem)
+        kelem2 = ef2e(2,5,ielem)
+      endif
+    elseif(iface.EQ.3)then
+      if(connector.EQ.1)then
+        !-- connector at xi_1 = 1, xi_3 = 0
+        !-- find the element number of the adjoining element to face 3 and 1
+        kelem1 = ef2e(2,3,ielem)
+        kelem2 = ef2e(2,1,ielem)
+      elseif(connector.EQ.2)then
+        !-- connector at xi_1 = 1, xi_2 = 1
+        !-- find the element number of the adjoining element to face 3 and 4
+        kelem1 = ef2e(2,3,ielem)
+        kelem2 = ef2e(2,4,ielem)
+      elseif(connector.EQ.3)then
+        !-- connector at xi_1 = 1, xi_3 = 1
+        !-- find the element number of the adjoining element to face 3 and 6
+        kelem1 = ef2e(2,3,ielem)
+        kelem2 = ef2e(2,6,ielem)
+      elseif(connector.EQ.4)then
+        !-- connector at xi_1 = 1, xi_2 = 0
+        !-- find the element number of the adjoining element to face 3 and 1
+        kelem1 = ef2e(2,3,ielem)
+        kelem2 = ef2e(2,1,ielem)
+      endif
+    elseif(iface.EQ.4)then
+      if(connector.EQ.1)then
+        !-- connector at xi_2 = 1, xi_3 = 0
+        !-- find the element number of the adjoining element to face 4 and 1
+        kelem1 = ef2e(2,4,ielem)
+        kelem2 = ef2e(2,1,ielem)
+      elseif(connector.EQ.2)then
+        !-- connector at xi_1 = 1, xi_2 = 1
+        !-- find the element number of the adjoining element to face 4 and 3
+        kelem1 = ef2e(2,4,ielem)
+        kelem2 = ef2e(2,3,ielem)
+      elseif(connector.EQ.3)then
+        !-- connector at xi_2 = 1, xi_3 = 1
+        !-- find the element number of the adjoining element to face 4 and 6
+        kelem1 = ef2e(2,4,ielem)
+        kelem2 = ef2e(2,6,ielem)
+      elseif(connector.EQ.4)then
+        !-- connector at xi_1 = 0, xi_2 = 1
+        !-- find the element number of the adjoining element to face 4 and 5
+        kelem1 = ef2e(2,4,ielem)
+        kelem2 = ef2e(2,5,ielem)
+      endif
+    elseif(iface.EQ.5)then
+      if(connector.EQ.1)then
+        !-- connector at xi_1 = 0, xi_3 = 0
+        !-- find the element number of the adjoining element to face 5 and 1
+        kelem1 = ef2e(2,5,ielem)
+        kelem2 = ef2e(2,1,ielem)
+      elseif(connector.EQ.2)then
+        !-- connector at xi_1 = 0, xi_2 = 1
+        !-- find the element number of the adjoining element to face 5 and 4
+        kelem1 = ef2e(2,5,ielem)
+        kelem2 = ef2e(2,4,ielem)
+      elseif(connector.EQ.3)then
+        !-- connector at xi_1 = 0, xi_3 = 1
+        !-- find the element number of the adjoining element to face 5 and 6
+        kelem1 = ef2e(2,5,ielem)
+        kelem2 = ef2e(2,6,ielem)
+      elseif(connector.EQ.4)then
+        !-- connector at xi_1 = 0, xi_2 = 0
+        !-- find the element number of the adjoining element to face 5 and 2
+        kelem1 = ef2e(2,5,ielem)
+        kelem2 = ef2e(2,2,ielem)
+      endif
+    elseif(iface.EQ.6)then
+      if(connector.EQ.1)then
+        !-- connector at xi_2 = 0, xi_3 = 1
+        !-- find the element number of the adjoining element to face 6 and 2
+        kelem1 = ef2e(2,6,ielem)
+        kelem2 = ef2e(2,2,ielem)
+      elseif(connector.EQ.2)then
+        !-- connector at xi_1 = 1, xi_3 = 1
+        !-- find the element number of the adjoining element to face 6 and 3
+        kelem1 = ef2e(2,6,ielem)
+        kelem2 = ef2e(2,3,ielem)
+      elseif(connector.EQ.3)then
+        !-- connector at xi_2 = 1, xi_3 = 1
+        !-- find the element number of the adjoining element to face 6 and 4
+        kelem1 = ef2e(2,6,ielem)
+        kelem2 = ef2e(2,4,ielem)
+      elseif(connector.EQ.4)then
+        !-- connector at xi_1 = 0, xi_3 = 1
+        !-- find the element number of the adjoining element to face 6 and 5
+        kelem1 = ef2e(2,6,ielem)
+        kelem2 = ef2e(2,5,ielem)
+      endif
+    endif
+ 
+    !-- determine the fourth element that is commone with the connector
+
+    !-- construct the list of touching elements for kelem1 and kelem2
+    do faceloop = 1,6
+      lkelem1(faceloop) = ef2e(2,faceloop,kelem1)
+      lkelem2(faceloop) = ef2e(2,faceloop,kelem2)
+    enddo
+
+   !-- determine the common element
+   do faceloop = 1,6
+     do faceloop2 = 1,6
+       if((lkelem1(faceloop).EQ.lkelem2(faceloop2)).AND.(lkelem1(faceloop).NE.ielem))then
+         kelem3 = lkelem1(faceloop)       
+       endif
+     enddo
+   enddo
+  
+   !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
+   call element_properties(kelem1,n_pts_1d=nkelem1)
+   call element_properties(kelem2,n_pts_1d=nkelem2)
+   call element_properties(kelem3,n_pts_1d=nkelem3)
+   
+   nmin_connector = minval((/nE,nkelem1,nkelem2,nkelem3/))
+
+   if(SAT_type.EQ."mod_SAT")then
+        nmin_connector = maxval((/floor((nmin_connector-1.0_wp)/2.0_wp),1/))+1
+   endif
+!      write(*,*)'ielem = ',ielem, 'iface = ',iface
+!      write(*,*)'kelem1 = ',kelem1,' kelem2 = ',kelem2, 'kelem3 = ',kelem3, 'nmin_connector = ',nmin_connector   
+  
+  end function nmin_connector
   !================================================================================================
   !
   ! Purpose: Constructs a patch of nodes on the sphere. It takes a straight patch with the nodal 
@@ -5764,8 +5422,9 @@ contains
     ! Load modules
     use variables
     use collocationvariables
-    use controlvariables,   only : non_conforming, p_refine_strategy, radius
+    use controlvariables,   only : non_conforming, p_refine_strategy, radius, origin
     use referencevariables, only : npoly, npoly_max, nfacesperelem, ihelems
+    use precision_vars, only     : magnitude
     use mpimod
 
     ! Nothing is implicitly defined
@@ -5779,7 +5438,10 @@ contains
     integer :: ielem, nhex, iface
     integer :: i, j, nval, icnt
 
-    real(wp)             :: r
+    real(wp)                                           :: r
+    real(wp), dimension(4)                             :: rad
+    real(wp)                                           :: points_surf(4,3)
+    logical                                            :: on_sphere
 
     call srand(seed)
 
