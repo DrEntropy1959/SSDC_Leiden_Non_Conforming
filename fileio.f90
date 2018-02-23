@@ -1372,7 +1372,7 @@ contains
     ! Nothing is implicitly defined
     implicit none
 
-    integer, parameter :: n_code_bc_types = 15
+    integer, parameter :: n_code_bc_types = 16
 
     continue 
 
@@ -1424,6 +1424,9 @@ contains
 
     ! Subsonic Pressure Boundary condition 
     code_bc_names(15) = 'SubsonicOutflow'
+
+    ! Subsonic Pressure Boundary condition 
+    code_bc_names(16) = 'Sphere_Dirichlet'
 
     return
   end subroutine init_code_bc_types

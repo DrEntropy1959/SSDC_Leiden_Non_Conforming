@@ -6072,8 +6072,8 @@ endif
         if( initial_condition  == 'ExactSolutionIsentropicVortex') then
           BoundaryCondition => isentropicVortexFull
 
-        else if(initial_condition  == 'ShockVortex') then
-          BoundaryCondition => ShockVortexInteraction
+        else if(initial_condition  == 'ExactSolutionViscousShock') then
+          BoundaryCondition => viscousShockFull
 
         endif
 

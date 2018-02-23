@@ -5962,6 +5962,14 @@ contains
         !     elem_props(2,ielem) = npoly+1
         !   endif
         !enddo
+      case(17)
+        !-- sphere with origin at (0,0,0) and a radius = sqrt(3)
+        do ielem = 1,nhex
+          elem_props(2,ielem) = npoly+1
+          do iface = 1,nfacesperelem
+             if(ef2e(1,iface,ielem) == -16) elem_props(2,ielem) = npoly + 2
+          enddo
+        enddo
       end select
 
     endif
