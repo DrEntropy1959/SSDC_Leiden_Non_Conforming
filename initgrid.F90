@@ -739,7 +739,7 @@ contains
     ! straight sided, but this can be remedied by incorporating
     ! CAD or analytical surface data. 
     use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin, SAT_type,&
-                                symmetric
+                                symmetric_metric
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
@@ -1191,7 +1191,6 @@ contains
             
                 xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
                                                        x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-
               endif           
               if( (abs(r(3)-r(4)).LE.tol) )then
                 !-- connector at xi_1 = 1, xi_3 = 1
@@ -3062,7 +3061,7 @@ contains
     use variables, only: xg, x_r, r_x, Jx_r, dx_min_elem
     use collocationvariables, only: nnzgrad, iagrad, jagrad, dagrad, pvol
     use initcollocation, only: element_properties
-    use controlvariables, only: symmetric
+    use controlvariables, only: symmetric_metric
     use mpimod
 
     implicit none
@@ -3081,6 +3080,7 @@ contains
 
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
+
 
     continue 
 
@@ -3161,7 +3161,7 @@ contains
         iE = ielem                                 !  New variable strictly cosmetic so formulae are shorter
         r_x(:,:,:,ielem) = 0.0_wp
 
-        if(symmetric) then
+        if(symmetric_metric) then        !   Symmetric form (.true) is taken from Sjogreen.Yee.Vinokur.LLNL_TR_637397.HOFD.Metrics.GCL.Moving.Meshes.pdf
 
           do inode = 1, n_LGL_3d
 
@@ -3263,11 +3263,11 @@ contains
               r_x(3,3,inode,iE) = r_x(3,3,inode,iE) + dagrad(jdir,i)*( + x_r(1,1,j,iE)*xg(2,j,iE)                           ) ! dxi_3/dx_3
             end do
 
-            r_x(:,:,inode,ielem) = r_x(:,:,inode,ielem)/Jx_r(inode,ielem)
+            r_x(:,:,inode,iE) = r_x(:,:,inode,iE)/Jx_r(inode,iE)
 
           end do
 
-        endif   !  symmetric portion of loop
+        endif   !  symmetric_metric portion of loop
 
       end if
 
@@ -3522,6 +3522,7 @@ contains
       err_Linf = max(err_Linf,err)
 
       a_t(:,:) = a_t(:,:) - delta_a(:,:)
+
 !-- DEBUG DAVID START
 !      write(*,*)'1 error in orginal system = ',maxval(abs(matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)))
 !      write(*,*)'diff in original metrics = ',maxval(abs(delta_a))

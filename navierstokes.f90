@@ -3691,7 +3691,6 @@ contains
             
             if(nonconforming_element) then
               nx = - nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
-!             nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
             else
               nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
             endif
@@ -6068,6 +6067,16 @@ endif
         BoundaryCondition => BLayerProfile
       case(-11)
         BoundaryCondition => SubsonicOutflow
+      case(-16)
+
+        if( initial_condition  == 'ExactSolutionIsentropicVortex') then
+          BoundaryCondition => isentropicVortexFull
+
+        else if(initial_condition  == 'ShockVortex') then
+          BoundaryCondition => ShockVortexInteraction
+
+        endif
+
       case default
         BoundaryCondition => UniformFreeStream
     end select
