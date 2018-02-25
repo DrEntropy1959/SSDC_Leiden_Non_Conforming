@@ -25,7 +25,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      4.8314856051731170E-015
+   Metric error: L_inf      3.2150711244685272E-015
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -40,10 +40,10 @@
  Start actual computation
  ===============================================================
  P           3
- L1   error:    1.4186205628736273E-002
- L2   error:    8.2857869471080037E-002
- Linf error:    2.3785199062447178     
- CPU time:         18.1829
+ L1   error:    1.4186205628732769E-002
+ L2   error:    8.2857869471064577E-002
+ Linf error:    2.3785199062415701     
+ CPU time:         25.9336
 
  Solution files written in solution                                                                                                                
 
