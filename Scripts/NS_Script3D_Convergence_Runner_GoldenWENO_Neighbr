@@ -35,10 +35,10 @@ cp zerodat NS_Convergence.Data.VS.Pencil_Uniform_1x1_SSDC_GoldenWENO_Neighbr.csv
        if   [ $var2 -le 002 ] 
        then
        mpirun -np  2 nice -19 ./SSDCNSE > tmp88 ;
-       elif [ $var2 -eq 004 ] 
+       elif [ $var2 -eq 008 ] 
        then
        mpirun -np  2 nice -19 ./SSDCNSE > tmp88 ;
-       elif [ $var2 -ge 008 ] 
+       elif [ $var2 -ge 016 ] 
        then
        mpirun -np  4 nice -19 ./SSDCNSE > tmp88 ;
        fi

@@ -23,7 +23,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      5.2982917484776505E-017
+   Metric error: L_inf      3.9898639947466563E-017
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -38,10 +38,10 @@
  Start actual computation
  ===============================================================
  P           3
- L1   error:    2.2931785498533742E-002
- L2   error:    3.9507032635656449E-002
- Linf error:   0.15496424982520463     
- CPU time:          7.3576
+ L1   error:    2.2931677335729574E-002
+ L2   error:    3.9506550668791204E-002
+ Linf error:   0.15495897822932747     
+ CPU time:          7.8373
 
  Solution files written in solution                                                                                                                
 
@@ -69,7 +69,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      1.0488563581239488E-016
+   Metric error: L_inf      3.7730235602495554E-017
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -84,10 +84,10 @@
  Start actual computation
  ===============================================================
  P           3
- L1   error:    2.0622540708858845E-002
- L2   error:    5.2377685814259403E-002
- Linf error:   0.43915043157783540     
- CPU time:         13.7397
+ L1   error:    2.0622786321771541E-002
+ L2   error:    5.2378918807703352E-002
+ Linf error:   0.43913008156526345     
+ CPU time:         14.7411
 
  Solution files written in solution                                                                                                                
 
@@ -110,7 +110,7 @@
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 4 partitions
+ Metis is attempting to divide the domain into 2 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -118,7 +118,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      9.5376905988943541E-017
+   Metric error: L_inf      6.2450045135165055E-017
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -133,10 +133,10 @@
  Start actual computation
  ===============================================================
  P           3
- L1   error:    2.1878163122517575E-002
- L2   error:    4.8466484672265810E-002
- Linf error:   0.47961606696824166     
- CPU time:          8.7731
+ L1   error:    2.1908811571202225E-002
+ L2   error:    4.8565785853392412E-002
+ Linf error:   0.48080274491704689     
+ CPU time:         16.7158
 
  Solution files written in solution                                                                                                                
 
@@ -167,7 +167,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      9.4720066644434054E-017
+   Metric error: L_inf      6.0281640790194047E-017
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -182,10 +182,10 @@
  Start actual computation
  ===============================================================
  P           3
- L1   error:    1.3417354607879614E-005
- L2   error:    3.3321644112932833E-005
- Linf error:    3.7196011306939170E-004
- CPU time:         16.1092
+ L1   error:    1.3417354607974143E-005
+ L2   error:    3.3321644112966260E-005
+ Linf error:    3.7196011306761534E-004
+ CPU time:         22.1258
 
  Solution files written in solution                                                                                                                
 
