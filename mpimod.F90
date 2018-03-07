@@ -418,33 +418,24 @@ contains
 
       ! Loop over the elements
       do i_elem = 1, nelems
-        ! Process ID
-        i_proc = elempart(i_elem)
 
-        ! Original numbering of the element for each processor
-        i2jelems(melemsonproc(2*i_proc)+icnt(i_proc)) = i_elem
-        
-        ! New numbering of the elements for each processor
-        j2ielems(i_elem) = melemsonproc(2*i_proc) + icnt(i_proc)
-        
-        ! Update processor counter
-        icnt(i_proc) = icnt(i_proc) + 1
+        i_proc = elempart(i_elem)                                ! Process ID
 
-        ! Original ID of the element which owns a "periodic" face, x1 direction
-        do i_p_face = 1, size(periodic_face_data_x1(1,:))
+        i2jelems(melemsonproc(2*i_proc)+icnt(i_proc)) = i_elem   ! Original numbering of the element for each processor
+        
+        j2ielems(i_elem) = melemsonproc(2*i_proc) + icnt(i_proc) ! New numbering of the elements for each processor
+        
+        icnt(i_proc) = icnt(i_proc) + 1                          ! Update processor counter
+
+        do i_p_face = 1, size(periodic_face_data_x1(1,:))        ! Original ID of the element which owns a "periodic" face, x1 direction
           
-          ! Get the global ID of the element that owns a periodic boundary face
-          p_elem = periodic_face_data_x1(1,i_p_face)
+          p_elem = periodic_face_data_x1(1,i_p_face)             ! Get the global ID of the element that owns a periodic boundary face
 
-          ! Get the local (local for the element) ID of the periodic boundary face
-          p_face = periodic_face_data_x1(2,i_p_face)
+          p_face = periodic_face_data_x1(2,i_p_face)             ! Get the local (local for the element) ID of the periodic boundary face
 
-          ! Get the periodic direction of the face
-          p_dir = periodic_face_data_x1(4,i_p_face) 
+           p_dir = periodic_face_data_x1(4,i_p_face)             ! Get the periodic direction of the face
 
-
-          if (p_elem == i_elem) then
-            ! The i_elem owns a periodic boundary face
+          if (p_elem == i_elem) then                             ! The i_elem owns a periodic boundary face
             cnt_p_faces_x1(i_proc) = cnt_p_faces_x1(i_proc) + 1
             p_data_x1(1+(cnt_p_faces_x1(i_proc)-1)*3,i_proc) = p_elem
             p_data_x1(2+(cnt_p_faces_x1(i_proc)-1)*3,i_proc) = p_face
@@ -452,21 +443,15 @@ contains
           end if
         end do
 
-        ! Original ID of the element which owns a "periodic" face, x2 direction
-        do i_p_face = 1, size(periodic_face_data_x2(1,:))
+        do i_p_face = 1, size(periodic_face_data_x2(1,:))         ! Original ID of the element which owns a "periodic" face, x2 direction
           
-          ! Get the global ID of the element that owns a periodic boundary face
-          p_elem = periodic_face_data_x2(1,i_p_face)
+          p_elem = periodic_face_data_x2(1,i_p_face)              ! Get the global ID of the element that owns a periodic boundary face
 
-          ! Get the local (local for the element) ID of the periodic boundary 
-          ! face
-          p_face = periodic_face_data_x2(2,i_p_face)
+          p_face = periodic_face_data_x2(2,i_p_face)              ! Get the local (local for the element) ID of the periodic boundary face
 
-          ! Get the periodic direction of the face
-          p_dir = periodic_face_data_x2(4,i_p_face) 
+          p_dir = periodic_face_data_x2(4,i_p_face)               ! Get the periodic direction of the face
 
-          if (p_elem == i_elem) then
-            ! The i_elem owns a periodic boundary face
+          if (p_elem == i_elem) then                              ! The i_elem owns a periodic boundary face
             cnt_p_faces_x2(i_proc) = cnt_p_faces_x2(i_proc) + 1
             p_data_x2(1+(cnt_p_faces_x2(i_proc)-1)*3,i_proc) = p_elem
             p_data_x2(2+(cnt_p_faces_x2(i_proc)-1)*3,i_proc) = p_face
@@ -474,21 +459,15 @@ contains
           end if
         end do
 
-        ! Original ID of the element which owns a "periodic" face, x3 direction
-        do i_p_face = 1, size(periodic_face_data_x3(1,:))
+        do i_p_face = 1, size(periodic_face_data_x3(1,:))         ! Original ID of the element which owns a "periodic" face, x3 direction
           
-          ! Get the global ID of the element that owns a periodic boundary face
-          p_elem = periodic_face_data_x3(1,i_p_face)
+          p_elem = periodic_face_data_x3(1,i_p_face)              ! Get the global ID of the element that owns a periodic boundary face
 
-          ! Get the local (local for the element) ID of the periodic boundary 
-          ! face
-          p_face = periodic_face_data_x3(2,i_p_face)
+          p_face = periodic_face_data_x3(2,i_p_face)              ! Get the local (local for the element) ID of the periodic boundary face
 
-          ! Get the periodic direction of the face
-          p_dir = periodic_face_data_x3(4,i_p_face) 
+          p_dir = periodic_face_data_x3(4,i_p_face)               ! Get the periodic direction of the face
 
-          if (p_elem == i_elem) then
-            ! The i_elem owns a periodic boundary face
+          if (p_elem == i_elem) then                              ! The i_elem owns a periodic boundary face
             cnt_p_faces_x3(i_proc) = cnt_p_faces_x3(i_proc) + 1
             p_data_x3(1+(cnt_p_faces_x3(i_proc)-1)*3,i_proc) = p_elem
             p_data_x3(2+(cnt_p_faces_x3(i_proc)-1)*3,i_proc) = p_face
@@ -496,17 +475,13 @@ contains
           end if
         end do
 
-        ! Original ID of the element which owns a "wall" face
-        do i_w_face = 1, size(wall_face_data(1,:))
+        do i_w_face = 1, size(wall_face_data(1,:))                ! Original ID of the element which owns a "wall" face
           
-          ! Get the global ID of the element that owns a wall boundary face
-          w_elem = wall_face_data(1,i_w_face)
+          w_elem = wall_face_data(1,i_w_face)                     ! Get the global ID of the element that owns a wall boundary face
 
-          ! Get the local (local for the element) ID of the wall boundary face
-          w_face = wall_face_data(2,i_w_face)
+          w_face = wall_face_data(2,i_w_face)                     ! Get the local (local for the element) ID of the wall boundary face
 
-          if (w_elem == i_elem) then
-            ! The i_elem owns a wall boundary face
+          if (w_elem == i_elem) then                              ! The i_elem owns a wall boundary face
             cnt_w_faces(i_proc) = cnt_w_faces(i_proc) + 1
             w_data(1+(cnt_w_faces(i_proc)-1)*2,i_proc) = j2ielems(i_elem)
             w_data(2+(cnt_w_faces(i_proc)-1)*2,i_proc) = w_face
@@ -529,13 +504,10 @@ contains
     ! master process. 
     call mpi_barrier(petsc_comm_world,i_err)
 
-    ! The lower and upper ordered-element bounds for each process is 
-    ! communicated
-    call mpi_scatter(melemsonproc,2,mpi_integer,ihelems,2,mpi_integer,0, &
-      & petsc_comm_world,i_err)
+                                                                   ! The lower and upper ordered-element bounds for each process is communicated
+    call mpi_scatter(melemsonproc,2,mpi_integer,ihelems,2,mpi_integer,0,petsc_comm_world,i_err)
 
-    ! Set number of elements on each process 
-    nelems = ihelems(2) - ihelems(1) + 1
+    nelems = ihelems(2) - ihelems(1) + 1                           ! Set number of elements on each process 
 
     ! The original-to-ordered-element mapping is communicated to each process
     ! Each process will receive the global ID of the elements (from the original 
@@ -545,9 +517,7 @@ contains
     call mpi_scatterv(i2jelems,icnt,melemsonproc(0:2*(nprocs-1):2)-1, &
       & mpi_integer,jelems,netmp,mpi_integer,0,petsc_comm_world,i_err)
 
-    ! Create a barrier synchronization in the group. 
-    call mpi_barrier(petsc_comm_world,i_err)
-
+    call mpi_barrier(petsc_comm_world,i_err)                       ! Create a barrier synchronization in the group. 
 
     ! ==========================================================================
     ! Send the number of periodic and wall faces owned by each process
@@ -563,22 +533,17 @@ contains
       ! Special treatment for the master node (i.e., myprocid=0). There is no
       ! need to send data. We already know their values. Hence we just set them.
       ! ========================================================================
-      ! Number of periodic faces in the x1 direction
-      n_periodic_faces_x1 = cnt_p_faces_x1(myprocid)
+      n_periodic_faces_x1 = cnt_p_faces_x1(myprocid)  ! Number of periodic faces in the x1 direction
       
-      ! Number of periodic faces in the x2 direction
-      n_periodic_faces_x2 = cnt_p_faces_x2(myprocid)
+      n_periodic_faces_x2 = cnt_p_faces_x2(myprocid)  ! Number of periodic faces in the x2 direction
       
-      ! Number of periodic faces in the x3 direction
-      n_periodic_faces_x3 = cnt_p_faces_x3(myprocid)
+      n_periodic_faces_x3 = cnt_p_faces_x3(myprocid)  ! Number of periodic faces in the x3 direction
 
-      ! Number of wall faces
-      n_wall_faces = cnt_w_faces(myprocid)
+      n_wall_faces = cnt_w_faces(myprocid)            ! Number of wall faces
 
       ! General treatment for all the processes with ID different from zero
       ! ========================================================================
-      ! Loop over the number of processes
-      do i_proc = 1, nprocs-1
+      do i_proc = 1, nprocs-1                         ! Loop over the number of processes
 
         ! Transfer the number of periodic faces in the x1 direction
         ! ======================================================================
@@ -2025,6 +1990,58 @@ contains
   end subroutine PetscGridLocations_Gau
   
   !============================================================================
+  
+  subroutine PetscFaceJacobians_Gau()
+
+    ! Initialize the global and ghost arrays for the grid
+    ! It is run in parallel by all processes
+
+    use referencevariables
+    use variables,            only: Jx_r_Gau_shell, Jx_r_ghst_Gau_shell, ef2e
+    use petscvariables,       only: Jx_r_petsc_Gau_shell, Jx_r_locpetsc_Gau_shell
+    use initcollocation,      only: element_properties
+    use collocationvariables, only: elem_props
+
+    implicit none
+
+    integer :: ielem, iface
+    integer :: n_S_1d_Off, n_S_1d_On, n_S_1d_Mort
+
+    nghost_Gau_shell = 0
+    ! loop over elements
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_1d=n_S_1d_On)
+
+      ! loop over faces
+      do iface = 1, nfacesperelem
+
+        ! if face neighbor is off process and non-conforming then count ghost nodes
+        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+            cycle
+        else
+
+          n_S_1d_Off  = ef2e(4,iface,ielem)
+          n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
+
+          nghost_Gau_shell = nghost_Gau_shell + (n_S_1d_Mort)**2
+        endif
+
+      end do
+
+    end do
+
+    allocate(Jx_r_ghst_Gau_shell(nghost_Gau_shell))
+
+    call PetscComm0D_Gau_Mortar_DataSetup(Jx_r_Gau_shell,Jx_r_ghst_Gau_shell,Jx_r_petsc_Gau_shell, &
+               Jx_r_locpetsc_Gau_shell, size(Jx_r_Gau_shell,1), nelems, size(Jx_r_ghst_Gau_shell,1))
+
+    call UpdateComm0D_Gau_Mortar_GhostData(Jx_r_Gau_shell,Jx_r_ghst_Gau_shell,Jx_r_petsc_Gau_shell, &
+               Jx_r_locpetsc_Gau_shell, size(Jx_r_Gau_shell,1),         size(Jx_r_ghst_Gau_shell,1))
+
+  end subroutine PetscFaceJacobians_Gau
+  
+  !============================================================================
 
   subroutine PetscComm0DDataSetup(Zin, Zghstin, Zpetscin, Zlocin, nk, ne, ngh)
 
@@ -2824,6 +2841,101 @@ contains
 
   end subroutine PetscComm1D_LGL_Shell_DataSetup
 
+  !============================================================================
+
+  subroutine PetscComm0D_Gau_Mortar_DataSetup(Zin, Zghstin, Zpetscin, Zlocin, nk, ne, ngh)
+
+    ! Allocate the shell ghost data for Navier Stokes computations
+    ! Data is stored in SHELL coordinates (dimension => nk = nodesperface*nfacesperelem )
+
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,            only: ef2e
+    use initcollocation,      only: element_properties
+    use collocationvariables, only: elem_props
+    implicit none
+
+    ! Arguments
+    ! =========
+    integer,  intent(in) :: nk, ne, ngh
+    real(wp), intent(in) :: Zin(nk,ne)
+    real(wp), intent(in) :: Zghstin(ngh)
+
+
+    Vec Zpetscin
+    Vec Zlocin
+
+    PetscErrorCode ierrpetsc
+    PetscScalar xinit
+
+    integer :: ntot, ntotG
+    integer, allocatable :: iyu(:)
+    integer :: ielem, iloc, iface
+    integer :: i, kelem, kface, ieq
+    integer :: n_S_1d_Mort, n_S_2d_Mort, nfacesize
+    integer :: ierr
+
+    xinit  = 0.0_wp
+
+    ! total length of on process data for 1D vector of solution
+    ntot  = nk * nelems
+    ntotG = ngh
+
+    nfacesize = nk / nfacesperelem
+
+    if(nfacesize*nfacesperelem /= nk) then
+      write(*,*)'wrong sizes in PetscComm_1D_Mortar: stopping'
+      call PetscFinalize(ierr) ; stop
+    end if
+
+    ! allocate memory for ghost locations
+    allocate(iyu(ntotG))
+
+    iloc = 0
+    do ielem = ihelems(1), ihelems(2)                ! loop over elements
+
+      do iface = 1,nfacesperelem                     ! loop over faces on elem
+
+                                                     ! do nothing if neighbor is on process or conforming
+        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+            cycle
+        else
+
+          kelem = ef2e(2,iface,ielem)                ! element of neighbor
+          kface = ef2e(1,iface,ielem)                ! face of neighbor
+
+          n_S_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
+          n_S_2d_Mort = n_S_1d_Mort**2
+  
+          do i = 1, n_S_2d_Mort                      ! loop over nodes on neighbor face
+
+              iloc = iloc+1                          ! advance position in ghost array
+                                                     ! set position of ghost in global vector containing solution data
+              iyu(iloc) = nk *(kelem-1)            & ! skip over previous elements
+                        + nfacesize *(kface-1)     & ! nk/nfacesperelem is face dimension
+                        + i-1                        ! skip over previous eqns
+
+          end do
+
+        end if
+      end do
+    end do
+
+    iyu = iyu-1                                       ! use C indexing
+
+                                                      ! call to petsc to create global vector with ghosts
+    call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, ntotG, iyu, Zpetscin, ierrpetsc)
+
+    call VecSet(Zpetscin, xinit, ierrpetsc)           ! initialize to zero
+                                                      ! assemble parallel vector
+    call VecAssemblyBegin(Zpetscin,ierrpetsc)
+    call VecAssemblyEnd  (Zpetscin,ierrpetsc)
+
+    deallocate(iyu)
+
+    ! create container for local vector that contains on process plus ghost data for solution
+    call VecCreateSeq(petsc_comm_self, ntot + ntotG, Zlocin, ierrpetsc)
+
+  end subroutine PetscComm0D_Gau_Mortar_DataSetup
   !============================================================================
 
   subroutine PetscComm1D_Gau_Mortar_DataSetup(Zin, Zghstin, Zpetscin, Zlocin, nq, nk, ne, ngh)
@@ -3894,6 +4006,124 @@ contains
 
 
   end subroutine UpdateComm1D_LGL_Shell_GhostData
+
+  !============================================================================
+  
+  subroutine UpdateComm0D_Gau_Mortar_GhostData(Zin, Zghstin, Zpetsc, Zlocpetsc, nk, ngh)
+
+    ! Communicates solution data across processes and updates the array ughst.
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,            only: ef2e
+    use initcollocation,      only: element_properties
+    use collocationvariables, only: elem_props
+    implicit none
+
+    ! Arguments
+    ! =========
+    integer,  intent(in)    :: nk, ngh
+    real(wp), intent(in)    :: Zin(nk,ihelems(1):ihelems(2))
+    real(wp), intent(inout) :: Zghstin(ngh)
+
+    Vec Zpetsc
+    Vec Zlocpetsc
+
+    PetscErrorCode ierrpetsc
+
+    integer :: ntot, ntotu, ntotw
+    integer :: ielem, iloc, iface, nfacesize
+    integer :: kelem, n_S_1d_Mort, n_S_2d_Mort
+    integer :: i, ieq, jnode
+    integer,  allocatable :: iyu(:)
+    real(wp), allocatable ::  yu(:)
+
+    real(wp), pointer :: xx_Z(:)
+
+    ntotu = nk * nelems     ! length of on-process data including ZERO PADDING
+    ntotw = nk              ! length of on-element data including ZERO PADDING
+
+    nfacesize = nk / nfacesperelem
+
+    do ielem = ihelems(1), ihelems(2)                       ! loop over elements
+
+      do iface = 1, nfacesperelem                           ! loop over 6 faces
+
+        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+            cycle
+        else
+
+         n_S_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
+         n_S_2d_Mort = n_S_1d_Mort**2
+         ntot = n_S_2d_Mort
+
+         if(allocated(iyu)) deallocate(iyu) ; allocate(iyu(ntot)) ; iyu = 0
+         if(allocated( yu)) deallocate( yu) ; allocate( yu(ntot)) ;  yu = 0.0_wp
+ 
+         do i = 1, n_S_2d_Mort                               ! loop over nodes on face
+ 
+           jnode = (iface-1)*nfacesize + i                   ! access shell coordinate
+ 
+           yu(i) = Zin(jnode,ielem)                          ! update temporary solution values
+                                                             ! update global location of solution values
+          iyu(i) = ntotw*(ielem-1)      &                    ! skip previous elements
+                          + jnode       &
+                          - 1                                ! C indexing
+ 
+         end do
+ 
+         call VecSetValues(Zpetsc,ntot,iyu,yu,insert_values,ierrpetsc) ! set values in petsc vector
+ 
+        endif
+
+      end do
+
+    end do
+
+    call VecAssemblyBegin(Zpetsc,ierrpetsc)                 ! assemble vector
+    call VecAssemblyEnd  (Zpetsc,ierrpetsc)
+                                                            ! update ghost values
+    call VecGhostUpdateBegin(Zpetsc, insert_values, scatter_forward, ierrpetsc)
+    call VecGhostUpdateEnd  (Zpetsc, insert_values, scatter_forward, ierrpetsc)
+                                                            ! get local data including ghost points
+    call VecGhostGetLocalForm(Zpetsc, Zlocpetsc, ierrpetsc)
+                                                            ! use fortran pointer for convenience
+    call VecGetArrayF90(Zlocpetsc, xx_Z, ierrpetsc)
+
+    iloc = 0                                                ! zero ghost counter
+    do ielem = ihelems(1), ihelems(2)                       ! loop over elements
+
+      do iface = 1,nfacesperelem                            ! loop over faces
+
+                                                            ! if face neighbor is off process and non-conforming then count ghost nodes
+        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+            cycle
+        else
+
+          kelem = ef2e(2,iface,ielem)                       ! element of neighbor
+
+          n_S_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
+          n_S_2d_Mort = n_S_1d_Mort**2
+
+          do i = 1, n_S_2d_Mort                               ! loop over nodes
+
+            iloc = iloc+1                                     ! update ghost node index
+
+            Zghstin(iloc) = xx_Z(ntotu+iloc)                  ! fill ghost data
+
+          end do
+
+        end if
+
+      end do
+
+    end do
+
+    ! release pointer
+    call VecRestoreArrayF90(Zlocpetsc,xx_Z,ierrpetsc)
+    call VecGhostRestoreLocalForm(Zpetsc,Zlocpetsc,ierrpetsc)
+    if(associated(xx_Z)) deallocate(xx_Z)
+
+
+  end subroutine UpdateComm0D_Gau_Mortar_GhostData
 
   !============================================================================
   

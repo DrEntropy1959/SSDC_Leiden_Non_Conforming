@@ -241,6 +241,8 @@ contains
    
     call calcfacenormals_LGL(.true.)
 
+    call PetscFaceJacobians_Gau
+
 !-- uncomment to write solution to file in a way that can be read by Matlab
 !    !-- write to file ONLY USE WITH ONE PROCESS
 !    if(.true.)then
