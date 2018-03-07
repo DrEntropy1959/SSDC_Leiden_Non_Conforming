@@ -1191,6 +1191,7 @@ contains
             
                 xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
                                                        x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+
               endif           
               if( (abs(r(3)-r(4)).LE.tol) )then
                 !-- connector at xi_1 = 1, xi_3 = 1
@@ -3081,7 +3082,6 @@ contains
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
 
-
     continue 
 
     nodesperelem_max = (npoly_max+1)**ndim                    ! number of nodes in each element
@@ -3161,7 +3161,7 @@ contains
         iE = ielem                                 !  New variable strictly cosmetic so formulae are shorter
         r_x(:,:,:,ielem) = 0.0_wp
 
-        if(symmetric_metric) then        !   Symmetric form (.true) is taken from Sjogreen.Yee.Vinokur.LLNL_TR_637397.HOFD.Metrics.GCL.Moving.Meshes.pdf
+        if(symmetric_metric) then
 
           do inode = 1, n_LGL_3d
 
@@ -3263,7 +3263,7 @@ contains
               r_x(3,3,inode,iE) = r_x(3,3,inode,iE) + dagrad(jdir,i)*( + x_r(1,1,j,iE)*xg(2,j,iE)                           ) ! dxi_3/dx_3
             end do
 
-            r_x(:,:,inode,iE) = r_x(:,:,inode,iE)/Jx_r(inode,iE)
+            r_x(:,:,inode,ielem) = r_x(:,:,inode,ielem)/Jx_r(inode,ielem)
 
           end do
 
@@ -3522,7 +3522,6 @@ contains
       err_Linf = max(err_Linf,err)
 
       a_t(:,:) = a_t(:,:) - delta_a(:,:)
-
 !-- DEBUG DAVID START
 !      write(*,*)'1 error in orginal system = ',maxval(abs(matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)))
 !      write(*,*)'diff in original metrics = ',maxval(abs(delta_a))
@@ -5625,13 +5624,77 @@ contains
         !   endif
         !enddo
       case(17)
-        !-- sphere with origin at (0,0,0) and a radius = sqrt(3)
         do ielem = 1,nhex
-          elem_props(2,ielem) = npoly+1
-          do iface = 1,nfacesperelem
-             if(ef2e(1,iface,ielem) == -16) elem_props(2,ielem) = npoly + 2
+          on_sphere = .false.
+          do iface = 1,6
+            if(ef2e(1,iface,ielem)<0)then
+              on_sphere = .true.
+            endif
           enddo
+          if(on_sphere)then
+            write(*,*)'ielem = ',ielem
+            elem_props(2,ielem) = npoly+2
+          else
+            elem_props(2,ielem) = npoly+1
+          endif
         enddo
+      case(18)
+        !-- THIS DOES NOT WORK BECAUSE vx HAS NOT BEEN POPULATED
+        write(*,*)'is vx_Master alloated ?',allocated(vx_Master)
+        write(*,*)'is e2v allocated?',allocated(e2v)
+        if(.false.)then
+        do ielem = 1,nhex
+          on_sphere = .false.
+          do iface = 1,6
+            if(iface.EQ.1)then
+              points_surf(1,:) = vx_Master(:,e2v(1,ielem))
+              points_surf(2,:) = vx_Master(:,e2v(2,ielem))
+              points_surf(3,:) = vx_Master(:,e2v(3,ielem))
+              points_surf(4,:) = vx_Master(:,e2v(4,ielem))
+            elseif(iface.EQ.2)then
+              points_surf(1,:) = vx_Master(:,e2v(1,ielem))
+              points_surf(2,:) = vx_Master(:,e2v(2,ielem))
+              points_surf(3,:) = vx_Master(:,e2v(6,ielem))
+              points_surf(4,:) = vx_Master(:,e2v(5,ielem))
+            elseif(iface.EQ.3)then
+              points_surf(1,:) = vx_Master(:,e2v(2,ielem))
+              points_surf(2,:) = vx_Master(:,e2v(3,ielem))
+              points_surf(3,:) = vx_Master(:,e2v(7,ielem))
+              points_surf(4,:) = vx_Master(:,e2v(6,ielem))
+            elseif(iface.EQ.4)then
+              points_surf(1,:) = vx_Master(:,e2v(4,ielem))
+              points_surf(2,:) = vx_Master(:,e2v(3,ielem))
+              points_surf(3,:) = vx_Master(:,e2v(7,ielem))
+              points_surf(4,:) = vx_Master(:,e2v(8,ielem))
+            elseif(iface.EQ.5)then
+              points_surf(1,:) = vx_Master(:,e2v(1,ielem))
+              points_surf(2,:) = vx_Master(:,e2v(4,ielem))
+              points_surf(3,:) = vx_Master(:,e2v(8,ielem))
+              points_surf(4,:) = vx_Master(:,e2v(5,ielem))
+            elseif(iface.EQ.6)then
+              points_surf(1,:) = vx_Master(:,e2v(5,ielem))
+              points_surf(2,:) = vx_Master(:,e2v(6,ielem))
+              points_surf(3,:) = vx_Master(:,e2v(7,ielem))
+              points_surf(4,:) = vx_Master(:,e2v(8,ielem))
+            endif
+            do j = 1,4
+              rad(j) = magnitude(points_surf(j,1:3)-origin(1:3)) 
+            enddo
+          enddo
+          !-- check to see if the surface is on the sphere and if so move points onto sphere
+          if ( (abs(rad(1)-radius).LE.tol).AND.(abs(rad(2)-radius).LE.tol)&
+                 .AND.(abs(rad(3)-radius).LE.tol).AND.(abs(rad(4)-radius).LE.tol) ) then
+            on_sphere = .true.
+            cycle
+          endif
+          if(on_sphere)then
+            write(*,*)'ielem = ',ielem
+            elem_props(2,ielem) = npoly+2
+          else
+            elem_props(2,ielem) = npoly+1
+          endif
+        enddo
+        endif
       end select
 
     endif
