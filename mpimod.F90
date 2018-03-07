@@ -1990,6 +1990,58 @@ contains
   end subroutine PetscGridLocations_Gau
   
   !============================================================================
+  
+  subroutine PetscFaceJacobians_Gau()
+
+    ! Initialize the global and ghost arrays for the grid
+    ! It is run in parallel by all processes
+
+    use referencevariables
+    use variables,            only: Jx_r_Gau_shell, Jx_r_ghst_Gau_shell, ef2e
+    use petscvariables,       only: Jx_r_petsc_Gau_shell, Jx_r_locpetsc_Gau_shell
+    use initcollocation,      only: element_properties
+    use collocationvariables, only: elem_props
+
+    implicit none
+
+    integer :: ielem, iface
+    integer :: n_S_1d_Off, n_S_1d_On, n_S_1d_Mort
+
+    nghost_Gau_shell = 0
+    ! loop over elements
+    do ielem = ihelems(1), ihelems(2)
+
+      call element_properties(ielem, n_pts_1d=n_S_1d_On)
+
+      ! loop over faces
+      do iface = 1, nfacesperelem
+
+        ! if face neighbor is off process and non-conforming then count ghost nodes
+        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+            cycle
+        else
+
+          n_S_1d_Off  = ef2e(4,iface,ielem)
+          n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
+
+          nghost_Gau_shell = nghost_Gau_shell + (n_S_1d_Mort)**2
+        endif
+
+      end do
+
+    end do
+
+    allocate(Jx_r_ghst_Gau_shell(nghost_Gau_shell))
+
+    call PetscComm0D_Gau_Mortar_DataSetup(Jx_r_Gau_shell,Jx_r_ghst_Gau_shell,Jx_r_petsc_Gau_shell, &
+               Jx_r_locpetsc_Gau_shell, size(Jx_r_Gau_shell,1), nelems, size(Jx_r_ghst_Gau_shell,1))
+
+    call UpdateComm0D_Gau_Mortar_GhostData(Jx_r_Gau_shell,Jx_r_ghst_Gau_shell,Jx_r_petsc_Gau_shell, &
+               Jx_r_locpetsc_Gau_shell, size(Jx_r_Gau_shell,1),         size(Jx_r_ghst_Gau_shell,1))
+
+  end subroutine PetscFaceJacobians_Gau
+  
+  !============================================================================
 
   subroutine PetscComm0DDataSetup(Zin, Zghstin, Zpetscin, Zlocin, nk, ne, ngh)
 
@@ -2789,6 +2841,101 @@ contains
 
   end subroutine PetscComm1D_LGL_Shell_DataSetup
 
+  !============================================================================
+
+  subroutine PetscComm0D_Gau_Mortar_DataSetup(Zin, Zghstin, Zpetscin, Zlocin, nk, ne, ngh)
+
+    ! Allocate the shell ghost data for Navier Stokes computations
+    ! Data is stored in SHELL coordinates (dimension => nk = nodesperface*nfacesperelem )
+
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,            only: ef2e
+    use initcollocation,      only: element_properties
+    use collocationvariables, only: elem_props
+    implicit none
+
+    ! Arguments
+    ! =========
+    integer,  intent(in) :: nk, ne, ngh
+    real(wp), intent(in) :: Zin(nk,ne)
+    real(wp), intent(in) :: Zghstin(ngh)
+
+
+    Vec Zpetscin
+    Vec Zlocin
+
+    PetscErrorCode ierrpetsc
+    PetscScalar xinit
+
+    integer :: ntot, ntotG
+    integer, allocatable :: iyu(:)
+    integer :: ielem, iloc, iface
+    integer :: i, kelem, kface, ieq
+    integer :: n_S_1d_Mort, n_S_2d_Mort, nfacesize
+    integer :: ierr
+
+    xinit  = 0.0_wp
+
+    ! total length of on process data for 1D vector of solution
+    ntot  = nk * nelems
+    ntotG = ngh
+
+    nfacesize = nk / nfacesperelem
+
+    if(nfacesize*nfacesperelem /= nk) then
+      write(*,*)'wrong sizes in PetscComm_1D_Mortar: stopping'
+      call PetscFinalize(ierr) ; stop
+    end if
+
+    ! allocate memory for ghost locations
+    allocate(iyu(ntotG))
+
+    iloc = 0
+    do ielem = ihelems(1), ihelems(2)                ! loop over elements
+
+      do iface = 1,nfacesperelem                     ! loop over faces on elem
+
+                                                     ! do nothing if neighbor is on process or conforming
+        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+            cycle
+        else
+
+          kelem = ef2e(2,iface,ielem)                ! element of neighbor
+          kface = ef2e(1,iface,ielem)                ! face of neighbor
+
+          n_S_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
+          n_S_2d_Mort = n_S_1d_Mort**2
+  
+          do i = 1, n_S_2d_Mort                      ! loop over nodes on neighbor face
+
+              iloc = iloc+1                          ! advance position in ghost array
+                                                     ! set position of ghost in global vector containing solution data
+              iyu(iloc) = nk *(kelem-1)            & ! skip over previous elements
+                        + nfacesize *(kface-1)     & ! nk/nfacesperelem is face dimension
+                        + i-1                        ! skip over previous eqns
+
+          end do
+
+        end if
+      end do
+    end do
+
+    iyu = iyu-1                                       ! use C indexing
+
+                                                      ! call to petsc to create global vector with ghosts
+    call VecCreateGhost(petsc_comm_world, ntot, petsc_decide, ntotG, iyu, Zpetscin, ierrpetsc)
+
+    call VecSet(Zpetscin, xinit, ierrpetsc)           ! initialize to zero
+                                                      ! assemble parallel vector
+    call VecAssemblyBegin(Zpetscin,ierrpetsc)
+    call VecAssemblyEnd  (Zpetscin,ierrpetsc)
+
+    deallocate(iyu)
+
+    ! create container for local vector that contains on process plus ghost data for solution
+    call VecCreateSeq(petsc_comm_self, ntot + ntotG, Zlocin, ierrpetsc)
+
+  end subroutine PetscComm0D_Gau_Mortar_DataSetup
   !============================================================================
 
   subroutine PetscComm1D_Gau_Mortar_DataSetup(Zin, Zghstin, Zpetscin, Zlocin, nq, nk, ne, ngh)
@@ -3859,6 +4006,124 @@ contains
 
 
   end subroutine UpdateComm1D_LGL_Shell_GhostData
+
+  !============================================================================
+  
+  subroutine UpdateComm0D_Gau_Mortar_GhostData(Zin, Zghstin, Zpetsc, Zlocpetsc, nk, ngh)
+
+    ! Communicates solution data across processes and updates the array ughst.
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use variables,            only: ef2e
+    use initcollocation,      only: element_properties
+    use collocationvariables, only: elem_props
+    implicit none
+
+    ! Arguments
+    ! =========
+    integer,  intent(in)    :: nk, ngh
+    real(wp), intent(in)    :: Zin(nk,ihelems(1):ihelems(2))
+    real(wp), intent(inout) :: Zghstin(ngh)
+
+    Vec Zpetsc
+    Vec Zlocpetsc
+
+    PetscErrorCode ierrpetsc
+
+    integer :: ntot, ntotu, ntotw
+    integer :: ielem, iloc, iface, nfacesize
+    integer :: kelem, n_S_1d_Mort, n_S_2d_Mort
+    integer :: i, ieq, jnode
+    integer,  allocatable :: iyu(:)
+    real(wp), allocatable ::  yu(:)
+
+    real(wp), pointer :: xx_Z(:)
+
+    ntotu = nk * nelems     ! length of on-process data including ZERO PADDING
+    ntotw = nk              ! length of on-element data including ZERO PADDING
+
+    nfacesize = nk / nfacesperelem
+
+    do ielem = ihelems(1), ihelems(2)                       ! loop over elements
+
+      do iface = 1, nfacesperelem                           ! loop over 6 faces
+
+        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+            cycle
+        else
+
+         n_S_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
+         n_S_2d_Mort = n_S_1d_Mort**2
+         ntot = n_S_2d_Mort
+
+         if(allocated(iyu)) deallocate(iyu) ; allocate(iyu(ntot)) ; iyu = 0
+         if(allocated( yu)) deallocate( yu) ; allocate( yu(ntot)) ;  yu = 0.0_wp
+ 
+         do i = 1, n_S_2d_Mort                               ! loop over nodes on face
+ 
+           jnode = (iface-1)*nfacesize + i                   ! access shell coordinate
+ 
+           yu(i) = Zin(jnode,ielem)                          ! update temporary solution values
+                                                             ! update global location of solution values
+          iyu(i) = ntotw*(ielem-1)      &                    ! skip previous elements
+                          + jnode       &
+                          - 1                                ! C indexing
+ 
+         end do
+ 
+         call VecSetValues(Zpetsc,ntot,iyu,yu,insert_values,ierrpetsc) ! set values in petsc vector
+ 
+        endif
+
+      end do
+
+    end do
+
+    call VecAssemblyBegin(Zpetsc,ierrpetsc)                 ! assemble vector
+    call VecAssemblyEnd  (Zpetsc,ierrpetsc)
+                                                            ! update ghost values
+    call VecGhostUpdateBegin(Zpetsc, insert_values, scatter_forward, ierrpetsc)
+    call VecGhostUpdateEnd  (Zpetsc, insert_values, scatter_forward, ierrpetsc)
+                                                            ! get local data including ghost points
+    call VecGhostGetLocalForm(Zpetsc, Zlocpetsc, ierrpetsc)
+                                                            ! use fortran pointer for convenience
+    call VecGetArrayF90(Zlocpetsc, xx_Z, ierrpetsc)
+
+    iloc = 0                                                ! zero ghost counter
+    do ielem = ihelems(1), ihelems(2)                       ! loop over elements
+
+      do iface = 1,nfacesperelem                            ! loop over faces
+
+                                                            ! if face neighbor is off process and non-conforming then count ghost nodes
+        if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+            cycle
+        else
+
+          kelem = ef2e(2,iface,ielem)                       ! element of neighbor
+
+          n_S_1d_Mort = max(elem_props(2,ielem),ef2e(4,iface,ielem))
+          n_S_2d_Mort = n_S_1d_Mort**2
+
+          do i = 1, n_S_2d_Mort                               ! loop over nodes
+
+            iloc = iloc+1                                     ! update ghost node index
+
+            Zghstin(iloc) = xx_Z(ntotu+iloc)                  ! fill ghost data
+
+          end do
+
+        end if
+
+      end do
+
+    end do
+
+    ! release pointer
+    call VecRestoreArrayF90(Zlocpetsc,xx_Z,ierrpetsc)
+    call VecGhostRestoreLocalForm(Zpetsc,Zlocpetsc,ierrpetsc)
+    if(associated(xx_Z)) deallocate(xx_Z)
+
+
+  end subroutine UpdateComm0D_Gau_Mortar_GhostData
 
   !============================================================================
   

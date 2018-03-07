@@ -3891,7 +3891,7 @@ contains
 
             cnt_Mort_Off(j) = efn2efn_Gau(3,jnode,ielem)
 
-!           Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_ghst(lnode)) * 0.5_wp
+!           Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_ghst_Gau_shell(lnode)) * 0.5_wp
             Jx_r_2d_Mort(j) = 1.0_wp  !  HACK:  Take out
      
           enddo On_Mortar_0
