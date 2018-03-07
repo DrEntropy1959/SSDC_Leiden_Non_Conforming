@@ -418,33 +418,24 @@ contains
 
       ! Loop over the elements
       do i_elem = 1, nelems
-        ! Process ID
-        i_proc = elempart(i_elem)
 
-        ! Original numbering of the element for each processor
-        i2jelems(melemsonproc(2*i_proc)+icnt(i_proc)) = i_elem
-        
-        ! New numbering of the elements for each processor
-        j2ielems(i_elem) = melemsonproc(2*i_proc) + icnt(i_proc)
-        
-        ! Update processor counter
-        icnt(i_proc) = icnt(i_proc) + 1
+        i_proc = elempart(i_elem)                                ! Process ID
 
-        ! Original ID of the element which owns a "periodic" face, x1 direction
-        do i_p_face = 1, size(periodic_face_data_x1(1,:))
+        i2jelems(melemsonproc(2*i_proc)+icnt(i_proc)) = i_elem   ! Original numbering of the element for each processor
+        
+        j2ielems(i_elem) = melemsonproc(2*i_proc) + icnt(i_proc) ! New numbering of the elements for each processor
+        
+        icnt(i_proc) = icnt(i_proc) + 1                          ! Update processor counter
+
+        do i_p_face = 1, size(periodic_face_data_x1(1,:))        ! Original ID of the element which owns a "periodic" face, x1 direction
           
-          ! Get the global ID of the element that owns a periodic boundary face
-          p_elem = periodic_face_data_x1(1,i_p_face)
+          p_elem = periodic_face_data_x1(1,i_p_face)             ! Get the global ID of the element that owns a periodic boundary face
 
-          ! Get the local (local for the element) ID of the periodic boundary face
-          p_face = periodic_face_data_x1(2,i_p_face)
+          p_face = periodic_face_data_x1(2,i_p_face)             ! Get the local (local for the element) ID of the periodic boundary face
 
-          ! Get the periodic direction of the face
-          p_dir = periodic_face_data_x1(4,i_p_face) 
+           p_dir = periodic_face_data_x1(4,i_p_face)             ! Get the periodic direction of the face
 
-
-          if (p_elem == i_elem) then
-            ! The i_elem owns a periodic boundary face
+          if (p_elem == i_elem) then                             ! The i_elem owns a periodic boundary face
             cnt_p_faces_x1(i_proc) = cnt_p_faces_x1(i_proc) + 1
             p_data_x1(1+(cnt_p_faces_x1(i_proc)-1)*3,i_proc) = p_elem
             p_data_x1(2+(cnt_p_faces_x1(i_proc)-1)*3,i_proc) = p_face
@@ -452,21 +443,15 @@ contains
           end if
         end do
 
-        ! Original ID of the element which owns a "periodic" face, x2 direction
-        do i_p_face = 1, size(periodic_face_data_x2(1,:))
+        do i_p_face = 1, size(periodic_face_data_x2(1,:))         ! Original ID of the element which owns a "periodic" face, x2 direction
           
-          ! Get the global ID of the element that owns a periodic boundary face
-          p_elem = periodic_face_data_x2(1,i_p_face)
+          p_elem = periodic_face_data_x2(1,i_p_face)              ! Get the global ID of the element that owns a periodic boundary face
 
-          ! Get the local (local for the element) ID of the periodic boundary 
-          ! face
-          p_face = periodic_face_data_x2(2,i_p_face)
+          p_face = periodic_face_data_x2(2,i_p_face)              ! Get the local (local for the element) ID of the periodic boundary face
 
-          ! Get the periodic direction of the face
-          p_dir = periodic_face_data_x2(4,i_p_face) 
+          p_dir = periodic_face_data_x2(4,i_p_face)               ! Get the periodic direction of the face
 
-          if (p_elem == i_elem) then
-            ! The i_elem owns a periodic boundary face
+          if (p_elem == i_elem) then                              ! The i_elem owns a periodic boundary face
             cnt_p_faces_x2(i_proc) = cnt_p_faces_x2(i_proc) + 1
             p_data_x2(1+(cnt_p_faces_x2(i_proc)-1)*3,i_proc) = p_elem
             p_data_x2(2+(cnt_p_faces_x2(i_proc)-1)*3,i_proc) = p_face
@@ -474,21 +459,15 @@ contains
           end if
         end do
 
-        ! Original ID of the element which owns a "periodic" face, x3 direction
-        do i_p_face = 1, size(periodic_face_data_x3(1,:))
+        do i_p_face = 1, size(periodic_face_data_x3(1,:))         ! Original ID of the element which owns a "periodic" face, x3 direction
           
-          ! Get the global ID of the element that owns a periodic boundary face
-          p_elem = periodic_face_data_x3(1,i_p_face)
+          p_elem = periodic_face_data_x3(1,i_p_face)              ! Get the global ID of the element that owns a periodic boundary face
 
-          ! Get the local (local for the element) ID of the periodic boundary 
-          ! face
-          p_face = periodic_face_data_x3(2,i_p_face)
+          p_face = periodic_face_data_x3(2,i_p_face)              ! Get the local (local for the element) ID of the periodic boundary face
 
-          ! Get the periodic direction of the face
-          p_dir = periodic_face_data_x3(4,i_p_face) 
+          p_dir = periodic_face_data_x3(4,i_p_face)               ! Get the periodic direction of the face
 
-          if (p_elem == i_elem) then
-            ! The i_elem owns a periodic boundary face
+          if (p_elem == i_elem) then                              ! The i_elem owns a periodic boundary face
             cnt_p_faces_x3(i_proc) = cnt_p_faces_x3(i_proc) + 1
             p_data_x3(1+(cnt_p_faces_x3(i_proc)-1)*3,i_proc) = p_elem
             p_data_x3(2+(cnt_p_faces_x3(i_proc)-1)*3,i_proc) = p_face
@@ -496,17 +475,13 @@ contains
           end if
         end do
 
-        ! Original ID of the element which owns a "wall" face
-        do i_w_face = 1, size(wall_face_data(1,:))
+        do i_w_face = 1, size(wall_face_data(1,:))                ! Original ID of the element which owns a "wall" face
           
-          ! Get the global ID of the element that owns a wall boundary face
-          w_elem = wall_face_data(1,i_w_face)
+          w_elem = wall_face_data(1,i_w_face)                     ! Get the global ID of the element that owns a wall boundary face
 
-          ! Get the local (local for the element) ID of the wall boundary face
-          w_face = wall_face_data(2,i_w_face)
+          w_face = wall_face_data(2,i_w_face)                     ! Get the local (local for the element) ID of the wall boundary face
 
-          if (w_elem == i_elem) then
-            ! The i_elem owns a wall boundary face
+          if (w_elem == i_elem) then                              ! The i_elem owns a wall boundary face
             cnt_w_faces(i_proc) = cnt_w_faces(i_proc) + 1
             w_data(1+(cnt_w_faces(i_proc)-1)*2,i_proc) = j2ielems(i_elem)
             w_data(2+(cnt_w_faces(i_proc)-1)*2,i_proc) = w_face
@@ -529,13 +504,10 @@ contains
     ! master process. 
     call mpi_barrier(petsc_comm_world,i_err)
 
-    ! The lower and upper ordered-element bounds for each process is 
-    ! communicated
-    call mpi_scatter(melemsonproc,2,mpi_integer,ihelems,2,mpi_integer,0, &
-      & petsc_comm_world,i_err)
+                                                                   ! The lower and upper ordered-element bounds for each process is communicated
+    call mpi_scatter(melemsonproc,2,mpi_integer,ihelems,2,mpi_integer,0,petsc_comm_world,i_err)
 
-    ! Set number of elements on each process 
-    nelems = ihelems(2) - ihelems(1) + 1
+    nelems = ihelems(2) - ihelems(1) + 1                           ! Set number of elements on each process 
 
     ! The original-to-ordered-element mapping is communicated to each process
     ! Each process will receive the global ID of the elements (from the original 
@@ -545,9 +517,7 @@ contains
     call mpi_scatterv(i2jelems,icnt,melemsonproc(0:2*(nprocs-1):2)-1, &
       & mpi_integer,jelems,netmp,mpi_integer,0,petsc_comm_world,i_err)
 
-    ! Create a barrier synchronization in the group. 
-    call mpi_barrier(petsc_comm_world,i_err)
-
+    call mpi_barrier(petsc_comm_world,i_err)                       ! Create a barrier synchronization in the group. 
 
     ! ==========================================================================
     ! Send the number of periodic and wall faces owned by each process
@@ -563,22 +533,17 @@ contains
       ! Special treatment for the master node (i.e., myprocid=0). There is no
       ! need to send data. We already know their values. Hence we just set them.
       ! ========================================================================
-      ! Number of periodic faces in the x1 direction
-      n_periodic_faces_x1 = cnt_p_faces_x1(myprocid)
+      n_periodic_faces_x1 = cnt_p_faces_x1(myprocid)  ! Number of periodic faces in the x1 direction
       
-      ! Number of periodic faces in the x2 direction
-      n_periodic_faces_x2 = cnt_p_faces_x2(myprocid)
+      n_periodic_faces_x2 = cnt_p_faces_x2(myprocid)  ! Number of periodic faces in the x2 direction
       
-      ! Number of periodic faces in the x3 direction
-      n_periodic_faces_x3 = cnt_p_faces_x3(myprocid)
+      n_periodic_faces_x3 = cnt_p_faces_x3(myprocid)  ! Number of periodic faces in the x3 direction
 
-      ! Number of wall faces
-      n_wall_faces = cnt_w_faces(myprocid)
+      n_wall_faces = cnt_w_faces(myprocid)            ! Number of wall faces
 
       ! General treatment for all the processes with ID different from zero
       ! ========================================================================
-      ! Loop over the number of processes
-      do i_proc = 1, nprocs-1
+      do i_proc = 1, nprocs-1                         ! Loop over the number of processes
 
         ! Transfer the number of periodic faces in the x1 direction
         ! ======================================================================
