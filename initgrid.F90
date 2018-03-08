@@ -50,6 +50,7 @@ module initgrid
   public transform_grid
   public write_grid_to_file
   public write_matrix_to_file_matlab
+  public e_edge2e_connectivity
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
@@ -741,7 +742,7 @@ contains
     use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin, SAT_type,&
                                 symmetric_metric
     use referencevariables
-    use variables, only: xg, vx, e2v, ef2e
+    use variables, only: xg, vx, e2v, ef2e, e_edge2e
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
     implicit none
     ! indices
@@ -795,7 +796,6 @@ contains
       if(allocated(xi)) deallocate(xi) ; allocate(xi(1:nE)) ;  xi = 0.0_wp
 
       if(allocated(xl)) deallocate(xl) ; allocate(xl(3,1:nE,1:nE,1:nE)) ;  xl = 0.0_wp
-
 
       ! low index is always 1
       il = 1
@@ -959,6 +959,7 @@ contains
           do j = 1,4
             r(j) = magnitude(points_surf(j,:)-origin(:)) 
           enddo
+
 !-- face 1
           if(iface.EQ.1)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -967,12 +968,12 @@ contains
               dx = xl(:,nE,nE, 1)-xl(:,nE, 1, 1) ; xl(:,nE, i1d, 1) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_3 = 0
               dx = xl(:,nE,nE, 1)-xl(:, 1,nE, 1) ; xl(:, i1d,nE, 1) = xl(:, 1,nE, 1) + dr*dx ! xi_2 = 1, xi_3 = 0
               dx = xl(:, 1,nE, 1)-xl(:, 1, 1, 1) ; xl(:, 1, i1d, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_3 = 0
-            enddo         
-            
+            enddo   
+
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
                  .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-              ! write(*,*)'ielem = ',ielem, 'face 1 on the sphere'
+
                call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1:nE,1))
               
             else
@@ -1019,12 +1020,9 @@ contains
                 else
                   nmin = nmin_connector(ielem,iface,nE,3)
                 endif
-
                 if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
                 if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
                 xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
                                                        x_LGL_1d,x_LGL_1d_min,r(3),origin) 
               endif
@@ -1045,11 +1043,9 @@ contains
                 xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
                                                        x_LGL_1d,x_LGL_1d_min,r(1),origin) 
               endif 
-
               ! xi_3 = 0
               call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
             endif
-  
 !-- face 2   
           elseif(iface.EQ.2)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1059,11 +1055,10 @@ contains
               dx = xl(:,nE, 1,nE)-xl(:, 1, 1,nE) ; xl(:, i1d, 1,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_2 = 0, xi_3 = 1
               dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
             enddo
-
+            
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
                  .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-              !write(*,*)'ielem = ',ielem, 'face 2 on the sphere'
               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1,1:nE))
             else
               !-- check to see if the connectors lay on the sphere
@@ -1140,7 +1135,6 @@ contains
               call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
             endif  
 
-
 !-- face 3
           elseif(iface.EQ.3)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1154,7 +1148,6 @@ contains
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
                  .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-             !  write(*,*)'ielem = ',ielem, 'face 3 on the sphere'
               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,nE,1:nE,1:nE))
             else
               !-- check to see if the connectors lay on the sphere
@@ -1191,7 +1184,6 @@ contains
             
                 xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
                                                        x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-
               endif           
               if( (abs(r(3)-r(4)).LE.tol) )then
                 !-- connector at xi_1 = 1, xi_3 = 1
@@ -1231,7 +1223,6 @@ contains
               ! xi_1 = 1
               call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
             endif  
-
 !-- face 4
           elseif(iface.EQ.4)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1241,11 +1232,10 @@ contains
               dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
               dx = xl(:, 1,nE,nE)-xl(:, 1,nE, 1) ; xl(:, 1,nE, i1d) = xl(:, 1,nE, 1) + dr*dx ! xi_1 = 0, xi_2 = 1
             enddo
- 
+
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
                  .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-             !  write(*,*)'ielem = ',ielem, 'face 4 on the sphere'
               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,nE,1:nE))
             else
               !-- check to see if the connectors lay on the sphere
@@ -1320,7 +1310,9 @@ contains
 
               ! xi_2 = 1
               call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
+
             endif  
+
 !-- face 5
           elseif(iface.EQ.5)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1330,11 +1322,10 @@ contains
               dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
               dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
             enddo
- 
+
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
                  .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-              ! write(*,*)'ielem = ',ielem, 'face 5 on the sphere'
               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1,1:nE,1:nE))
             else
               !-- check to see if the connectors lay on the sphere
@@ -1410,6 +1401,7 @@ contains
               ! xi_1 = 0
               call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
             endif  
+
 !-- face 6
           elseif(iface.EQ.6)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1423,7 +1415,6 @@ contains
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
                  .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-             !  write(*,*)'ielem = ',ielem, 'face 6 on the sphere'
               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1:nE,nE))
             else
               !-- check to see if the connectors lay on the sphere
@@ -1571,217 +1562,36 @@ contains
   end subroutine calcnodes_LGL
   !================================================================================================
   !
-  ! Purpose: This function determines what the second common element between two elements ielem and 
-  !          kelem; it is elem2 in the picture below
-  ! iface = 1
-  !   connector 1 =  xi_2 = 0, xi_3 = 0
-  !
-  !      ---------   ---------
-  !      | ielem |   | kelem |
-  !      |       |   |       |
-  !      ---------   ---------
-  !      ---------   ---------
-  !      | elem1  |  | elem2 |
-  !      |        |  |       |
-  !      ----------  ---------
-  !
-  !
+  ! Purpose: This function determines the minimum polynomial degree and hence number of nodes  of a 
+  !          connector based on information in e_edge2e which is an array that contains information 
+  !           on which elements touch a particular connector and what their polynomial degree is
   ! inputs:
   !         ielem, kelem, elem1 = element numbers
   !
   ! Output:
-  !         common_element: element number for elem2
+  !         nmin_connector = the number of nodes the interpolant through the connector should use
   !
   ! Notes:
   !================================================================================================
   function nmin_connector(ielem,iface,nE,connector)
-    use variables, only: boundaryelems, ef2e 
+    use variables, only: e_edge2e
     use controlvariables, only: SAT_type
-    use initcollocation, only: element_properties
+    use referencevariables, only: number_of_possible_partners, myprocid
    
     implicit none
     integer, intent(in)    :: ielem, iface, nE, connector
-    integer                :: nmin_connector, kelem1, kelem2, kelem3, nkelem1, nkelem2, nkelem3
-    integer, dimension(6)  :: lkelem1, lkelem2 
-    integer                :: faceloop, faceloop2
+    integer                :: nmin_connector, ipartner
 
-    !-- determine two of the touching elements, the assumption is that the mesh is such that
-    !    the connector (c) is between 4 elements (note that the position of ielem is determined by the iface)
-    !      ---------   ---------
-    !      | ielem |   | elem3 |
-    !      |       |   |       |
-    !      ---------   ---------
-    !      --------- c  ---------
-    !      | elem1  |  | elem2 |
-    !      |        |  |       |
-    !      ----------  ---------
-
-    !-- determine the number number of nodes in one-dimension of the two elements that touch element
-    !   ielem
-    if(iface.EQ.1)then
-      if(connector.EQ.1)then
-        !-- connector at xi_2 = 0, xi_3 = 0
-        !-- find the element number of the adjoining element to face 1 and 2
-        kelem1 = ef2e(2,1,ielem)
-        kelem2 = ef2e(2,2,ielem)
-      elseif(connector.EQ.2)then
-        !-- connector at xi_1 = 1, xi_3 = 0
-        !-- find the element number of the adjoining element to face 1 and 3
-        kelem1 = ef2e(2,1,ielem)
-        kelem2 = ef2e(2,3,ielem)
-      elseif(connector.EQ.3)then
-        !-- connector at xi_2 = 1, xi_3 = 0
-        !-- find the element number of the adjoining element to face 1 and 4
-        kelem1 = ef2e(2,1,ielem)
-        kelem2 = ef2e(2,4,ielem)
-      elseif(connector.EQ.4)then
-        !-- connector at xi_1 = 0, xi_3 = 0
-        !-- find the element number of the adjoining element to face 1 and 5
-        kelem1 = ef2e(2,1,ielem)
-        kelem2 = ef2e(2,5,ielem)
-      endif
-    elseif(iface.EQ.2)then
-      if(connector.EQ.1)then
-        !-- connector at xi_2 = 0, xi_3 = 0
-        !-- find the element number of the adjoining element to face 2 and 1
-        kelem1 = ef2e(2,2,ielem)
-        kelem2 = ef2e(2,1,ielem)
-      elseif(connector.EQ.2)then
-        !-- connector at xi_1 = 1, xi_2 = 0
-        !-- find the element number of the adjoining element to face 2 and 3
-        kelem1 = ef2e(2,2,ielem)
-        kelem2 = ef2e(2,3,ielem)
-      elseif(connector.EQ.3)then
-        !-- connector at xi_2 = 0, xi_3 = 1
-        !-- find the element number of the adjoining element to face 2 and 6
-        kelem1 = ef2e(2,2,ielem)
-        kelem2 = ef2e(2,6,ielem)
-      elseif(connector.EQ.4)then
-        !-- connector at xi_1 = 0, xi_2 = 0
-        !-- find the element number of the adjoining element to face 2 and 5
-        kelem1 = ef2e(2,2,ielem)
-        kelem2 = ef2e(2,5,ielem)
-      endif
-    elseif(iface.EQ.3)then
-      if(connector.EQ.1)then
-        !-- connector at xi_1 = 1, xi_3 = 0
-        !-- find the element number of the adjoining element to face 3 and 1
-        kelem1 = ef2e(2,3,ielem)
-        kelem2 = ef2e(2,1,ielem)
-      elseif(connector.EQ.2)then
-        !-- connector at xi_1 = 1, xi_2 = 1
-        !-- find the element number of the adjoining element to face 3 and 4
-        kelem1 = ef2e(2,3,ielem)
-        kelem2 = ef2e(2,4,ielem)
-      elseif(connector.EQ.3)then
-        !-- connector at xi_1 = 1, xi_3 = 1
-        !-- find the element number of the adjoining element to face 3 and 6
-        kelem1 = ef2e(2,3,ielem)
-        kelem2 = ef2e(2,6,ielem)
-      elseif(connector.EQ.4)then
-        !-- connector at xi_1 = 1, xi_2 = 0
-        !-- find the element number of the adjoining element to face 3 and 1
-        kelem1 = ef2e(2,3,ielem)
-        kelem2 = ef2e(2,1,ielem)
-      endif
-    elseif(iface.EQ.4)then
-      if(connector.EQ.1)then
-        !-- connector at xi_2 = 1, xi_3 = 0
-        !-- find the element number of the adjoining element to face 4 and 1
-        kelem1 = ef2e(2,4,ielem)
-        kelem2 = ef2e(2,1,ielem)
-      elseif(connector.EQ.2)then
-        !-- connector at xi_1 = 1, xi_2 = 1
-        !-- find the element number of the adjoining element to face 4 and 3
-        kelem1 = ef2e(2,4,ielem)
-        kelem2 = ef2e(2,3,ielem)
-      elseif(connector.EQ.3)then
-        !-- connector at xi_2 = 1, xi_3 = 1
-        !-- find the element number of the adjoining element to face 4 and 6
-        kelem1 = ef2e(2,4,ielem)
-        kelem2 = ef2e(2,6,ielem)
-      elseif(connector.EQ.4)then
-        !-- connector at xi_1 = 0, xi_2 = 1
-        !-- find the element number of the adjoining element to face 4 and 5
-        kelem1 = ef2e(2,4,ielem)
-        kelem2 = ef2e(2,5,ielem)
-      endif
-    elseif(iface.EQ.5)then
-      if(connector.EQ.1)then
-        !-- connector at xi_1 = 0, xi_3 = 0
-        !-- find the element number of the adjoining element to face 5 and 1
-        kelem1 = ef2e(2,5,ielem)
-        kelem2 = ef2e(2,1,ielem)
-      elseif(connector.EQ.2)then
-        !-- connector at xi_1 = 0, xi_2 = 1
-        !-- find the element number of the adjoining element to face 5 and 4
-        kelem1 = ef2e(2,5,ielem)
-        kelem2 = ef2e(2,4,ielem)
-      elseif(connector.EQ.3)then
-        !-- connector at xi_1 = 0, xi_3 = 1
-        !-- find the element number of the adjoining element to face 5 and 6
-        kelem1 = ef2e(2,5,ielem)
-        kelem2 = ef2e(2,6,ielem)
-      elseif(connector.EQ.4)then
-        !-- connector at xi_1 = 0, xi_2 = 0
-        !-- find the element number of the adjoining element to face 5 and 2
-        kelem1 = ef2e(2,5,ielem)
-        kelem2 = ef2e(2,2,ielem)
-      endif
-    elseif(iface.EQ.6)then
-      if(connector.EQ.1)then
-        !-- connector at xi_2 = 0, xi_3 = 1
-        !-- find the element number of the adjoining element to face 6 and 2
-        kelem1 = ef2e(2,6,ielem)
-        kelem2 = ef2e(2,2,ielem)
-      elseif(connector.EQ.2)then
-        !-- connector at xi_1 = 1, xi_3 = 1
-        !-- find the element number of the adjoining element to face 6 and 3
-        kelem1 = ef2e(2,6,ielem)
-        kelem2 = ef2e(2,3,ielem)
-      elseif(connector.EQ.3)then
-        !-- connector at xi_2 = 1, xi_3 = 1
-        !-- find the element number of the adjoining element to face 6 and 4
-        kelem1 = ef2e(2,6,ielem)
-        kelem2 = ef2e(2,4,ielem)
-      elseif(connector.EQ.4)then
-        !-- connector at xi_1 = 0, xi_3 = 1
-        !-- find the element number of the adjoining element to face 6 and 5
-        kelem1 = ef2e(2,6,ielem)
-        kelem2 = ef2e(2,5,ielem)
-      endif
-    endif
- 
-    !-- determine the fourth element that is commone with the connector
-
-    !-- construct the list of touching elements for kelem1 and kelem2
-    do faceloop = 1,6
-      lkelem1(faceloop) = ef2e(2,faceloop,kelem1)
-      lkelem2(faceloop) = ef2e(2,faceloop,kelem2)
-    enddo
-
-   !-- determine the common element
-   do faceloop = 1,6
-     do faceloop2 = 1,6
-       if((lkelem1(faceloop).EQ.lkelem2(faceloop2)).AND.(lkelem1(faceloop).NE.ielem))then
-         kelem3 = lkelem1(faceloop)       
-       endif
-     enddo
+   nmin_connector = nE
+   do ipartner = 1,number_of_possible_partners
+     if(e_edge2e(1,connector,ipartner,iface,ielem)>0)then
+       nmin_connector = minval((/nmin_connector,e_edge2e(1,connector,ipartner,iface,ielem)/))
+     endif
    enddo
-  
-   !-- find the polynomial order of the elements that share this connector (elements that touch face 1 and face 2)
-   call element_properties(kelem1,n_pts_1d=nkelem1)
-   call element_properties(kelem2,n_pts_1d=nkelem2)
-   call element_properties(kelem3,n_pts_1d=nkelem3)
    
-   nmin_connector = minval((/nE,nkelem1,nkelem2,nkelem3/))
-
    if(SAT_type.EQ."mod_SAT")then
         nmin_connector = maxval((/floor((nmin_connector-1.0_wp)/2.0_wp),1/))+1
    endif
-!      write(*,*)'ielem = ',ielem, 'iface = ',iface
-!      write(*,*)'kelem1 = ',kelem1,' kelem2 = ',kelem2, 'kelem3 = ',kelem3, 'nmin_connector = ',nmin_connector   
-  
   end function nmin_connector
   !================================================================================================
   !
@@ -3082,6 +2892,7 @@ contains
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
 
+
     continue 
 
     nodesperelem_max = (npoly_max+1)**ndim                    ! number of nodes in each element
@@ -3161,7 +2972,7 @@ contains
         iE = ielem                                 !  New variable strictly cosmetic so formulae are shorter
         r_x(:,:,:,ielem) = 0.0_wp
 
-        if(symmetric_metric) then
+        if(symmetric_metric) then        !   Symmetric form (.true) is taken from Sjogreen.Yee.Vinokur.LLNL_TR_637397.HOFD.Metrics.GCL.Moving.Meshes.pdf
 
           do inode = 1, n_LGL_3d
 
@@ -3263,7 +3074,7 @@ contains
               r_x(3,3,inode,iE) = r_x(3,3,inode,iE) + dagrad(jdir,i)*( + x_r(1,1,j,iE)*xg(2,j,iE)                           ) ! dxi_3/dx_3
             end do
 
-            r_x(:,:,inode,ielem) = r_x(:,:,inode,ielem)/Jx_r(inode,ielem)
+            r_x(:,:,inode,iE) = r_x(:,:,inode,iE)/Jx_r(inode,iE)
 
           end do
 
@@ -3522,6 +3333,7 @@ contains
       err_Linf = max(err_Linf,err)
 
       a_t(:,:) = a_t(:,:) - delta_a(:,:)
+
 !-- DEBUG DAVID START
 !      write(*,*)'1 error in orginal system = ',maxval(abs(matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)))
 !      write(*,*)'diff in original metrics = ',maxval(abs(delta_a))
@@ -5624,77 +5436,29 @@ contains
         !   endif
         !enddo
       case(17)
+        !-- sphere with origin at (0,0,0) and a radius = sqrt(3)
         do ielem = 1,nhex
-          on_sphere = .false.
-          do iface = 1,6
-            if(ef2e(1,iface,ielem)<0)then
-              on_sphere = .true.
-            endif
+          elem_props(2,ielem) = npoly+1
+          do iface = 1,nfacesperelem
+             if(ef2e(1,iface,ielem) == -16) elem_props(2,ielem) = npoly + 2
           enddo
-          if(on_sphere)then
-            write(*,*)'ielem = ',ielem
-            elem_props(2,ielem) = npoly+2
-          else
-            elem_props(2,ielem) = npoly+1
-          endif
         enddo
       case(18)
-        !-- THIS DOES NOT WORK BECAUSE vx HAS NOT BEEN POPULATED
-        write(*,*)'is vx_Master alloated ?',allocated(vx_Master)
-        write(*,*)'is e2v allocated?',allocated(e2v)
-        if(.false.)then
-        do ielem = 1,nhex
-          on_sphere = .false.
-          do iface = 1,6
-            if(iface.EQ.1)then
-              points_surf(1,:) = vx_Master(:,e2v(1,ielem))
-              points_surf(2,:) = vx_Master(:,e2v(2,ielem))
-              points_surf(3,:) = vx_Master(:,e2v(3,ielem))
-              points_surf(4,:) = vx_Master(:,e2v(4,ielem))
-            elseif(iface.EQ.2)then
-              points_surf(1,:) = vx_Master(:,e2v(1,ielem))
-              points_surf(2,:) = vx_Master(:,e2v(2,ielem))
-              points_surf(3,:) = vx_Master(:,e2v(6,ielem))
-              points_surf(4,:) = vx_Master(:,e2v(5,ielem))
-            elseif(iface.EQ.3)then
-              points_surf(1,:) = vx_Master(:,e2v(2,ielem))
-              points_surf(2,:) = vx_Master(:,e2v(3,ielem))
-              points_surf(3,:) = vx_Master(:,e2v(7,ielem))
-              points_surf(4,:) = vx_Master(:,e2v(6,ielem))
-            elseif(iface.EQ.4)then
-              points_surf(1,:) = vx_Master(:,e2v(4,ielem))
-              points_surf(2,:) = vx_Master(:,e2v(3,ielem))
-              points_surf(3,:) = vx_Master(:,e2v(7,ielem))
-              points_surf(4,:) = vx_Master(:,e2v(8,ielem))
-            elseif(iface.EQ.5)then
-              points_surf(1,:) = vx_Master(:,e2v(1,ielem))
-              points_surf(2,:) = vx_Master(:,e2v(4,ielem))
-              points_surf(3,:) = vx_Master(:,e2v(8,ielem))
-              points_surf(4,:) = vx_Master(:,e2v(5,ielem))
-            elseif(iface.EQ.6)then
-              points_surf(1,:) = vx_Master(:,e2v(5,ielem))
-              points_surf(2,:) = vx_Master(:,e2v(6,ielem))
-              points_surf(3,:) = vx_Master(:,e2v(7,ielem))
-              points_surf(4,:) = vx_Master(:,e2v(8,ielem))
-            endif
-            do j = 1,4
-              rad(j) = magnitude(points_surf(j,1:3)-origin(1:3)) 
-            enddo
-          enddo
-          !-- check to see if the surface is on the sphere and if so move points onto sphere
-          if ( (abs(rad(1)-radius).LE.tol).AND.(abs(rad(2)-radius).LE.tol)&
-                 .AND.(abs(rad(3)-radius).LE.tol).AND.(abs(rad(4)-radius).LE.tol) ) then
-            on_sphere = .true.
-            cycle
-          endif
-          if(on_sphere)then
-            write(*,*)'ielem = ',ielem
-            elem_props(2,ielem) = npoly+2
-          else
-            elem_props(2,ielem) = npoly+1
-          endif
+        !-- set the surface elements to p+1
+        do ielem = 1,1
+          elem_props(2,ielem) = npoly+2
         enddo
-        endif
+        do ielem = 2,8
+          elem_props(2,ielem) = npoly+1
+        enddo
+      case(19)
+        !-- SnowFlake test case       
+        elem_props(2,1) = npoly+2
+
+        do ielem = 2,24
+          elem_props(2,ielem) = npoly+1
+        enddo
+
       end select
 
     endif
@@ -8683,5 +8447,218 @@ end subroutine write_matrix_to_file_matlab
     return 
   end subroutine Amat2
 
+  subroutine e_edge2e_connectivity() ! Serial subroutine
+  !================================================================================================
+  !
+  ! Purpose: This constructs the master e_edge2e 
+  !
+  ! Notes:
+  !================================================================================================
+
+    use mpimod
+    use variables, only            : e_edge2e, vx_Master, ic2nh
+    use referencevariables, only   : nelems, ndim, number_of_possible_partners, nvertices, nprocs
+    use collocationvariables, only : elem_props
+    use precision_vars, only       : magnitude
+
+    implicit none
+ 
+    integer                :: number_of_edges_per_face, number_of_faces
+    integer                :: ielem, iface, connector
+
+    real(wp), dimension(3) :: v1, v2
+    real(wp)               :: tol = 1.0e-12_wp
+    integer                :: kelem, partners_cnt, max_partners, kvertex, partner
+    integer, allocatable, dimension(:,:,:,:,:) ::  e_edge2e_tmp
+    logical                :: v1match, v2match
+    integer                :: nvertex_per_element
+    integer                :: i_err
+
+    !-- now we have all of the required information to build the global e_edge2e
+    if(ndim.Eq.2)then
+      number_of_edges_per_face = 1
+    elseif(ndim.EQ.3)then
+      number_of_edges_per_face = 4
+    endif
+
+    number_of_faces = ndim*2
+    nvertex_per_element = 2**ndim
+
+!    allocate(e_edge2e(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,1:nelems))
+!    e_edge2e = -1000
+ 
+    max_partners = 0
+    
+    !-- allocate vector to store the matches. Worse case scenario each connector touches every element
+    allocate(e_edge2e_tmp(3,number_of_edges_per_face,nelems,number_of_faces,1:nelems))
+    e_edge2e_tmp = -1000
+
+    Element_Loop: do ielem = 1,nelems
+      Face_Loop: do iface = 1,number_of_faces
+        Connector_Loop : do connector = 1,4
+
+          !-- determine the verticies for the connector
+          if(iface.EQ.1)then
+            if(connector.EQ.1)then
+              !-- connector at xi_2 = 0, xi_3 = 0
+              v1 = vx_Master(:,ic2nh(1,ielem))
+              v2 = vx_Master(:,ic2nh(2,ielem))
+            elseif(connector.EQ.2)then
+              !-- connector at xi_1 = 1, xi_3 = 0
+              v1 = vx_Master(:,ic2nh(2,ielem))
+              v2 = vx_Master(:,ic2nh(3,ielem))
+            elseif(connector.EQ.3)then
+              !-- connector at xi_2 = 1, xi_3 = 0
+              v1 = vx_Master(:,ic2nh(3,ielem))
+              v2 = vx_Master(:,ic2nh(4,ielem))
+            elseif(connector.EQ.4)then
+              !-- connector at xi_1 = 0, xi_3 = 0
+              v1 = vx_Master(:,ic2nh(4,ielem))
+              v2 = vx_Master(:,ic2nh(1,ielem))
+            endif
+          elseif(iface.EQ.2)then
+            if(connector.EQ.1)then
+              !-- connector at xi_2 = 0, xi_3 = 0
+              v1 = vx_Master(:,ic2nh(1,ielem))
+              v2 = vx_Master(:,ic2nh(2,ielem))
+            elseif(connector.EQ.2)then
+              !-- connector at xi_1 = 1, xi_2 = 0
+              v1 = vx_Master(:,ic2nh(2,ielem))
+              v2 = vx_Master(:,ic2nh(6,ielem))
+            elseif(connector.EQ.3)then
+              !-- connector at xi_2 = 0, xi_3 = 1
+              v1 = vx_Master(:,ic2nh(6,ielem))
+              v2 = vx_Master(:,ic2nh(5,ielem))
+            elseif(connector.EQ.4)then
+              !-- connector at xi_1 = 0, xi_2 = 0
+              v1 = vx_Master(:,ic2nh(5,ielem))
+              v2 = vx_Master(:,ic2nh(1,ielem))
+            endif
+          elseif(iface.EQ.3)then
+            if(connector.EQ.1)then
+              !-- connector at xi_1 = 1, xi_3 = 0
+              v1 = vx_Master(:,ic2nh(2,ielem))
+              v2 = vx_Master(:,ic2nh(3,ielem))
+            elseif(connector.EQ.2)then
+              !-- connector at xi_1 = 1, xi_2 = 1
+              v1 = vx_Master(:,ic2nh(3,ielem))
+              v2 = vx_Master(:,ic2nh(7,ielem))
+            elseif(connector.EQ.3)then
+              !-- connector at xi_1 = 1, xi_3 = 1
+              v1 = vx_Master(:,ic2nh(7,ielem))
+              v2 = vx_Master(:,ic2nh(6,ielem))
+            elseif(connector.EQ.4)then
+              !-- connector at xi_1 = 1, xi_2 = 0
+              v1 = vx_Master(:,ic2nh(6,ielem))
+              v2 = vx_Master(:,ic2nh(2,ielem))
+            endif
+          elseif(iface.EQ.4)then
+            if(connector.EQ.1)then
+              !-- connector at xi_2 = 1, xi_3 = 0
+              v1 = vx_Master(:,ic2nh(4,ielem))
+              v2 = vx_Master(:,ic2nh(3,ielem))
+            elseif(connector.EQ.2)then
+              !-- connector at xi_1 = 1, xi_2 = 1
+              v1 = vx_Master(:,ic2nh(3,ielem))
+              v2 = vx_Master(:,ic2nh(7,ielem))
+            elseif(connector.EQ.3)then
+              !-- connector at xi_2 = 1, xi_3 = 1
+              v1 = vx_Master(:,ic2nh(7,ielem))
+              v2 = vx_Master(:,ic2nh(8,ielem))
+            elseif(connector.EQ.4)then
+              !-- connector at xi_1 = 0, xi_2 = 1
+              v1 = vx_Master(:,ic2nh(8,ielem))
+              v2 = vx_Master(:,ic2nh(4,ielem))
+            endif
+          elseif(iface.EQ.5)then
+            if(connector.EQ.1)then
+              !-- connector at xi_1 = 0, xi_3 = 0
+              v1 = vx_Master(:,ic2nh(1,ielem))
+              v2 = vx_Master(:,ic2nh(4,ielem))
+            elseif(connector.EQ.2)then
+              !-- connector at xi_1 = 0, xi_2 = 1
+              v1 = vx_Master(:,ic2nh(4,ielem))
+              v2 = vx_Master(:,ic2nh(8,ielem))
+            elseif(connector.EQ.3)then
+              !-- connector at xi_1 = 0, xi_3 = 1
+              v1 = vx_Master(:,ic2nh(8,ielem))
+              v2 = vx_Master(:,ic2nh(5,ielem))
+            elseif(connector.EQ.4)then
+              !-- connector at xi_1 = 0, xi_2 = 0
+              v1 = vx_Master(:,ic2nh(5,ielem))
+              v2 = vx_Master(:,ic2nh(1,ielem))
+            endif
+          elseif(iface.EQ.6)then
+            if(connector.EQ.1)then
+              !-- connector at xi_2 = 0, xi_3 = 1
+              v1 = vx_Master(:,ic2nh(5,ielem))
+              v2 = vx_Master(:,ic2nh(6,ielem))
+            elseif(connector.EQ.2)then
+              !-- connector at xi_1 = 1, xi_3 = 1
+              v1 = vx_Master(:,ic2nh(6,ielem))
+              v2 = vx_Master(:,ic2nh(7,ielem))
+            elseif(connector.EQ.3)then
+              !-- connector at xi_2 = 1, xi_3 = 1
+              v1 = vx_Master(:,ic2nh(7,ielem))
+              v2 = vx_Master(:,ic2nh(8,ielem))
+            elseif(connector.EQ.4)then
+              !-- connector at xi_1 = 0, xi_3 = 1
+              v1 = vx_Master(:,ic2nh(8,ielem))
+              v2 = vx_Master(:,ic2nh(5,ielem))
+            endif
+          endif
+
+          !-- counter for the number of elements touching a given connector
+          partners_cnt = 0
+          !-- brute force check which elements match
+          do kelem = 1,nelems
+            v1match = .false.
+            v2match = .false.
+            if(kelem.NE.ielem)then
+              do kvertex = 1,8
+                if(magnitude( v1-vx_Master(:,ic2nh(kvertex,kelem)) ) < tol)then
+                  v1match = .true.
+                endif
+                if(magnitude( v2-vx_Master(:,ic2nh(kvertex,kelem)) )  < tol)then
+                  v2match = .true.
+                endif
+              enddo
+            endif
+            if(v1match.AND.v2match)then
+                 partners_cnt = partners_cnt+1
+                e_edge2e_tmp(1,connector,partners_cnt,iface,ielem) = elem_props(2,kelem)
+                e_edge2e_tmp(2,connector,partners_cnt,iface,ielem) = kelem
+            endif
+          enddo
+
+          !-- keep track of the maximum number of neighbours (will be used to set number_of_possible_partners
+          max_partners = max(partners_cnt,max_partners)
+
+        enddo Connector_Loop
+      enddo Face_Loop
+    enddo Element_Loop
+
+    number_of_possible_partners = max_partners
+
+    allocate(e_edge2e(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,1:nelems))
+    e_edge2e = -1000
+
+    do ielem = 1,nelems
+      do iface = 1,number_of_faces
+        do connector = 1,4
+          do partner = 1,max_partners
+            e_edge2e(1:2,connector,partner,iface,ielem) = e_edge2e_tmp(1:2,connector,partner,iface,ielem)
+          enddo
+!          write(*,*)'=========================================================================&
+!                                ================================'
+!          write(*,*)'ielem = ', ielem, 'iface = ',iface,' connector = ',connector
+!          write(*,*)'e_edge2e_tmp(1,connector,1:max_partners,iface,ielem) = ',e_edge2e_tmp(1,connector,1:max_partners,iface,ielem)
+!          write(*,*)'e_edge2e_tmp(2,connector,1:max_partners,iface,ielem) = ',e_edge2e_tmp(2,connector,1:max_partners,iface,ielem)
+!          write(*,*)'=========================================================================&
+!                                ================================'
+         enddo
+      enddo
+    enddo
+  end subroutine e_edge2e_connectivity
 end module initgrid
 

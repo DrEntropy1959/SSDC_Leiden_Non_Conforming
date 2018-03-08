@@ -140,6 +140,7 @@ module variables
   integer, allocatable, dimension(:,:) :: e2v
   integer, allocatable, dimension(:) :: bctypes
   integer, allocatable, dimension(:,:,:) :: ef2e
+  integer, allocatable, dimension(:,:,:,:,:) :: e_edge2e
   integer, allocatable, dimension(:) :: facenormalcoordinate
 ! integer, allocatable, dimension(:) :: iae2e
 ! integer, allocatable, dimension(:) :: jae2e

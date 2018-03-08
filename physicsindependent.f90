@@ -110,7 +110,7 @@ contains
       ! The master node compute the connectivity and calls metis to assign 
       ! the elements to each process.
       if (myprocid == 0) then
-          
+         
         write(*,*) 'Master node reads the AFLR3 grid'
         write(*,*) '==============================================================='
         ! Read only the necessary information from the datafile
@@ -129,8 +129,11 @@ contains
 
 !       write(*,*) 'Master node builds element orders if non-conforming'
 !       write(*,*) '==============================================================='
-        call set_element_orders_serial()      
-
+        call set_element_orders_serial()    
+  
+!       ! create e_edge2e connectivity
+        call e_edge2e_connectivity()   
+       
         ! Construct the vector of +1 and -1 for the LDG flip-flop
         call create_ldg_flip_flop_sign()
 
@@ -139,9 +142,18 @@ contains
 
         ! Metis calculates the partitions
         call calculatepartitions() 
+
+
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
       end if
+
+      !-- pass number_of_possible_partners to all processes
+      call mpi_bcast(number_of_possible_partners,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)
+      
+      ! Push edge connectivity to all processes (has to be before distribute_elements_aflr3 
+      !  because in that routine nelems is changed to the local number of elements)
+      call distribute_e_edge2e()
 
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()

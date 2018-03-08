@@ -3478,7 +3478,6 @@ contains
                 if(SAT_type.EQ."mod_metric")then
                   fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wstar(:)) )
                 elseif(SAT_type.EQ."mod_SAT")then
-                  write(*,*)' navierstokes: SAT_Penalty you have turned off dissipation on the boundary SAT'
                   fstar = fstar
                 else
                   write(*,*)'navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',SAT_type
@@ -3903,7 +3902,30 @@ contains
                                                      cnt_Mort_Off, Intrp_On, Extrp_Off)
         elseif(SAT_type.EQ."mod_SAT")then
           !-- modified SAT approach
-          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface,ifacenodes_On ,n_S_2d_max, &
+
+          if(allocated(nx_Off_ghst)) deallocate(nx_Off_ghst)
+          allocate(nx_Off_ghst(3,n_S_2d_Off))
+
+          !-- store the off process face normal information 
+          n_S_2d_Off = ef2e(4,iface,ielem)**2
+          kface = ef2e(1,iface,ielem)
+          kelem = ef2e(2,iface,ielem)
+          do i = 1,  n_S_2d_Off
+
+            jnode =  n_S_2d_Off*(kface-1) + i                              ! Index in facial ordering
+            
+            inode = ifacenodes_Off(jnode)                                  ! Volumetric node index corresponding to facial node index
+            
+            if(ef2e(3,iface,ielem).EQ.myprocid) then
+              !-- the neighbor is on process
+              nx_Off_ghst(:,i) =  -Jx_r(inode,kelem)*facenodenormal(:,jnode,kelem)      ! Outward facing normal of facial node so the neighbor is on process
+            else
+              !-- the neighbor is off process
+              nx_Off_ghst(:,i) =  -nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
+            endif
+          enddo
+ 
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
@@ -4181,7 +4203,7 @@ contains
 
     integer                               :: i, j, k, l
     integer                               :: ival, jval
-    integer                               :: inode, jnode, kelem, temp, kface
+    integer                               :: inode, jnode, kelem, temp
     real(wp)                              :: dx_On, dx_Off
 
     continue
@@ -4196,7 +4218,6 @@ contains
 !         Skew-symmetric matrix portion of SATs (Entropy Stable through Mortar)
 !=========
       kelem = ef2e(2,iface,ielem)
-      kface = ef2e(1,iface,ielem)
 
       ! establish ``off-element'' face information
       call element_properties(kelem,n_pts_2d=temp,ifacenodes=kfacenodes_Off)
@@ -4209,24 +4230,18 @@ contains
 
         dx_On = sign(1.0_wp,real(elfacedirections(iface),wp))                    ! remove the sign of the component of the unit normal in computational space
 
-        nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)*dx_On            ! On element metric terms
-                
+        nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)            ! On element metric terms
+
         Off_Element_1:do k = 1, n_S_2d_Off                                   ! Off_Element Loop over 2D LGL points
          
           !-- scaled outward facing normal for kelement at face node k
-          jnode =  n_S_2d_Off*(kface-1) + k                                     ! Index in facial ordering
+          nx_Off = nx_Off_ghst(:,k)
 
-          inode = kfacenodes_Off(jnode)                                         ! Volumetric node index corresponding to facial node index
-
-          dx_Off = sign(1.0_wp,real(elfacedirections(kface),wp))                     ! remove sign of the component of the unit normal in computational space
-
-          nx_Off = Jx_r(inode,kelem)*facenodenormal(:,jnode,kelem)*dx_Off              ! Off element metric terms
- 
           call EntropyConsistentFlux_Vectors(vg_2d_On(:,i), vg_2d_Off(:,k), nequations, FxA(:,k), FyA(:,k), FzA(:,k)) ! (Entropy Flux vectors)
           
-          FxA(:,k) = dx_On*0.5_wp*(nx_On(1)+nx_Off(1))*FxA(:,k) 
-          FyA(:,k) = dx_On*0.5_wp*(nx_On(2)+nx_Off(2))*FyA(:,k)
-          FzA(:,k) = dx_On*0.5_wp*(nx_On(3)+nx_Off(3))*FzA(:,k) 
+          FxA(:,k) = 0.5_wp*(nx_On(1)+nx_Off(1))*FxA(:,k) 
+          FyA(:,k) = 0.5_wp*(nx_On(2)+nx_Off(2))*FyA(:,k)
+          FzA(:,k) = 0.5_wp*(nx_On(3)+nx_Off(3))*FzA(:,k) 
 
         enddo Off_Element_1                                                  ! End Off_Element
 
@@ -4261,7 +4276,6 @@ contains
 !=========
 !         Inviscid interface dissipation (Entropy Stable Upwinding of SATs)
 !=========
-write(*,*)'naviersotkes: Inviscid_SAT_Non_Conforming_Interface_Mod_SAT upwinding turned off'
 if(.false.)then
       On_Mortar_2:do j = 1, n_S_2d_Mort                                      ! Mortar loop over data
   
@@ -4698,18 +4712,6 @@ endif
     
     fv = zero
 
-!-- DEBUG DAVID START
-    !-- setting everything to one so that at least the continuity should satisfy free-stream if everything else is messed up
-    ! density
-    Vx(1) = one
-    ! velocity
-    Vx(2) = one
-    Vx(3) = one
-    Vx(4) = one
-    ! Temperature
-    Vx(5) = one   
-
-!-- DEBUG DAVID END
     return
   end subroutine UniformFreeStream
 
@@ -6985,8 +6987,8 @@ endif
 
           nx_Ave(:) = 0.5_wp*(nx_On(:)+nx_Off(:))                            ! Average of normal(i) and normal(j)
 
-          FA(:,k) = EntropyConsistentFlux(vg_2d_On(:,i), vg_2d_Off(:,k), nx_Ave(:),nequations) & ! (Entropy Flux vectors)
-                  +  SAT_Vis_Diss(nequations,vg_2d_On(:,i),vg_2d_Off(:,k),nx_Ave(:)) ! Viscous dissipation on Mortar based on L-R states
+          FA(:,k) = EntropyConsistentFlux(vg_2d_On(:,i), vg_2d_Off(:,k), nx_Ave(:),nequations) !& ! (Entropy Flux vectors)
+!                 +  SAT_Vis_Diss(nequations,vg_2d_On(:,i),vg_2d_Off(:,k),nx_Ave(:)) ! Viscous dissipation on Mortar based on L-R states
 
         enddo Off_Element_1                                                  ! End Off_Element
 
