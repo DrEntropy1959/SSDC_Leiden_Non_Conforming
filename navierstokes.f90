@@ -41,6 +41,7 @@ module navierstokes
   public nse_calcembeddedspatialerror
   public nse_communicationsetup
   public Navier_Stokes_init
+  public UniformFreeStream
 
   public Flux_Divergence
   public Solution_Filter
@@ -2176,31 +2177,6 @@ contains
                                  & - divf(:,2,inode,ielem) &
                                  & - divf(:,3,inode,ielem) &
                                  & + gsat(:  ,inode,ielem) ) / Jx_r(inode,ielem) 
-!-- DAVID DEBUG START
-!HERE4
-!if((ielem.EQ.2).AND.(inode.GE.180))then
-!     write(*,*)'============================================='
-!     write(*,*)'ielem = ',ielem,' inode = ',inode
-!     write(*,*)'maxva(abs(dudt)) = ',maxval(abs(dudt(:,inode,ielem)))
-!     write(*,*)'maxval(abs(vol)) = ', maxval(abs(- divf(:,1,inode,ielem) &                 
-!                                 & - divf(:,2,inode,ielem) &
-!                                 & - divf(:,3,inode,ielem) ))
-!    write(*,*)'maxval(abs(sat)) = ',maxval(abs(gsat(:  ,inode,ielem)))
-!     write(*,*)'============================================='
-!endif
-!-- DAVID DEBUG END
-!-- DAVID DEBUG START
-!if(maxval(abs(dudt(:,inode,ielem))).GE.1.0e-11_wp)then
-!     write(*,*)'============================================='
-!     write(*,*)'ielem = ',ielem,' inode = ',inode
-!     write(*,*)'maxva(abs(dudt)) = ',maxval(abs(dudt(:,inode,ielem)))
-!     write(*,*)'maxval(abs(vol)) = ', maxval(abs(- divf(:,1,inode,ielem) &                 
-!                                 & - divf(:,2,inode,ielem) &
-!                                 & - divf(:,3,inode,ielem) ))
-!    write(*,*)'maxval(abs(sat)) = ',maxval(abs(gsat(:  ,inode,ielem)))
-!     write(*,*)'============================================='
-!endif
-!-- DAVID DEBUG END
       end do
 
 !       write(*,*)'VolumeTerms Element = ',ielem
@@ -3335,6 +3311,7 @@ contains
     real(wp), allocatable, dimension(:,:) :: vg_2d_On,  vg_2d_Off
     real(wp), allocatable, dimension(:,:) ::            nx_2d_Off
     real(wp), allocatable, dimension(:,:) :: wg_2d_On,  wg_2d_Off
+    real(wp), allocatable, dimension(:,:) :: nx_Off_ghst
 
     integer,  allocatable, dimension(:,:) :: kfacenodes_On, kfacenodes_Off
     integer,  allocatable, dimension(:)   :: ifacenodes_On, ifacenodes_Off
@@ -3376,7 +3353,7 @@ contains
 
     real(wp), dimension(3)             :: unit_normal, normal_vel, tangent_vel, ref_vel_vector
     integer                            :: i_err
-    
+  
     ! allocate local arrays
     allocate(ustar(nequations))
     allocate(vstar(nequations))
@@ -3475,7 +3452,7 @@ contains
 
             evmax = Cevmax*maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax*evmax)
             ! ==  Eigen values/vectors
-! HERE1
+
             ! ==  Fluxes
             fn = normalflux( vg(:,inode,ielem), nx, nequations )                     ! (Euler Flux)
 
@@ -3751,14 +3728,6 @@ contains
   
             phig_On (:,:) = phig(:,:,inode,ielem)
             phig_Off(:,:) = phig(:,:,knode,kelem)
- !-- DEBUG DAVID START
-!if((ielem.EQ.3).AND.(iface.EQ.1))then
-! write(*,*)'================================'
-! write(*,*)'inode = ',inode
-! write(*,*)'vg_On = ',vg_On
-! write(*,*)'vg_Off = ',vg_Off
-!endif
-!-- DEBUG DAVID END
  
             SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
                                           & vg_On,vg_Off,              &
@@ -3767,21 +3736,8 @@ contains
                                           & pinv(1), mut(inode,ielem))
 
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
- !-- DEBUG DAVID START
-!if((ielem.EQ.3).AND.(iface.EQ.1))then
-! write(*,*)'alternative nx_Off = ',Jx_r(knode,kelem)*facenodenormal(:,lnode,kelem)
-! write(*,*)'alternative two = ',Jx_facenodenormal_LGL(:,jnode,ielem)
-! write(*,*)'================================'
-!endif
-!-- DEBUG DAVID END
  
           end do
-
-!           write(*,*)'Conforming Serial Element = ',ielem, iface
-!           write(*,*)'gsat after',myprocid,ielem,maxval(gsat(:,:,ielem))
-!           write(*,*)'gsat after',myprocid,ielem,   sum(gsat(:,:,ielem))
-!           write(*,*)'gsat after',myprocid,ielem,minval(gsat(:,:,ielem))
-!           write(*,*)'Conforming Serial Element = ',ielem
 
         endif
 
@@ -3947,13 +3903,13 @@ contains
                                                      cnt_Mort_Off, Intrp_On, Extrp_Off)
         elseif(SAT_type.EQ."mod_SAT")then
           !-- modified SAT approach
-          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface,ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
                                                      pinv,                                           &
                                                      vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
-                                                     cnt_Mort_Off, Intrp_On, Extrp_Off)
+                                                     cnt_Mort_Off, Intrp_On, Extrp_Off, nx_Off_ghst)
         else
           write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
             SAT_type,' ending computation'
@@ -4185,13 +4141,13 @@ contains
   ! Notes: HERE100
   !
   !=============================================================================
-  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max,  &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
                                                      pinv,                                           &
                                                      vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
-                                                     cnt_Mort_Off, Intrp_On, Extrp_Off)
+                                                     cnt_Mort_Off, Intrp_On, Extrp_Off, nx_Off_ghst)
 
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, ef2e
@@ -4210,7 +4166,7 @@ contains
     integer,   dimension(:),    intent(in) :: cnt_Mort_Off
     real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
     real(wp),  dimension(:,:),  intent(in) :: wg_Mort_On, wg_Mort_Off
-    real(wp),  dimension(:,:),  intent(in) :: Intrp_On, Extrp_Off
+    real(wp),  dimension(:,:),  intent(in) :: Intrp_On, Extrp_Off, nx_Off_ghst
     
     real(wp),  dimension(ndim)             :: nx, nx_On, nx_Off
     real(wp),  dimension(nequations)       :: fn, fstar
@@ -4225,7 +4181,7 @@ contains
 
     integer                               :: i, j, k, l
     integer                               :: ival, jval
-    integer                               :: inode, jnode, kelem, kface,temp
+    integer                               :: inode, jnode, kelem, temp, kface
     real(wp)                              :: dx_On, dx_Off
 
     continue
@@ -4330,7 +4286,7 @@ if(.false.)then
         jnode =  n_S_2d_On*(iface-1) + i                                     ! Index in facial ordering
               
         inode = ifacenodes_On(jnode)                                         ! Volumetric node index corresponding to facial node index
-              
+             
         gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * Up_diss_On(:,i)! On-element Viscous penalty contribution
 
       end do On_Elem_2                                                       ! On-element loop: end
@@ -6953,6 +6909,108 @@ endif
 
           return
      end function
+
+  !============================================================================
+
+  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_Direct(ielem, iface, ifacenodes_On ,      &
+                                                     n_S_2d_max,  &
+                                                     n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                     n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                     n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
+                                                     pinv,                                           &
+                                                     vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
+                                                     cnt_Mort_Off, Intrp_On, Extrp_Off, nx_Off_ghst)
+
+    use referencevariables,   only: nequations, ndim
+    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, ef2e
+    use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, element_properties
+    use initgrid,             only: elfacedirections
+
+
+    implicit none
+
+    integer,                    intent(in) :: ielem, iface
+    integer,                    intent(in) :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort
+    integer,                    intent(in) :: n_S_2d_On, n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
+    real(wp),  dimension(:),    intent(in) :: x_S_1d_On, x_S_1d_Off, x_S_1d_Mort
+    real(wp),  dimension(:),    intent(in) :: pinv
+    integer,   dimension(:),    intent(in) :: ifacenodes_On
+
+    integer,   dimension(:),    intent(in) :: cnt_Mort_Off
+    real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
+    real(wp),  dimension(:,:),  intent(in) :: wg_Mort_On, wg_Mort_Off
+    real(wp),  dimension(:,:),  intent(in) :: Intrp_On, Extrp_Off
+    real(wp),  dimension(:,:),  intent(in) :: nx_Off_ghst
+
+    real(wp),  dimension(ndim)             :: nx, nx_On, nx_Off, nx_Ave
+    real(wp),  dimension(nequations)       :: fn, fstar
+    real(wp),  dimension(nequations)       :: vg_On, vg_Off
+
+    real(wp), allocatable, dimension(:,:) :: FA,FB,FC
+
+    integer,  dimension(:),   allocatable :: kfacenodes_Off
+
+    integer                               :: i, j, k, l
+    integer                               :: ival, jval
+    integer                               :: inode, jnode, kelem, temp, kface
+    real(wp)                              :: dx_On, dx_Off
+
+    continue
+
+      allocate(FA(nequations,n_S_2D_Off ))
+      allocate(FB(nequations,n_S_2D_Mort))
+      allocate(FC(nequations,n_S_2D_Mort))
+
+!=========
+!         Skew-symmetric matrix portion of SATs (Entropy Stable through Mortar)
+!=========
+      ! establish ``off-element'' face information
+      kelem = ef2e(2,iface,ielem)
+      kface = ef2e(1,iface,ielem)
+      call element_properties(kelem,n_pts_2d=temp,ifacenodes=kfacenodes_Off)
+
+      On_Element_1:do i = 1, n_S_2d_On                                       ! On_Element Loop over 2D LGL points
+
+        jnode =  n_S_2d_On*(iface-1) + i                                     ! Index in facial ordering
+
+        inode = ifacenodes_On(jnode)                                         ! Volumetric node index corresponding to facial node index
+
+        nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)              ! On element metric terms
+
+        fn(:) = normalflux(vg_2d_On(:,i), nx_On(:), nequations)              ! One point flux based on vg_On and nx
+
+        Off_Element_1:do k = 1, n_S_2d_Off                                   ! Off_Element Loop over 2D LGL points
+
+          nx_Off(:) = nx_Off_ghst(:,k)                                       ! Off element metric terms
+
+          nx_Ave(:) = 0.5_wp*(nx_On(:)+nx_Off(:))                            ! Average of normal(i) and normal(j)
+
+          FA(:,k) = EntropyConsistentFlux(vg_2d_On(:,i), vg_2d_Off(:,k), nx_Ave(:),nequations) & ! (Entropy Flux vectors)
+                  +  SAT_Vis_Diss(nequations,vg_2d_On(:,i),vg_2d_Off(:,k),nx_Ave(:)) ! Viscous dissipation on Mortar based on L-R states
+
+        enddo Off_Element_1                                                  ! End Off_Element
+
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FA,FB,Extrp_Off)  ! Extrapolate f^S_x
+
+        On_Mortar_1:do j = 1, n_S_2d_Mort                                    ! Mortar loop over 2D Gauss points
+
+          l = cnt_Mort_Off(j)                                                ! Correct for face orientation and shift back to 1:n_S_2d_Mort
+
+          FC(:,j) = FB(:,l)                                                  ! Outward facing component of f^S on mortar
+
+        enddo On_Mortar_1                                                    ! End Mortar loop
+
+        ival = mod(i-1,n_S_1d_On) + 1 ; jval = (i-ival) / n_S_1d_On + 1 ;    ! Decode On-element point coordinates (i,j) from planar coordinates
+
+        call ExtrpXA2XB_2D_neq_k(nequations,n_S_1d_Mort,n_S_1d_On,ival,jval,x_S_1d_Mort,x_S_1d_On,FC,fstar,Intrp_On)  ! Restrict planar data to the (ival,jval) point
+
+        gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar)     ! SAT penalty:  subtract the on-element contribution and replace with penalty 
+
+      enddo On_Element_1
+
+      deallocate(FA,FB,FC)
+
+  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_Direct
 
   !============================================================================
 
