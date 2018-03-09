@@ -1828,7 +1828,7 @@ contains
     use variables,            only: xg, xghst_LGL, ef2e, nelem_ghst
     use petscvariables,       only: xpetsc, xlocpetsc
     use initcollocation,      only: element_properties
-    use collocationvariables, only: elem_props
+
     implicit none
 
     integer :: ielem, iface
@@ -1897,7 +1897,6 @@ contains
     use variables,            only: Jx_facenodenormal_LGL, nxghst_LGL_shell, ef2e
     use petscvariables,       only: nxpetsc_shell, nxlocpetsc_shell
     use initcollocation,      only: element_properties
-    use collocationvariables, only: elem_props
 
     implicit none
 
@@ -2759,7 +2758,7 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
-    use collocationvariables, only: elem_props
+
     implicit none
 
     ! Arguments
@@ -2779,8 +2778,7 @@ contains
     integer, allocatable :: iyu(:)
     integer :: ielem, iloc, iface
     integer :: i, kelem, kface, ieq
-    integer :: n_S_2d_Off, nfacesize, elem_cnt
-    integer :: ierr
+    integer :: n_S_2d_Off
 
     xinit  = 0.0_wp
 
@@ -2871,7 +2869,7 @@ contains
     integer :: ntot, ntotG
     integer, allocatable :: iyu(:)
     integer :: ielem, iloc, iface
-    integer :: i, kelem, kface, ieq
+    integer :: i, kelem, kface
     integer :: n_S_1d_Mort, n_S_2d_Mort, nfacesize
     integer :: ierr
 
@@ -3893,7 +3891,7 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
-    use collocationvariables, only: elem_props
+
     implicit none
 
     ! Arguments
@@ -4033,7 +4031,7 @@ contains
     integer :: ntot, ntotu, ntotw
     integer :: ielem, iloc, iface, nfacesize
     integer :: kelem, n_S_1d_Mort, n_S_2d_Mort
-    integer :: i, ieq, jnode
+    integer :: i, jnode
     integer,  allocatable :: iyu(:)
     real(wp), allocatable ::  yu(:)
 
@@ -4371,14 +4369,14 @@ contains
     integer               :: number_of_edges_per_face, number_of_faces
     integer, allocatable, dimension(:) :: melemsonproc, packed_e_edge2e
     integer, allocatable, dimension(:,:,:,:,:) :: e_edge2etemp, e_edge2etemp2
-    integer :: nptemp, ielem_original, iface, iedge, ipartner, jpartner
+    integer :: ielem_original, iface, iedge, ipartner, jpartner
     integer, allocatable :: i2jelems(:), j2ielems(:)
     integer, allocatable :: icnt(:)
 
     !-- mpi vars
     integer, allocatable, dimension(:) :: s_request_e_edge2e
     integer :: r_request_e_edge2e
-    integer :: s_tag, m_size, i_err, r_tag, ierr
+    integer :: s_tag, m_size, i_err, r_tag
     integer, allocatable, dimension(:) :: e_edge2e_recive
 
     integer :: s_status(mpi_status_size)

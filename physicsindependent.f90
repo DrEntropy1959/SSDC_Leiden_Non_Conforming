@@ -36,22 +36,14 @@ contains
     use fileio
     use mpimod
     use write_solution_file
-!-- DEBUG DAVID START
     use referencevariables,  only: ihelems, nfacesperelem, nelems
-    use variables, only: Jx_r, facenodenormal, Jx_facenodenormal_LGL
-    use initcollocation,      only: element_properties
-    use variables,            only: ef2e
-!-- DEBUG DAVID END
+    use initcollocation,     only: element_properties
+
     ! Nothing is implicitly defined
     implicit none
 
     integer :: i_err
 
-!-- DEBUG DAVID START
-   integer ielem, iface, i, n_pts_2d, inode, jnode
-  integer,  allocatable, dimension(:,:) :: kfacenodes_On
-
-!-- DEBUG DAVID END
     continue
 
     ! Initialize collocation approximation

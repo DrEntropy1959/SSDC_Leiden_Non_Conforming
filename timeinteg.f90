@@ -122,12 +122,7 @@ contains
     use dkinetic_energy_dt_enstrophy
     use tools_IO
 
-!-- DEBUG DAVID START
-    use variables, only: vg, ug, wg
-    use initcollocation,      only: element_properties
-!-- DEBUG DAVID END
-    ! Nothing is implicitly defined
-    implicit none
+    implicit none                            ! Nothing is implicitly defined
 
     integer :: irkstep
     integer :: i_err
@@ -135,9 +130,7 @@ contains
 !   integer :: i_unit, io_status
 !   logical :: negTemp = .false.
 !   character(120) :: message
-!-- DEBUG DAVID START
-    integer :: ielem,inode
-!-- DEBUG DAVID END
+
     continue
 
     ! Set time step counter to zero
