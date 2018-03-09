@@ -4462,7 +4462,6 @@ contains
         ! Update processor counter
         icnt(i_proc) = icnt(i_proc) + 1
       enddo
-      write(*,*)'master finishes constructing mappings'  
     endif! on master node
 
     ! Create a barrier synchronization in the group. Each task, when reaching 

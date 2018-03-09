@@ -203,7 +203,7 @@ contains
       call timestepcontroller(itimestep)
 
       ! Compute time-averaged quantities and write output if needed
-      call post_process_ts(itimestep,timeglobal)
+      if(.not. non_conforming) call post_process_ts(itimestep,timeglobal)
 
       ! Call Solution filter to clip highest mode
       if (filter_solution) call Solution_Filter()

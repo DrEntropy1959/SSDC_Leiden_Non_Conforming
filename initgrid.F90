@@ -2861,7 +2861,7 @@ contains
     integer :: ielem, inode, jnode, idir, jdir
     integer :: i, j, l, ii, iE
     integer :: nodesperelem_max, n_LGL_3d
-    integer :: ierr
+!   integer :: ierr
 
     real(wp), parameter :: tol = 1.0e-11_wp
 
@@ -3095,10 +3095,10 @@ contains
       dx_min_elem(ielem) = dx_min_elem(ielem)**(0.333333333333333333333333_wp)
 
       if(minval(Jx_r(:,ielem)) <= tol) then
-        write(*,*)' stopping !!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-        write(*,*)'jacobian in element = ',ielem, 'on process = ',myprocid, 'is negative'
-        write(*,*)' stopping !!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-        call PetscFinalize(ierr) ; stop
+!       write(*,*)' stopping !!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+!       write(*,*)'jacobian in element = ',ielem, 'on process = ',myprocid, 'is negative'
+!       write(*,*)' stopping !!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+!       call PetscFinalize(ierr) ; stop
       endif
     end do elloop
 
@@ -8442,7 +8442,7 @@ end subroutine write_matrix_to_file_matlab
 
     use mpimod
     use variables, only            : e_edge2e, vx_Master, ic2nh
-    use referencevariables, only   : nelems, ndim, number_of_possible_partners
+    use referencevariables, only   : nelems, ndim, number_of_possible_partners, myprocid
     use collocationvariables, only : elem_props
     use precision_vars, only       : magnitude
 
@@ -8468,9 +8468,6 @@ end subroutine write_matrix_to_file_matlab
     number_of_faces = ndim*2
     nvertex_per_element = 2**ndim
 
-!    allocate(e_edge2e(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,1:nelems))
-!    e_edge2e = -1000
- 
     max_partners = 0
     
     !-- allocate vector to store the matches. Worse case scenario each connector touches every element
@@ -8643,6 +8640,8 @@ end subroutine write_matrix_to_file_matlab
          enddo
       enddo
     enddo
+
   end subroutine e_edge2e_connectivity
+
 end module initgrid
 
