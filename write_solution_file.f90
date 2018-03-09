@@ -123,7 +123,8 @@ contains
     use controlvariables
     use variables
 !   use navierstokes, only : supersonicvortexFull
-    use navierstokes, only : isentropicVortexFull
+!    use navierstokes, only : isentropicVortexFull
+    use navierstokes, only : UniformFreeStream
 
     integer :: ielem, inode
 
@@ -139,7 +140,7 @@ contains
       do inode = 1, nodesperelem
         ! Use exact solution routine to initialize data
 !       call supersonicvortexFull( &
-        call isentropicvortexFull( &
+        call UniformFreeStream(&
           exact(:,inode,ielem), &
           phitmp, &
           fvtmp, &

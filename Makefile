@@ -42,8 +42,8 @@ else ifeq ($(HOSTPC),dfernandez-lan)
 $(info ${HOSTPC})
 INCLUDESDIR = -I/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/lib/include\
               -I/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/petsc
-FCFLAGS = -Wunused -Wsurprising -O1 $(INCLUDESDIR)
-#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+#FCFLAGS = -Wunused -Wsurprising -O1 $(INCLUDESDIR)
+FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
 CFLAGS = -O1  $(INCLUDESDIR)
 LFLAGS = -L/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/lib/lib\
          -L/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/petsc
@@ -56,8 +56,8 @@ $(info ${HOSTPC})
 INCLUDESDIR = -I/home/nia-visi13/Postdoc2/open_source/deps/openmpi-1.8.3/include\
               -I/home/nia-visi13/Postdoc2/open_source/deps/petsc-3.5.2/include\
               -I/home/nia-visi13/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
-FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
-#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
 CFLAGS = -Ofast  $(INCLUDESDIR)
 LFLAGS = -L/home/nia-visi13/Postdoc2/open_source/deps/openmpi-1.8.3/lib\
          -L/home/nia-visi13/Postdoc2/open_source/deps/petsc-3.5.2/lib\

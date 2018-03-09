@@ -343,7 +343,7 @@ contains
     nverticesperelem = 2**ndim
 
     ! Allocate memory for MPI
-    allocate(i_s_r_status(mpi_status_size,4))
+    allocate(i_s_r_status(mpi_status_size,4))                                                              ! NOTE (DAVID): we do not seem to use this variable in this subroutine
 
     ! Allocate memory for lower and upper index of the element ID own by each 
     ! process
@@ -367,6 +367,7 @@ contains
     if (myprocid == 0) then
       ! Count the number of elements on each process and put it in a container 
       ! as the upper index
+
       do i_elem = 1, nelems
         melemsonproc(2*elempart(i_elem) + 1) = melemsonproc(2*elempart(i_elem) + 1) + 1
       end do
@@ -1204,7 +1205,7 @@ contains
           ! Send 1D array
           s_tag = 200*nprocs + i_proc
           m_size = npetmp*2*ndim*qdim
-          call mpi_send(packed_ef2e,m_size,mpi_integer,i_proc,s_tag, &
+          call mpi_send(packed_ef2e,m_size,mpi_integer,i_proc,s_tag, &                                                       !NOTE (David) should this be an isend?
             & petsc_comm_world,s_request_ef2e(i_proc),i_err)
 
           call mpi_wait(s_request_ef2e(i_proc),s_status,i_err)
@@ -1225,7 +1226,7 @@ contains
           ! Send 1D array
           s_tag = 327*nprocs + i_proc
           m_size = npetmp*2*ndim
-          call mpi_send(packed_ldg_flip_flop_sign,m_size,mpi_integer,i_proc,s_tag, &
+          call mpi_send(packed_ldg_flip_flop_sign,m_size,mpi_integer,i_proc,s_tag, &                                         !NOTE (David) should this be an isend?
             & petsc_comm_world,s_request_ldg_flip_flop_sign(i_proc),i_err)
 
           call mpi_wait(s_request_ldg_flip_flop_sign(i_proc),s_status,i_err)
@@ -1428,7 +1429,7 @@ contains
     deallocate(i2jelems)
     deallocate(icnt)
     deallocate(melemsonproc)
-    deallocate(i_s_r_status)
+    deallocate(i_s_r_status)                                                                                                                ! NOTE (David): we have not used this variable and now deallocate it
     deallocate(ldg_flip_flop_sign_tmp2)
 
     ! =========================================================================
@@ -4017,5 +4018,398 @@ contains
 
 
   end subroutine UpdateComm1D_Gau_Mortar_GhostData
-  
+ 
+  subroutine determine_connector_degree(ielem,nE,kelem1,kelem2,procielem,prockelem1,prockelem2,nmin)
+
+    use initcollocation, only: element_properties
+    use referencevariables, only: nprocs,myprocid
+    use variables, only: ef2e 
+
+    implicit none
+
+    integer, intent(in)                          :: ielem, nE, kelem1, kelem2, procielem, prockelem1, prockelem2
+    integer, intent(inout)                       :: nmin
+
+    !-- local variables
+    integer                                      :: nkelem1, nkelem2, nkelem3, faceloop, faceloop2, kelem3, prockelem3
+    integer, dimension(6,2)                        :: lielem, lkelem1, lkelem2
+
+    !-- mpi vars
+    integer :: rtag, stag
+    integer :: irsreq(2)
+!    integer, allocatable :: irsstatus(:,:)
+    integer :: msgsize, ierr
+
+   ! use blocking send to send nE to prockelem1
+   stag = 100*nprocs+myprocid
+   msgsize = 1
+   call mpi_send(nE, msgsize, mpi_integer, prockelem1, &
+   stag, petsc_comm_world, ierr)
+
+   ! use blocking send to send nE to prockelem2
+   stag = 200*nprocs+myprocid
+   msgsize = 1
+   call mpi_send(nE, msgsize, mpi_integer, prockelem2, &
+   stag, petsc_comm_world, ierr)
+
+    ! post non-blocking receives for each process to receive nkelem1
+    rtag = 100*nprocs+myprocid
+    msgsize = 1
+    call mpi_irecv(nkelem1, msgsize, mpi_integer, prockelem1, &
+      rtag, PETSC_COMM_WORLD, irsreq(1), ierr)
+
+    ! post non-blocking receives for each process to receive nkelem1
+    rtag = 200*nprocs+myprocid
+    msgsize = 1
+    call mpi_irecv(nkelem2, msgsize, mpi_integer, prockelem2, &
+      rtag, PETSC_COMM_WORLD, irsreq(1), ierr)
+
+    !-- construct the list of touching elements ielem
+    do faceloop = 1,6
+       lielem(faceloop,1) = ef2e(2,faceloop,ielem)
+       lielem(faceloop,2) = ef2e(3,faceloop,ielem)
+    enddo
+
+   ! use blocking send to send lielem to prockelem1
+   stag = 300*nprocs+myprocid
+   msgsize = 6
+   call mpi_send(lielem, msgsize, mpi_integer, prockelem1, &
+   stag, petsc_comm_world, ierr)
+
+   ! use blocking send to send nE to prockelem2
+   stag = 400*nprocs+myprocid
+   msgsize = 6
+   call mpi_send(lielem, msgsize, mpi_integer, prockelem2, &
+   stag, petsc_comm_world, ierr)
+
+    ! post non-blocking receives for each process to receive lkelem1
+    rtag = 300*nprocs+myprocid
+    msgsize = 6*2
+    call mpi_irecv(lkelem1, msgsize, mpi_integer, prockelem1, &
+      rtag, PETSC_COMM_WORLD, irsreq(1), ierr)
+
+    ! post non-blocking receives for each process to receive nkelem1
+    rtag = 400*nprocs+myprocid
+    msgsize = 6*2
+    call mpi_irecv(lkelem2, msgsize, mpi_integer, prockelem2, &
+      rtag, PETSC_COMM_WORLD, irsreq(1), ierr)
+
+
+   !-- determine the common element
+   do faceloop = 1,6
+     do faceloop2 = 1,6
+       if((lkelem1(faceloop,1).EQ.lkelem2(faceloop2,1)).AND.(lkelem1(faceloop,1).NE.ielem))then
+         kelem3 = lkelem1(faceloop,1)
+         prockelem3 = lkelem1(faceloop,2)       
+       endif
+     enddo
+   enddo
+
+   ! use blocking send to send nE to prockelem1
+   stag = 500*nprocs+myprocid
+   msgsize = 1
+   call mpi_send(nE, msgsize, mpi_integer, prockelem3, &
+   stag, petsc_comm_world, ierr)
+
+    ! post non-blocking receives for each process to receive nkelem1
+    rtag = 500*nprocs+myprocid
+    msgsize = 1
+    call mpi_irecv(nkelem3, msgsize, mpi_integer, prockelem3, &
+      rtag, PETSC_COMM_WORLD, irsreq(1), ierr)
+
+   nmin = minval((/nE,nkelem1,nkelem2,nkelem3/))
+
+  end subroutine determine_connector_degree
+
+  subroutine  distribute_e_edge2e()
+  !================================================================================================
+  !
+  ! Purpose: Distributes e_edge2e to each element
+  !
+  ! Notes:
+  !================================================================================================
+
+    use variables, only : e_edge2e, elempart
+    use referencevariables, only : nelems, ndim, nprocs, myprocid, number_of_possible_partners, ihelems
+    use initcollocation, only: element_properties
+
+    implicit none
+
+    integer               :: i_proc, ielem, cnt_pack, locnproc, i
+    integer               :: number_of_edges_per_face, number_of_faces
+    integer, allocatable, dimension(:) :: melemsonproc, packed_e_edge2e
+    integer, allocatable, dimension(:,:,:,:,:) :: e_edge2etemp, e_edge2etemp2
+    integer :: nptemp, ielem_original, iface, iedge, ipartner, jpartner
+    integer, allocatable :: i2jelems(:), j2ielems(:)
+    integer, allocatable :: icnt(:)
+
+    !-- mpi vars
+    integer, allocatable, dimension(:) :: s_request_e_edge2e
+    integer :: r_request_e_edge2e
+    integer :: s_tag, m_size, i_err, r_tag
+    integer, allocatable, dimension(:) :: e_edge2e_recive
+
+    integer :: s_status(mpi_status_size)
+    integer :: r_status(mpi_status_size)
+
+    logical test_request_e_edge2e
+
+    ! Allocate memory for lower and upper index of the element ID own by each 
+    ! process
+    allocate(melemsonproc(0:2*nprocs-1))
+    melemsonproc = 0
+
+    ! Allocate memory for counter array
+    allocate(icnt(0:nprocs-1))
+    icnt = 0
+
+
+    if(ndim.Eq.2)then
+      number_of_edges_per_face = 1
+    elseif(ndim.EQ.3)then
+      number_of_edges_per_face = 4
+    endif
+
+    number_of_faces = ndim*2
+
+    !==============================================================================================
+    ! Master node sends e_edge2e in the new global ordering
+    !==============================================================================================
+    if(myprocid==0)then
+    
+      allocate(s_request_e_edge2e(nprocs))
+
+      ! Process 0 (i.e. the master process) orders the elements for scattering
+      ! ==========================================================================
+      
+      ! Count the number of elements on each process and put it in a container 
+      ! as the upper index
+      do ielem = 1, nelems
+        melemsonproc(2*elempart(ielem) + 1) = melemsonproc(2*elempart(ielem) + 1) + 1
+      end do
+
+      ! Make the upper index additive, such that all odd indices contain the
+      ! upper element bound of a given process
+      do i_proc = 3, 2*nprocs-1, 2
+        melemsonproc(i_proc) = melemsonproc(i_proc-2) + melemsonproc(i_proc)
+      end do
+
+      ! The first process starts with element ID 1
+      melemsonproc(0) = 1
+
+      ! Determine the first element ID on the other processes
+      do i_proc = 2, 2*(nprocs-1), 2
+        melemsonproc(i_proc) = melemsonproc(i_proc-1) + 1
+      end do
+
+     ! now melemsonproc has the starting number on even entries and then ending element number on odd entries
+     ! for example melemsonproc(2*i_proc) = element number of first element on i_proc
+     ! melemsonproc(2*i_proc+1) = element number of the last element on i_proc
+
+      ! Determine the mapping from the old element indices to the new element indices
+      ! ========================================================================
+
+      ! Allocate data for indices map
+      allocate(i2jelems(1:nelems))
+      i2jelems = 0
+      
+      allocate(j2ielems(1:nelems))
+      j2ielems = 0
+
+      ! Loop over the elements
+      do ielem = 1, nelems
+        ! Process ID
+
+        !QUESTION: is elempart(ielem) in the original ordering?
+        i_proc = elempart(ielem)
+
+        ! Original numbering of the element for each processor
+        i2jelems(melemsonproc(2*i_proc)+icnt(i_proc)) = ielem
+        
+        ! New numbering of the elements for each processor
+        j2ielems(ielem) = melemsonproc(2*i_proc) + icnt(i_proc)
+        
+        ! Update processor counter
+        icnt(i_proc) = icnt(i_proc) + 1
+      enddo
+      write(*,*)'master finishes constructing mappings'  
+    endif! on master node
+
+    ! Create a barrier synchronization in the group. Each task, when reaching 
+    ! the MPI_Barrier call, blocks until all tasks in the group reach the same 
+    ! MPI_Barrier call. This forces all the other processes to wait for the
+    ! master process. 
+    call mpi_barrier(petsc_comm_world,i_err)
+
+    ! The lower and upper ordered-element bounds for each process is 
+    ! communicated
+    call mpi_scatter(melemsonproc,2,mpi_integer,ihelems,2,mpi_integer,0, &
+      & petsc_comm_world,i_err)
+
+
+    if(myprocid.EQ.0)then
+      !-- loop over the processes and send the portions of e_edge2e associated with each process
+      i_proc_loop : do i_proc = 0, nprocs-1
+
+        ! Allocate memory for temporary array for element to edge connectivity
+        allocate(e_edge2etemp(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,&
+          melemsonproc(2*i_proc):melemsonproc(2*i_proc+1)))
+        
+        
+        ! Loop over all elements on process
+        ielem_loop : do ielem = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
+   
+          ! Original element index
+          ielem_original = i2jelems(ielem)
+        
+          
+          !-- loop over e_edge2e the faces, edges, and partners
+          do iface = 1, number_of_faces
+            do iedge = 1,number_of_edges_per_face
+              do ipartner = 1,number_of_possible_partners
+                ! Face of neighbor
+                !-- degree of ipartner
+                e_edge2etemp(1,iedge,ipartner,iface,ielem) = e_edge2e(1,iedge,ipartner,iface,ielem_original)
+                  
+                !-- original index of the partner
+                jpartner = e_edge2e(2,iedge,ipartner,iface,ielem_original)
+
+                if(jpartner >0)then
+                  !-- element number of the partner
+                  e_edge2etemp(2,iedge,ipartner,iface,ielem) = j2ielems(jpartner)
+
+                  !-- process of the partner
+                  e_edge2etemp(3,iedge,ipartner,iface,ielem) = elempart(jpartner)
+                endif
+              enddo
+            enddo
+          enddo
+        enddo ielem_loop
+        
+        !-- now we send the data
+
+        ! Special treatment for the master node. There is no need to use mpi
+        ! since the data are already available in memory.
+        ! =====================================================================
+        if (i_proc == 0) then
+          ! store the master process e_edge2e in a temporary variable 
+          allocate(e_edge2etemp2(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,&
+            melemsonproc(2*i_proc):melemsonproc(2*i_proc+1)))
+
+          e_edge2etemp2 = e_edge2etemp
+
+        else 
+          ! General procedure for all the other processes. 
+          
+          ! Transfer e_edge2e data
+          ! ===================================================================
+          ! Prepare 1D vector
+          locnproc = melemsonproc(2*i_proc+1)-melemsonproc(2*i_proc)+1
+
+          allocate(packed_e_edge2e(3*number_of_edges_per_face*number_of_possible_partners*number_of_faces*locnproc))
+          cnt_pack = 0
+          do ielem = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
+            do iface = 1,number_of_faces 
+              do ipartner = 1, number_of_possible_partners
+                do iedge = 1,number_of_edges_per_face
+                  do i = 1,3
+                    cnt_pack = cnt_pack + 1
+                    packed_e_edge2e(cnt_pack) = e_edge2etemp(i,iedge,ipartner,iface,ielem)
+                  enddo
+                end do
+              enddo
+            enddo
+          enddo
+          ! Send 1D array
+          s_tag = 333*nprocs + i_proc
+          m_size = cnt_pack
+          !-- non-blocking version
+          call mpi_isend(packed_e_edge2e,m_size,mpi_integer,i_proc,s_tag, &
+            & petsc_comm_world,s_request_e_edge2e(i_proc),i_err)
+           write(*,*)'finished sending i_proc = ',i_proc
+          call mpi_wait(s_request_e_edge2e(i_proc),s_status,i_err)
+          write(*,*)'after wait i_proc = ',i_proc
+
+          !-- blocking version
+          !call mpi_send(packed_e_edge2e,m_size,mpi_integer,i_proc,s_tag, &
+          !  & petsc_comm_world,s_request_e_edge2e(i_proc),i_err)
+          ! write(*,*)'finished sending i_proc = ',i_proc
+          
+        end if ! End if not master node
+
+       ! Deallocate memory
+       if(allocated(e_edge2etemp)) deallocate(e_edge2etemp)
+       if(allocated(packed_e_edge2e)) deallocate(packed_e_edge2e)
+      enddo i_proc_loop
+
+      !-- we have sent all of the data and have stored the relevant portion 
+      ! of e_edge2e for the master node in edge2etemp2 so we do not need e_edge2e any longer
+
+      ! Deallocate memory
+      deallocate(e_edge2e)
+    endif !-- End on master node
+
+    ! Create a barrier synchronization in the group. Each task, when reaching 
+    ! the MPI_Barrier call, blocks until all tasks in the group reach the same 
+    ! MPI_Barrier call. This forces all the other processes to wait for the
+    ! master process. 
+    !call mpi_barrier(petsc_comm_world,i_err)
+
+    !  recive e_edge2etemp for each process and unpack into the local e_edge2e
+    if(myprocid >0)then
+      ! All the processes receive e_edge2etemp
+      ! =========================================================================
+      ! Allocate memory for vertex coordinates
+      allocate(e_edge2e_recive((ihelems(2)-ihelems(1)+1)*3*number_of_edges_per_face*number_of_possible_partners*number_of_faces))
+      
+      ! Receive vertex coordinates
+      r_tag = 333*nprocs + myprocid
+      locnproc = ihelems(2)-ihelems(1)+1
+      m_size = locnproc*3*number_of_edges_per_face*number_of_possible_partners*number_of_faces
+ 
+      !-- non-blocking version     
+      call mpi_irecv(e_edge2e_recive,m_size,mpi_integer,0,r_tag, petsc_comm_world, &
+        & r_request_e_edge2e,i_err)
+      call mpi_wait(r_request_e_edge2e,r_status,i_err)
+      test_request_e_edge2e = .false.
+      call mpi_test(r_request_e_edge2e,test_request_e_edge2e, &
+        & r_status,i_err)
+      write(*,*)'recive sucess myprocid = ',myprocid,' nprocs =',nprocs 
+
+      !-- blocking version
+      !call mpi_recv(e_edge2e_recive,m_size,mpi_integer,0,r_tag, petsc_comm_world, &
+      !  & r_request_e_edge2e,i_err)
+      !write(*,*)'recive sucess myprocid = ',myprocid,' nprocs =',nprocs 
+      !-- unpack data into local e_edge2e array
+      allocate(e_edge2e(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,ihelems(1):ihelems(2)))
+      cnt_pack = 0
+      do ielem = ihelems(1),ihelems(2)
+        do iface = 1,number_of_faces 
+          do ipartner = 1, number_of_possible_partners
+            do iedge = 1,number_of_edges_per_face
+              do i = 1,3
+                cnt_pack = cnt_pack + 1
+                e_edge2e(i,iedge,ipartner,iface,ielem) = e_edge2e_recive(cnt_pack)
+              enddo
+            end do
+          enddo
+        enddo
+      enddo
+      ! Deallocate memory
+      deallocate(e_edge2e_recive)
+
+    endif! not master node if
+
+    ! Wait for other processes
+    call mpi_barrier(petsc_comm_world,i_err)
+
+    !-- assign e_edge2etmp2 to e_edge2e on the mater node
+    if(myprocid.EQ.0)then
+      if(allocated(e_edge2e)) deallocate(e_edge2e)
+      allocate(e_edge2e(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,ihelems(1):ihelems(2)))
+      e_edge2e = e_edge2etemp2
+      deallocate(e_edge2etemp2)
+    endif
+    
+  end subroutine distribute_e_edge2e
 end module mpimod

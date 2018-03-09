@@ -181,6 +181,14 @@ contains
 
         ! calculate time derivative 
         call physics_timederivative()
+!-- DAVID DEBUG START
+!write(*,*)'=================================================================='
+!write(*,*)'physics_timederivative for irkstep = ',irkstep
+!write(*,*)'=================================================================='
+!if(irkstep.EQ.2)then
+!call PetscFinalize(i_err); stop
+!endif
+!-- DAVID DEBUG END
         if (irkstep == 1) then
           if (write_dke_dt) then 
             call compute_dkinetic_energy_dt()
@@ -891,8 +899,11 @@ contains
         ! Compute specific entropy
         call compute_specific_entropy_elements()
 
+!-- DAVID DEBUG START
         ! Write solution file 
-        call write_solution_vtu_file()
+!        call write_solution_vtu_file()
+        write(*,*)' timeinteg: post_process_ts you have turned off write_solution_vtu_file'
+!-- DAVID DEBUG END
       
         ! Master node writes the .pvtu file
         if (myprocid .eq. 0) then

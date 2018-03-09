@@ -35,6 +35,7 @@ module referencevariables
   integer :: nghost_NonCon = 0
   integer :: nghost_Gau_shell = 0
   integer :: nghost_LGL_shell = 0
+  integer :: number_of_possible_partners = 5
 
   integer :: ihelems(2)
   integer :: nprocs

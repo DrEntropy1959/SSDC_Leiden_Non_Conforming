@@ -41,6 +41,7 @@ module navierstokes
   public nse_calcembeddedspatialerror
   public nse_communicationsetup
   public Navier_Stokes_init
+  public UniformFreeStream
 
   public Flux_Divergence
   public Solution_Filter
@@ -2141,6 +2142,9 @@ contains
     integer :: inode,ielem, jdir
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
 
+!-- DAVID DEBUG START
+    integer :: i_err
+!-- DAVID DEBUG END
     ! loop over all elements
     do ielem = ihelems(1), ihelems(2)
 
@@ -2192,7 +2196,7 @@ contains
 !-- DAVID DEBUG START
 !if(maxval(abs(dudt(:,inode,ielem))).GE.1.0e-11_wp)then
 !     write(*,*)'============================================='
-!     write(*,*)'ielem = ',ielem,' inode = ',inode
+!     write(*,*)'ielem = ',ielem,' inode = ',inode, 'myprocid = ',myprocid
 !     write(*,*)'maxva(abs(dudt)) = ',maxval(abs(dudt(:,inode,ielem)))
 !     write(*,*)'maxval(abs(vol)) = ', maxval(abs(- divf(:,1,inode,ielem) &                 
 !                                 & - divf(:,2,inode,ielem) &
@@ -3335,6 +3339,7 @@ contains
     real(wp), allocatable, dimension(:,:) :: vg_2d_On,  vg_2d_Off
     real(wp), allocatable, dimension(:,:) ::            nx_2d_Off
     real(wp), allocatable, dimension(:,:) :: wg_2d_On,  wg_2d_Off
+    real(wp), allocatable, dimension(:,:) ::nx_Off_ghst
 
     integer,  allocatable, dimension(:,:) :: kfacenodes_On, kfacenodes_Off
     integer,  allocatable, dimension(:)   :: ifacenodes_On, ifacenodes_Off
@@ -3376,7 +3381,10 @@ contains
 
     real(wp), dimension(3)             :: unit_normal, normal_vel, tangent_vel, ref_vel_vector
     integer                            :: i_err
-    
+ 
+!-- DAVID DEBUG START
+    real(wp), dimension(nequations)    :: gsat_temp
+!-- DAVID DEBUG END   
     ! allocate local arrays
     allocate(ustar(nequations))
     allocate(vstar(nequations))
@@ -3475,7 +3483,7 @@ contains
 
             evmax = Cevmax*maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax*evmax)
             ! ==  Eigen values/vectors
-! HERE1
+
             ! ==  Fluxes
             fn = normalflux( vg(:,inode,ielem), nx, nequations )                     ! (Euler Flux)
 
@@ -3501,7 +3509,6 @@ contains
                 if(SAT_type.EQ."mod_metric")then
                   fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wstar(:)) )
                 elseif(SAT_type.EQ."mod_SAT")then
-                  write(*,*)' navierstokes: SAT_Penalty you have turned off dissipation on the boundary SAT'
                   fstar = fstar
                 else
                   write(*,*)'navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',SAT_type
@@ -3534,9 +3541,27 @@ contains
             ! Add the LDG and IP terms to the penalty
             !l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
 
+!-- DAVID DEBUG START
+           gsat_temp = gsat(:,inode,ielem)
+!-- DAVOD DEBUG END
+
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + &
               & pinv(1)* ( (fn - fstar) + l01*fstarV*bc_pen_strength ) - &
               & pinv(1)* l00*matmul(matrix_ip,w_side_1 - wstar)
+!-- DAVID DEBUG START
+!            if(maxval(abs(gsat(:,inode,ielem)))>100.0_wp)then
+!              write(*,*)'============================================='
+!              write(*,*)'boundary sat','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
+!              write(*,*)'maxval(abs(gsat_temp)) = ',maxval(abs(gsat_temp))
+!              write(*,*)'maxval(abs(gsat(:,inode,ielem))) = ',maxval(abs(gsat(:,inode,ielem)))
+!              write(*,*)'pintv(1) = ',pinv(1)
+!              write(*,*)'maxval(abs(fn)) = ',maxval(abs(fn))
+!              write(*,*)'maxval(abs(fstar)) = ',maxval(abs(fstar))
+!              write(*,*)'maxval(abs(rest)) = ',maxval(abs((l01*fstarV*bc_pen_strength ) - &
+!              & pinv(1)* l00*matmul(matrix_ip,w_side_1 - wstar)))
+!              write(*,*)'============================================='
+!            endif
+!-- DAVID DEBUG END
 
           end do
         
@@ -3711,8 +3736,26 @@ contains
                                           & nx,nx,Jx_r(inode,ielem),      &
                                           & pinv(1), mut(inode,ielem))
 !-- DAVID DEBUG END  
+!-- DAVID DEBUG START
+            gsat_temp = gsat(:,inode,ielem)
+!-- DAVID DEBUG END
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
-  
+
+!              if(maxval(abs(gsat(:,inode,ielem)))>100.0_wp)then
+!              write(*,*)'============================================='
+!              write(*,*)'conforming off process','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
+!              write(*,*)'maxval(abs(gsat_temp)) = ',maxval(abs(gsat_temp))
+!              write(*,*)'maxval(abs(gsat(:,inode,ielem))) = ',maxval(abs(gsat(:,inode,ielem)))
+!              write(*,*)'pintv(1) = ',pinv(1)
+!              write(*,*)'maxval(abs(vg_On)) = ',maxval(abs(vg_On))
+!              write(*,*)'maxval(abs(vg_Off)) = ',maxval(abs(vg_Off))
+!              write(*,*)'maxval(abs(nx)) = ',maxval(abs(nx))
+!              write(*,*)'abs(Jx_r(inode,ielem)) = ',abs(Jx_r(inode,ielem))
+!              write(*,*)'abs(mut(inode,ielem)) = ',abs(mut(inode,ielem))
+!              write(*,*)'maxval(abs(SAT_Pen(:))) = ',maxval(abs(SAT_Pen(:)))
+!              write(*,*)'============================================='
+!            endif
+!-- DAVID DEBUG END
           end do
 
           nghst_volume = nghst_volume + n_S_2d_On                         !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
@@ -3751,38 +3794,34 @@ contains
   
             phig_On (:,:) = phig(:,:,inode,ielem)
             phig_Off(:,:) = phig(:,:,knode,kelem)
- !-- DEBUG DAVID START
-!if((ielem.EQ.3).AND.(iface.EQ.1))then
-! write(*,*)'================================'
-! write(*,*)'inode = ',inode
-! write(*,*)'vg_On = ',vg_On
-! write(*,*)'vg_Off = ',vg_Off
-!endif
-!-- DEBUG DAVID END
  
             SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
                                           & vg_On,vg_Off,              &
                                           & phig_On,phig_Off,          &
                                           & nx_On,nx_Off,Jx_r(inode,ielem),      &
                                           & pinv(1), mut(inode,ielem))
-
+!-- DAVID DEBUG START
+            gsat_temp = gsat(:,inode,ielem)
+!-- DAVID DEBUG END
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
- !-- DEBUG DAVID START
-!if((ielem.EQ.3).AND.(iface.EQ.1))then
-! write(*,*)'alternative nx_Off = ',Jx_r(knode,kelem)*facenodenormal(:,lnode,kelem)
-! write(*,*)'alternative two = ',Jx_facenodenormal_LGL(:,jnode,ielem)
-! write(*,*)'================================'
-!endif
-!-- DEBUG DAVID END
- 
+
+!-- DAVID DEBUG START
+!              if(maxval(abs(gsat(:,inode,ielem)))>100.0_wp)then
+!              write(*,*)'============================================='
+!              write(*,*)'conforming on process','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
+!              write(*,*)'maxval(abs(gsat_temp)) = ',maxval(abs(gsat_temp))
+!              write(*,*)'maxval(abs(gsat(:,inode,ielem))) = ',maxval(abs(gsat(:,inode,ielem)))
+!              write(*,*)'pintv(1) = ',pinv(1)
+!              write(*,*)'maxval(abs(vg_On)) = ',maxval(abs(vg_On))
+!              write(*,*)'maxval(abs(vg_Off)) = ',maxval(abs(vg_Off))
+!              write(*,*)'maxval(abs(nx)) = ',maxval(abs(nx))
+!              write(*,*)'abs(Jx_r(inode,ielem)) = ',abs(Jx_r(inode,ielem))
+!              write(*,*)'abs(mut(inode,ielem)) = ',abs(mut(inode,ielem))
+!              write(*,*)'maxval(abs(SAT_Pen(:))) = ',maxval(abs(SAT_Pen(:)))
+!              write(*,*)'============================================='
+!            endif
+!-- DAVID DEBUG END
           end do
-
-!           write(*,*)'Conforming Serial Element = ',ielem, iface
-!           write(*,*)'gsat after',myprocid,ielem,maxval(gsat(:,:,ielem))
-!           write(*,*)'gsat after',myprocid,ielem,   sum(gsat(:,:,ielem))
-!           write(*,*)'gsat after',myprocid,ielem,minval(gsat(:,:,ielem))
-!           write(*,*)'Conforming Serial Element = ',ielem
-
         endif
 
 
@@ -3947,13 +3986,36 @@ contains
                                                      cnt_Mort_Off, Intrp_On, Extrp_Off)
         elseif(SAT_type.EQ."mod_SAT")then
           !-- modified SAT approach
-          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+
+          if(allocated(nx_Off_ghst)) deallocate(nx_Off_ghst)
+          allocate(nx_Off_ghst(3,n_S_2d_Off))
+
+          !-- store the off process face normal information 
+          n_S_2d_Off = ef2e(4,iface,ielem)**2
+          kface = ef2e(1,iface,ielem)
+          kelem = ef2e(2,iface,ielem)
+          do i = 1,  n_S_2d_Off
+
+            jnode =  n_S_2d_Off*(kface-1) + i                              ! Index in facial ordering
+            
+            inode = ifacenodes_Off(jnode)                                  ! Volumetric node index corresponding to facial node index
+            
+            if(ef2e(3,iface,ielem).EQ.myprocid) then
+              !-- the neighbor is on process
+              nx_Off_ghst(:,i) =  -Jx_r(inode,kelem)*facenodenormal(:,jnode,kelem)      ! Outward facing normal of facial node so the neighbor is on process
+            else
+              !-- the neighbor is off process
+              nx_Off_ghst(:,i) =  -nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
+            endif
+          enddo
+ 
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
                                                      pinv,                                           &
                                                      vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
-                                                     cnt_Mort_Off, Intrp_On, Extrp_Off)
+                                                     cnt_Mort_Off, Intrp_On, Extrp_Off,nx_Off_ghst)
         else
           write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
             SAT_type,' ending computation'
@@ -4185,20 +4247,22 @@ contains
   ! Notes: HERE100
   !
   !=============================================================================
-  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
                                                      pinv,                                           &
                                                      vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
-                                                     cnt_Mort_Off, Intrp_On, Extrp_Off)
+                                                     cnt_Mort_Off, Intrp_On, Extrp_Off,nx_Off_ghst)
 
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, ef2e
     use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, element_properties
     use initgrid,             only: elfacedirections
 
-
+!-- DAVID DEBUG START
+    use referencevariables,   only: myprocid
+!-- DAVID DEBUG END
     implicit none
 
     integer,                    intent(in) :: ielem, iface
@@ -4210,7 +4274,7 @@ contains
     integer,   dimension(:),    intent(in) :: cnt_Mort_Off
     real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
     real(wp),  dimension(:,:),  intent(in) :: wg_Mort_On, wg_Mort_Off
-    real(wp),  dimension(:,:),  intent(in) :: Intrp_On, Extrp_Off
+    real(wp),  dimension(:,:),  intent(in) :: Intrp_On, Extrp_Off, nx_Off_ghst
     
     real(wp),  dimension(ndim)             :: nx, nx_On, nx_Off
     real(wp),  dimension(nequations)       :: fn, fstar
@@ -4225,9 +4289,12 @@ contains
 
     integer                               :: i, j, k, l
     integer                               :: ival, jval
-    integer                               :: inode, jnode, kelem, kface,temp
+    integer                               :: inode, jnode, kelem, temp
     real(wp)                              :: dx_On, dx_Off
-
+!--DAVID DEBUG START
+    real(wp),dimension(nequations) :: gsat_temp
+    integer :: inode_temp
+!-- DAVID DEBUG END
     continue
 
       allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
@@ -4240,7 +4307,6 @@ contains
 !         Skew-symmetric matrix portion of SATs (Entropy Stable through Mortar)
 !=========
       kelem = ef2e(2,iface,ielem)
-      kface = ef2e(1,iface,ielem)
 
       ! establish ``off-element'' face information
       call element_properties(kelem,n_pts_2d=temp,ifacenodes=kfacenodes_Off)
@@ -4253,25 +4319,58 @@ contains
 
         dx_On = sign(1.0_wp,real(elfacedirections(iface),wp))                    ! remove the sign of the component of the unit normal in computational space
 
-        nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)*dx_On            ! On element metric terms
-                
+        nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)            ! On element metric terms
+
+!-- DAVID DEBUG START
+        inode_temp = inode
+!-- DAVID DEBUG END
+!-- DAVID DEBUG START
+!           if((ielem.EQ.1).AND.(inode_temp.EQ.49).AND.(myprocid.EQ.0))then
+!            write(*,*)'maxval(abs(vg_2d_On)) = ',maxval(abs(vg_2d_On))
+!            write(*,*)'maxval(abs(vg_2d_Off)) = ',maxval(abs(vg_2d_Off))
+!          endif
+       
+!-- DAVID DEBUG END                
         Off_Element_1:do k = 1, n_S_2d_Off                                   ! Off_Element Loop over 2D LGL points
          
           !-- scaled outward facing normal for kelement at face node k
-          jnode =  n_S_2d_Off*(kface-1) + k                                     ! Index in facial ordering
+!          jnode =  n_S_2d_Off*(kface-1) + k                                     ! Index in facial ordering
+!
+!          inode = kfacenodes_Off(jnode)                                         ! Volumetric node index corresponding to facial node index
+!
+!          nx_Off = -Jx_r(inode,kelem)*facenodenormal(:,jnode,kelem)*dx_Off              ! Off element metric terms
 
-          inode = kfacenodes_Off(jnode)                                         ! Volumetric node index corresponding to facial node index
+          nx_Off = nx_Off_ghst(:,k)
 
-          dx_Off = sign(1.0_wp,real(elfacedirections(kface),wp))                     ! remove sign of the component of the unit normal in computational space
-
-          nx_Off = Jx_r(inode,kelem)*facenodenormal(:,jnode,kelem)*dx_Off              ! Off element metric terms
- 
           call EntropyConsistentFlux_Vectors(vg_2d_On(:,i), vg_2d_Off(:,k), nequations, FxA(:,k), FyA(:,k), FzA(:,k)) ! (Entropy Flux vectors)
-          
-          FxA(:,k) = dx_On*0.5_wp*(nx_On(1)+nx_Off(1))*FxA(:,k) 
-          FyA(:,k) = dx_On*0.5_wp*(nx_On(2)+nx_Off(2))*FyA(:,k)
-          FzA(:,k) = dx_On*0.5_wp*(nx_On(3)+nx_Off(3))*FzA(:,k) 
+!-- DAVID DEBUG START
+!         if((ielem.EQ.2).AND.(inode_temp.EQ.1).AND.(myprocid.EQ.0))then
+!           write(*,*)'dx_On = ',dx_On
+!           write(*,*)'nx_On = ',nx_On
+!           write(*,*)'nx_Off = ',nx_Off
+!           write(*,*)'maxval(abs(vg_2d_On(:,i))) = ',maxval(abs(vg_2d_On(:,i)))
+!           write(*,*)'maxval(abs(vg_2d_Off(:,k))) = ',maxval(abs(vg_2d_Off(:,k)))
+!           write(*,*)'maxval(abs(FxA(:,k))) = ',maxval(abs(FxA(:,k)))
+!           write(*,*)'maxval(abs(FyA(:,k))) = ',maxval(abs(FyA(:,k)))
+!           write(*,*)'maxval(abs(FzA(:,k))) = ',maxval(abs(FzA(:,k)))
+!         endif
+!-- DAVID DEBUG END
 
+          
+          FxA(:,k) = 0.5_wp*(nx_On(1)+nx_Off(1))*FxA(:,k) 
+          FyA(:,k) = 0.5_wp*(nx_On(2)+nx_Off(2))*FyA(:,k)
+          FzA(:,k) = 0.5_wp*(nx_On(3)+nx_Off(3))*FzA(:,k) 
+
+!-- DAVID DEBUG START
+!          if((ielem.EQ.1).AND.(inode_temp.EQ.49).AND.(myprocid.EQ.0))then
+!            write(*,*)'maxval(abs(nx_On)) = ',maxval(abs(nx_On))
+!            write(*,*)'maxval(abs(nx_Off)) = ',maxval(abs(nx_Off))
+!            write(*,*)'maxval(abs(0.5_wp*(nx_On+nx_Off))) = ',maxval(abs(0.5_wp*(nx_On+nx_Off)))
+!            write(*,*)'maxval(abs(FxA)) = ',maxval(abs(FxA))
+!            write(*,*)'maxval(abs(FyA)) = ',maxval(abs(FyA))
+!            write(*,*)'maxval(abs(FzA)) = ',maxval(abs(FzA))
+!          endif
+!-- DAVID DEBUG END
         enddo Off_Element_1                                                  ! End Off_Element
 
         call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FxA,FxB,Extrp_Off)  ! Extrapolate f^S_x
@@ -4297,15 +4396,32 @@ contains
         nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)              ! Outward facing normal of facial node
 
         fn(:) = normalflux(vg_2d_On(:,i), nx(:), nequations)                 ! One point flux based on vg_On and nx
+ !-- DAVID DEBUG START
+            gsat_temp = gsat(:,inode,ielem)
+!-- DAVID DEBUG END
 
         gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar)     ! SAT penalty:  subtract the on-element contribution and replace with penalty 
+!-- DAVID DEBUG START
+!              if(maxval(abs(fn)-abs(fstar))>1.0e-12_wp)then
+!              write(*,*)'============================================='
+!              write(*,*)'Non-conforming','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
+!              write(*,*)'maxval(abs(gsat_temp)) = ',maxval(abs(gsat_temp))
+!              write(*,*)'maxval(abs(gsat(:,inode,ielem))) = ',maxval(abs(gsat(:,inode,ielem)))
+!              write(*,*)'pintv(1) = ',pinv(1)
+!              write(*,*)'maxval(abs(fn)) = ',maxval(abs(fn))
+!              write(*,*)'maxval(abs(fstar)) = ',maxval(abs(fstar))
+!              write(*,*)'maxval(abs(nx)) = ',maxval(abs(nx))
+!              write(*,*)'maxval(abs(FC_Mort_On)) = ',maxval(abs(FC_Mort_On))
+!              write(*,*)'============================================='
+!            endif
+!-- DAVID DEBUG END
+
 
       enddo On_Element_1
 
 !=========
 !         Inviscid interface dissipation (Entropy Stable Upwinding of SATs)
 !=========
-write(*,*)'naviersotkes: Inviscid_SAT_Non_Conforming_Interface_Mod_SAT upwinding turned off'
 if(.false.)then
       On_Mortar_2:do j = 1, n_S_2d_Mort                                      ! Mortar loop over data
   
@@ -4330,7 +4446,7 @@ if(.false.)then
         jnode =  n_S_2d_On*(iface-1) + i                                     ! Index in facial ordering
               
         inode = ifacenodes_On(jnode)                                         ! Volumetric node index corresponding to facial node index
-              
+             
         gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * Up_diss_On(:,i)! On-element Viscous penalty contribution
 
       end do On_Elem_2                                                       ! On-element loop: end
@@ -4742,18 +4858,6 @@ endif
     
     fv = zero
 
-!-- DEBUG DAVID START
-    !-- setting everything to one so that at least the continuity should satisfy free-stream if everything else is messed up
-    ! density
-    Vx(1) = one
-    ! velocity
-    Vx(2) = one
-    Vx(3) = one
-    Vx(4) = one
-    ! Temperature
-    Vx(5) = one   
-
-!-- DEBUG DAVID END
     return
   end subroutine UniformFreeStream
 
