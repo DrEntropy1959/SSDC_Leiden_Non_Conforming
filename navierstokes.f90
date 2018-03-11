@@ -2180,6 +2180,7 @@ contains
                                  & - divf(:,2,inode,ielem) &
                                  & - divf(:,3,inode,ielem) &
                                  & + gsat(:  ,inode,ielem) ) / Jx_r(inode,ielem) 
+
 !-- DAVID DEBUG START
 !HERE4
 !if((ielem.EQ.2).AND.(inode.GE.180))then
@@ -2206,7 +2207,6 @@ contains
 !endif
 !-- DAVID DEBUG END
       end do
-
 !       write(*,*)'VolumeTerms Element = ',ielem
 !       write(*,*)'gsat after',myprocid,ielem,maxval(dudt(:,:,ielem))
 !       write(*,*)'gsat after',myprocid,ielem,   sum(dudt(:,:,ielem))
@@ -3713,14 +3713,21 @@ contains
             inode = ifacenodes_On(jnode)                                  ! Volumetric node index corresponding to facial node index
             
             gnode = efn2efn(3,jnode,ielem)                                ! Index in Petsc ghost stack (not volumetric stack)
-            
-            if(nonconforming_element) then
-              nx = - nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
+ 
+!-- old           
+!            if(nonconforming_element) then
+!              nx = - nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
+!            else
+!              nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
+!            endif
+!-- new start
+             nx_On =  Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
+             if(nonconforming_element) then
+              nx_Off = - nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
             else
-              nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
+              nx_Off = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
             endif
-            
-  
+!-- new end           
             ug_On(:)  = ug   (:,inode,ielem)
             ug_Off(:) = ughst(:,gnode)
             call conserved_to_primitive(ug_On (:), vg_On (:), nequations)
@@ -3728,20 +3735,28 @@ contains
   
             phig_On (:,:) = phig   (:,:,inode,ielem)
             phig_Off(:,:) = phighst(:,:,gnode)
-!-- DAVID DEBUG START
-            !-- have set both nx_On and nx_Off to nx this will need to be updated  
+!-- old start
+!            !-- have set both nx_On and nx_Off to nx this will need to be updated  
+!            SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
+!                                          & vg_On,vg_Off,              &
+!                                          & phig_On,phig_Off,          &
+!                                          & nx,nx,Jx_r(inode,ielem),      &
+!                                          & pinv(1), mut(inode,ielem))
+!-- old end
+!-- new start
             SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
                                           & vg_On,vg_Off,              &
                                           & phig_On,phig_Off,          &
-                                          & nx,nx,Jx_r(inode,ielem),      &
+                                          & nx_On,nx_Off,Jx_r(inode,ielem),      &
                                           & pinv(1), mut(inode,ielem))
-!-- DAVID DEBUG END  
+!-- new end
 !-- DAVID DEBUG START
             gsat_temp = gsat(:,inode,ielem)
 !-- DAVID DEBUG END
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
 
 !              if(maxval(abs(gsat(:,inode,ielem)))>100.0_wp)then
+!             if((myprocid.EQ.2).AND.(ielem.EQ.6))then
 !              write(*,*)'============================================='
 !              write(*,*)'conforming off process','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
 !              write(*,*)'maxval(abs(gsat_temp)) = ',maxval(abs(gsat_temp))
@@ -3990,24 +4005,29 @@ contains
           if(allocated(nx_Off_ghst)) deallocate(nx_Off_ghst)
           allocate(nx_Off_ghst(3,n_S_2d_Off))
 
-          !-- store the off process face normal information 
-          n_S_2d_Off = ef2e(4,iface,ielem)**2
-          kface = ef2e(1,iface,ielem)
-          kelem = ef2e(2,iface,ielem)
-          do i = 1,  n_S_2d_Off
-
-            jnode =  n_S_2d_Off*(kface-1) + i                              ! Index in facial ordering
-            
-            inode = ifacenodes_Off(jnode)                                  ! Volumetric node index corresponding to facial node index
-            
-            if(ef2e(3,iface,ielem).EQ.myprocid) then
-              !-- the neighbor is on process
-              nx_Off_ghst(:,i) =  -Jx_r(inode,kelem)*facenodenormal(:,jnode,kelem)      ! Outward facing normal of facial node so the neighbor is on process
-            else
-              !-- the neighbor is off process
-              nx_Off_ghst(:,i) =  -nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
-            endif
-          enddo
+!          !-- store the off process face normal information 
+!          n_S_2d_Off = ef2e(4,iface,ielem)**2
+!          kface = ef2e(1,iface,ielem)
+!          kelem = ef2e(2,iface,ielem)
+!          do i = 1,  n_S_2d_Off
+!
+!            jnode =  n_S_2d_Off*(kface-1) + i                              ! Index in facial ordering
+!            
+!            inode = ifacenodes_Off(jnode)                                  ! Volumetric node index corresponding to facial node index
+!            
+!            if(ef2e(3,iface,ielem).EQ.myprocid) then
+!              !-- the neighbor is on process
+!              nx_Off_ghst(:,i) =  -Jx_r(inode,kelem)*facenodenormal(:,jnode,kelem)      ! Outward facing normal of facial node so the neighbor is on process
+!            else
+!              !-- the neighbor is off process
+!              nx_Off_ghst(:,i) =  -nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
+!            endif
+!          enddo
+!          nghst_shell  = nghst_shell  + n_S_2d_Off                         !  Keep track of position in Ghost shell  stack (On and Off are the same)
+!
+!         write(*,*)'myprocid = ',myprocid,'maxval(abs(nx_Off_ghst-nx_2d_Off)) = ',maxval(abs(nx_Off_ghst-nx_2d_Off))
+         nx_Off_ghst = -nx_2d_Off
+if(.true.)then
  
           call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
@@ -4015,7 +4035,19 @@ contains
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
                                                      pinv,                                           &
                                                      vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
-                                                     cnt_Mort_Off, Intrp_On, Extrp_Off,nx_Off_ghst)
+                                                     cnt_Mort_Off, Intrp_On, Extrp_Off, nx_Off_ghst)
+else
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_Direct(ielem, iface, ifacenodes_On, kelem, &
+                                                     n_S_2d_max,  &
+                                                     n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,             &
+                                                     n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,             &
+                                                     n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,             &
+                                                     pinv,                                            &
+                                                     vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,   &
+                                                     cnt_Mort_Off, Intrp_On, Extrp_Off, nx_Off_ghst)
+endif
+
+
         else
           write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
             SAT_type,' ending computation'
@@ -4087,7 +4119,9 @@ contains
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat
     use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
-
+!-- DAVID DEBUG START
+    use referencevariables, only: myprocid
+!-- DAVID DEBUG END
     implicit none
 
     integer,                    intent(in) :: ielem, iface, kface
@@ -4163,6 +4197,21 @@ contains
         fn(:) = normalflux(vg_2d_On(:,i), nx(:), nequations)                 ! One point flux based on vg_On and nx
 
         gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar)     ! SAT penalty:  subtract the on-element contribution and replace with penalty 
+!-- DAVID DEBUG START
+!              if(maxval(abs(fn)-abs(fstar))>1.0e-12_wp)then
+!              if((myprocid.EQ.2).AND.(ielem.EQ.5))then
+!              write(*,*)'============================================='
+!              write(*,*)'Non-conforming','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
+!              write(*,*)'maxval(abs(gsat(:,inode,ielem))) = ',maxval(abs(gsat(:,inode,ielem)))
+!              write(*,*)'pintv(1) = ',pinv(1)
+!              write(*,*)'maxval(abs(fn)) = ',maxval(abs(fn))
+!              write(*,*)'maxval(abs(fstar)) = ',maxval(abs(fstar))
+!              write(*,*)'maxval(abs(nx)) = ',maxval(abs(nx))
+!              write(*,*)'maxval(abs(FC_Mort_On)) = ',maxval(abs(FC_Mort_On))
+!              write(*,*)'============================================='
+!            endif
+!-- DAVID DEBUG END
+
 
       enddo On_Element_1
 
@@ -4403,6 +4452,7 @@ contains
         gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar)     ! SAT penalty:  subtract the on-element contribution and replace with penalty 
 !-- DAVID DEBUG START
 !              if(maxval(abs(fn)-abs(fstar))>1.0e-12_wp)then
+!              if((myprocid.EQ.2).AND.(ielem.EQ.5))then
 !              write(*,*)'============================================='
 !              write(*,*)'Non-conforming','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
 !              write(*,*)'maxval(abs(gsat_temp)) = ',maxval(abs(gsat_temp))

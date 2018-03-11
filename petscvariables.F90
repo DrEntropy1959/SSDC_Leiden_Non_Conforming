@@ -10,6 +10,9 @@ module petscvariables
   Vec nxpetsc_Shell
   Vec nxlocpetsc_Shell
 
+  Vec Jx_r_petsc_Gau_shell 
+  Vec Jx_r_locpetsc_Gau_shell
+
   Vec upetsc
   Vec ulocpetsc
 

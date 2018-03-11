@@ -48,7 +48,6 @@ module initgrid
   public modify_metrics_nonconforming
   public perturb_vertices_tg_vortex_1
   public transform_grid
-  public write_grid_to_file
   public write_matrix_to_file_matlab
   public e_edge2e_connectivity
 
@@ -959,7 +958,35 @@ contains
           do j = 1,4
             r(j) = magnitude(points_surf(j,:)-origin(:)) 
           enddo
-
+!-- DEBUG DAVID START
+!if((myprocid.EQ.0).AND.(ielem.EQ.253))then
+!write(*,*)&
+!               'x1 = ',vx(1,e2v(1,ielem)),&
+!NEW_LINE('A')//'y1 = ',vx(2,e2v(1,ielem)),&
+!NEW_LINE('A')//'z1 = ',vx(3,e2v(1,ielem)),&
+!NEW_LINE('A')//'x2 = ',vx(1,e2v(2,ielem)),&
+!NEW_LINE('A')//'y2 = ',vx(2,e2v(2,ielem)),&
+!NEW_LINE('A')//'z2 = ',vx(3,e2v(2,ielem)),&
+!NEW_LINE('A')//'x3 = ',vx(1,e2v(3,ielem)),&
+!NEW_LINE('A')//'y3 = ',vx(2,e2v(3,ielem)),&
+!NEW_LINE('A')//'z3 = ',vx(3,e2v(3,ielem)),&
+!NEW_LINE('A')//'x4 = ',vx(1,e2v(4,ielem)),&
+!NEW_LINE('A')//'y4 = ',vx(2,e2v(4,ielem)),&
+!NEW_LINE('A')//'z4 = ',vx(3,e2v(4,ielem)),&
+!NEW_LINE('A')//'x5 = ',vx(1,e2v(5,ielem)),&
+!NEW_LINE('A')//'y5 = ',vx(2,e2v(5,ielem)),&
+!NEW_LINE('A')//'z5 = ',vx(3,e2v(5,ielem)),&
+!NEW_LINE('A')//'x6 = ',vx(1,e2v(6,ielem)),&
+!NEW_LINE('A')//'y6 = ',vx(2,e2v(6,ielem)),&
+!NEW_LINE('A')//'z6 = ',vx(3,e2v(6,ielem)),&
+!NEW_LINE('A')//'x7 = ',vx(1,e2v(7,ielem)),&
+!NEW_LINE('A')//'y7 = ',vx(2,e2v(7,ielem)),&
+!NEW_LINE('A')//'z7 = ',vx(3,e2v(7,ielem)),&
+!NEW_LINE('A')//'x8 = ',vx(1,e2v(8,ielem)),&
+!NEW_LINE('A')//'y8 = ',vx(2,e2v(8,ielem)),&
+!NEW_LINE('A')//'z8 = ',vx(3,e2v(8,ielem))
+!endif
+!-- DEBUG DAVID END
 !-- face 1
           if(iface.EQ.1)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -969,13 +996,11 @@ contains
               dx = xl(:,nE,nE, 1)-xl(:, 1,nE, 1) ; xl(:, i1d,nE, 1) = xl(:, 1,nE, 1) + dr*dx ! xi_2 = 1, xi_3 = 0
               dx = xl(:, 1,nE, 1)-xl(:, 1, 1, 1) ; xl(:, 1, i1d, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_3 = 0
             enddo   
-
             !-- check to see if the surface is on the sphere and if so move points onto sphere
             if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
                  .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
 
                call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1:nE,1))
-              
             else
               !-- check the four connectors to see if they lay on the sphere
               if( (abs(r(1)-r(2)).LE.tol) )then
@@ -1024,7 +1049,7 @@ contains
                 if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
                 xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
               endif
               if( (abs(r(4)-r(1)).LE.tol) )then
                 !-- connector at xi_1 = 0, xi_3 = 0
@@ -1041,7 +1066,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
               endif 
               ! xi_3 = 0
               call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
@@ -1077,7 +1102,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, :, 1, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
               endif  
               if( (abs(r(2)-r(3)).LE.tol) )then
                 !-- connector at xi_1 = 1, xi_2 = 0
@@ -1111,7 +1136,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, :, 1,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
               endif
               if( (abs(r(4)-r(1)).LE.tol) )then
                 !-- connector at xi_1 = 0, xi_2 = 0
@@ -1128,7 +1153,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, 1, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
               endif     
             
               ! xi_2 = 0
@@ -1166,7 +1191,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:,nE, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
               endif  
               if( (abs(r(2)-r(3)).LE.tol) )then
                 !-- connector at xi_1 = 1, xi_2 = 1
@@ -1200,7 +1225,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:,nE, :,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
               endif
               if( (abs(r(4)-r(1)).LE.tol) )then
                 !-- connector at xi_1 = 1, xi_2 = 0
@@ -1217,7 +1242,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
             
                 xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
                endif 
  
               ! xi_1 = 1
@@ -1254,7 +1279,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
               endif  
               if( (abs(r(2)-r(3)).LE.tol) )then
                 !-- connector at xi_1 = 1, xi_2 = 1
@@ -1288,7 +1313,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, :,nE,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
               endif
               if( (abs(r(4)-r(1)).LE.tol) )then
                 !-- connector at xi_1 = 0, xi_2 = 1
@@ -1305,7 +1330,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, 1,nE, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
               endif
 
               ! xi_2 = 1
@@ -1344,7 +1369,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
               endif  
               if( (abs(r(2)-r(3)).LE.tol) )then
                 !-- connector at xi_1 = 0, xi_2 = 1
@@ -1378,7 +1403,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, 1, :,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
               endif
               if( (abs(r(4)-r(1)).LE.tol) )then
                 !-- connector at xi_1 = 0, xi_2 = 0
@@ -1395,7 +1420,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, 1, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
               endif
 
               ! xi_1 = 0
@@ -1433,7 +1458,7 @@ contains
                 call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
           
                 xl(:, :, 1,nE) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
               endif  
               if( (abs(r(2)-r(3)).LE.tol) )then
                 !-- connector at xi_1 = 1, xi_3 = 1
@@ -8057,206 +8082,6 @@ contains
 
   end subroutine snap_to_sphere_patch
 
-subroutine write_grid_to_file(file_name)
-!==================================================================================================
-!
-! Purpose: write a grid element by element to file
-!
-! Comments:
-!
-! Additional documentation: THIS IS NOT SETUP FOR PARALLEL RUNS ONLY USE ONE PROCESS
-!
-! Unit tests: 
-!
-! Inputs: file_name (char(len=*): string with the name of the file
-!
-! outputs: 
-!
-!
-!==================================================================================================
-  
-  !-- variables
-  use precision_vars, only                     : get_unit
-  use referencevariables, only                 : myprocid, ihelems, npoly_max, nfacesperelem, ndim
-  use variables, only                          : xg, xg_Gau_Shell, Jx_r, r_x, x_r, Jx_facenodenormal_LGL
-  use initcollocation, only                    : element_properties
-
-  implicit none
-                     
-  !-- input variables
-  character(len=*),optional,intent(in)           :: file_name 
-
-  !-- local variables
-  integer                                        :: iunit, inode, iface, ishift, n_pts_3d, ielem
-  integer                                        :: j,k, nodesperface_max
-  character(len=1024)                            :: numb,numb2
-
-  !-- file access variables
-  integer                                        :: ios
-
-  !-- writing to file
-  !print *,"writing volume nodes to ",file_name, 'writing mortar nodes to ', 'surf'//file_name 
-
-  !-- open file on the master proc
-  if (myprocid==0) then
-    !-- obtain a free Fortarn unit
-    call get_unit(iunit)
-    
-    !-- open the file
-    open(UNIT=iunit,FILE=file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
-    if(ios.NE.0) then 
-      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
-      stop
-    endif
-    
-    !-- write the root process nodal information to file
-    do ielem = ihelems(1), ihelems(2)
-      !-- obtain element properties
-      write(numb,'(I0)')ielem
-      call element_properties(ielem,n_pts_3d=n_pts_3d)
-      write(iunit,*)'element_'//trim(adjustl(numb))//" = [..."
-      do inode = 1,n_pts_3d
-        write(iunit,*)(xg(j,inode,ielem),j=1,3),";"
-      enddo
-      write(iunit,*)"];"
-    enddo
-       !-- close file
-    close(UNIT=iunit)
-    write(*,*)'Volume nodes written to',file_name
-
-    !-- obtain a free Fortarn unit
-    call get_unit(iunit)
-    
-    !-- open the file
-    open(UNIT=iunit,FILE='surf'//file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
-    if(ios.NE.0) then 
-      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
-      stop
-    endif
-    
-    !-- write the root mortar nodal locations to file
-    do ielem = ihelems(1), ihelems(2)
-      !-- obtain element properties
-      write(numb,'(I0)')ielem
-      call element_properties(ielem,n_pts_3d=n_pts_3d)
-      write(iunit,*)'surfelement_'//trim(adjustl(numb))//" = [..."
-
-      do iface = 1, nfacesperelem
-        do inode = 1,(npoly_max+1)**2
-          ishift = (iface-1) * (npoly_max+1)**2 + inode
-          write(iunit,*)(xg_Gau_Shell(j,ishift,ielem),j=1,3),";"
-        enddo
-      enddo
-
-      write(iunit,*)"];"
-    enddo
-
-    !-- close file
-    close(UNIT=iunit)
-    write(*,*)'Mortar nodes written to ', 'surf'//file_name 
-
-    !-- open the file
-    open(UNIT=iunit,FILE='J'//file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
-    if(ios.NE.0) then 
-      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
-      stop
-    endif
-
-    !-- write the root process Jacobian information to file
-    do ielem = ihelems(1), ihelems(2)
-      !-- obtain element properties
-      write(numb,'(I0)')ielem
-      call element_properties(ielem,n_pts_3d=n_pts_3d)
-      write(iunit,*)'Jx_r_'//trim(adjustl(numb))//" = [..."
-      do inode = 1,n_pts_3d
-        write(iunit,*)Jx_r(inode,ielem),";"
-      enddo
-      write(iunit,*)"];"
-    enddo
-       !-- close file
-    close(UNIT=iunit)
-    write(*,*)'Jacobian written to ', 'J'//file_name
-
-    !-- open the file
-    open(UNIT=iunit,FILE='r_x'//file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
-    if(ios.NE.0) then 
-      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
-      stop
-    endif
-
-    !-- write the root process r_x information to file
-    do ielem = ihelems(1), ihelems(2)
-      !-- obtain element properties
-      write(numb,'(I0)')ielem
-      call element_properties(ielem,n_pts_3d=n_pts_3d)
-      do inode = 1,n_pts_3d
-        write(numb2,'(I0)')inode
-        write(iunit,*)'r_x_'//trim(adjustl(numb))//'(1:3,1:3,'//trim(adjustl(numb2))//') = [...'
-        do j = 1,3
-          write(iunit,*)(r_x(j,k,inode,ielem),k=1,3),";"
-        enddo
-        write(iunit,*)"];"
-      enddo
-    enddo
-       !-- close file
-    close(UNIT=iunit)
-    write(*,*)'Scaled metrics written to ', 'r_x_i'//file_name
- 
-    !-- open the file
-    open(UNIT=iunit,FILE='x_r'//file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
-    if(ios.NE.0) then 
-      write(*,*)"File = ",file_name," not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
-      stop
-    endif
-
-    !-- write the root process x_r information to file
-    do ielem = ihelems(1), ihelems(2)
-      !-- obtain element properties
-      write(numb,'(I0)')ielem
-      call element_properties(ielem,n_pts_3d=n_pts_3d)
-      do inode = 1,n_pts_3d
-        write(numb2,'(I0)')inode
-        write(iunit,*)'x_r_'//trim(adjustl(numb))//'(1:3,1:3,'//trim(adjustl(numb2))//') = [...'
-        do j = 1,3
-          write(iunit,*)(x_r(j,k,inode,ielem),k=1,3),";"
-        enddo
-        write(iunit,*)"];"
-      enddo
-    enddo
-
-    !-- close file
-    close(UNIT=iunit)
-     write(*,*)'Inverse scaled metrics written to ', 'x_r_i'//file_name 
-
-    !-- obtain a free Fortarn unit
-    call get_unit(iunit)
-    
-    !-- open the file
-    open(UNIT=iunit,FILE='Jx_facenodenormal_LGL'//file_name,STATUS='NEW',FORM='FORMATTED',IOSTAT=ios)
-    if(ios.NE.0) then 
-      write(*,*)"File = "//'Jx_facenodenormal_LGL'//file_name,&
-        " not opened correctly in initgrd: write_element_to_file(), iostat = ",ios
-      stop
-    endif
-    
-    !-- write the root process nodal information to file
-    do ielem = ihelems(1), ihelems(2)
-      !-- obtain element properties
-      write(numb,'(I0)')ielem
-      write(iunit,*)'Jx_facenodenormal_LGL_'//trim(adjustl(numb))//" = [..."
-      nodesperface_max = (npoly_max+1)**(ndim-1)
-      do inode = 1,nodesperface_max*nfacesperelem
-        write(iunit,*)(Jx_facenodenormal_LGL(j,inode,ielem),j=1,3),";"
-      enddo
-      write(iunit,*)"];"
-    enddo
-       !-- close file
-    close(UNIT=iunit)
-    write(*,*)'Volume nodes written to',file_name
-  endif
- 
-end subroutine write_grid_to_file
-
 
 subroutine write_matrix_to_file_matlab(A,n,m,file_name)
 !==================================================================================================
@@ -8451,6 +8276,9 @@ end subroutine write_matrix_to_file_matlab
   !================================================================================================
   !
   ! Purpose: This constructs the master e_edge2e 
+  !  e_edge2e(1,iedge,ipartner,iface,ielem) = number of nodes in one dimension of the ith element (ipartner) touching iedge
+  !  e_edge2e(2,iedge,ipartner,iface,ielem) = element number of the ith element (ipartner) touching iedge
+  !  e_edge2e(3,iedge,ipartner,iface,ielem) = procid of the ith element (ipartner) touching iedge (not setup)
   !
   ! Notes:
   !================================================================================================
