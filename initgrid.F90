@@ -738,10 +738,9 @@ contains
     ! each element. Currently we assume that all elements are
     ! straight sided, but this can be remedied by incorporating
     ! CAD or analytical surface data. 
-    use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin, SAT_type,&
-                                symmetric_metric
+    use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin
     use referencevariables
-    use variables, only: xg, vx, e2v, ef2e, e_edge2e
+    use variables, only: xg, vx, e2v, ef2e
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
     implicit none
     ! indices
@@ -763,32 +762,24 @@ contains
 
     real(wp), dimension(:), allocatable  :: xi
 
-    integer                                             :: n_pts_1d_neighbor, i1d, ii, jj, kk, cnt
+    integer                                             :: i1d
+    integer                                             :: nmin
 
-    integer                                             ::nmin
+    real(wp), parameter                                 :: tol = 1.0e-12_wp
+    real(wp), allocatable                               :: x_LGL_1d_min(:), w_LGL_1d_min(:)
 
-    real(wp), allocatable                              :: x_LGL_1d_min(:), w_LGL_1d_min(:)
-
-    real(wp)                                           :: points_surf(4,3)
+    real(wp), dimension(4,3)                            :: points_surf
     real(wp), dimension(4)                              :: r
-    real(wp),allocatable                                :: xyz_elem(:,:) 
 
-    real(wp), parameter                          :: tol = 1.0e-12_wp
 
-    integer                                      :: i_err
+    nodesperelem_max = (npoly_max+1)**ndim                     ! number of nodes in each element
 
-    ! number of nodes in each element
-    nodesperelem_max = (npoly_max+1)**ndim
-
-    ! allocate global node matrix
-    allocate(xg(3,1:nodesperelem_max,ihelems(1):ihelems(2)))
+    allocate(xg(3,1:nodesperelem_max,ihelems(1):ihelems(2)))   ! allocate global node matrix
     xg = 0.0_wp
 
-    ! loop over volumetric elements
-    element_do : do ielem = ihelems(1), ihelems(2)
+    element_do : do ielem = ihelems(1), ihelems(2)             ! loop over volumetric elements
 
-!     ! nE is size of edge on element (varies with element)
-      call element_properties(ielem,       &
+      call element_properties(ielem,       &                   !     ! nE is size of edge on element (varies with element)
                               n_pts_1d=nE, &
                               x_pts_1d=x_LGL_1d)
 
@@ -1601,7 +1592,7 @@ contains
   function nmin_connector(ielem,iface,nE,connector)
     use variables, only: e_edge2e
     use controlvariables, only: SAT_type
-    use referencevariables, only: number_of_possible_partners, myprocid
+    use referencevariables, only: number_of_possible_partners
    
     implicit none
     integer, intent(in)    :: ielem, iface, nE, connector
@@ -2768,11 +2759,6 @@ contains
     real(wp), dimension(:),   allocatable :: x_S_1d_Mort, x_S_1d_On, w_S_1d_Mort
     real(wp), dimension(:,:), allocatable :: Intrp
 
-!-- DAVID DEBUG START
-    integer :: inode, kknode
-!-- DAVID DEBUG END
-!   real(wp), dimension(3) :: wrk
-
     n_pts_1d_max = (npoly_max+1)**1
     n_pts_2d_max = (npoly_max+1)**2
 
@@ -2790,12 +2776,7 @@ contains
       knode = 0                                  !  reset facial node index counter
       node_id = 0
 
-!-- DAVID DEBUG START
-     ! write(*,*)'in initgrid:calcfacenormals_Gaus I have changed the logic, &
-     !           it now only changes Jx_facenodenormal_LGL if it is on a nonconforming face'
-
       do iface = 1,nfacesperelem                 ! loop over faces
-!-- DAVID DEBUG END
 !-- DEBUG DAVID START
         if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then
           !-- conforming: do nothing
@@ -2901,11 +2882,13 @@ contains
     use mpimod
 
     implicit none
-    ! indices
-    integer :: ielem, inode, jnode, idir, jdir
-    integer :: i,j,k,l,ii, iE
-    integer :: nodesperelem_max, n_LGL_3d
 
+    integer :: ielem, inode, jnode, idir, jdir
+    integer :: i, j, l, ii, iE
+    integer :: nodesperelem_max, n_LGL_3d
+!   integer :: ierr
+
+    real(wp), parameter :: tol = 1.0e-11_wp
 
     real(wp) :: test(3)
     real(wp) :: err,err_L2,err_Linf
@@ -2916,7 +2899,6 @@ contains
 
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
-
 
     continue 
 
@@ -3137,6 +3119,12 @@ contains
 
       dx_min_elem(ielem) = dx_min_elem(ielem)**(0.333333333333333333333333_wp)
 
+      if(minval(Jx_r(:,ielem)) <= tol) then
+!       write(*,*)' stopping !!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+!       write(*,*)'jacobian in element = ',ielem, 'on process = ',myprocid, 'is negative'
+!       write(*,*)' stopping !!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+!       call PetscFinalize(ierr) ; stop
+      endif
     end do elloop
 
 !   Parallel reduction of errors using conventional MPI calls
@@ -3226,7 +3214,7 @@ contains
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
 !-- unccoment to write matrices to file
-    character(len=1024)                            :: numb
+!   character(len=1024)                            :: numb
 
     np_mods = 0 ; ng_mods = 0 ;
     err_Linf = 0.0_wp
@@ -5258,8 +5246,8 @@ contains
     ! Load modules
     use variables
     use collocationvariables
-    use controlvariables,   only : non_conforming, p_refine_strategy, radius, origin
-    use referencevariables, only : npoly, npoly_max, nfacesperelem, ihelems
+    use controlvariables,   only : non_conforming, p_refine_strategy
+    use referencevariables, only : npoly, npoly_max, nfacesperelem
     use precision_vars, only     : magnitude
     use mpimod
 
@@ -5275,9 +5263,6 @@ contains
     integer :: i, j, nval, icnt
 
     real(wp)                                           :: r
-    real(wp), dimension(4)                             :: rad
-    real(wp)                                           :: points_surf(4,3)
-    logical                                            :: on_sphere
 
     call srand(seed)
 
@@ -8285,7 +8270,7 @@ end subroutine write_matrix_to_file_matlab
 
     use mpimod
     use variables, only            : e_edge2e, vx_Master, ic2nh
-    use referencevariables, only   : nelems, ndim, number_of_possible_partners, nvertices, nprocs
+    use referencevariables, only   : nelems, ndim, number_of_possible_partners, myprocid
     use collocationvariables, only : elem_props
     use precision_vars, only       : magnitude
 
@@ -8300,7 +8285,6 @@ end subroutine write_matrix_to_file_matlab
     integer, allocatable, dimension(:,:,:,:,:) ::  e_edge2e_tmp
     logical                :: v1match, v2match
     integer                :: nvertex_per_element
-    integer                :: i_err
 
     !-- now we have all of the required information to build the global e_edge2e
     if(ndim.Eq.2)then
@@ -8312,9 +8296,6 @@ end subroutine write_matrix_to_file_matlab
     number_of_faces = ndim*2
     nvertex_per_element = 2**ndim
 
-!    allocate(e_edge2e(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,1:nelems))
-!    e_edge2e = -1000
- 
     max_partners = 0
     
     !-- allocate vector to store the matches. Worse case scenario each connector touches every element
@@ -8487,6 +8468,8 @@ end subroutine write_matrix_to_file_matlab
          enddo
       enddo
     enddo
+
   end subroutine e_edge2e_connectivity
+
 end module initgrid
 

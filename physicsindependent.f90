@@ -36,12 +36,13 @@ contains
     use fileio
     use mpimod
     use write_solution_file
-!-- DEBUG DAVID START
     use referencevariables,  only: ihelems, nfacesperelem, nelems
     use variables, only: Jx_r, facenodenormal, Jx_facenodenormal_LGL, ic2nh,vx_master,vx
     use initcollocation,      only: element_properties
     use variables,            only: ef2e, e_edge2e, e2v
 !-- DEBUG DAVID END
+    use initcollocation,     only: element_properties
+
     ! Nothing is implicitly defined
     implicit none
 
