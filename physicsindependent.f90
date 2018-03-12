@@ -37,10 +37,6 @@ contains
     use mpimod
     use write_solution_file
     use referencevariables,  only: ihelems, nfacesperelem, nelems
-    use variables, only: Jx_r, facenodenormal, Jx_facenodenormal_LGL, ic2nh,vx_master,vx
-    use initcollocation,      only: element_properties
-    use variables,            only: ef2e, e_edge2e, e2v
-!-- DEBUG DAVID END
     use initcollocation,     only: element_properties
 
     ! Nothing is implicitly defined
@@ -49,11 +45,11 @@ contains
     integer :: i_err
 
 !-- DEBUG DAVID START
-   integer ielem, iface, i, n_pts_2d, inode, jnode
-  integer,  allocatable, dimension(:,:) :: kfacenodes_On
-  real(wp) :: temp(3,8)
-
+!   integer ielem, iface, i, n_pts_2d, inode, jnode
+!   integer,  allocatable, dimension(:,:) :: kfacenodes_On
+!   real(wp) :: temp(3,8)
 !-- DEBUG DAVID END
+
     continue
 
     ! Initialize collocation approximation
