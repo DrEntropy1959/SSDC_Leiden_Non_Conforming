@@ -3618,6 +3618,8 @@ contains
 
     use referencevariables
     use variables, only: ef2e, iae2v, iae2v_tmp, jae2v, jae2v_tmp, nnze2v, &
+                       & nnze2e, iae2e,jae2e, &
+                       & nnze2e2e, iae2e2e,jae2e2e, &
                        & if2nq, ifacetag, ic2nh, nqface, vx_master, &
                        & periodic_face_data_x1, periodic_face_data_x2, &
                        & periodic_face_data_x3, wall_face_data
@@ -3626,12 +3628,14 @@ contains
     implicit none
 
     integer :: i,j,k, j1, j2, k1
-    integer :: ielem,cnt,cntBC 
+    integer :: cnt,cntBC 
+    integer :: ielem,jelem, kelem
     integer :: iface, jface, bigN, ave
 
     !integer, dimension(:),   allocatable :: iav2e_tmp
     integer, dimension(:,:), allocatable :: jav2e_tmp
     integer, dimension(:),   allocatable :: ivtmp1, ivtmp2, ivtmp3, ivtmp4
+    integer, dimension(:),   allocatable :: jae2e2e_tmp
 
     integer :: nnzv2e
     !integer, allocatable :: v2e(:,:), iav2e(:), jav2e(:)
@@ -3639,6 +3643,7 @@ contains
 
     integer, dimension(:,:), allocatable :: test_conL, test_conR
     integer, dimension(:),   allocatable :: test_cBCL, test_cBCR
+    integer, dimension(:),   allocatable :: stack, ordered
 
     logical                              :: testing = .true.
 
@@ -3647,7 +3652,7 @@ contains
     real(wp), dimension(:,:),   allocatable :: vx_iface,    vx_jface
     integer,  dimension(:,:),     allocatable :: same_coord 
     integer :: i_comp_face, i_vertex_iface, i_vertex_jface, i_coord, i_p_elem, &
-      & j_p_elem, match, jelem, i_vertex_hexa, cnt_periodic_elem_x1, &
+      & j_p_elem, match, i_vertex_hexa, cnt_periodic_elem_x1, &
       & cnt_periodic_elem_x2, cnt_periodic_elem_x3
 
     integer :: cnt_wall_elem
@@ -5168,7 +5173,7 @@ contains
 
       endif
 
-      ! Cosntruct iae2v and jae2v
+      ! Construct iae2v and jae2v
       ! =========================
       nnze2v = nverticesperelem*nelems
       allocate(iae2v(nelems+1))      ; iae2v = 0
@@ -5192,6 +5197,74 @@ contains
       enddo
 
       jae2v_tmp = jae2v
+
+      ! ====================================================================================================
+      ! Construct iae2e and jae2e;  arrays that track connectivities between elements
+      ! ====================================================================================================
+
+      nnze2e = 0                                           !  count the size of all e2e connections (exclude BC's)
+      do ielem = 1,nelems                                  !  element loop
+        do iface = 1,nfacesperelem                         !  face loop
+          if(ef2e(1,iface,ielem) > 0) nnze2e = nnze2e + 1  !  only add element connections to other elements
+        enddo
+      enddo
+
+      allocate(iae2e(nelems+1)) ; iae2e = 0                ! allocate arrays based on initial counting
+      allocate(jae2e(nnze2e))   ; jae2e = 0
+
+      cnt = 1
+      do ielem = 1, nelems
+        iae2e(ielem) = cnt
+        do iface = 1, nfacesperelem
+          if ( ef2e(1,iface,ielem) > 0 ) then                  ! only add element connections to other elements
+            jae2e(cnt) = ef2e(2,iface,ielem)
+            cnt = cnt+1
+          end if
+        end do
+      end do
+      iae2e(nelems+1) = cnt
+
+      ! ====================================================================================================
+      ! Construct iae2e2e and jae2e2e;  arrays that track secondary-connectivities between elements (nearest-nearest neighbors)
+      ! ====================================================================================================
+
+      allocate(iae2e2e    (nelems+1))    ; iae2e2e     = 0
+      allocate(jae2e2e_tmp(6*nnze2e))    ; jae2e2e_tmp = 0      !  tmp vector allocated to 6 times the size of nearest neighbor array
+      allocate(  stack(100) ) ;   stack = 0
+      allocate(ordered(100) ) ; ordered = 0
+
+      nnze2e2e = 1
+      do ielem = 1, nelems                                      !  Loop over all elements
+         iae2e2e(ielem) = nnze2e2e
+         cnt = 0
+         do jelem = iae2e(ielem),iae2e(ielem+1) - 1             !  Loop over connected elements
+            cnt = cnt + 1                                       !  update counter
+            stack(cnt) = jae2e(jelem)                           !  add the connected element to the stack  
+            do kelem = iae2e(jae2e(jelem)),iae2e(jae2e(jelem)+1) - 1       !  Loop over all connected elements to the connected element
+              cnt = cnt + 1                                     !  update counter
+              stack(cnt) = jae2e(kelem)                         !  add nearest-nearest neighbor to the stack
+            enddo
+         enddo
+         call qsorti(stack,ordered,cnt)
+         jae2e2e_tmp(nnze2e2e) = stack(ordered(1))
+         nnze2e2e = nnze2e2e + 1
+         do i = 2,cnt
+           if(stack(ordered(i))-stack(ordered(i-1)) /= 0 ) then
+              jae2e2e_tmp(nnze2e2e) = stack(ordered(i))
+              nnze2e2e = nnze2e2e + 1
+           endif
+         enddo
+      enddo
+      iae2e2e(nelems+1) = nnze2e2e
+
+      allocate(jae2e2e(nnze2e2e)) ; jae2e2e(1:nnze2e2e) = jae2e2e_tmp(1:nnze2e2e)
+
+!     do ielem = 1,nelems
+!       write(*,*)'element : ', ielem,'connected to : ',(jae2e2e(j),j=iae2e2e(ielem),iae2e2e(ielem+1)-1)
+!     enddo
+
+      deallocate(jae2e2e_tmp)
+      deallocate(stack,ordered)
 
       ! Deallocate memory
       deallocate(iav2e,jav2e)
@@ -8441,7 +8514,7 @@ end subroutine write_matrix_to_file_matlab
   !================================================================================================
 
     use mpimod
-    use variables, only            : e_edge2e, vx_Master, ic2nh
+    use variables, only            : e_edge2e, vx_Master, ic2nh, iae2e2e, jae2e2e
     use referencevariables, only   : nelems, ndim, number_of_possible_partners, myprocid
     use collocationvariables, only : elem_props
     use precision_vars, only       : magnitude
@@ -8457,6 +8530,7 @@ end subroutine write_matrix_to_file_matlab
     integer, allocatable, dimension(:,:,:,:,:) ::  e_edge2e_tmp
     logical                :: v1match, v2match
     integer                :: nvertex_per_element
+    integer                :: ii
 
     !-- now we have all of the required information to build the global e_edge2e
     if(ndim.Eq.2)then
@@ -8468,11 +8542,17 @@ end subroutine write_matrix_to_file_matlab
     number_of_faces = ndim*2
     nvertex_per_element = 2**ndim
 
-    max_partners = 0
     
+    max_partners = 0                                    !   approximate size of buckets for e_edge2e_tmp
+    do ielem = 1,nelems
+       max_partners = max(iae2e2e(ielem+1)-iae2e2e(ielem),max_partners)
+    enddo 
+
     !-- allocate vector to store the matches. Worse case scenario each connector touches every element
-    allocate(e_edge2e_tmp(3,number_of_edges_per_face,nelems,number_of_faces,1:nelems))
+    allocate(e_edge2e_tmp(3,number_of_edges_per_face,max_partners,number_of_faces,1:nelems)) 
     e_edge2e_tmp = -1000
+
+    max_partners = 0
 
     Element_Loop: do ielem = 1,nelems
       Face_Loop: do iface = 1,number_of_faces
@@ -8591,8 +8671,10 @@ end subroutine write_matrix_to_file_matlab
 
           !-- counter for the number of elements touching a given connector
           partners_cnt = 0
-          !-- brute force check which elements match
-          do kelem = 1,nelems
+!         !-- brute force check which elements match
+!         do kelem = 1,nelems
+          do ii = iae2e2e(ielem),iae2e2e(ielem+1)-1
+            kelem = jae2e2e(ii)
             v1match = .false.
             v2match = .false.
             if(kelem.NE.ielem)then
