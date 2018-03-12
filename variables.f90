@@ -142,9 +142,11 @@ module variables
   integer, allocatable, dimension(:,:,:) :: ef2e
   integer, allocatable, dimension(:,:,:,:,:) :: e_edge2e
   integer, allocatable, dimension(:) :: facenormalcoordinate
-! integer, allocatable, dimension(:) :: iae2e
-! integer, allocatable, dimension(:) :: jae2e
-! integer :: nnze2e
+
+  integer, allocatable, dimension(:) :: iae2e, iae2e2e
+  integer, allocatable, dimension(:) :: jae2e, jae2e2e
+  integer :: nnze2e, nnze2e2e
+
   integer, allocatable, dimension(:) :: iae2v, iae2v_tmp
   integer, allocatable, dimension(:) :: jae2v, jae2v_tmp
   integer :: nnze2v
