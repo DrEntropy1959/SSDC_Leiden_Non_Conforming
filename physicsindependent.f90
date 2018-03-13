@@ -284,17 +284,9 @@ contains
     ! call perturbvertices(0.1_wp)
     ! Collocation points
 
-!--DEBUG DAVID START
-if(SAT_type.EQ."mod_metric")then
-elseif(SAT_type.EQ."mod_SAT")then
-  write(*,*)' navierstokes: SAT_Penalty you have turned off dissipation on the boundary SAT'
-  write(*,*)'naviersotkes: Inviscid_SAT_Non_Conforming_Interface_Mod_SAT upwinding turned off'
-endif
-!-- DEBUG DAVID END
-
     call calcnodes_LGL()
 !-- uncomment to write solution to file in a way that can be read by Matlab
-!call parallel_write_grid_to_file('true.tf')
+!   call parallel_write_grid_to_file('true.tf')
 !-- end of write to file
 
     call calc_Gau_shell_pts_all_hexas()
