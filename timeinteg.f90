@@ -174,14 +174,7 @@ contains
 
         ! calculate time derivative 
         call physics_timederivative()
-!-- DAVID DEBUG START
-!write(*,*)'=================================================================='
-!write(*,*)'physics_timederivative for irkstep = ',irkstep
-!write(*,*)'=================================================================='
-!if(irkstep.EQ.2)then
-!call PetscFinalize(i_err); stop
-!endif
-!-- DAVID DEBUG END
+
         if (irkstep == 1) then
           if (write_dke_dt) then 
             call compute_dkinetic_energy_dt()
@@ -193,9 +186,7 @@ contains
 
         ! Update primitive, entropy variables and CNG gradients
         call nse_reconcilestates()
-!-- DEBUG DAVID START
- !       call PetscFinalize(i_err); stop
-!-- DEBUG DAVID END
+
       end do rkloop
 
       ! Update global time

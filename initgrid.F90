@@ -949,35 +949,7 @@ contains
           do j = 1,4
             r(j) = magnitude(points_surf(j,:)-origin(:)) 
           enddo
-!-- DEBUG DAVID START
-!if((myprocid.EQ.0).AND.(ielem.EQ.253))then
-!write(*,*)&
-!               'x1 = ',vx(1,e2v(1,ielem)),&
-!NEW_LINE('A')//'y1 = ',vx(2,e2v(1,ielem)),&
-!NEW_LINE('A')//'z1 = ',vx(3,e2v(1,ielem)),&
-!NEW_LINE('A')//'x2 = ',vx(1,e2v(2,ielem)),&
-!NEW_LINE('A')//'y2 = ',vx(2,e2v(2,ielem)),&
-!NEW_LINE('A')//'z2 = ',vx(3,e2v(2,ielem)),&
-!NEW_LINE('A')//'x3 = ',vx(1,e2v(3,ielem)),&
-!NEW_LINE('A')//'y3 = ',vx(2,e2v(3,ielem)),&
-!NEW_LINE('A')//'z3 = ',vx(3,e2v(3,ielem)),&
-!NEW_LINE('A')//'x4 = ',vx(1,e2v(4,ielem)),&
-!NEW_LINE('A')//'y4 = ',vx(2,e2v(4,ielem)),&
-!NEW_LINE('A')//'z4 = ',vx(3,e2v(4,ielem)),&
-!NEW_LINE('A')//'x5 = ',vx(1,e2v(5,ielem)),&
-!NEW_LINE('A')//'y5 = ',vx(2,e2v(5,ielem)),&
-!NEW_LINE('A')//'z5 = ',vx(3,e2v(5,ielem)),&
-!NEW_LINE('A')//'x6 = ',vx(1,e2v(6,ielem)),&
-!NEW_LINE('A')//'y6 = ',vx(2,e2v(6,ielem)),&
-!NEW_LINE('A')//'z6 = ',vx(3,e2v(6,ielem)),&
-!NEW_LINE('A')//'x7 = ',vx(1,e2v(7,ielem)),&
-!NEW_LINE('A')//'y7 = ',vx(2,e2v(7,ielem)),&
-!NEW_LINE('A')//'z7 = ',vx(3,e2v(7,ielem)),&
-!NEW_LINE('A')//'x8 = ',vx(1,e2v(8,ielem)),&
-!NEW_LINE('A')//'y8 = ',vx(2,e2v(8,ielem)),&
-!NEW_LINE('A')//'z8 = ',vx(3,e2v(8,ielem))
-!endif
-!-- DEBUG DAVID END
+
 !-- face 1
           if(iface.EQ.1)then
             do i1d = 1,nE                                 ! loop over nodes on edge
@@ -2520,10 +2492,7 @@ contains
                 end do 
 
                 write(*,*) 'Exiting...'
-!-- DAVID DEBUG START
-                write(*,*)'Not exiting, logic needs to be upgraded'
-                !stop
-!-- DAVID DEBUG END
+
               end if
 
             end do ! End do inode
@@ -2739,13 +2708,8 @@ contains
     ! of each facial node
     use referencevariables
     use initcollocation,      only: element_properties, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
-    use collocationvariables, only: Restrct_Gau_2_LGL_1d
-
+    use collocationvariables, only: Restrct_Gau_2_LGL_1d, elem_props
     use variables, only: Jx_facenodenormal_Gau, Jx_facenodenormal_LGL, xg_Gau_Shell, ef2e
-
-!-- DAVID DEBUG START
-   use collocationvariables, only: elem_props
-!-- DAVID DEBUG END    
 
     implicit none
 
@@ -2777,14 +2741,13 @@ contains
       node_id = 0
 
       do iface = 1,nfacesperelem                 ! loop over faces
-!-- DEBUG DAVID START
         if(elem_props(2,ielem) == ef2e(4,iface,ielem)) then
           !-- conforming: do nothing
         elseif (ef2e(1,iface,ielem) < 0)then
           !-- boundary: do nothing
         elseif(elem_props(2,ielem) /= ef2e(4,iface,ielem))then
           !-- nonconforming interface
-!-- DEBUG DAVID END
+
         n_S_1d_Off  = ef2e(4,iface,ielem)
         n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
 
@@ -2814,13 +2777,9 @@ contains
         iend_On   = istart_On + n_S_1d_On**2   - 1
 !        iend_On = iend_Mort
 
-!        call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-!           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart_On:iend_On,ielem),Intrp)
         call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
            Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart_On:iend_On,ielem),Intrp)
-!-- DEBUG DAVID START
         endif
-!-- DEBUG DAVID END
       end do
 
     end do
@@ -3347,10 +3306,6 @@ contains
 
       a_t(:,:) = a_t(:,:) - delta_a(:,:)
 
-!-- DEBUG DAVID START
-!      write(*,*)'1 error in orginal system = ',maxval(abs(matmul(Amat(1:m,1:n),a_t(1:n,1:3)) - bvec(1:m,1:3)))
-!      write(*,*)'diff in original metrics = ',maxval(abs(delta_a))
-!-- DEBUG DAVID END
 !     New metric coefficients.  Assumes that the Jacobian (Jx_r) remains unchanged
 
       do inode = 1,n_pts_3d
@@ -3376,27 +3331,6 @@ contains
 
         call GCL_Triple_HinvDQSEmat(n_pts_1d, n_pts_3d, pmat,dmat,qmat,Hinv_3_mat,D_3_mat,Q_3_mat,S_3_mat,E_3_mat)
 
-!-- DEBUG DAVID START
-!        !-- uncomment to write to file
-!        write(numb,'(I0)')ielem
-!        call write_matrix_to_file_matlab(Hinv_3_mat(1:m,1:m),m,m,'Hinvmat_'//trim(adjustl(numb))//'.tf')
-!        call write_matrix_to_file_matlab(D_3_mat(1:m,1:n),m,n,'Dmat_'//trim(adjustl(numb))//'.tf')
-!        call write_matrix_to_file_matlab(Q_3_mat(1:m,1:n),m,n,'Qmat_'//trim(adjustl(numb))//'.tf')
-!        call write_matrix_to_file_matlab(Amat(1:m,1:n),m,n,'QmatT_'//trim(adjustl(numb))//'.tf')
-!        call write_matrix_to_file_matlab(S_3_mat(1:m,1:n),m,n,'Smat_'//trim(adjustl(numb))//'.tf')
-!        call write_matrix_to_file_matlab(E_3_mat(1:m,1:n),m,n,'Emat_'//trim(adjustl(numb))//'.tf')
-!        write(*,*)'==========================================='
-!        !-- construct the GCL in a more standard looking form
-!        verror = matmul(D_3_mat,a_t)-matmul(Hinv_3_mat,matmul(E_3_mat,a_t)-bvec)
-!        write(*,*)'Alternative check of GCL: ielem = ',ielem,' p = ',n_pts_1d-1, 'error = ',maxval(abs(verror))
-!        verror = matmul(D_3_mat,a_t)
-!        verror2 = matmul(Hinv_3_mat,matmul(E_3_mat,a_t))
-!        verror3 = matmul(Hinv_3_mat,bvec)
-!        !write(*,*)'Error in new metrics when used in the standard GCL equations &
-!        !           (i.e. contribution to the volume) = ',maxval(abs(verror))
-!            
-!        write(*,*)'==========================================='
-!-- DEBUG DAVID END
       endif
     
     end do elloop
@@ -8360,11 +8294,19 @@ end subroutine write_matrix_to_file_matlab
     integer                :: nvertex_per_element
     integer                :: ii
 
+    integer                :: i_err
+
     !-- now we have all of the required information to build the global e_edge2e
-    if(ndim.Eq.2)then
+    if(ndim.EQ.1)then
+      write(*,*)'Logic in initgrid: e_edge2e_connectivity not setup for ndim = ',ndim
+      call PetscFinalize(i_err); stop
+    elseif(ndim.EQ.1)then
       number_of_edges_per_face = 1
     elseif(ndim.EQ.3)then
       number_of_edges_per_face = 4
+    else
+       write(*,*)'Error in initgrid: e_edge2e_connectivity ndim incorrect, ndim = ',ndim
+      call PetscFinalize(i_err); stop   
     endif
 
     number_of_faces = ndim*2

@@ -2142,9 +2142,6 @@ contains
     integer :: inode,ielem, jdir
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
 
-!-- DAVID DEBUG START
-    integer :: i_err
-!-- DAVID DEBUG END
     ! loop over all elements
     do ielem = ihelems(1), ihelems(2)
 
@@ -2181,37 +2178,8 @@ contains
                                  & - divf(:,3,inode,ielem) &
                                  & + gsat(:  ,inode,ielem) ) / Jx_r(inode,ielem) 
 
-!-- DAVID DEBUG START
-!HERE4
-!if((ielem.EQ.2).AND.(inode.GE.180))then
-!     write(*,*)'============================================='
-!     write(*,*)'ielem = ',ielem,' inode = ',inode
-!     write(*,*)'maxva(abs(dudt)) = ',maxval(abs(dudt(:,inode,ielem)))
-!     write(*,*)'maxval(abs(vol)) = ', maxval(abs(- divf(:,1,inode,ielem) &                 
-!                                 & - divf(:,2,inode,ielem) &
-!                                 & - divf(:,3,inode,ielem) ))
-!    write(*,*)'maxval(abs(sat)) = ',maxval(abs(gsat(:  ,inode,ielem)))
-!     write(*,*)'============================================='
-!endif
-!-- DAVID DEBUG END
-!-- DAVID DEBUG START
-!if(maxval(abs(dudt(:,inode,ielem))).GE.1.0e-11_wp)then
-!     write(*,*)'============================================='
-!     write(*,*)'ielem = ',ielem,' inode = ',inode, 'myprocid = ',myprocid
-!     write(*,*)'maxva(abs(dudt)) = ',maxval(abs(dudt(:,inode,ielem)))
-!     write(*,*)'maxval(abs(vol)) = ', maxval(abs(- divf(:,1,inode,ielem) &                 
-!                                 & - divf(:,2,inode,ielem) &
-!                                 & - divf(:,3,inode,ielem) ))
-!    write(*,*)'maxval(abs(sat)) = ',maxval(abs(gsat(:  ,inode,ielem)))
-!     write(*,*)'============================================='
-!endif
-!-- DAVID DEBUG END
+
       end do
-!       write(*,*)'VolumeTerms Element = ',ielem
-!       write(*,*)'gsat after',myprocid,ielem,maxval(dudt(:,:,ielem))
-!       write(*,*)'gsat after',myprocid,ielem,   sum(dudt(:,:,ielem))
-!       write(*,*)'gsat after',myprocid,ielem,minval(dudt(:,:,ielem))
-!       write(*,*)'VolumeTerms Element = ',ielem
 
       ! Entropy equation
       if( entropy_viscosity .eqv. .true.) then
@@ -3382,9 +3350,6 @@ contains
     real(wp), dimension(3)             :: unit_normal, normal_vel, tangent_vel, ref_vel_vector
     integer                            :: i_err
  
-!-- DAVID DEBUG START
-    real(wp), dimension(nequations)    :: gsat_temp
-!-- DAVID DEBUG END   
     ! allocate local arrays
     allocate(ustar(nequations))
     allocate(vstar(nequations))
@@ -3541,27 +3506,9 @@ contains
             ! Add the LDG and IP terms to the penalty
             !l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
 
-!-- DAVID DEBUG START
-           gsat_temp = gsat(:,inode,ielem)
-!-- DAVOD DEBUG END
-
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + &
               & pinv(1)* ( (fn - fstar) + l01*fstarV*bc_pen_strength ) - &
               & pinv(1)* l00*matmul(matrix_ip,w_side_1 - wstar)
-!-- DAVID DEBUG START
-!            if(maxval(abs(gsat(:,inode,ielem)))>100.0_wp)then
-!              write(*,*)'============================================='
-!              write(*,*)'boundary sat','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
-!              write(*,*)'maxval(abs(gsat_temp)) = ',maxval(abs(gsat_temp))
-!              write(*,*)'maxval(abs(gsat(:,inode,ielem))) = ',maxval(abs(gsat(:,inode,ielem)))
-!              write(*,*)'pintv(1) = ',pinv(1)
-!              write(*,*)'maxval(abs(fn)) = ',maxval(abs(fn))
-!              write(*,*)'maxval(abs(fstar)) = ',maxval(abs(fstar))
-!              write(*,*)'maxval(abs(rest)) = ',maxval(abs((l01*fstarV*bc_pen_strength ) - &
-!              & pinv(1)* l00*matmul(matrix_ip,w_side_1 - wstar)))
-!              write(*,*)'============================================='
-!            endif
-!-- DAVID DEBUG END
 
           end do
         
@@ -3735,42 +3682,15 @@ contains
   
             phig_On (:,:) = phig   (:,:,inode,ielem)
             phig_Off(:,:) = phighst(:,:,gnode)
-!-- old start
-!            !-- have set both nx_On and nx_Off to nx this will need to be updated  
-!            SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
-!                                          & vg_On,vg_Off,              &
-!                                          & phig_On,phig_Off,          &
-!                                          & nx,nx,Jx_r(inode,ielem),      &
-!                                          & pinv(1), mut(inode,ielem))
-!-- old end
-!-- new start
+
             SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
                                           & vg_On,vg_Off,              &
                                           & phig_On,phig_Off,          &
                                           & nx_On,nx_Off,Jx_r(inode,ielem),      &
                                           & pinv(1), mut(inode,ielem))
-!-- new end
-!-- DAVID DEBUG START
-            gsat_temp = gsat(:,inode,ielem)
-!-- DAVID DEBUG END
+
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
 
-!              if(maxval(abs(gsat(:,inode,ielem)))>100.0_wp)then
-!             if((myprocid.EQ.2).AND.(ielem.EQ.6))then
-!              write(*,*)'============================================='
-!              write(*,*)'conforming off process','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
-!              write(*,*)'maxval(abs(gsat_temp)) = ',maxval(abs(gsat_temp))
-!              write(*,*)'maxval(abs(gsat(:,inode,ielem))) = ',maxval(abs(gsat(:,inode,ielem)))
-!              write(*,*)'pintv(1) = ',pinv(1)
-!              write(*,*)'maxval(abs(vg_On)) = ',maxval(abs(vg_On))
-!              write(*,*)'maxval(abs(vg_Off)) = ',maxval(abs(vg_Off))
-!              write(*,*)'maxval(abs(nx)) = ',maxval(abs(nx))
-!              write(*,*)'abs(Jx_r(inode,ielem)) = ',abs(Jx_r(inode,ielem))
-!              write(*,*)'abs(mut(inode,ielem)) = ',abs(mut(inode,ielem))
-!              write(*,*)'maxval(abs(SAT_Pen(:))) = ',maxval(abs(SAT_Pen(:)))
-!              write(*,*)'============================================='
-!            endif
-!-- DAVID DEBUG END
           end do
 
           nghst_volume = nghst_volume + n_S_2d_On                         !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
@@ -3781,7 +3701,7 @@ contains
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
           !       On-Processor Contributions to gsat:  Conforming Interface is on-process
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-!HERE2
+
           kelem = ef2e(2,iface,ielem)                             ! adjoining element
           kface = ef2e(1,iface,ielem)                             ! face on element
 
@@ -3815,27 +3735,9 @@ contains
                                           & phig_On,phig_Off,          &
                                           & nx_On,nx_Off,Jx_r(inode,ielem),      &
                                           & pinv(1), mut(inode,ielem))
-!-- DAVID DEBUG START
-            gsat_temp = gsat(:,inode,ielem)
-!-- DAVID DEBUG END
+
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
 
-!-- DAVID DEBUG START
-!              if(maxval(abs(gsat(:,inode,ielem)))>100.0_wp)then
-!              write(*,*)'============================================='
-!              write(*,*)'conforming on process','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
-!              write(*,*)'maxval(abs(gsat_temp)) = ',maxval(abs(gsat_temp))
-!              write(*,*)'maxval(abs(gsat(:,inode,ielem))) = ',maxval(abs(gsat(:,inode,ielem)))
-!              write(*,*)'pintv(1) = ',pinv(1)
-!              write(*,*)'maxval(abs(vg_On)) = ',maxval(abs(vg_On))
-!              write(*,*)'maxval(abs(vg_Off)) = ',maxval(abs(vg_Off))
-!              write(*,*)'maxval(abs(nx)) = ',maxval(abs(nx))
-!              write(*,*)'abs(Jx_r(inode,ielem)) = ',abs(Jx_r(inode,ielem))
-!              write(*,*)'abs(mut(inode,ielem)) = ',abs(mut(inode,ielem))
-!              write(*,*)'maxval(abs(SAT_Pen(:))) = ',maxval(abs(SAT_Pen(:)))
-!              write(*,*)'============================================='
-!            endif
-!-- DAVID DEBUG END
           end do
         endif
 
@@ -4119,9 +4021,7 @@ endif
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat
     use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
-!-- DAVID DEBUG START
-    use referencevariables, only: myprocid
-!-- DAVID DEBUG END
+
     implicit none
 
     integer,                    intent(in) :: ielem, iface, kface
@@ -4197,21 +4097,6 @@ endif
         fn(:) = normalflux(vg_2d_On(:,i), nx(:), nequations)                 ! One point flux based on vg_On and nx
 
         gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar)     ! SAT penalty:  subtract the on-element contribution and replace with penalty 
-!-- DAVID DEBUG START
-!              if(maxval(abs(fn)-abs(fstar))>1.0e-12_wp)then
-!              if((myprocid.EQ.2).AND.(ielem.EQ.5))then
-!              write(*,*)'============================================='
-!              write(*,*)'Non-conforming','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
-!              write(*,*)'maxval(abs(gsat(:,inode,ielem))) = ',maxval(abs(gsat(:,inode,ielem)))
-!              write(*,*)'pintv(1) = ',pinv(1)
-!              write(*,*)'maxval(abs(fn)) = ',maxval(abs(fn))
-!              write(*,*)'maxval(abs(fstar)) = ',maxval(abs(fstar))
-!              write(*,*)'maxval(abs(nx)) = ',maxval(abs(nx))
-!              write(*,*)'maxval(abs(FC_Mort_On)) = ',maxval(abs(FC_Mort_On))
-!              write(*,*)'============================================='
-!            endif
-!-- DAVID DEBUG END
-
 
       enddo On_Element_1
 
@@ -4309,9 +4194,6 @@ endif
     use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, element_properties
     use initgrid,             only: elfacedirections
 
-!-- DAVID DEBUG START
-    use referencevariables,   only: myprocid
-!-- DAVID DEBUG END
     implicit none
 
     integer,                    intent(in) :: ielem, iface
@@ -4340,10 +4222,7 @@ endif
     integer                               :: ival, jval
     integer                               :: inode, jnode, kelem, temp
     real(wp)                              :: dx_On, dx_Off
-!--DAVID DEBUG START
-    real(wp),dimension(nequations) :: gsat_temp
-    integer :: inode_temp
-!-- DAVID DEBUG END
+
     continue
 
       allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
@@ -4370,56 +4249,18 @@ endif
 
         nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)            ! On element metric terms
 
-!-- DAVID DEBUG START
-        inode_temp = inode
-!-- DAVID DEBUG END
-!-- DAVID DEBUG START
-!           if((ielem.EQ.1).AND.(inode_temp.EQ.49).AND.(myprocid.EQ.0))then
-!            write(*,*)'maxval(abs(vg_2d_On)) = ',maxval(abs(vg_2d_On))
-!            write(*,*)'maxval(abs(vg_2d_Off)) = ',maxval(abs(vg_2d_Off))
-!          endif
-       
-!-- DAVID DEBUG END                
+                
         Off_Element_1:do k = 1, n_S_2d_Off                                   ! Off_Element Loop over 2D LGL points
          
           !-- scaled outward facing normal for kelement at face node k
-!          jnode =  n_S_2d_Off*(kface-1) + k                                     ! Index in facial ordering
-!
-!          inode = kfacenodes_Off(jnode)                                         ! Volumetric node index corresponding to facial node index
-!
-!          nx_Off = -Jx_r(inode,kelem)*facenodenormal(:,jnode,kelem)*dx_Off              ! Off element metric terms
-
           nx_Off = nx_Off_ghst(:,k)
 
           call EntropyConsistentFlux_Vectors(vg_2d_On(:,i), vg_2d_Off(:,k), nequations, FxA(:,k), FyA(:,k), FzA(:,k)) ! (Entropy Flux vectors)
-!-- DAVID DEBUG START
-!         if((ielem.EQ.2).AND.(inode_temp.EQ.1).AND.(myprocid.EQ.0))then
-!           write(*,*)'dx_On = ',dx_On
-!           write(*,*)'nx_On = ',nx_On
-!           write(*,*)'nx_Off = ',nx_Off
-!           write(*,*)'maxval(abs(vg_2d_On(:,i))) = ',maxval(abs(vg_2d_On(:,i)))
-!           write(*,*)'maxval(abs(vg_2d_Off(:,k))) = ',maxval(abs(vg_2d_Off(:,k)))
-!           write(*,*)'maxval(abs(FxA(:,k))) = ',maxval(abs(FxA(:,k)))
-!           write(*,*)'maxval(abs(FyA(:,k))) = ',maxval(abs(FyA(:,k)))
-!           write(*,*)'maxval(abs(FzA(:,k))) = ',maxval(abs(FzA(:,k)))
-!         endif
-!-- DAVID DEBUG END
-
           
           FxA(:,k) = 0.5_wp*(nx_On(1)+nx_Off(1))*FxA(:,k) 
           FyA(:,k) = 0.5_wp*(nx_On(2)+nx_Off(2))*FyA(:,k)
           FzA(:,k) = 0.5_wp*(nx_On(3)+nx_Off(3))*FzA(:,k) 
 
-!-- DAVID DEBUG START
-!          if((ielem.EQ.1).AND.(inode_temp.EQ.49).AND.(myprocid.EQ.0))then
-!            write(*,*)'maxval(abs(nx_On)) = ',maxval(abs(nx_On))
-!            write(*,*)'maxval(abs(nx_Off)) = ',maxval(abs(nx_Off))
-!            write(*,*)'maxval(abs(0.5_wp*(nx_On+nx_Off))) = ',maxval(abs(0.5_wp*(nx_On+nx_Off)))
-!            write(*,*)'maxval(abs(FxA)) = ',maxval(abs(FxA))
-!            write(*,*)'maxval(abs(FyA)) = ',maxval(abs(FyA))
-!            write(*,*)'maxval(abs(FzA)) = ',maxval(abs(FzA))
-!          endif
-!-- DAVID DEBUG END
         enddo Off_Element_1                                                  ! End Off_Element
 
         call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FxA,FxB,Extrp_Off)  ! Extrapolate f^S_x
@@ -4445,27 +4286,8 @@ endif
         nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)              ! Outward facing normal of facial node
 
         fn(:) = normalflux(vg_2d_On(:,i), nx(:), nequations)                 ! One point flux based on vg_On and nx
- !-- DAVID DEBUG START
-            gsat_temp = gsat(:,inode,ielem)
-!-- DAVID DEBUG END
 
         gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar)     ! SAT penalty:  subtract the on-element contribution and replace with penalty 
-!-- DAVID DEBUG START
-!              if(maxval(abs(fn)-abs(fstar))>1.0e-12_wp)then
-!              if((myprocid.EQ.2).AND.(ielem.EQ.5))then
-!              write(*,*)'============================================='
-!              write(*,*)'Non-conforming','ielem = ',ielem, 'inode = ',inode, 'myprocid = ',myprocid
-!              write(*,*)'maxval(abs(gsat_temp)) = ',maxval(abs(gsat_temp))
-!              write(*,*)'maxval(abs(gsat(:,inode,ielem))) = ',maxval(abs(gsat(:,inode,ielem)))
-!              write(*,*)'pintv(1) = ',pinv(1)
-!              write(*,*)'maxval(abs(fn)) = ',maxval(abs(fn))
-!              write(*,*)'maxval(abs(fstar)) = ',maxval(abs(fstar))
-!              write(*,*)'maxval(abs(nx)) = ',maxval(abs(nx))
-!              write(*,*)'maxval(abs(FC_Mort_On)) = ',maxval(abs(FC_Mort_On))
-!              write(*,*)'============================================='
-!            endif
-!-- DAVID DEBUG END
-
 
       enddo On_Element_1
 
@@ -7049,24 +6871,7 @@ endif
          fn = normalflux( vg_On (:), nx_On, neq )                                  ! (Euler Flux)
          SAT_Inv_Vis_Flux = + (fn - fstar) + l01_ldg_flip_flop*fstarV     &
                             - l00*matmul(matrix_ip,wg_On (:)-wg_Off(:))
-!HERE3
-!-- DEBUG DAVID START
-!if((ielem.EQ.3).AND.(iface.EQ.1))then
-!  write(*,*)'nx_On = ',nx_On
-!  write(*,*)'nx_Off = ',nx_Off
-!  write(*,*)'fn = ',fn
-!  write(*,*)'fstar = ',fstar
-!  write(*,*)'fstar with constant metrics = ',&
-!             EntropyConsistentFlux(vg_On(:), vg_Off(:), (/1.0_wp,1.0_wp,1.0_wp/), neq )
-!  write(*,*)'fn with constant metrics = ',normalflux( vg_On (:), (/1.0_wp,1.0_wp,1.0_wp/), neq ) 
-!  write(*,*)'fstar(nx_Off) = ',&
-!             EntropyConsistentFlux(vg_On(:), vg_Off(:), nx_Off, neq )
-!write(*,*)'fn with constant metrics = ',normalflux( vg_On (:), nx_Off, neq ) 
-!  write(*,*)'fstar(nx_On) = ',&
-!             EntropyConsistentFlux(vg_On(:), vg_Off(:), nx_On, neq )
-!write(*,*)'fn with constant metrics = ',normalflux( vg_On (:), nx_On, neq ) 
-!endif
-!-- DEBUG DAVID END
+
           return
      end function
 

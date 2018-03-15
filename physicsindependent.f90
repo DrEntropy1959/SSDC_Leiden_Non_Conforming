@@ -44,12 +44,6 @@ contains
 
     integer :: i_err
 
-!-- DEBUG DAVID START
-!   integer ielem, iface, i, n_pts_2d, inode, jnode
-!   integer,  allocatable, dimension(:,:) :: kfacenodes_On
-!   real(wp) :: temp(3,8)
-!-- DEBUG DAVID END
-
     continue
 
     ! Initialize collocation approximation
@@ -121,20 +115,7 @@ contains
 
         ! Create connectivity from the original grid
         call e2e_connectivity_aflr3()  
-!-- DEBUG DAVID START
-!do ielem = 1,size(ic2nh,2)
-!write(*,*)'+++++++++++++++++++++++++++'
-!  do iface = 1,6
-!    temp = vx_Master(:,ic2nh(:,ielem))
-!    write(*,*)'ielem = ',ielem,' iface = ',iface,&
-!    NEW_LINE('A')//'Adjoining element face ID = ',ef2e(1,iface,ielem),&
-!    NEW_LINE('A')//' Adjoining element ID = ', ef2e(2,iface,ielem)!,&
-!    NEW_LINE('A')//' Adjoining element polynomial order = ',ef2e(4,iface,ielem),&
-!    NEW_LINE('A')//' max r = ',maxval(abs(temp))
-!  enddo
-!write(*,*)'+++++++++++++++++++++++++++'
-!enddo
-!-- DEBUG DAVID END
+
         ! Establish face orientation between connected faces
         call face_orientation_aflr3()
 
@@ -144,20 +125,7 @@ contains
   
         ! create e_edge2e connectivity
         call e_edge2e_connectivity()   
- !-- DAVID DEBUG START
-!write(*,*)'~~~~~~~~~~~~~~~~~~~~~~~~~'
-!iface = 6
-!ielem = 8
-!  write(*,*)'original'//NEW_LINE('A'),&
-!e_edge2e(1,1,:,iface,ielem),&
-!e_edge2e(1,2,:,iface,ielem),&
-!e_edge2e(1,3,:,iface,ielem),&
-!e_edge2e(1,4,:,iface,ielem),&
-!NEW_LINE('A'),e_edge2e(2,1,:,iface,ielem),&
-!e_edge2e(2,2,:,iface,ielem),&
-!e_edge2e(2,3,:,iface,ielem),&
-!e_edge2e(2,4,:,iface,ielem)
-!write(*,*)'~~~~~~~~~~~~~~~~~~~~~~~'      
+
         ! Construct the vector of +1 and -1 for the LDG flip-flop
         call create_ldg_flip_flop_sign()
 
@@ -170,34 +138,6 @@ contains
 
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
-!-- DAVID DEBUG START
-!ielem = 523
-!write(*,*)'original',&
-!NEW_LINE('A')//'ox1 = ',vx_Master(1,ic2nh(1,ielem)),&
-!NEW_LINE('A')//'oy1 = ',vx_Master(2,ic2nh(1,ielem)),&
-!NEW_LINE('A')//'oz1 = ',vx_Master(3,ic2nh(1,ielem)),&
-!NEW_LINE('A')//'ox2 = ',vx_Master(1,ic2nh(2,ielem)),&
-!NEW_LINE('A')//'oy2 = ',vx_Master(2,ic2nh(2,ielem)),&
-!NEW_LINE('A')//'oz2 = ',vx_Master(3,ic2nh(2,ielem)),&
-!NEW_LINE('A')//'ox3 = ',vx_Master(1,ic2nh(3,ielem)),&
-!NEW_LINE('A')//'oy3 = ',vx_Master(2,ic2nh(3,ielem)),&
-!NEW_LINE('A')//'oz3 = ',vx_Master(3,ic2nh(3,ielem)),&
-!NEW_LINE('A')//'ox4 = ',vx_Master(1,ic2nh(4,ielem)),&
-!NEW_LINE('A')//'oy4 = ',vx_Master(2,ic2nh(4,ielem)),&
-!NEW_LINE('A')//'oz4 = ',vx_Master(3,ic2nh(4,ielem)),&
-!NEW_LINE('A')//'ox5 = ',vx_Master(1,ic2nh(5,ielem)),&
-!NEW_LINE('A')//'oy5 = ',vx_Master(2,ic2nh(5,ielem)),&
-!NEW_LINE('A')//'oz5 = ',vx_Master(3,ic2nh(5,ielem)),&
-!NEW_LINE('A')//'ox6 = ',vx_Master(1,ic2nh(6,ielem)),&
-!NEW_LINE('A')//'oy6 = ',vx_Master(2,ic2nh(6,ielem)),&
-!NEW_LINE('A')//'oz6 = ',vx_Master(3,ic2nh(6,ielem)),&
-!NEW_LINE('A')//'ox7 = ',vx_Master(1,ic2nh(7,ielem)),&
-!NEW_LINE('A')//'oy7 = ',vx_Master(2,ic2nh(7,ielem)),&
-!NEW_LINE('A')//'oz7 = ',vx_Master(3,ic2nh(7,ielem)),&
-!NEW_LINE('A')//'ox8 = ',vx_Master(1,ic2nh(8,ielem)),&
-!NEW_LINE('A')//'oy8 = ',vx_Master(2,ic2nh(8,ielem)),&
-!NEW_LINE('A')//'oz8 = ',vx_Master(3,ic2nh(8,ielem))
-!-- DAVID DEBUG END
 
       end if
 
@@ -210,57 +150,10 @@ contains
 
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()
-!-- DEBUG DAVID START
-!if((myprocid.EQ.0))then
-!ielem = 253
-!write(*,*)'after distribute',&
-!NEW_LINE('A')//'adx1 = ',vx(1,e2v(1,ielem)),&
-!NEW_LINE('A')//'ady1 = ',vx(2,e2v(1,ielem)),&
-!NEW_LINE('A')//'adz1 = ',vx(3,e2v(1,ielem)),&
-!NEW_LINE('A')//'adx2 = ',vx(1,e2v(2,ielem)),&
-!NEW_LINE('A')//'ady2 = ',vx(2,e2v(2,ielem)),&
-!NEW_LINE('A')//'adz2 = ',vx(3,e2v(2,ielem)),&
-!NEW_LINE('A')//'adx3 = ',vx(1,e2v(3,ielem)),&
-!NEW_LINE('A')//'ady3 = ',vx(2,e2v(3,ielem)),&
-!NEW_LINE('A')//'adz3 = ',vx(3,e2v(3,ielem)),&
-!NEW_LINE('A')//'adx4 = ',vx(1,e2v(4,ielem)),&
-!NEW_LINE('A')//'ady4 = ',vx(2,e2v(4,ielem)),&
-!NEW_LINE('A')//'adz4 = ',vx(3,e2v(4,ielem)),&
-!NEW_LINE('A')//'adx5 = ',vx(1,e2v(5,ielem)),&
-!NEW_LINE('A')//'ady5 = ',vx(2,e2v(5,ielem)),&
-!NEW_LINE('A')//'adz5 = ',vx(3,e2v(5,ielem)),&
-!NEW_LINE('A')//'adx6 = ',vx(1,e2v(6,ielem)),&
-!NEW_LINE('A')//'ady6 = ',vx(2,e2v(6,ielem)),&
-!NEW_LINE('A')//'adz6 = ',vx(3,e2v(6,ielem)),&
-!NEW_LINE('A')//'adx7 = ',vx(1,e2v(7,ielem)),&
-!NEW_LINE('A')//'ady7 = ',vx(2,e2v(7,ielem)),&
-!NEW_LINE('A')//'adz7 = ',vx(3,e2v(7,ielem)),&
-!NEW_LINE('A')//'adx8 = ',vx(1,e2v(8,ielem)),&
-!NEW_LINE('A')//'ady8 = ',vx(2,e2v(8,ielem)),&
-!NEW_LINE('A')//'adz8 = ',vx(3,e2v(8,ielem))
-!endif
-!-- DEBUG DAVID END
 
     end if
 
     call mpi_bcast(npoly_max,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)
-!-- DAVID DEBUG START
-!write(*,*)'+++++++++++++++++++++++++++'
-!if((myprocid.EQ.2))then
-!iface = 6
-!ielem = 6
-!  write(*,*)'new'//NEW_LINE('A'),&
-!e_edge2e(1,1,:,iface,ielem),&
-!e_edge2e(1,2,:,iface,ielem),&
-!e_edge2e(1,3,:,iface,ielem),&
-!e_edge2e(1,4,:,iface,ielem),&
-!NEW_LINE('A'),e_edge2e(2,1,:,iface,ielem),&
-!e_edge2e(2,2,:,iface,ielem),&
-!e_edge2e(2,3,:,iface,ielem),&
-!e_edge2e(2,4,:,iface,ielem)
-!endif
-!write(*,*)'+++++++++++++++++++++++++++'
-!-- DAVID DEBUG END
 
     ! Initialize collocation approximation
     i_err = rmapInit(npoly,ndim)

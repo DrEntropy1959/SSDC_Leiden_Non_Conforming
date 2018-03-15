@@ -252,10 +252,6 @@ contains
 
     use collocationvariables, only : ldg_flip_flop_sign
 
-!-- DAVID DEBUG START
-    use variables, only : ic2nh
-!-- DAVID DEBUG END
-
     ! Nothing is implicitly defined
     implicit none
 
@@ -341,9 +337,6 @@ contains
     integer, parameter :: qdim = 7   !  dimension of first array in ef2e see initgrid.F90 
                                      !  for definitions of each of the qdim 
 
-!-- DAVID DEBUG START
-    integer :: ielem
-!-- DAVID DEBUG END
     continue
 
     ! Number of vertices per element 
@@ -1142,66 +1135,7 @@ contains
           deallocate(ef2etmp1)
           deallocate(vert_list_proc)
           deallocate(ldg_flip_flop_sign_tmp1)
-!-- DAVID DEBUG START
-!ielem = 523
-!write(*,*)'original',&
-!NEW_LINE('A')//'ox1 = ',vx_Master(1,ic2nh(1,ielem)),&
-!NEW_LINE('A')//'oy1 = ',vx_Master(2,ic2nh(1,ielem)),&
-!NEW_LINE('A')//'oz1 = ',vx_Master(3,ic2nh(1,ielem)),&
-!NEW_LINE('A')//'ox2 = ',vx_Master(1,ic2nh(2,ielem)),&
-!NEW_LINE('A')//'oy2 = ',vx_Master(2,ic2nh(2,ielem)),&
-!NEW_LINE('A')//'oz2 = ',vx_Master(3,ic2nh(2,ielem)),&
-!NEW_LINE('A')//'ox3 = ',vx_Master(1,ic2nh(3,ielem)),&
-!NEW_LINE('A')//'oy3 = ',vx_Master(2,ic2nh(3,ielem)),&
-!NEW_LINE('A')//'oz3 = ',vx_Master(3,ic2nh(3,ielem)),&
-!NEW_LINE('A')//'ox4 = ',vx_Master(1,ic2nh(4,ielem)),&
-!NEW_LINE('A')//'oy4 = ',vx_Master(2,ic2nh(4,ielem)),&
-!NEW_LINE('A')//'oz4 = ',vx_Master(3,ic2nh(4,ielem)),&
-!NEW_LINE('A')//'ox5 = ',vx_Master(1,ic2nh(5,ielem)),&
-!NEW_LINE('A')//'oy5 = ',vx_Master(2,ic2nh(5,ielem)),&
-!NEW_LINE('A')//'oz5 = ',vx_Master(3,ic2nh(5,ielem)),&
-!NEW_LINE('A')//'ox6 = ',vx_Master(1,ic2nh(6,ielem)),&
-!NEW_LINE('A')//'oy6 = ',vx_Master(2,ic2nh(6,ielem)),&
-!NEW_LINE('A')//'oz6 = ',vx_Master(3,ic2nh(6,ielem)),&
-!NEW_LINE('A')//'ox7 = ',vx_Master(1,ic2nh(7,ielem)),&
-!NEW_LINE('A')//'oy7 = ',vx_Master(2,ic2nh(7,ielem)),&
-!NEW_LINE('A')//'oz7 = ',vx_Master(3,ic2nh(7,ielem)),&
-!NEW_LINE('A')//'ox8 = ',vx_Master(1,ic2nh(8,ielem)),&
-!NEW_LINE('A')//'oy8 = ',vx_Master(2,ic2nh(8,ielem)),&
-!NEW_LINE('A')//'oz8 = ',vx_Master(3,ic2nh(8,ielem))
-!ielem = 253
-!write(*,*)'',&
-!'shape(vx) = ',shape(vx),' shape(e2v) = ',shape(e2v),' nprocs = ',&
-!melemsonproc(1)-melemsonproc(0)+1,' alt nprocs = ',ihelems(2)-ihelems(1)+1,&
-!'nvertex = ',(ihelems(2)-ihelems(1)+1)*2**ndim,&
-!'nvertices = ',nvertices,&
-!'ihelems(1) = ',ihelems(1),' ihelems(2) = ',ihelems(2),&
-!NEW_LINE('A')//'adx1 = ',vx(1,e2v(1,ielem)),&
-!NEW_LINE('A')//'ady1 = ',vx(2,e2v(1,ielem)),&
-!NEW_LINE('A')//'adz1 = ',vx(3,e2v(1,ielem)),&
-!'e2v(2,ielem) = ',e2v(2,ielem)
-!NEW_LINE('A')//'adx2 = ',vx(1,e2v(2,ielem)),&
-!NEW_LINE('A')//'ady2 = ',vx(2,e2v(2,ielem)),&
-!NEW_LINE('A')//'adz2 = ',vx(3,e2v(2,ielem))!,&
-!NEW_LINE('A')//'adx3 = ',vx(1,e2v(3,ielem)),&
-!NEW_LINE('A')//'ady3 = ',vx(2,e2v(3,ielem)),&
-!NEW_LINE('A')//'adz3 = ',vx(3,e2v(3,ielem)),&
-!NEW_LINE('A')//'adx4 = ',vx(1,e2v(4,ielem)),&
-!NEW_LINE('A')//'ady4 = ',vx(2,e2v(4,ielem)),&
-!NEW_LINE('A')//'adz4 = ',vx(3,e2v(4,ielem)),&
-!NEW_LINE('A')//'adx5 = ',vx(1,e2v(5,ielem)),&
-!NEW_LINE('A')//'ady5 = ',vx(2,e2v(5,ielem)),&
-!NEW_LINE('A')//'adz5 = ',vx(3,e2v(5,ielem)),&
-!NEW_LINE('A')//'adx6 = ',vx(1,e2v(6,ielem)),&
-!NEW_LINE('A')//'ady6 = ',vx(2,e2v(6,ielem)),&
-!NEW_LINE('A')//'adz6 = ',vx(3,e2v(6,ielem)),&
-!NEW_LINE('A')//'adx7 = ',vx(1,e2v(7,ielem)),&
-!NEW_LINE('A')//'ady7 = ',vx(2,e2v(7,ielem)),&
-!NEW_LINE('A')//'adz7 = ',vx(3,e2v(7,ielem)),&
-!NEW_LINE('A')//'adx8 = ',vx(1,e2v(8,ielem)),&
-!NEW_LINE('A')//'ady8 = ',vx(2,e2v(8,ielem)),&
-!NEW_LINE('A')//'adz8 = ',vx(3,e2v(8,ielem))
-!-- DAVID DEBUG END
+
         else 
           ! General procedure for all the other processes. 
           ! ===================================================================
@@ -4441,10 +4375,17 @@ contains
     icnt = 0
 
 
-    if(ndim.Eq.2)then
+    if(ndim.EQ.1)then
+      write(*,*)'Logic in mpimod:distribute_e_edge2e() not setup for ndim = ',ndim
+      call PetscFinalize(i_err); stop
+    elseif(ndim.EQ.2)then
       number_of_edges_per_face = 1
+
     elseif(ndim.EQ.3)then
       number_of_edges_per_face = 4
+    else
+       write(*,*)'Error in mpimod:distribute_e_edge2e() ndim incorrect, ndim = ',ndim
+      call PetscFinalize(i_err); stop     
     endif
 
     number_of_faces = ndim*2
@@ -4455,6 +4396,8 @@ contains
     if(myprocid==0)then
     
       allocate(s_request_e_edge2e(nprocs))
+      !-- WARNING
+      s_request_e_edge2e = 0
 
       ! Process 0 (i.e. the master process) orders the elements for scattering
       ! ==========================================================================
@@ -4509,9 +4452,7 @@ contains
         ! Update processor counter
         icnt(i_proc) = icnt(i_proc) + 1
       enddo
-!-- DAVID DEBUG START
-!    write(*,*)'elem 125 = ',i2jelems(125), ' ielem 253 = ',i2jelems(253)
-!-- DAVID DEBUG END
+
     endif! on master node
 
     ! Create a barrier synchronization in the group. Each task, when reaching 
@@ -4563,13 +4504,7 @@ contains
               enddo
             enddo
           enddo
-!-- DAVID DEBUG START
-!if(ielem_original.EQ.2)then
-!write(*,*)'within distribute',&
-!NEW_LINE('A'),e_edge2etemp(1,1:4,:,1,5),&
-!NEW_LINE('A'),e_edge2etemp(2,1:4,:,1,5)
-!endif
-!-- DAVID DEGUG END
+
         enddo ielem_loop
         
         !-- now we send the data
@@ -4581,6 +4516,8 @@ contains
           ! store the master process e_edge2e in a temporary variable 
           allocate(e_edge2etemp2(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,&
             melemsonproc(2*i_proc):melemsonproc(2*i_proc+1)))
+          !-- WARNING
+          e_edge2etemp = 0.0_wp
 
           e_edge2etemp2 = e_edge2etemp
 
@@ -4606,12 +4543,6 @@ contains
               enddo
             enddo
           enddo
-!-- DAVID DEBUG START
-!if(ielem_original.EQ.2)then
-!write(*,*)'within distribute packed',&
-!NEW_LINE('A'),packed_e_edge2e(1:cnt_pack)
-!endif
-!-- DAVID DEGUG END
 
           ! Send 1D array
           s_tag = 333*nprocs + i_proc
@@ -4661,13 +4592,6 @@ contains
       call mpi_test(r_request_e_edge2e,test_request_e_edge2e, &
         & r_status,i_err)
 
-!-- DAVID DEBUG START
-!if(myprocid.EQ.2)then
-!write(*,*)'recived packed',&
-!NEW_LINE('A'),e_edge2e_recive(1:m_size)
-!endif
-!-- DAVID DEBUG END
-
       !-- unpack data into local e_edge2e array
       allocate(e_edge2e(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,ihelems(1):ihelems(2)))
       e_edge2e = -2000
@@ -4686,13 +4610,7 @@ contains
       enddo
       ! Deallocate memory
       deallocate(e_edge2e_recive)
-!-- DAVID DEBUG START
-!if(myprocid.EQ.2)then
-!write(*,*)'recived ',&
-!NEW_LINE('A'),e_edge2e(1,1:4,:,1,5),&
-!NEW_LINE('A'),e_edge2e(2,1:4,:,1,5)
-!endif
-!-- DAVID DEBUG END
+
     endif! not master node if
 
     ! Wait for other processes
@@ -4702,6 +4620,8 @@ contains
     if(myprocid.EQ.0)then
       if(allocated(e_edge2e)) deallocate(e_edge2e)
       allocate(e_edge2e(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,ihelems(1):ihelems(2)))
+      !--WARNING
+      e_edge2e = 0.0_wp
       e_edge2e = e_edge2etemp2
       deallocate(e_edge2etemp2)
     endif
