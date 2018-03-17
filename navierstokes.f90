@@ -4211,6 +4211,9 @@ endif
     real(wp),  dimension(nequations)       :: fn, fstar
     real(wp),  dimension(nequations)       :: vg_On, vg_Off
 
+    real(wp), allocatable, dimension(:,:)  :: vg_On_Mortar, vg_Off_Mortar
+    real(wp), allocatable, dimension(:,:)  :: vg_On_2_Off_Mortar, vg_Off_2_On_Mortar
+
     real(wp), allocatable, dimension(:,:) :: FxA, FyA, FzA
     real(wp), allocatable, dimension(:,:) :: FxB, FyB, FzB
     real(wp), allocatable, dimension(:,:) :: FC_Mort_On
@@ -4225,19 +4228,25 @@ endif
 
     continue
 
+      ! establish ``off-element'' face information
+      call element_properties(kelem,n_pts_2d=temp,ifacenodes=kfacenodes_Off)
+
       allocate(FxA(nequations,n_S_2D_Off ), FyA(nequations,n_S_2D_Off ), FzA(nequations,n_S_2D_Off ))
       allocate(FxB(nequations,n_S_2D_Mort), FyB(nequations,n_S_2D_Mort), FzB(nequations,n_S_2D_Mort))
       allocate( FC_Mort_On (nequations,n_S_2D_Mort))
       allocate(Up_diss_Mort(nequations,n_S_2d_Mort))
       allocate(Up_diss_On  (nequations,n_S_2d_On  ))
 
+      allocate(vg_On_Mortar(nequations,n_S_2d_Mort))
+      allocate(vg_Off_Mortar(nequations,n_S_2d_Mort))    
+      allocate(vg_On_2_Off_Mortar(nequations,n_S_2d_Off))
+      allocate(vg_Off_2_On_Mortar(nequations,n_S_2d_On))    
+
 !=========
 !         Skew-symmetric matrix portion of SATs (Entropy Stable through Mortar)
 !=========
       kelem = ef2e(2,iface,ielem)
 
-      ! establish ``off-element'' face information
-      call element_properties(kelem,n_pts_2d=temp,ifacenodes=kfacenodes_Off)
 
       On_Element_1:do i = 1, n_S_2d_On                                       ! On_Element Loop over 2D LGL points
  
@@ -4292,7 +4301,7 @@ endif
       enddo On_Element_1
 
 !=========
-!         Inviscid interface dissipation (Entropy Stable Upwinding of SATs)
+!         Inviscid interface dissipation (Entropy Stable Upwinding of SATs) using the mortar
 !=========
 if(.true.)then
       On_Mortar_2:do j = 1, n_S_2d_Mort                                      ! Mortar loop over data
