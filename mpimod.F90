@@ -4395,9 +4395,7 @@ contains
     !==============================================================================================
     if(myprocid==0)then
     
-      allocate(s_request_e_edge2e(nprocs))
-      !-- WARNING
-      s_request_e_edge2e = 0
+      allocate(s_request_e_edge2e(nprocs))  ;  s_request_e_edge2e = 0
 
       ! Process 0 (i.e. the master process) orders the elements for scattering
       ! ==========================================================================
@@ -4515,9 +4513,7 @@ contains
         if (i_proc == 0) then
           ! store the master process e_edge2e in a temporary variable 
           allocate(e_edge2etemp2(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,&
-            melemsonproc(2*i_proc):melemsonproc(2*i_proc+1)))
-          !-- WARNING
-          e_edge2etemp = 0.0_wp
+            melemsonproc(2*i_proc):melemsonproc(2*i_proc+1))) ; e_edge2etemp2 = 0.0_wp ;
 
           e_edge2etemp2 = e_edge2etemp
 
@@ -4619,9 +4615,9 @@ contains
     !-- assign e_edge2etmp2 to e_edge2e on the mater node
     if(myprocid.EQ.0)then
       if(allocated(e_edge2e)) deallocate(e_edge2e)
-      allocate(e_edge2e(3,number_of_edges_per_face,number_of_possible_partners,number_of_faces,ihelems(1):ihelems(2)))
-      !--WARNING
-      e_edge2e = 0.0_wp
+      allocate(e_edge2e(3,number_of_edges_per_face,number_of_possible_partners, &
+               number_of_faces,ihelems(1):ihelems(2))) ; e_edge2e = 0.0_wp ;
+
       e_edge2e = e_edge2etemp2
       deallocate(e_edge2etemp2)
     endif
