@@ -3377,7 +3377,8 @@ contains
     call MPI_reduce(np_mods, ng_mods,1, mpi_integer, mpi_sum, 0, petsc_comm_world, ierr)
 
     ! Write at screen the L_inf of the metric error
-    if(myprocid == 0 .and. verbose)  then
+!   if(myprocid == 0 .and. verbose)  then
+    if(myprocid == 0)  then
       write(*,*)'  Modified Elements and L_inf of modification', ng_mods, maxval(err_max_proc(:))
       write(*,*) '==========================================================='
 
@@ -8430,7 +8431,7 @@ end subroutine write_matrix_to_file_matlab
 
     use mpimod
     use variables, only            : e_edge2e, vx_Master, ic2nh, iae2e2e, jae2e2e
-    use referencevariables, only   : nelems, ndim, number_of_possible_partners, myprocid
+    use referencevariables, only   : nelems, ndim, number_of_possible_partners
     use collocationvariables, only : elem_props
     use precision_vars, only       : magnitude
 
