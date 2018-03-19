@@ -42,12 +42,9 @@
  ===============================================================
  P           3
  L1   error:    1.1915379706890898E-004
- L2   error:    3.1912627853180773E-004
+ L2   error:    3.1912627853180784E-004
  Linf error:    3.2239966845191148E-003
- CPU time:          8.8585
-
- Solution files written in solution                                                                                                                
-
+ CPU time:          7.0337
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -90,13 +87,10 @@
  Start actual computation
  ===============================================================
  P           3
- L1   error:    7.0246713851420132E-006
- L2   error:    1.9877986734763609E-005
+ L1   error:    7.0246713851420099E-006
+ L2   error:    1.9877986734763606E-005
  Linf error:    2.6729495170396689E-004
- CPU time:         14.5887
-
- Solution files written in solution                                                                                                                
-
+ CPU time:          9.2821
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -142,7 +136,4 @@
  L1   error:    4.6291164021595251E-007
  L2   error:    1.2795775320856706E-006
  Linf error:    1.7718173707770291E-005
- CPU time:         39.2558
-
- Solution files written in solution                                                                                                                
-
+ CPU time:         25.6498

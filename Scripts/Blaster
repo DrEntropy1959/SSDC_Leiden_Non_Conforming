@@ -15,7 +15,13 @@ rm Triangle_3*
 ln -s ./Scripts/Grids/Triangle_3* .
 rm shifted_stagnation_cylinder_006x004*
 ln -s ./Scripts/Grids/shifted_stagnation_cylinder_006x004* .
+rm Sphere_Uniform_*
+ln -s Scripts/Grids/Sphere_Uniform_Orthogonal_00* .
 cd Scripts
+echo "Euler Supersonic_Vortex_Sphere_P_Poly_Elements_Testing_Mod_Metrics"
+./Euler_Script3D_Sphere_Test_Mod_Metrics
+echo "Euler Supersonic_Vortex_Sphere_P_Poly_Elements_Testing_Mod_SAT"
+./Euler_Script3D_Sphere_Test_Mod_SAT
 echo "Euler Supersonic_Vortex_Curved_Elements_GoldenRoe_SSDC"
 ./Euler_Script3D_Supersonic_Vortex_Curved_Elements_GoldenRoe_SSDC
 echo "Euler Supersonic_Vortex_Curved_Elements_NonConforming_Parallel"

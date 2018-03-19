@@ -1,0 +1,27 @@
+THISHOST=$(hostname) ;
+cd ..
+#make clean
+make 
+cp Scripts/Startup/SSDCstartup.EulerVortex.Convergence.Study.Sphere_NonConform_NxNxN_Test_Mod_Metrics.ref SSDCstartup.ref
+cp zerodat Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_Metrics_Non_Conforming_Test.csv
+   for var1 in 1 2 3 4 5
+     do
+     for var2 in 002 003 004 #005 006 008 #010 012 016 020 024 032 040 048 064 #080 096 128 160
+       do
+       echo "Order: $var1   Grid: $var2 "
+       cat SSDCstartup.ref    | sed 's/NPoly/'${var1}'/g' | sed 's/PTS/'${var2}'/g' > SSDCstartup
+       if   [ $var2 -le 3 ] 
+       then
+           mpirun -np ${var2} nice -19 ./SSDCNSE > tmp88
+       elif [ $var2 -ge 4 ] 
+       then
+           mpirun -np 4 nice -19 ./SSDCNSE > tmp88
+       fi
+       cp Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_Metrics_Non_Conforming_Test.csv tmp87
+       cat tmp87 tmp88 > Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_Metrics_Non_Conforming_Test.csv
+     done
+   done
+
+ diff Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_Metrics_Non_Conforming_Test.csv Scripts/Golden/Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_Metrics_Non_Conforming_Test.csv
+#cp   Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_Metrics_Non_Conforming_Test.csv Scripts/Golden/Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_Metrics_Non_Conforming_Test.csv
+
