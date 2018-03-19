@@ -4667,7 +4667,7 @@ subroutine parallel_write_grid_to_file(file_name)
   integer                                        :: ios
 
   !-- mpi variables
-  integer                                        :: ierr, thefile
+! integer                                        :: ierr, thefile
 
 !-- THERE IS A BETTER WAY TO DO THIS USING MPI 
 !  call MPI_FILE_OPEN(PETSC_COMM_WORLD, file_name, & 

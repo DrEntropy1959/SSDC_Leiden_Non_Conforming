@@ -39,11 +39,19 @@ contains
     use referencevariables,  only: ihelems, nfacesperelem, nelems
     use initcollocation,     only: element_properties
 
+!-- DAVID DEBUG START
+   use variables, only : ef2e
+   use initgrid, only : map_face_orientation_k_On_2_k_Off
+!-- DAVID DEBUG END
+
     ! Nothing is implicitly defined
     implicit none
 
     integer :: i_err
 
+!-- DAVID DEBUG START
+    integer :: ielem, iface, k_On
+!-- DAVID DEBUG END
     continue
 
     ! Initialize collocation approximation
@@ -122,7 +130,18 @@ contains
 !       write(*,*) 'Master node builds element orders if non-conforming'
 !       write(*,*) '==============================================================='
         call set_element_orders_serial()    
-  
+ !-- DAVID DEBUG START
+!do ielem = 1,nelems
+!  do iface = 1,6
+!    write(*,*)'ielem = ',ielem,'iface = ',iface,'degree = ',ef2e(6,iface,ielem)
+!    On_Element:do k_On = 1, (ef2e(6,iface,ielem)+1)**2
+!      write(*,*)'ielem = ', ielem, 'iface = ',iface,&
+!        'k_On = ',k_On, 'working = ',&
+!map_face_orientation_k_On_2_k_Off(k_On,ef2e(7,iface,ielem),(ef2e(6,iface,ielem)+1))-k_On
+!    enddo On_Element  
+!  enddo
+!enddo
+!-- DAVID DEBUG END 
         ! create e_edge2e connectivity
         call e_edge2e_connectivity()   
 
