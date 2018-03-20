@@ -3306,7 +3306,6 @@ contains
     real(wp), allocatable, dimension(:,:) ::            Intrp_Off
     real(wp), allocatable, dimension(:,:) ::            IOn2Off, IOff2On
     real(wp), allocatable, dimension(:,:) :: wg_Mort_On,wg_Mort_Off
-    real(wp), allocatable, dimension(:,:) :: wg_On2Off,wg_Off2On
     real(wp), allocatable, dimension(:,:) :: vg_2d_On,  vg_2d_Off
     real(wp), allocatable, dimension(:,:) ::            nx_2d_Off
     real(wp), allocatable, dimension(:,:) :: wg_2d_On,  wg_2d_Off
@@ -3767,9 +3766,6 @@ contains
         allocate( wg_Mort_On (nequations,n_S_2d_Mort))
         allocate( wg_Mort_Off(nequations,n_S_2d_Mort))
 
-        allocate( wg_On2Off (nequations,n_S_2d_Off))
-        allocate( wg_Off2On (nequations,n_S_2d_On))
-
         allocate(cnt_Mort_Off(           n_S_2d_Mort))
 
         allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
@@ -3784,8 +3780,10 @@ contains
           poly_val = n_S_1d_Off  - npoly
            allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
                     Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,2) ;
-            allocate(Intrp_Off (n_S_1d_Off  ,n_S_1d_Mort)) ; 
-                    Intrp_Off (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_Off  ,1:n_S_1d_Mort,poly_val,2) ;
+           if(allocated(Intrp_Off)) deallocate(Intrp_Off)   
+             allocate(Intrp_Off (n_S_1d_Off  ,n_S_1d_Mort)) ; 
+             Intrp_Off (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_Off  ,1:n_S_1d_Mort,poly_val,2) ;
+      
                   
         else
           poly_val = n_S_1d_On - npoly
@@ -3796,14 +3794,18 @@ contains
           poly_val = n_S_1d_Mort - npoly
            allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
                     Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
-           allocate(Intrp_Off (n_S_1d_Off  ,n_S_1d_Mort)) ; 
-                    Intrp_Off (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_Off  ,1:n_S_1d_Mort,poly_val,1) ;
+           if(allocated(Intrp_Off)) deallocate(Intrp_Off)
+             allocate(Intrp_Off (n_S_1d_Off  ,n_S_1d_Mort)) ; 
+             Intrp_Off (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_Off  ,1:n_S_1d_Mort,poly_val,1) ;
 
         endif
 
-        allocate(IOn2Off(1:n_S_1d_Off,1:n_S_1d_On)) 
+        !QUESTION: why do I aonly have to do this for these and Intrp_Off
+        if(allocated(IOn2Off)) deallocate(IOn2Off)
+          allocate(IOn2Off(1:n_S_1d_Off,1:n_S_1d_On)) 
           IOn2Off = matmul(Intrp_Off,Extrp_On)
-        allocate(IOff2On(1:n_S_1d_On,1:n_S_1d_Off))
+        if(allocated(IOff2On)) deallocate(IOff2On)
+          allocate(IOff2On(1:n_S_1d_On,1:n_S_1d_Off))
           IOff2On = matmul(Intrp_On,Extrp_Off)
 
 !=========
@@ -4253,7 +4255,7 @@ contains
 
       !-- On element contribution to the dissipation: R_ON^T*Lambda_On*Ron*(wg_ON-wg_Off2ON)
       On_Element_2:do j = 1, n_S_2d_On                                       ! On element loop over data
-        jnode =  n_S_2d_max*(iface-1) + j                                    ! Index in facial ordering (bucket is padded so n_S_2d_max is needed)
+        jnode =  n_S_2d_On*(iface-1) + j                                    ! Index in facial ordering (bucket is padded so n_S_2d_max is needed)
 
         inode = ifacenodes_On(jnode)                          ! Volumetric node index corresponding to facial node index
 
@@ -4277,7 +4279,6 @@ contains
 
         l = map_face_orientation_k_On_2_k_Off(j,orientation,n_S_1d_Off)      ! Correct for face orientation
 
-        jnode =  n_S_2d_max*(iface-1) + l                                    ! Index in facial ordering (bucket is padded so n_S_2d_max is needed)
         nx(:) = nx_Off_ghst(:,l)                                             ! Outward facing normal of facial node
 
 
@@ -4299,7 +4300,7 @@ contains
               
         inode = ifacenodes_On(jnode)                                         ! Volumetric node index corresponding to facial node index
              
-        gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * Up_diss_On(:,i)! On-element Viscous penalty contribution
+        gsat(:,inode,ielem) = gsat(:,inode,ielem) + 0.50_wp*pinv(1) * Up_diss_On(:,i)! On-element Viscous penalty contribution
 
       end do On_Elem_2                                                       ! On-element loop: end
 

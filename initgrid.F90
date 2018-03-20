@@ -3499,7 +3499,6 @@ contains
   end function face_orientation_hex
 
   !============================================================================================
-  !============================================================================
   !
   ! Purpose: For a given face node number on the elemenet, k_On in local face ordering, this function
   !          returns the face node number of the adjoining element, k_Off in local face ordering.
@@ -3555,15 +3554,16 @@ contains
      integer, intent(in)                         :: k_On, orientation, n_1d_On
 
      integer                                     :: map_face_orientation_k_On_2_k_Off
-     real(wp)                                    :: i_On, j_On, i_Off, j_Off
+
+     real(wp)                                    :: i_On2, j_On2, i_Off2, j_Off2
 
      real(wp)                                    :: a11, a0, a1, a2, a3, a4, a5, a6 ,a7
      real(wp)                                    :: c, c0, c1, c2, c3, c4, c5, c6, c7
      real(wp)                                    :: s, s1, s2, s3, s4, s5, s6, s7
 
-    !-- map between k_On and (i_On, j_On)
-    i_On = k_On-floor((k_On-1.0_wp)/n_1d_On)*n_1d_On
-    j_On = (k_On-i_On)/n_1d_On+1.0_wp
+    !-- map between k_On and (i_On2, j_On2)
+    i_On2 = k_On-floor((k_On-1.0_wp)/n_1d_On)*n_1d_On
+    j_On2 = (k_On-i_On2)/n_1d_On+1.0_wp
 
     a0 = 1.0_wp
     a1 = 2341.0_wp/420.0_wp
@@ -3597,18 +3597,18 @@ contains
     s = s1*orientation + s2*orientation**2 + s3*orientation**3 + s4*orientation**4 + s5*orientation**5 &
         + s6*orientation**6 + s7*orientation**7
 
-    i_Off = a11 * c * i_On + a11 * i_On * s - i_On * s - a11 * c * j_On + a11 * j_On * s + c * j_On &
+    i_Off2 = a11 * c * i_On2 + a11 * i_On2 * s - i_On2 * s - a11 * c * j_On2 + a11 * j_On2 * s + c * j_On2 &
             - n_1d_On * a11 * s + n_1d_On * s / 2.0_wp - a11 * s + s / 2.0_wp - n_1d_On * c / 2.0_wp &
             - c / 2.0_wp + n_1d_On / 2.0_wp + 0.5_wp
-    j_Off = -a11 * c * i_On - a11 * i_On * s + c * i_On + a11 * c * j_On - a11 * j_On * s + j_On * s &
+    j_Off2 = -a11 * c * i_On2 - a11 * i_On2 * s + c * i_On2 + a11 * c * j_On2 - a11 * j_On2 * s + j_On2 * s &
             + n_1d_On * a11 * s - n_1d_On * c / 2.0_wp + a11 * s - c / 2.0_wp - n_1d_On * s / 2.0_wp &
             - s / 2.0_wp + n_1d_On / 2.0_wp + 0.5_wp
 
     !-- this is k_Off
-    map_face_orientation_k_On_2_k_Off = INT((j_Off-1)*n_1d_On+i_Off)
+    map_face_orientation_k_On_2_k_Off = NINT((j_Off2-1)*n_1d_On+i_Off2)
 
 
-!!-- simple code with ifs
+!-- simple code with ifs
 !    implicit none
 !    
 !    integer, intent(in)                         :: k_On, orientation, n_1d_On
@@ -3648,6 +3648,7 @@ contains
 !
 !    !-- this is k_Off, i.e., the map from (i_Off, j_Off) and k_Off
 !    map_face_orientation_k_On_2_k_Off = (j_Off-1)*n_1d_On+i_Off
+
   end function map_face_orientation_k_On_2_k_Off
 
   subroutine Load_Mortar_Metric_Data(ielem,n_LGL_1d,n_LGL_2d,n_LGL_3d,ifacenodes,p_surf,a_t,bvec)
