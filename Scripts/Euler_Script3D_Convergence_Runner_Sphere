@@ -2,21 +2,32 @@ cd ..
 #make clean
 make 
 cp Scripts/Startup/SSDCstartup.EulerVortex.Convergence.Study.Sphere_NonConform_NxNxN_Grids.ref SSDCstartup.ref
-cp zerodat Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_Linear_Mod_SAT_Non_Conforming_Grid.csv
-   for var1 in 4 #1 2 3 #4
+cp zerodat Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_SAT_Non_Conforming_Grid.csv
+#cp Scripts/Startup/SSDCstartup.EulerVortex.Convergence.Study.Sphere_NxNxN_Grids.ref SSDCstartup.ref
+#cp zerodat Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_Linear_P_Poly_Grid.csv
+ for var0 in 1 #0 1
+   do
+   for var1 in 5 #6 #1 2 3 4 5 6
      do
-     for var2 in 003 #002 003 004 #005 006 008 #010 012 016 020 024 032 040 048 064 #080 096 128 160
+     for var2 in 002 003 004 005 006 008 010 012 016 020 024 032 040 048 #064 080 #096 128 160
        do
-       echo "Order: $var1   Grid: $var2 "
-       cat SSDCstartup.ref    | sed 's/NPoly/'${var1}'/g' | sed 's/PTS/'${var2}'/g' > SSDCstartup
+       echo "Grid: $var0  Order: $var1   Grid: $var2 "
+       if   [ $var0 -eq 0 ] 
+       then
+         cat SSDCstartup.ref    | sed 's/GRIDTOP/'linear'/g' | sed 's/NPoly/'${var1}'/g' | sed 's/PTS/'${var2}'/g' > SSDCstartup
+       elif [ $var0 -eq 1 ] 
+       then
+         cat SSDCstartup.ref    | sed 's/GRIDTOP/'sphere'/g' | sed 's/NPoly/'${var1}'/g' | sed 's/PTS/'${var2}'/g' > SSDCstartup
+       fi
        if   [ $var2 -le 3 ] 
        then
            mpirun -np ${var2} nice -19 ./SSDCNSE > tmp88
        elif [ $var2 -ge 4 ] 
        then
-           mpirun -np 4 nice -19 ./SSDCNSE > tmp88
+           mpirun -np 28 nice -19 ./SSDCNSE > tmp88
        fi
-       cp Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_Linear_Mod_SAT_Non_Conforming_Grid.csv tmp87
-       cat tmp87 tmp88 > Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_Linear_Mod_SAT_Non_Conforming_Grid.csv
+       cp Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_SAT_Non_Conforming_Grid.csv tmp87
+       cat tmp87 tmp88 > Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_SAT_Non_Conforming_Grid.csv
      done
    done
+ done
