@@ -36,13 +36,15 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
+   Modified Elements and L_inf of modification           4   3.8654350639389417E-017
+ ===========================================================
  Start actual computation
  ===============================================================
  P           1
  L1   error:    2.4867590260550215E-002
  L2   error:    4.2822383910868372E-002
  Linf error:   0.18356902030304667     
- CPU time:          1.2447
+ CPU time:          1.1198
 
  Solution files written in solution                                                                                                                
 
@@ -86,13 +88,15 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
+   Modified Elements and L_inf of modification           4   3.8654350639389417E-017
+ ===========================================================
  Start actual computation
  ===============================================================
  P           1
  L1   error:    2.4867590260550222E-002
  L2   error:    4.2822383910868358E-002
  Linf error:   0.18356902030304489     
- CPU time:          1.0809
+ CPU time:          0.7828
 
  Solution files written in solution                                                                                                                
 
@@ -116,7 +120,7 @@
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 4 partitions
+ Metis is attempting to divide the domain into 3 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -136,13 +140,15 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
+   Modified Elements and L_inf of modification           4   3.8654350639389417E-017
+ ===========================================================
  Start actual computation
  ===============================================================
  P           1
- L1   error:    2.4867590260550299E-002
- L2   error:    4.2822383910868414E-002
- Linf error:   0.18356902030304578     
- CPU time:          0.6513
+ L1   error:    2.4867590260550396E-002
+ L2   error:    4.2822383910868553E-002
+ Linf error:   0.18356902030304667     
+ CPU time:          0.6279
 
  Solution files written in solution                                                                                                                
 
@@ -182,13 +188,15 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
+   Modified Elements and L_inf of modification           4   1.8408305845881893E-016
+ ===========================================================
  Start actual computation
  ===============================================================
  P           2
  L1   error:    6.8667823506481660E-003
  L2   error:    1.4502251309462767E-002
  Linf error:    9.9849533014391145E-002
- CPU time:          3.6834
+ CPU time:          3.5141
 
  Solution files written in solution                                                                                                                
 
@@ -231,13 +239,15 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
+   Modified Elements and L_inf of modification           4   1.8408305845881893E-016
+ ===========================================================
  Start actual computation
  ===============================================================
  P           2
  L1   error:    6.8667823506482050E-003
  L2   error:    1.4502251309462722E-002
  Linf error:    9.9849533014387148E-002
- CPU time:          2.2904
+ CPU time:          2.1882
 
  Solution files written in solution                                                                                                                
 
@@ -260,7 +270,7 @@
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 4 partitions
+ Metis is attempting to divide the domain into 3 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -280,13 +290,15 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
+   Modified Elements and L_inf of modification           4   1.8408305845881893E-016
+ ===========================================================
  Start actual computation
  ===============================================================
  P           2
- L1   error:    6.8667823506481929E-003
- L2   error:    1.4502251309462600E-002
- Linf error:    9.9849533014385372E-002
- CPU time:          1.7878
+ L1   error:    6.8667823506482007E-003
+ L2   error:    1.4502251309462717E-002
+ Linf error:    9.9849533014387148E-002
+ CPU time:          1.7528
 
  Solution files written in solution                                                                                                                
 
@@ -326,13 +338,15 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
+   Modified Elements and L_inf of modification           4   4.6600984533527721E-016
+ ===========================================================
  Start actual computation
  ===============================================================
  P           3
  L1   error:    1.2714706195584044E-003
  L2   error:    3.2224903199925782E-003
  Linf error:    5.7208538471727355E-002
- CPU time:         10.9861
+ CPU time:          9.9970
 
  Solution files written in solution                                                                                                                
 
@@ -375,13 +389,15 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
+   Modified Elements and L_inf of modification           4   4.6600984533527721E-016
+ ===========================================================
  Start actual computation
  ===============================================================
  P           3
  L1   error:    1.2714706195584907E-003
  L2   error:    3.2224903199925600E-003
  Linf error:    5.7208538471730908E-002
- CPU time:          7.4328
+ CPU time:          6.2001
 
  Solution files written in solution                                                                                                                
 
@@ -404,7 +420,7 @@
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 4 partitions
+ Metis is attempting to divide the domain into 3 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -424,13 +440,15 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
+   Modified Elements and L_inf of modification           4   4.6600984533527721E-016
+ ===========================================================
  Start actual computation
  ===============================================================
  P           3
- L1   error:    1.2714706195584213E-003
- L2   error:    3.2224903199926805E-003
- Linf error:    5.7208538471728243E-002
- CPU time:          5.1615
+ L1   error:    1.2714706195584896E-003
+ L2   error:    3.2224903199925587E-003
+ Linf error:    5.7208538471730908E-002
+ CPU time:          5.0474
 
  Solution files written in solution                                                                                                                
 

@@ -3276,9 +3276,7 @@ contains
     real(wp), allocatable :: fstar(:), fstarV(:)
     real(wp), allocatable :: fRoeI(:), fLLF(:)
     ! local normal flux
-    real(wp), allocatable :: fn(:), fnV(:)
-    ! boundary conservative and primitive states
-    real(wp), allocatable :: ustar(:), vstar(:), wstar(:), phistar(:,:)
+    real(wp), allocatable :: fn(:), fV_Off(:)
     ! right and left eigenvector matrices
     real(wp), allocatable, dimension(:,:) :: smat, sinv
     ! eigenvalues
@@ -3303,6 +3301,8 @@ contains
 
     real(wp), allocatable, dimension(:,:) :: Extrp_Off, Extrp_On
     real(wp), allocatable, dimension(:,:) ::            Intrp_On
+    real(wp), allocatable, dimension(:,:) ::            Intrp_Off
+    real(wp), allocatable, dimension(:,:) ::            IOn2Off, IOff2On
     real(wp), allocatable, dimension(:,:) :: wg_Mort_On,wg_Mort_Off
     real(wp), allocatable, dimension(:,:) :: vg_2d_On,  vg_2d_Off
     real(wp), allocatable, dimension(:,:) ::            nx_2d_Off
@@ -3328,39 +3328,31 @@ contains
     real(wp), parameter :: bc_pen_strength =  1.0_wp
     real(wp), parameter :: LocalLaxF_factor=  2.0_wp
 
-    real(wp), dimension(nequations,nequations) :: hatc_side_1, hatc_side_2, &
-                                                & matrix_ip
+    real(wp), dimension(nequations,nequations) :: matrix_ip
 
-    real(wp), dimension(nequations)    :: w_side_1, w_side_2
+    real(wp), dimension(nequations)       ::   ug_On,   ug_Off
+    real(wp), dimension(nequations)       ::   vg_On,   vg_Off
+    real(wp), dimension(nequations)       ::   wg_On,   wg_Off
 
-    real(wp), dimension(nequations)    ::   ug_On,   ug_Off
-    real(wp), dimension(nequations)    ::   vg_On,   vg_Off
+    real(wp), dimension(nequations,3)     :: phig_On, phig_Off
+    real(wp), dimension(nequations)       :: SAT_Pen
 
-    real(wp), dimension(nequations,3)  :: phig_On, phig_Off
-    real(wp), dimension(nequations)    :: SAT_Pen
-    real(wp), dimension(nequations)    :: f_viscous_normal_ghost
-
-    real(wp), dimension(nequations)    :: prim_ghost_adiabatic
-    real(wp), dimension(nequations)    :: entr_ghost_adiabatic
-    real(wp), dimension(nequations)    :: prim_ref
+    real(wp), dimension(nequations)       :: vg_Off_NoSlip
+    real(wp), dimension(nequations)       :: wg_Off_NoSlip
+    real(wp), dimension(nequations)       :: prim_ref
     
-    real(wp), dimension(nequations,3)  :: grad_prim_int, grad_entr_ghost
-    real(wp), dimension(nequations,3)  :: grad_entr_int_normal,grad_entr_int_tangent
+    real(wp), dimension(nequations,3)     :: phig_On_Normal, phig_On_Tangent
 
-    real(wp), dimension(3)             :: unit_normal, normal_vel, tangent_vel, ref_vel_vector
-    integer                            :: i_err
+    real(wp), dimension(3)                :: unit_normal, normal_vel, tangent_vel, ref_vel_vector
+    integer                               :: i_err
  
     ! allocate local arrays
-    allocate(ustar(nequations))
-    allocate(vstar(nequations))
-    allocate(wstar(nequations))
     allocate(fRoeI(nequations))
     allocate(fLLF(nequations))
     allocate(fstar(nequations))
     allocate(fstarV(nequations))
     allocate(fn(nequations))
-    allocate(fnV(nequations))
-    allocate(phistar(nequations,3))
+    allocate(fV_Off(nequations))
 
     allocate(ev(nequations))
     allocate(evabs(nequations))
@@ -3402,238 +3394,189 @@ contains
 
         if (abs(ef2e(1,iface,ielem)) /= 6) then
  
-          ! Specify the Boundary Condition procedure on the face
-          call set_boundary_conditions(ef2e(1,iface,ielem),InitialCondition)
+          call set_boundary_conditions(ef2e(1,iface,ielem),InitialCondition)   ! Specify the Boundary Condition procedure on the face
 
-          ! Loop over each node on the face
-          do i = 1, n_S_2d_On
+          do i = 1, n_S_2d_On                                                  ! Loop over On_element face nodes
 
-            ! Volumetric node index corresponding to face and node on face indices
-            inode = kfacenodes_On(i,iface)
+            inode = kfacenodes_On(i,iface)                                     ! Volumetric node index corresponding to face and node on face indices
           
-            ! Facial index corresponding to face and node on face indices
-            jnode = (iface-1)* n_S_2d_On + i
+            jnode = (iface-1)* n_S_2d_On + i                                   ! Facial index corresponding to face and node on face indices
           
-            ! Outward facing normal of facial node
-            nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+            nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)            ! On_Element outward facing face node normal
             if(SAT_type == "mod_metric")then
               nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)
             elseif(SAT_type == "mod_SAT")then
-              nx_Off = nx
+              nx_Off = nx_On
             else
               write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
                 SAT_type,' ending computation'
                 call PetscFinalize(i_err); stop
             endif
             
-            ! Compute the boundary state
-            call conserved_to_primitive( ug(:,inode,ielem), vg(:,inode,ielem), nequations ) ! (navierstokes)
+              ug_On(:)   =  ug(:,inode,ielem)                                  ! Boundary state on-element
+            phig_On(:,:) = phig(:,:,inode,ielem)                               ! dw/dx_j  on-element
 
-            vstar(:) = vg(:,inode,ielem)
-            phistar = phig(:,:,inode,ielem)
+            call conserved_to_primitive(ug_On, vg_On, nequations)              ! Rotate into primitive
+            call primitive_to_entropy  (vg_On, wg_On, nequations)              ! Rotate into entropy
+
+              vg_Off(:)   =   vg_On(:)                                         !  Preload Off registers in case BC does not overwrite the data
+            phig_Off(:,:) = phig_On(:,:)
             
- !           call BoundaryCondition(vstar,phistar,fnV,nx,xg(:,inode,ielem),tin, &
- !             & nequations,ndim,mut(inode,ielem))
-
-            call BoundaryCondition(vstar,phistar,fnV,nx_Off,xg(:,inode,ielem),tin, &
+            call BoundaryCondition(vg_Off,phig_Off,fV_Off,nx_Off,xg(:,inode,ielem),tin, &   ! Boundary condition populates vg_Off and fV_Off
               & nequations,ndim,mut(inode,ielem))
 
-            call primitive_to_conserved( vstar, ustar, nequations) 
-            call primitive_to_entropy(vstar, wstar, nequations) 
+            call primitive_to_conserved(vg_Off, ug_Off, nequations)            ! Rotate into conserved
+            call primitive_to_entropy  (vg_Off, wg_Off, nequations)            ! Rotate into entropy
 
-            ! ==  Eigen values/vectors
-            call roeavg( vg(:,inode,ielem), vstar, Vav, nequations )         
+                                                                               ! ==  Eigen values/vectors
+            call roeavg( vg_On, vg_Off, Vav, nequations )         
 
-            call CharacteristicDecomp( vav, nequations, sinv, smat, ev, nx ) 
+            call CharacteristicDecomp( vav, nequations, sinv, smat, ev, nx_On ) 
 
             evmax = Cevmax*maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax*evmax)
-            ! ==  Eigen values/vectors
+                                                                               ! ==  Eigen values/vectors
 
-            ! ==  Fluxes
-            fn = normalflux( vg(:,inode,ielem), nx, nequations )                     ! (Euler Flux)
+                                                                               ! ==  Fluxes
+            fn(:) = normalflux( vg_On, nx_On, nequations )                     ! (Euler Flux)
 
             select case(Riemann_Diss_BC)
               case('LocalLaxF')
-!                fLLF  = half * ( normalflux( vg(:,inode,ielem), nx, nequations )  &
-!                    &        +   normalflux( vstar            , nx, nequations )  &
-!                             +   LocalLaxF_factor*evmax*(ug(:,inode,ielem)-ustar) )
-
-                fLLF  = half * ( normalflux( vg(:,inode,ielem), nx, nequations )  &
-                    &        +   normalflux( vstar            , nx_Off, nequations )  &
-                             +   LocalLaxF_factor*evmax*(ug(:,inode,ielem)-ustar) )
+                fLLF  = half * ( normalflux( vg_On , nx_On , nequations )  &
+                    &        +   normalflux( vg_Off, nx_Off, nequations )  &
+                             +   LocalLaxF_factor*evmax*(ug_On - ug_Off) )
                 fstar = fLLF
               case('Roe')
                 select case(entropy_flux_BC)
                   case('Ismail_Roe'   ) 
-!                     fstar = EntropyConsistentFlux     (vg(:,inode,ielem), vstar, nx, nequations ) ! (Entropy Flux)
-                     fstar = EntropyConsistentFlux     (vg(:,inode,ielem), vstar, nx_Off, nequations ) ! (Entropy Flux)
+!                    fstar = EntropyConsistentFlux     (vg_On, vg_Off, nx_On , nequations ) ! (Entropy Flux)
+                     fstar = EntropyConsistentFlux     (vg_On, vg_Off, nx_Off, nequations ) ! (Entropy Flux)
                   case('Chandrashekar') 
-!                     fstar = Entropy_KE_Consistent_Flux(vg(:,inode,ielem), vstar, nx, nequations ) ! (Entropy Flux)
-                     fstar = Entropy_KE_Consistent_Flux(vg(:,inode,ielem), vstar, nx_Off, nequations ) ! (Entropy Flux)
+!                    fstar = Entropy_KE_Consistent_Flux(vg_On, vg_Off, nx_On , nequations ) ! (Entropy Flux)
+                     fstar = Entropy_KE_Consistent_Flux(vg_On, vg_Off, nx_Off, nequations ) ! (Entropy Flux)
                 end select
                 if(SAT_type == "mod_metric")then
-                  fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wstar(:)) )
+                  fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg_On - wg_Off) )
                 elseif(SAT_type == "mod_SAT")then
-                  fstar = fstar
+                  fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg_On - wg_Off) )
                 else
                   write(*,*)'navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',SAT_type
                   call PetscFinalize(i_err); stop
                 endif
             end select
 
-            fstarV = normalviscousflux( vg(:,inode,ielem), phig(:,:,inode,ielem), nx, nequations,mut(inode,ielem)) &
-              & - fnV(:)
+            fstarV(:) = normalviscousflux( vg_On, phig_On, nx_On, nequations,mut(inode,ielem)) - fV_Off(:)
 
-
-            ! ==  Fluxes
-
-            ! Compute the IP penalty contribution, i.e. M (u-v), where M, in the
-            ! case without flip-flop is a positive matrix defined as:
-            ! M = pinv(1) (c_ii_side_1 + c_ii_side_2)/2, in the normal direction
-            ! ------------------------------------------------------------------
-
-            ! c_ii_side_1 matrix ! c_ii_side_2 matrix
-            hatc_side_1 = matrix_hatc_node(vg(:,inode,ielem),nx,nx,nequations)
-            hatc_side_2 = matrix_hatc_node(vstar,nx,nx,nequations)
-
-            ! IP penalty matrix
-            matrix_ip = 0.5_wp*(hatc_side_1 + hatc_side_2)*pinv(1)
-
-            call primitive_to_entropy(vg(:,inode,ielem),w_side_1,nequations)
-              
-            call primitive_to_entropy(vstar,w_side_2,nequations)
-
-            ! Add the LDG and IP terms to the penalty
-            !l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
+            matrix_ip = 0.5_wp*( matrix_hatc_node(vg_On ,nx_On,nx_On,nequations)    &     ! IP penalty contribution, i.e. M (u-v), where M is S.P.D. and defined as
+                               + matrix_hatc_node(vg_Off,nx_On,nx_On,nequations))*pinv(1) ! M = pinv(1) (c_ii_side_1 + c_ii_side_2)/2, in the normal direction
+                                                                               ! ==  Fluxes
 
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + &
               & pinv(1)* ( (fn - fstar) + l01*fstarV*bc_pen_strength ) - &
-              & pinv(1)* l00*matmul(matrix_ip,w_side_1 - wstar)
+              & pinv(1)* l00*matmul(matrix_ip,wg_On - wg_Off)
 
           end do
         
         else         ! Entropy Stable Solid Wall BC
 
-          ! Loop over each node on the face
-          do i = 1, n_S_2d_On
+          do i = 1, n_S_2d_On                                                       ! Loop over each node on the face
 
-            ! Volumetric node index corresponding to face and node on face indices
-            inode = kfacenodes_On(i,iface)
+            inode = kfacenodes_On(i,iface)                                          ! Volumetric node index corresponding to facenode
           
-            ! Facial index corresponding to face and node on face indices
-            jnode = (iface-1)* n_S_2d_On + i
+            jnode = (iface-1)* n_S_2d_On + i                                        ! Facial index corresponding to face and node on face indices
+
+!           nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)                 ! On_Element outward facing face node normal
+!           if(SAT_type == "mod_metric")then
+!             nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)
+!           elseif(SAT_type == "mod_SAT")then
+!             nx_Off = nx_On
+!           else
+!             write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
+!               SAT_type,' ending computation'
+!               call PetscFinalize(i_err); stop
+!           endif
           
-            ! Outward facing normal of facial node
-            nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
+            nx = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)                    ! Outward facing normal of facial node
 
-            ! Unit normal direction
-            unit_normal = nx/Magnitude(nx)
+            unit_normal = nx/Magnitude(nx)                                          ! Unit normal direction
 
-            ! Normal velocity
-            normal_vel = dot_product(vg(2:4,inode,ielem),unit_normal)*unit_normal
+              ug_On(:)   =   ug(:,  inode,ielem)                                    ! Compute the boundary state starting with the conserved variables
+            phig_On(:,:) = phig(:,:,inode,ielem)                                    ! Grad of entropy variables on-element
 
-            ! Tangent velocity
-            tangent_vel = vg(2:4,inode,ielem) - normal_vel
+            call conserved_to_primitive(ug_On, vg_On, nequations)                   ! Rotate into primitives
+            call primitive_to_entropy  (vg_On, wg_On, nequations)                   ! Rotate into entropies
 
-            vstar(1) = vg(1,inode,ielem)
-            vstar(2) = tangent_vel(1) - normal_vel(1)
-            vstar(3) = tangent_vel(2) - normal_vel(2)
-            vstar(4) = tangent_vel(3) - normal_vel(3)
+            normal_vel = dot_product(vg_On(2:4),unit_normal)*unit_normal            ! Normal velocity
 
-            vstar(5) = vg(5,inode,ielem) 
+            tangent_vel = vg_On(2:4) - normal_vel                                   ! Tangent velocity of interior velocity field
 
-            ! Compute the entropy variables in the ghost node for imposing the
-            ! nonpenetration condition
-            call primitive_to_conserved( vstar, ustar, nequations) 
-            call primitive_to_entropy(vstar,wstar,nequations) 
+            vg_Off(1) = vg_On(1)                                                    ! primitive variables with flipped velocity vector
+            vg_Off(2) = tangent_vel(1) - normal_vel(1)
+            vg_Off(3) = tangent_vel(2) - normal_vel(2)
+            vg_Off(4) = tangent_vel(3) - normal_vel(3)
+            vg_Off(5) = vg_On(5)                                                    ! Thermodynamic variables are identical (Density and temperature)
 
-            ! Compute the roe average state of the primitive variables
-            call roeavg(vg(:,inode,ielem),vstar,vav,nequations)
+            call primitive_to_conserved(vg_Off,ug_Off,nequations)                   ! Off element conserved variables for imposing nonpenetration condition
+            call primitive_to_entropy  (vg_Off,wg_Off,nequations)                   ! Off element entropy   variables for imposing nonpenetration condition
 
-            ! Compute characteristic decomposition
-            call CharacteristicDecomp(vav,nequations,sinv,smat,ev,nx)
+                                                                                                    ! ==  Eigen values/vectors
+            call roeavg(vg_On,vg_Off,vav,nequations)                                ! Compute the roe average state of the primitive variables
 
-            evmax = Cevmax*maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax*evmax)
-            ! ==  Eigen values/vectors
+            call CharacteristicDecomp(vav,nequations,sinv,smat,ev,nx)               ! Compute characteristic decomposition
 
-            ! ==  Fluxes
-            fn = normalflux( vg(:,inode,ielem), nx, nequations )                     ! (Euler Flux)
+            evmax = Cevmax*maxval( abs(ev(:)) )  ; evabs(:) = sqrt(ev(:)*ev(:) + Sfix*evmax*evmax)  ! ==  Eigen values/vectors
+
+            fn = normalflux( vg_On, nx, nequations )                                ! (Euler Flux)
 
 !           select case(Riemann_Diss_BC)
 !             case('LocalLaxF')
-                fLLF  = half * ( normalflux( vg(:,inode,ielem), nx, nequations )  &
-                    &        +   normalflux( vstar            , nx, nequations )  &
-                             +   LocalLaxF_factor*evmax*(ug(:,inode,ielem)-ustar) )
+                fLLF  = half * ( normalflux( vg_On , nx, nequations )  &
+                    &        +   normalflux( vg_Off, nx, nequations )  &
+                             +   LocalLaxF_factor*evmax*(ug_On - ug_Off) )
                 fstar = fLLF
 !             case('Roe')
-!               fstar = EntropyConsistentFlux(vg(:,inode,ielem), vstar, nx, nequations ) ! (Entropy Flux)
-!!              fstar = Entropy_KE_Consistent_Flux(vg(:,inode,ielem), vstar, nx, nequations ) ! (Entropy Flux)
-!               fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg(:,inode,ielem)-wstar(:)) )
+!               fstar = EntropyConsistentFlux(vg(:,inode,ielem), vg_Off, nx, nequations ) ! (Entropy Flux)
+!!              fstar = Entropy_KE_Consistent_Flux(vg(:,inode,ielem), vg_Off, nx, nequations ) ! (Entropy Flux)
+!               fstar = fstar + half * matmul(smat,evabs*matmul(transpose(smat), wg_On - wg_Off) )
 !           end select
 
-            ! Compute the boundary data in primitive variables for imposing the no-slip isothermal wall BC
-            prim_ghost_adiabatic(1) = vg(1,inode,ielem)
-            prim_ghost_adiabatic(2) = 0.0_wp
-            prim_ghost_adiabatic(3) = 0.0_wp
-            prim_ghost_adiabatic(4) = 0.0_wp
-            prim_ghost_adiabatic(5) = vg(5,inode,ielem)
+            vg_Off_NoSlip(1) = vg_On(1)                                             ! no-slip primitive variables 4 no-slip isothermal wall BC
+            vg_Off_NoSlip(2) = 0.0_wp
+            vg_Off_NoSlip(3) = 0.0_wp
+            vg_Off_NoSlip(4) = 0.0_wp
+            vg_Off_NoSlip(5) = vg_On(5)
 
-            ! Compute the entropy variables in the ghost node for imposing the no-slip isothermal wall BC
-            call primitive_to_entropy(prim_ghost_adiabatic,entr_ghost_adiabatic,nequations)
+            call primitive_to_entropy(vg_Off_NoSlip,wg_Off_NoSlip,nequations)       ! Rotate into entropy variables for no-slip isothermal wall BC
 
-            fstarV = normalviscousflux( vg(:,inode,ielem), phig(:,:,inode,ielem), nx, nequations,mut(inode,ielem)) 
+            phig_Off(1,:) = phig_On(1,:)                                            ! Gradients of the primitive variables
+            phig_Off(2,:) = phig_On(2,:)
+            phig_Off(3,:) = phig_On(3,:)
+            phig_Off(4,:) = phig_On(4,:)
 
-            ! Grad(V) = dVdW Grad(W)  = dvdw phi
-            grad_prim_int = MatMul(dVdW(vg(:,inode,ielem),nequations),phig(:,:,inode,ielem))
+            phig_On_Normal(5,:) = dot_product(phig_On(5,:),unit_normal(:))*unit_normal(:)            ! Normal component of grad_entropy_variables
 
-            ! Set gradient of the primitive variables in the ghost node
-            ! =========================================================
-            grad_entr_ghost(1,:) = phig(1,:,inode,ielem) !grad_prim_int(1,:) 
-            grad_entr_ghost(2,:) = phig(2,:,inode,ielem) !grad_prim_int(2,:) 
-            grad_entr_ghost(3,:) = phig(3,:,inode,ielem) !grad_prim_int(3,:) 
-            grad_entr_ghost(4,:) = phig(4,:,inode,ielem) !grad_prim_int(4,:) 
-
-            ! Normal component of grad_prim_int(V)
-            do j = 1, nequations
-              grad_entr_int_normal(j,:) = dot_product(phig(j,:,inode,ielem),unit_normal(:))*unit_normal(:) !dot_product(grad_prim_int(j,:),unit_normal(:))*unit_normal(:)
-            end do
-
-            grad_entr_int_tangent(:,:) = phig(:,:,inode,ielem) - grad_entr_int_normal!grad_prim_int(:,:) - grad_prim_int_normal(:,:)
+            phig_On_Tangent(5,:) = phig_On(5,:) - phig_On_Normal(5,:)                                !  Tangent component of grad_entropy_variables
   
-            grad_entr_ghost(5,:) = grad_entr_int_tangent(5,:) + heat_entropy_flow_wall_bc*unit_normal(:)/vg(5,inode,ielem)
+            phig_Off(5,:) = phig_On_Tangent(5,:) + heat_entropy_flow_wall_bc*unit_normal(:)/vg_On(5) !  add thermal condition to phig_off
 
-            !grad_prim_ghost(5,:) = 0.0_wp !grad_prim_int(5,:) - grad_prim_int_normal(5,:)
+            fstarV(:) = normalviscousflux(vg_On,phig_On ,nx,nequations,mut(inode,ielem))             !  normal viscous flux on-element
 
-            ! Compute normal viscous flux arising from the ghost point
-            !f_viscous_normal_ghost = normalviscousflux(vg(:,inode,ielem),MatMul(dWdV(vg(:,inode,ielem),nequations,mut(inode,ielem)), &
-            !  & grad_prim_ghost),nx,nequations)
-            f_viscous_normal_ghost = normalviscousflux(vg(:,inode,ielem),grad_entr_ghost,nx,nequations,mut(inode,ielem))      
+            fV_Off(:) = normalviscousflux(vg_On,phig_Off,nx,nequations,mut(inode,ielem))             ! normal viscous flux arising from the ghost point
             
-            ! c_ii_side_1 matrix
-            hatc_side_1 = matrix_hatc_node(vg(:,inode,ielem),nx,nx,nequations)
-
-            ! c_ii_side_2 matrix
-            ref_vel_vector(:) = U0
+            ref_vel_vector(:) = U0                                                  ! c_ii reference state matrix
             prim_ref(1) = rho0
             prim_ref(2) = Magnitude(ref_vel_vector)
             prim_ref(3) = Magnitude(ref_vel_vector)
             prim_ref(4) = Magnitude(ref_vel_vector)
             prim_ref(5) = T0
-            hatc_side_2 = matrix_hatc_node(prim_ref,nx,nx,nequations)
 
-            hatc_side_2(5,:) = 0.0_wp
-            hatc_side_2(:,5) = 0.0_wp
+            matrix_ip = matrix_hatc_node(prim_ref,nx,nx,nequations)                 ! IP penalty matrix
 
-            ! IP penalty matrix
-            matrix_ip = hatc_side_2!*pinv(1)
+            matrix_ip(5,:) = 0.0_wp ; matrix_ip(:,5) = 0.0_wp ;                     ! Zero out last row and column
 
-            call primitive_to_entropy(vg(:,inode,ielem),w_side_1,nequations)
-              
-            ! Compute the penalty term
-            gsat(:,inode,ielem) = gsat(:,inode,ielem) &
+            gsat(:,inode,ielem) = gsat(:,inode,ielem) &                             ! Compute the penalty term
               & + pinv(1)*(fn - fstar) &
-              & - pinv(1)*(fstarV-f_viscous_normal_ghost) &
-              & - pinv(1)*1.0_wp*matmul(matrix_ip,w_side_1-entr_ghost_adiabatic)
+              & - pinv(1)*(fstarV-fV_Off) &
+              & - pinv(1)*1.0_wp*matmul(matrix_ip,wg_On - wg_Off_NoSlip)
 
           end do
         end if
@@ -3763,6 +3706,7 @@ contains
 
         allocate( wg_Mort_On (nequations,n_S_2d_Mort))
         allocate( wg_Mort_Off(nequations,n_S_2d_Mort))
+
         allocate(cnt_Mort_Off(           n_S_2d_Mort))
 
         allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
@@ -3777,6 +3721,11 @@ contains
           poly_val = n_S_1d_Off  - npoly
            allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
                     Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,2) ;
+           if(allocated(Intrp_Off)) deallocate(Intrp_Off)   
+             allocate(Intrp_Off (n_S_1d_Off  ,n_S_1d_Mort)) ; 
+             Intrp_Off (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_Off  ,1:n_S_1d_Mort,poly_val,2) ;
+      
+                  
         else
           poly_val = n_S_1d_On - npoly
            allocate(Intrp_On (n_S_1d_On  ,n_S_1d_Mort)) ; 
@@ -3786,8 +3735,20 @@ contains
           poly_val = n_S_1d_Mort - npoly
            allocate(Extrp_Off(n_S_1d_Mort,n_S_1d_Off )) ; 
                     Extrp_Off(:,:) = Prolong_LGL_2_Gau_1d(1:n_S_1d_Mort,1:n_S_1d_Off ,poly_val,1) ;
+           if(allocated(Intrp_Off)) deallocate(Intrp_Off)
+             allocate(Intrp_Off (n_S_1d_Off  ,n_S_1d_Mort)) ; 
+             Intrp_Off (:,:) = Restrct_Gau_2_LGL_1d(1:n_S_1d_Off  ,1:n_S_1d_Mort,poly_val,1) ;
+
         endif
-  
+
+        !QUESTION: why do I aonly have to do this for these and Intrp_Off
+        if(allocated(IOn2Off)) deallocate(IOn2Off)
+          allocate(IOn2Off(1:n_S_1d_Off,1:n_S_1d_On)) 
+          IOn2Off = matmul(Intrp_Off,Extrp_On)
+        if(allocated(IOff2On)) deallocate(IOff2On)
+          allocate(IOff2On(1:n_S_1d_On,1:n_S_1d_Off))
+          IOff2On = matmul(Intrp_On,Extrp_Off)
+
 !=========
 !       face data:  On_element, Off_element and On_Mortar
 !=========
@@ -3893,16 +3854,26 @@ contains
           if(allocated(nx_Off_ghst)) deallocate(nx_Off_ghst)
           allocate(nx_Off_ghst(3,n_S_2d_Off))
 
-         nx_Off_ghst = -nx_2d_Off
+          nx_Off_ghst = -nx_2d_Off
 
-         call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
-                                                     n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
-                                                     n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
-                                                     n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
-                                                     pinv,                                           &
-                                                     vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
-                                                     cnt_Mort_Off, Intrp_On, Extrp_Off, nx_Off_ghst)
+          if(.true.)then
+            call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+                                                        n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                        n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                        pinv,                                           &
+                                                        vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,  &
+                                                        IOn2Off, IOff2On, nx_Off_ghst)
 
+          else
+            !-- old version
+            call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+                                                        n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                        n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                        n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
+                                                        pinv,                                           &
+                                                        vg_2d_On,  vg_2d_Off, wg_Mort_On, wg_Mort_Off,  &
+                                                        cnt_Mort_Off, Intrp_On, Extrp_Off, nx_Off_ghst)
+          endif
         else
           write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
             SAT_type,' ending computation'
@@ -3945,11 +3916,9 @@ contains
 
     deallocate(x_S_1d_On)
 
-    deallocate(ustar,vstar,wstar)
     deallocate(fRoeI,fLLF)
     deallocate(fstar,fstarV)
-    deallocate(phistar)
-    deallocate(fn,fnV)
+    deallocate(fn,fV_Off)
     deallocate(sinv,smat)
     deallocate(ev,evabs,vav)
 
@@ -4086,6 +4055,201 @@ contains
       deallocate(Up_diss_On,Up_diss_Mort)
 
   end subroutine Inviscid_SAT_Non_Conforming_Interface
+  !============================================================================
+  !
+  ! Purpose: Constructs the inviscid SAT for the modified SAT approach where the 
+  !          symmetric portion of the sat is for the xil computational direction and 
+  !          xm Cartesian direction
+  !\begin{equation*}
+  !  P^{-1}E_{xil,ielem}\circ\[Jdxildx]_{ielem}\circ F^{SC}(q_ielem,q_ielem)1_{ielem}
+  !  -\frac{1}{2}P^{-1}\left([Jdxildxm]_{ielem} Evtok + Evtok [Jdxildx_m]_{kelem}\right)\circ 
+  !  F^{SC}(q_{ielem},q_{kelem}) 1_{kelem}
+  !\end{equation*}
+  !
+  ! The upwinding contribution is given as (TO BE COMPLETED)
+  !
+  ! Inputs
+  !       ielem: current element you are on
+  !       iface: current face you are on
+  !       kface: face of adjoining element
+  !       ifacenodes_On: ifacenodes(nodesperface*nfacesperelem) kfacenode flattened into a single vector volumetric node index of face node
+  !       n_S_2d_max: maximum number of nodes on a face
+  !       n_S_1d_On: number of nodes in each direction for ielem
+  !       n_S_2d_On: number of nodes on each face for ielem
+  !       x_S_1d_On: one-dimensional computational coordinates for ielem
+  !       n_S_1d_Off: number of nodes in each direction for kelem
+  !       n_S_2d_Off: number of nodes on each face for kelem
+  !       x_S_1d_Off: one-dimensional computational coordinates for kelem
+  !       n_S_1d_Mort: number of nodes in each direction on the Morter
+  !       n_S_2d_Mort: number of nodes on the mortar face
+  !       x_S_1d_Mort: one-dimensional computational coordiantes on the Mortar
+  !       pinv: vector with the norm weights in one-dimension
+  !       vg_2d_On: two dimensional array (dim,n_S_2d_On) holding the primative variables over the iface of element ielem 
+  !       vg_2d_Off: two dimensional array (dim,n_S_2d_Off) holding the primative variables over the iface of element kelem 
+  !       wg_Mort_On: two dimensional array (dim,n_S_2d_Mort) holding the projection of the entropy variables form ielem to the mortar
+  !       wg_Mort_Off:two dimensional array (dim,n_S_2d_Mort) holding the projection of the entropy variables form kelem to the mortar
+  !       cnt_Mort_Off: vector size n_S_2d_Mort gives the correspondance between the jth mortar nod for the ielem to the node on the kelem
+  !       Intrp_On: from the mortar to ielem
+  !       Extrp_Off: from kelem to the mortar
+  !
+  ! Outputs
+  ! 
+  ! Notes: 
+  !
+  !=============================================================================
+  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+                                                     n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                     n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                     pinv,                                           &
+                                                     vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,  &
+                                                     IOn2Off,IOff2On ,nx_Off_ghst)
+
+    use referencevariables,   only: nequations, ndim
+    use variables,            only: facenodenormal, Jx_r, gsat, ef2e
+    use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, element_properties
+    use initgrid,             only: map_face_orientation_k_On_2_k_Off
+
+    implicit none
+
+    integer,                    intent(in) :: ielem, iface
+    integer,                    intent(in) :: n_S_1d_On, n_S_1d_Off
+    integer,                    intent(in) :: n_S_2d_On, n_S_2d_Off, n_S_2d_max
+    real(wp),  dimension(:),    intent(in) :: x_S_1d_On, x_S_1d_Off
+    real(wp),  dimension(:),    intent(in) :: pinv
+    integer,   dimension(:),    intent(in) :: ifacenodes_On
+    real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
+    real(wp),  dimension(:,:),  intent(in) :: wg_2d_On, wg_2d_Off
+    real(wp),  dimension(:,:),  intent(in) :: IOn2Off, IOff2On, nx_Off_ghst
+    
+    real(wp),  dimension(ndim)             :: nx, nx_On, nx_Off, nx_Ave
+    real(wp),  dimension(nequations)       :: fn, fstar
+    real(wp),  dimension(nequations)       :: vg_On, vg_Off
+
+    real(wp), allocatable, dimension(:,:) :: FA, FB
+    real(wp), allocatable, dimension(:,:) :: Up_diss_On, Up_diss_Off
+
+    real(wp), allocatable, dimension(:,:) :: wg_On2Off, wg_Off2On
+
+    integer                               :: i, j, k, l, orientation
+    integer                               :: inode, jnode, kelem
+
+    continue
+     
+      allocate(wg_On2Off(nequations,1:n_S_2d_Off))
+      allocate(wg_Off2On(nequations,1:n_S_2d_On))
+
+      !-- interpolate/extrapolate wg from On to Off and vice versa
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Off,x_S_1d_On ,x_S_1d_Off,wg_2d_On ,wg_On2Off,IOn2Off)
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On ,x_S_1d_Off,x_S_1d_On ,wg_2d_Off,wg_Off2On,IOff2On)
+
+      allocate(FA (nequations,n_S_2D_Off ))
+      allocate(FB (nequations,n_S_2D_On ))
+      allocate(Up_diss_On  (nequations,n_S_2d_On  ))
+      allocate(Up_diss_Off  (nequations,n_S_2d_Off  ))
+
+      !-- orientation of the off element relative to the on element
+      orientation = ef2e(7,iface,ielem)
+
+!=========
+!         Skew-symmetric matrix portion of SATs (Entropy Conservative without Mortar)
+!=========
+      kelem = ef2e(2,iface,ielem)
+
+
+      On_Element_1:do i = 1, n_S_2d_On                                         ! On element Loop over 2D LGL points
+ 
+        jnode =  n_S_2d_On*(iface-1) + i                                       ! Index in facial ordering
+              
+        inode = ifacenodes_On(jnode)                                           ! Volumetric node index corresponding to facial node index
+
+        nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)                ! On element outward facing normals
+
+        fn(:) = normalflux(vg_2d_On(:,i), nx_On(:), nequations)                ! One point flux based on vg_On and nx
+
+        Off_Element_1:do k = 1, n_S_2d_Off                                     ! Off_Element Loop over 2D LGL points
+         
+          nx_Off(:) = nx_Off_ghst(:,k)                                         ! On element outward facing normals
+
+          nx_Ave(:) = 0.5_wp*(nx_On(:)+nx_Off(:))                              ! Average of normal(i) and normal(j)
+
+!         FA(:,k) = EntropyConsistentFlux     (vg_2d_On(:,i), vg_2d_Off(:,k), nx_Ave(:),nequations) ! Entropy conservative flux
+          FA(:,k) = Entropy_KE_Consistent_Flux(vg_2d_On(:,i), vg_2d_Off(:,k), nx_Ave(:),nequations) ! Entropy conservative flux
+
+        enddo Off_Element_1                                                    ! End Off_Element
+
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On,FA,FB,IOff2On)  ! Extrapolate f^S_x
+
+        l =  map_face_orientation_k_On_2_k_Off(i,orientation,n_S_1d_On)        ! Correct for face orientation and shift back to 1:n_S_2d_On
+
+        fstar = FB(:,l)
+
+        gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar)       ! SAT penalty:  subtract the on-element contribution and replace with penalty 
+
+      enddo On_Element_1
+
+!=========
+!         Inviscid interface dissipation (Entropy Stable Upwinding of SATs) without mortar
+!=========
+
+      !=========
+      !   On element contribution to the dissipation: R_ON^T*Lambda_On*Ron*(wg_ON-wg_Off2ON)
+      !=========
+      On_Element_2:do j = 1, n_S_2d_On                                         ! On element loop over data
+
+        jnode =  n_S_2d_On*(iface-1) + j                                       ! Index in facial ordering (bucket is padded so n_S_2d_max is needed)
+
+        inode = ifacenodes_On(jnode)                                           ! Volumetric node index corresponding to facial node index
+
+        nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)                 ! Outward facing normal of facial node (On-Element)
+
+
+        l = map_face_orientation_k_On_2_k_Off(j,orientation,n_S_1d_On)         ! Correct for face orientation and shift back to 1:n_S_2d_On
+
+
+        call entropy_to_primitive(wg_2d_On (:,j),vg_On (:),nequations)         ! Entropy -> primitive variables:  On_element
+        call entropy_to_primitive(wg_Off2On(:,l),vg_Off(:),nequations)         ! Entropy -> primitive variables: Off_element
+
+        gsat(:,inode,ielem) = gsat(:,inode,ielem) + &
+         0.50_wp * pinv(1) * SAT_Vis_Diss(nequations,vg_On(:),vg_Off(:),nx(:)) ! On-element Viscous penalty contribution
+
+      enddo On_Element_2                                                       ! End On element loop
+
+      !=========
+      !   Off element contribution to the dissipation: R_Off^T*Lambda_Off*R_Off*(wg_On2Off-wg_Off)
+      !   construct 2D plane data in the ordering of the On element
+      !=========
+      Off_Element_2: do j = 1, n_S_2d_Off
+
+        l = map_face_orientation_k_On_2_k_Off(j,orientation,n_S_1d_Off)        ! Correct for face orientation
+
+        nx(:) = nx_Off_ghst(:,l)                                               ! Outward facing normal of facial node
+
+
+        call entropy_to_primitive(wg_On2Off (:,l),vg_On (:),nequations)        ! Entropy -> primitive variables:  On_element
+        call entropy_to_primitive(wg_2d_Off(:,l),vg_Off(:),nequations)         ! Entropy -> primitive variables: Off_element
+
+       Up_diss_Off(:,l) = SAT_Vis_Diss(nequations,vg_On(:),vg_Off(:),nx(:))    ! Viscous dissipation on Mortar based on L-R states
+
+      enddo Off_Element_2
+ 
+                                                                                      ! Restrict data plane from Mortar to on-face plane
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off ,n_S_1d_On ,x_S_1d_Off ,x_S_1d_On,Up_diss_Off,Up_diss_On, IOff2On )
+
+      !-- add dissipation to sat
+
+      On_Elem_2: do i = 1, n_S_2d_On                                           ! On-element loop: Begin
+        
+        jnode =  n_S_2d_On*(iface-1) + i                                       ! Index in facial ordering
+              
+        inode = ifacenodes_On(jnode)                                           ! Volumetric node index corresponding to facial node index
+             
+        gsat(:,inode,ielem) = gsat(:,inode,ielem) + 0.50_wp*pinv(1) * Up_diss_On(:,i)! On-element Viscous penalty contribution
+
+      end do On_Elem_2                                                         ! On-element loop: end
+
+      deallocate(FA,FB,Up_diss_On,Up_diss_Off)
+
+  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW
 
   !============================================================================
   !
@@ -4126,7 +4290,7 @@ contains
   !
   ! Outputs
   ! 
-  ! Notes: HERE100
+  ! Notes: 
   !
   !=============================================================================
   subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
@@ -4159,16 +4323,12 @@ contains
     real(wp),  dimension(nequations)       :: vg_On, vg_Off
 
     real(wp), allocatable, dimension(:,:) :: FA , FB
-    real(wp), allocatable, dimension(:,:) :: FxA, FyA, FzA
-    real(wp), allocatable, dimension(:,:) :: FxB, FyB, FzB
     real(wp), allocatable, dimension(:,:) :: FC_Mort_On
     real(wp), allocatable, dimension(:,:) :: Up_diss_Mort, Up_diss_On
 
-    integer,  dimension(:),   allocatable :: kfacenodes_Off
-
     integer                               :: i, j, k, l
     integer                               :: ival, jval
-    integer                               :: inode, jnode, kelem, temp
+    integer                               :: inode, jnode, kelem
 
     continue
 
@@ -4184,8 +4344,6 @@ contains
 !=========
       kelem = ef2e(2,iface,ielem)
 
-      ! establish ``off-element'' face information
-      call element_properties(kelem,n_pts_2d=temp,ifacenodes=kfacenodes_Off)
 
       On_Element_1:do i = 1, n_S_2d_On                                       ! On_Element Loop over 2D LGL points
  
@@ -4227,7 +4385,7 @@ contains
       enddo On_Element_1
 
 !=========
-!         Inviscid interface dissipation (Entropy Stable Upwinding of SATs)
+!         Inviscid interface dissipation (Entropy Stable Upwinding of SATs) using the mortar
 !=========
 if(.true.)then
       On_Mortar_2:do j = 1, n_S_2d_Mort                                      ! Mortar loop over data

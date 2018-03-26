@@ -18,6 +18,7 @@
  solutionfile = 'ViscousShock',
  outputfile = 'VS2D.V.4x2.',
  new = .true.,
+ write_solution = .false.,
  write_restart = .false.,
  write_restart_dir = 'test_test',
  write_restart_common_name = 'restart_p',
@@ -34,7 +35,7 @@
  timemaximum =  0.20000000,
  verbose = .false., 
  Dt_by_CFL = .true.,
- CFL = 0.50,
+ CFL = 1.0,
  variabletimestep = .false.,
  /
 

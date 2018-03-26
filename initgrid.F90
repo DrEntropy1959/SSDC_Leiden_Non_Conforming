@@ -50,6 +50,7 @@ module initgrid
   public transform_grid
   public write_matrix_to_file_matlab
   public e_edge2e_connectivity
+  public map_face_orientation_k_On_2_k_Off
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
@@ -70,6 +71,9 @@ module initgrid
 
   public elfacedirections
 
+!-- DAVID DEBUG START
+  public face_orientation_hex
+!-- DAVID DEBUG END
   interface
     integer(c_int) function calcMetisPartitions(ne, nv, nps, xadj, adj, ncommon, &
         epart, npart, nnz) &
@@ -3373,7 +3377,8 @@ contains
     call MPI_reduce(np_mods, ng_mods,1, mpi_integer, mpi_sum, 0, petsc_comm_world, ierr)
 
     ! Write at screen the L_inf of the metric error
-    if(myprocid == 0 .and. verbose)  then
+!   if(myprocid == 0 .and. verbose)  then
+    if(myprocid == 0)  then
       write(*,*)'  Modified Elements and L_inf of modification', ng_mods, maxval(err_max_proc(:))
       write(*,*) '==========================================================='
 
@@ -3494,6 +3499,157 @@ contains
   end function face_orientation_hex
 
   !============================================================================================
+  !
+  ! Purpose: For a given face node number on the elemenet, k_On in local face ordering, this function
+  !          returns the face node number of the adjoining element, k_Off in local face ordering.
+  !
+  ! Inputs k_On = the face node number in the local face ordering of the on element
+  !        orientation = orientation number
+  !                   0 = normal orientation
+  !                   1 = counter-clock-wise rotation of theta = 3*pi/2
+  !                   2 = counter-clock-wise rotation of theta = pi
+  !                   3 = counter-clock-wise rotation of theta = pi/2
+  !                   4 = counter-clock-wise rotation of theta = 3*pi/2 with a switch of axis
+  !                   5 = switch of axis
+  !                   6 = counter-clock-wise rotation of theta = pi/2 with a switch of axis
+  !                   7 = counter-clock-wise rotation of theta = pi with a switch of axis
+  !       n_1d_On = number of nodes in each direction on the On element
+  !
+  ! Outputs  map_face_orientation_k_On_2_k_Off = the face node number on the off 
+  !          element associated with k_On
+  ! 
+  ! Notes: This function is constructed based on the idea that k_On map onto 
+  !        (i_On,j_On) which can then be mapped to (i_Off,j_Off) which can then 
+  !        be mapped to k_Off
+  ! The map between k_On-->(i_On, j_On) and (i_Off, j_Off) --> k_Off are highlighted 
+  ! are given below. Here the discussion focuses on the map between 
+  ! (i_On, j_On)--> (i_Off,j_Off) was constructed 
+  !  
+  ! This maping can be thought of as mapping between integer sets and can be arrived 
+  ! at by using a rotation about the point ( (n_1d_On-1)/2+1, (n_1d_On-1)/2 +1) 
+  ! and a switch of coordinates
+  !
+  ! For the rotation we have
+  !
+  ! [i_Off; j_Off;1] =| a11     (1-a11)  0  |   |  1  0  (n1d-1)/2+1  | |  c  s  0  | |  1  0  -(n1d-1)/2-1  | [i_On; j_Off; 1]
+  !                   | (1-a11)  a11     0  |   |  0  1  (n1d-1)/2+1  | |  -s c  0  | |  0  1  -(n1d-1)/2-1  | 
+  !                   |  0       0       1  |   |  0  0       1       | |  0  0  1  | |  0  0       1        |
+  !
+  !  The first matrix will change the coordinate axis, i.e., i_Off = j_On, j_Off = i_On for a11 = 0, while for a11 = 1 it is an identity matrix 
+  !  The next three matricies effect a rotation in the counter-clockwise direction of theta, where c = cos(theta), and s = sin(theta)
+  !  about the point ( (n_1d_On-1)/2+1, (n_1d_On-1)/2 +1).
+  !  The commented out code gives the resulting mappings for the various choices of orientation. 
+  !  We can however remove the if statments in that version of the function by solving for a11, c, and s as degree 7 polynomials of orientation, 
+  !  that is for example a11 = \sum_{i=0}^{7}a_{i}*orientation**i and we solve for the a_{i}'s so that they give the correct value for orientation.
+  ! 
+  ! Tests: Tested in MatLab script, see unit_tests/test_map_face_orientation_compact
+  !        Tested in code with orientation = 0 
+  !
+  !=============================================================================
+
+  function map_face_orientation_k_On_2_k_Off(k_On,orientation,n_1d_On)
+
+     implicit none
+
+     integer, intent(in)                         :: k_On, orientation, n_1d_On
+
+     integer                                     :: map_face_orientation_k_On_2_k_Off
+
+     real(wp)                                    :: i_On2, j_On2, i_Off2, j_Off2
+
+     real(wp)                                    :: a11, a0, a1, a2, a3, a4, a5, a6 ,a7
+     real(wp)                                    :: c, c0, c1, c2, c3, c4, c5, c6, c7
+     real(wp)                                    :: s, s1, s2, s3, s4, s5, s6, s7
+
+    !-- map between k_On and (i_On2, j_On2)
+    i_On2 = k_On-floor((k_On-1.0_wp)/n_1d_On)*n_1d_On
+    j_On2 = (k_On-i_On2)/n_1d_On+1.0_wp
+
+    a0 = 1.0_wp
+    a1 = 2341.0_wp/420.0_wp
+    a2 = -931.0_wp/72.0_wp
+    a3 = 791.0_wp/72.0_wp
+    a4 = -161.0_wp/36.0_wp
+    a5 = 337.0_wp/360.0_wp
+    a6 = -7.0_wp/72.0_wp
+    a7 = 1.0_wp/252.0_wp
+    a11 = a0 + a1*orientation + a2*orientation**2 + a3*orientation**3 + a4*orientation**4&
+          + a5*orientation**5 + a6*orientation**6 + a7*orientation**7
+
+    c0 = 1.0_wp
+    c1 = 335.0_wp/28.0_wp
+    c2 = -2093.0_wp/72.0_wp
+    c3 = 851.0_wp/36.0_wp
+    c4 = -665.0_wp/72.0_wp
+    c5 = 17.0_wp/9.0_wp
+    c6 = -7.0_wp/36.0_wp
+    c7 = 1.0_wp/126.0_wp
+    c = c0 + c1*orientation + c2*orientation**2 + c3*orientation**3 + c4*orientation**4 + c5*orientation**5&
+           + c6*orientation**6 + c7*orientation**7
+
+    s1 = 49.0_wp/4.0_wp;
+    s2 = -11837.0_wp/360.0_wp
+    s3 = 5333.0_wp/180.0_wp
+    s4 = -889.0_wp/72.0_wp
+    s5 = 47.0_wp/18.0_wp
+    s6 = -49.0_wp/180.0_wp
+    s7 = 1.0_wp/90.0_wp
+    s = s1*orientation + s2*orientation**2 + s3*orientation**3 + s4*orientation**4 + s5*orientation**5 &
+        + s6*orientation**6 + s7*orientation**7
+
+    i_Off2 = a11 * c * i_On2 + a11 * i_On2 * s - i_On2 * s - a11 * c * j_On2 + a11 * j_On2 * s + c * j_On2 &
+            - n_1d_On * a11 * s + n_1d_On * s / 2.0_wp - a11 * s + s / 2.0_wp - n_1d_On * c / 2.0_wp &
+            - c / 2.0_wp + n_1d_On / 2.0_wp + 0.5_wp
+    j_Off2 = -a11 * c * i_On2 - a11 * i_On2 * s + c * i_On2 + a11 * c * j_On2 - a11 * j_On2 * s + j_On2 * s &
+            + n_1d_On * a11 * s - n_1d_On * c / 2.0_wp + a11 * s - c / 2.0_wp - n_1d_On * s / 2.0_wp &
+            - s / 2.0_wp + n_1d_On / 2.0_wp + 0.5_wp
+
+    !-- this is k_Off
+    map_face_orientation_k_On_2_k_Off = NINT((j_Off2-1)*n_1d_On+i_Off2)
+
+
+!-- simple code with ifs
+!    implicit none
+!    
+!    integer, intent(in)                         :: k_On, orientation, n_1d_On
+!
+!    integer                                     :: map_face_orientation_k_On_2_k_Off
+!    integer                                     :: i_On, j_On, i_Off, j_Off
+!
+!    !-- map between k_On and (i_On, j_On)
+!    i_On = k_On-floor((k_On-1.0_wp)/n_1d_On)*n_1d_On
+!    j_On = (k_On-i_On)/n_1d_On+1
+!
+!    if(orientation.EQ.0)then
+!      i_Off = i_On
+!      j_Off = j_On
+!    elseif(orientation.EQ.1)then
+!      i_Off = -j_On+n_1d_On +1
+!      j_Off = i_On    
+!    elseif(orientation.EQ.2)then
+!      i_Off = -i_On+n_1d_On+1
+!      j_Off = -j_On+n_1d_On+1
+!    elseif(orientation.EQ.3)then
+!      i_Off = j_On
+!      j_Off = -i_On+n_1d_On +1
+!    elseif(orientation.EQ.4)then
+!      i_Off = i_On;
+!      j_Off = -j_On+n_1d_On +1;     
+!    elseif(orientation.EQ.5)then
+!      i_Off = j_On;
+!      j_Off = i_On;
+!    elseif(orientation.EQ.6)then
+!      i_Off = -i_On+n_1d_On +1;
+!      j_Off = j_On;
+!    elseif(orientation.EQ.7)then
+!      i_Off = -j_On+n_1d_On+1;
+!      j_Off = -i_On+n_1d_On+1;
+!    endif
+!
+!    !-- this is k_Off, i.e., the map from (i_Off, j_Off) and k_Off
+!    map_face_orientation_k_On_2_k_Off = (j_Off-1)*n_1d_On+i_Off
+
+  end function map_face_orientation_k_On_2_k_Off
 
   subroutine Load_Mortar_Metric_Data(ielem,n_LGL_1d,n_LGL_2d,n_LGL_3d,ifacenodes,p_surf,a_t,bvec)
 
@@ -5243,7 +5399,6 @@ contains
       write(*,*) 'Exiting...'
       stop
     end if ! End if ndim == 3
-
   end subroutine e2e_connectivity_aflr3     !  SERIAL Routine
 
   !============================================================================
@@ -8277,7 +8432,7 @@ end subroutine write_matrix_to_file_matlab
 
     use mpimod
     use variables, only            : e_edge2e, vx_Master, ic2nh, iae2e2e, jae2e2e
-    use referencevariables, only   : nelems, ndim, number_of_possible_partners, myprocid
+    use referencevariables, only   : nelems, ndim, number_of_possible_partners
     use collocationvariables, only : elem_props
     use precision_vars, only       : magnitude
 

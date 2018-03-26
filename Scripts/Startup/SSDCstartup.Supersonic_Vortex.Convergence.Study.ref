@@ -22,7 +22,8 @@
  solutionfile = 'supersonic_vortex',
  outputfile = 'VS2D.V.4x2.',
  new = .true.,
- write_restart = .false.,
+ write_solution = .false.,
+ write_restart  = .false.,
  write_restart_dir = 'test_test',
  write_restart_common_name = 'restart_p',
  write_restart_formatted = .true.,
@@ -39,7 +40,7 @@
  verbose = .false., 
  variabletimestep = .false., 
  Dt_by_CFL = .true.,
- CFL = 0.40,
+ CFL = 1.0,
  /
 
  &FlowParameters

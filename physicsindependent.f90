@@ -122,7 +122,7 @@ contains
 !       write(*,*) 'Master node builds element orders if non-conforming'
 !       write(*,*) '==============================================================='
         call set_element_orders_serial()    
-  
+ 
         ! create e_edge2e connectivity
         call e_edge2e_connectivity()   
 

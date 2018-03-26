@@ -4,7 +4,6 @@
  ===============================================================
  Reading the start-up file
  ==========================================================================
- Inconsistancy between Grid_Topology and npoly. Switching Topology to linear
  Polynomial order:            1
  ===============================================================
  Over-collocation:            0
@@ -12,58 +11,9 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
-   Number of vertices per element =            8
- ==========================================================================
- Master node calls metis to subdivide the domain
- ===============================================================
- Master node distributes elements
- ===============================================================
- Each process constructs the coordinates of the collocated nodes
- ===============================================================
- Each process constructs the metrics
-   Metric error: L_inf      1.6653345369377348E-016
- ===========================================================
- Each process finds the partner node of each collocated node
- ===============================================================
- Each process finds the WENO partner node of each collocated node
- ===============================================================
- Each process initializes PETSc ghost vectors
- ===============================================================
- Each process constructs the face-node connectivity
- ===============================================================
- Each process constructs the normal vectors
- ===============================================================
-   Modified Elements and L_inf of modification          21   4.2232137497319537E-016
- ===========================================================
- Start actual computation
- ===============================================================
- P           1
- L1   error:    2.1139532147432540E-005
- L2   error:    4.0856138656010782E-005
- Linf error:    2.0215941545365101E-004
- CPU time:          0.4076
-
- Solution files written in solution                                                                                                                
-
-
- Start-up file name: SSDCstartup                                                                                                             
- ===============================================================
- Reading the start-up file
- ==========================================================================
- Inconsistancy between Grid_Topology and npoly. Switching Topology to linear
- Polynomial order:            1
- ===============================================================
- Over-collocation:            0
- ===============================================================
- Master node reads the AFLR3 grid
- ===============================================================
- Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of vertices             =           27
+   Number of hexahedrons          =            8
+   Number of boundary faces       =           24
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
@@ -76,7 +26,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      1.6653345369377348E-016
+   Metric error: L_inf      1.1657341758564144E-015
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -88,24 +38,18 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   4.2232137497319537E-016
- ===========================================================
  Start actual computation
  ===============================================================
  P           1
- L1   error:    2.1139532147432313E-005
- L2   error:    4.0856138656010498E-005
- Linf error:    2.0215941545365101E-004
- CPU time:          0.2326
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    2.3819597233050902E-003
+ L2   error:    6.8308153981772703E-003
+ Linf error:   0.12106462916138835     
+ CPU time:          0.1520
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
  Reading the start-up file
  ==========================================================================
- Inconsistancy between Grid_Topology and npoly. Switching Topology to linear
  Polynomial order:            1
  ===============================================================
  Over-collocation:            0
@@ -113,9 +57,9 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of vertices             =           64
+   Number of hexahedrons          =           27
+   Number of boundary faces       =           54
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
@@ -128,7 +72,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      1.6653345369377348E-016
+   Metric error: L_inf      6.5225602696727947E-016
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -140,24 +84,18 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   4.2232137497319537E-016
- ===========================================================
  Start actual computation
  ===============================================================
  P           1
- L1   error:    2.1139532147432404E-005
- L2   error:    4.0856138656010721E-005
- Linf error:    2.0215941545365101E-004
- CPU time:          0.1609
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    1.3151256935067179E-003
+ L2   error:    5.4080218372803135E-003
+ Linf error:   0.13108927131779938     
+ CPU time:          0.3005
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
  Reading the start-up file
  ==========================================================================
- Inconsistancy between Grid_Topology and npoly. Switching Topology to linear
  Polynomial order:            1
  ===============================================================
  Over-collocation:            0
@@ -165,14 +103,14 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
+   Number of vertices             =          125
    Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of boundary faces       =           96
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 5 partitions
+ Metis is attempting to divide the domain into 4 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -180,7 +118,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      1.6653345369377348E-016
+   Metric error: L_inf      4.6577325329977270E-016
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -192,70 +130,13 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   4.2232137497319537E-016
- ===========================================================
  Start actual computation
  ===============================================================
  P           1
- L1   error:    2.1139532147432387E-005
- L2   error:    4.0856138656010511E-005
- Linf error:    2.0215941545365101E-004
- CPU time:          0.1825
-
- Solution files written in solution                                                                                                                
-
-
- Start-up file name: SSDCstartup                                                                                                             
- ===============================================================
- Reading the start-up file
- ==========================================================================
- Inconsistancy between Grid_Topology and npoly. Switching Topology to linear
- Polynomial order:            1
- ===============================================================
- Over-collocation:            0
- ===============================================================
- Master node reads the AFLR3 grid
- ===============================================================
- Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
-   Number of vertices per element =            8
- ==========================================================================
- Master node calls metis to subdivide the domain
- ===============================================================
- Metis is attempting to divide the domain into 7 partitions
-   Returned from metis, 0
- ===============================================================
- Master node distributes elements
- ===============================================================
- Each process constructs the coordinates of the collocated nodes
- ===============================================================
- Each process constructs the metrics
-   Metric error: L_inf      1.6653345369377348E-016
- ===========================================================
- Each process finds the partner node of each collocated node
- ===============================================================
- Each process finds the WENO partner node of each collocated node
- ===============================================================
- Each process initializes PETSc ghost vectors
- ===============================================================
- Each process constructs the face-node connectivity
- ===============================================================
- Each process constructs the normal vectors
- ===============================================================
-   Modified Elements and L_inf of modification          21   4.2232137497319537E-016
- ===========================================================
- Start actual computation
- ===============================================================
- P           1
- L1   error:    2.1139532147432390E-005
- L2   error:    4.0856138656010511E-005
- Linf error:    2.0215941545365101E-004
- CPU time:          0.1455
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    9.6137245772763926E-004
+ L2   error:    4.1263754358677749E-003
+ Linf error:   0.13212599236412612     
+ CPU time:          0.5431
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -268,57 +149,9 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
-   Number of vertices per element =            8
- ==========================================================================
- Master node calls metis to subdivide the domain
- ===============================================================
- Master node distributes elements
- ===============================================================
- Each process constructs the coordinates of the collocated nodes
- ===============================================================
- Each process constructs the metrics
-   Metric error: L_inf      1.2596117919752640E-015
- ===========================================================
- Each process finds the partner node of each collocated node
- ===============================================================
- Each process finds the WENO partner node of each collocated node
- ===============================================================
- Each process initializes PETSc ghost vectors
- ===============================================================
- Each process constructs the face-node connectivity
- ===============================================================
- Each process constructs the normal vectors
- ===============================================================
-   Modified Elements and L_inf of modification          21   1.3422718619020244E-015
- ===========================================================
- Start actual computation
- ===============================================================
- P           2
- L1   error:    3.5755728112723559E-007
- L2   error:    1.2655102797449309E-006
- Linf error:    3.0724504609280778E-005
- CPU time:          0.9278
-
- Solution files written in solution                                                                                                                
-
-
- Start-up file name: SSDCstartup                                                                                                             
- ===============================================================
- Reading the start-up file
- ==========================================================================
- Polynomial order:            2
- ===============================================================
- Over-collocation:            0
- ===============================================================
- Master node reads the AFLR3 grid
- ===============================================================
- Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of vertices             =           27
+   Number of hexahedrons          =            8
+   Number of boundary faces       =           24
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
@@ -331,7 +164,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      1.2596117919752640E-015
+   Metric error: L_inf      5.8356097731859791E-015
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -343,18 +176,13 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   1.3422718619020244E-015
- ===========================================================
  Start actual computation
  ===============================================================
  P           2
- L1   error:    3.5755728112714003E-007
- L2   error:    1.2655102797445768E-006
- Linf error:    3.0724504609280778E-005
- CPU time:          0.5188
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    1.8685242841768958E-004
+ L2   error:    2.9375163698668370E-004
+ Linf error:    2.6078252815769920E-003
+ CPU time:          0.2927
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -367,9 +195,9 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of vertices             =           64
+   Number of hexahedrons          =           27
+   Number of boundary faces       =           54
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
@@ -382,7 +210,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      1.2596117919752640E-015
+   Metric error: L_inf      3.3827107781547738E-015
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -394,18 +222,13 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   1.3422718619020244E-015
- ===========================================================
  Start actual computation
  ===============================================================
  P           2
- L1   error:    3.5755728112688465E-007
- L2   error:    1.2655102797446336E-006
- Linf error:    3.0724504609169756E-005
- CPU time:          0.3384
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    7.6568644098642101E-005
+ L2   error:    1.5383443033569527E-004
+ Linf error:    2.6174150390067541E-003
+ CPU time:          0.5627
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -418,14 +241,14 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
+   Number of vertices             =          125
    Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of boundary faces       =           96
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 5 partitions
+ Metis is attempting to divide the domain into 4 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -433,7 +256,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      1.2596117919752640E-015
+   Metric error: L_inf      2.5882074261573962E-015
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -445,69 +268,13 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   1.3422718619020244E-015
- ===========================================================
  Start actual computation
  ===============================================================
  P           2
- L1   error:    3.5755728112692891E-007
- L2   error:    1.2655102797445423E-006
- Linf error:    3.0724504609169756E-005
- CPU time:          0.3994
-
- Solution files written in solution                                                                                                                
-
-
- Start-up file name: SSDCstartup                                                                                                             
- ===============================================================
- Reading the start-up file
- ==========================================================================
- Polynomial order:            2
- ===============================================================
- Over-collocation:            0
- ===============================================================
- Master node reads the AFLR3 grid
- ===============================================================
- Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
-   Number of vertices per element =            8
- ==========================================================================
- Master node calls metis to subdivide the domain
- ===============================================================
- Metis is attempting to divide the domain into 7 partitions
-   Returned from metis, 0
- ===============================================================
- Master node distributes elements
- ===============================================================
- Each process constructs the coordinates of the collocated nodes
- ===============================================================
- Each process constructs the metrics
-   Metric error: L_inf      1.2596117919752640E-015
- ===========================================================
- Each process finds the partner node of each collocated node
- ===============================================================
- Each process finds the WENO partner node of each collocated node
- ===============================================================
- Each process initializes PETSc ghost vectors
- ===============================================================
- Each process constructs the face-node connectivity
- ===============================================================
- Each process constructs the normal vectors
- ===============================================================
-   Modified Elements and L_inf of modification          21   1.3422718619020244E-015
- ===========================================================
- Start actual computation
- ===============================================================
- P           2
- L1   error:    3.5755728112695580E-007
- L2   error:    1.2655102797446327E-006
- Linf error:    3.0724504609169756E-005
- CPU time:          0.3159
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    4.5484018603845136E-005
+ L2   error:    9.4634468254787730E-005
+ Linf error:    2.1483684264514413E-003
+ CPU time:          1.0323
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -520,57 +287,9 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
-   Number of vertices per element =            8
- ==========================================================================
- Master node calls metis to subdivide the domain
- ===============================================================
- Master node distributes elements
- ===============================================================
- Each process constructs the coordinates of the collocated nodes
- ===============================================================
- Each process constructs the metrics
-   Metric error: L_inf      5.1847597551886327E-015
- ===========================================================
- Each process finds the partner node of each collocated node
- ===============================================================
- Each process finds the WENO partner node of each collocated node
- ===============================================================
- Each process initializes PETSc ghost vectors
- ===============================================================
- Each process constructs the face-node connectivity
- ===============================================================
- Each process constructs the normal vectors
- ===============================================================
-   Modified Elements and L_inf of modification          21   3.2536521272515009E-015
- ===========================================================
- Start actual computation
- ===============================================================
- P           3
- L1   error:    1.0435466690107835E-008
- L2   error:    4.5071281288876286E-008
- Linf error:    1.0602880120558211E-006
- CPU time:          1.9885
-
- Solution files written in solution                                                                                                                
-
-
- Start-up file name: SSDCstartup                                                                                                             
- ===============================================================
- Reading the start-up file
- ==========================================================================
- Polynomial order:            3
- ===============================================================
- Over-collocation:            0
- ===============================================================
- Master node reads the AFLR3 grid
- ===============================================================
- Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of vertices             =           27
+   Number of hexahedrons          =            8
+   Number of boundary faces       =           24
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
@@ -583,7 +302,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      5.1847597551886327E-015
+   Metric error: L_inf      2.4494295480792516E-014
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -595,18 +314,13 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   3.2536521272515009E-015
- ===========================================================
  Start actual computation
  ===============================================================
  P           3
- L1   error:    1.0435466690020101E-008
- L2   error:    4.5071281289449694E-008
- Linf error:    1.0602880117227542E-006
- CPU time:          1.1487
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    5.1422829291938577E-005
+ L2   error:    8.4537043831690238E-005
+ Linf error:    1.4384401372806721E-003
+ CPU time:          0.5228
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -619,9 +333,9 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of vertices             =           64
+   Number of hexahedrons          =           27
+   Number of boundary faces       =           54
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
@@ -634,7 +348,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      5.1847597551886327E-015
+   Metric error: L_inf      1.3593293157754260E-014
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -646,18 +360,13 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   3.2536521272515009E-015
- ===========================================================
  Start actual computation
  ===============================================================
  P           3
- L1   error:    1.0435466690082302E-008
- L2   error:    4.5071281289438597E-008
- Linf error:    1.0602880117227542E-006
- CPU time:          0.7325
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    1.9210936373266635E-005
+ L2   error:    3.7759585128975920E-005
+ Linf error:    9.1059084002081958E-004
+ CPU time:          0.9637
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -670,14 +379,14 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
+   Number of vertices             =          125
    Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of boundary faces       =           96
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 5 partitions
+ Metis is attempting to divide the domain into 4 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -685,7 +394,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      5.1847597551886327E-015
+   Metric error: L_inf      1.2309597785531423E-014
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -697,69 +406,13 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   3.2536521272515009E-015
- ===========================================================
  Start actual computation
  ===============================================================
  P           3
- L1   error:    1.0435466689803444E-008
- L2   error:    4.5071281289220995E-008
- Linf error:    1.0602880117227542E-006
- CPU time:          0.8548
-
- Solution files written in solution                                                                                                                
-
-
- Start-up file name: SSDCstartup                                                                                                             
- ===============================================================
- Reading the start-up file
- ==========================================================================
- Polynomial order:            3
- ===============================================================
- Over-collocation:            0
- ===============================================================
- Master node reads the AFLR3 grid
- ===============================================================
- Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
-   Number of vertices per element =            8
- ==========================================================================
- Master node calls metis to subdivide the domain
- ===============================================================
- Metis is attempting to divide the domain into 7 partitions
-   Returned from metis, 0
- ===============================================================
- Master node distributes elements
- ===============================================================
- Each process constructs the coordinates of the collocated nodes
- ===============================================================
- Each process constructs the metrics
-   Metric error: L_inf      5.1847597551886327E-015
- ===========================================================
- Each process finds the partner node of each collocated node
- ===============================================================
- Each process finds the WENO partner node of each collocated node
- ===============================================================
- Each process initializes PETSc ghost vectors
- ===============================================================
- Each process constructs the face-node connectivity
- ===============================================================
- Each process constructs the normal vectors
- ===============================================================
-   Modified Elements and L_inf of modification          21   3.2536521272515009E-015
- ===========================================================
- Start actual computation
- ===============================================================
- P           3
- L1   error:    1.0435466690004479E-008
- L2   error:    4.5071281289327490E-008
- Linf error:    1.0602880117227542E-006
- CPU time:          0.7212
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    9.4517250077346438E-006
+ L2   error:    1.8826032476900474E-005
+ Linf error:    4.2533298044317158E-004
+ CPU time:          1.7423
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -772,57 +425,9 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
-   Number of vertices per element =            8
- ==========================================================================
- Master node calls metis to subdivide the domain
- ===============================================================
- Master node distributes elements
- ===============================================================
- Each process constructs the coordinates of the collocated nodes
- ===============================================================
- Each process constructs the metrics
-   Metric error: L_inf      9.9805734927830348E-015
- ===========================================================
- Each process finds the partner node of each collocated node
- ===============================================================
- Each process finds the WENO partner node of each collocated node
- ===============================================================
- Each process initializes PETSc ghost vectors
- ===============================================================
- Each process constructs the face-node connectivity
- ===============================================================
- Each process constructs the normal vectors
- ===============================================================
-   Modified Elements and L_inf of modification          21   8.6487748407133238E-015
- ===========================================================
- Start actual computation
- ===============================================================
- P           4
- L1   error:    1.0210773073012827E-010
- L2   error:    5.0075407238517322E-010
- Linf error:    2.9717393101869050E-008
- CPU time:          4.5954
-
- Solution files written in solution                                                                                                                
-
-
- Start-up file name: SSDCstartup                                                                                                             
- ===============================================================
- Reading the start-up file
- ==========================================================================
- Polynomial order:            4
- ===============================================================
- Over-collocation:            0
- ===============================================================
- Master node reads the AFLR3 grid
- ===============================================================
- Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of vertices             =           27
+   Number of hexahedrons          =            8
+   Number of boundary faces       =           24
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
@@ -835,7 +440,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      9.9805734927830348E-015
+   Metric error: L_inf      6.5473668153792630E-014
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -847,18 +452,13 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   8.6487748407133238E-015
- ===========================================================
  Start actual computation
  ===============================================================
  P           4
- L1   error:    1.0210773058737198E-010
- L2   error:    5.0075407198252351E-010
- Linf error:    2.9717392990846747E-008
- CPU time:          2.7047
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    1.0342783894665102E-005
+ L2   error:    1.8643518769649862E-005
+ Linf error:    6.8133187044702725E-004
+ CPU time:          0.8696
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -871,9 +471,9 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of vertices             =           64
+   Number of hexahedrons          =           27
+   Number of boundary faces       =           54
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
@@ -886,7 +486,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      9.9805734927830348E-015
+   Metric error: L_inf      5.2513549064769904E-014
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -898,18 +498,13 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   8.6487748407133238E-015
- ===========================================================
  Start actual computation
  ===============================================================
  P           4
- L1   error:    1.0210773078543361E-010
- L2   error:    5.0075407193390949E-010
- Linf error:    2.9717392879824445E-008
- CPU time:          1.6649
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    2.8790610887405982E-006
+ L2   error:    5.1628935017652081E-006
+ Linf error:    8.5098169667702228E-005
+ CPU time:          1.5889
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
@@ -922,14 +517,14 @@
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
+   Number of vertices             =          125
    Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of boundary faces       =           96
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 5 partitions
+ Metis is attempting to divide the domain into 4 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -937,7 +532,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      9.9805734927830348E-015
+   Metric error: L_inf      3.4927193515860155E-014
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -949,38 +544,33 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   8.6487748407133238E-015
- ===========================================================
  Start actual computation
  ===============================================================
  P           4
- L1   error:    1.0210773063372026E-010
- L2   error:    5.0075407183540034E-010
- Linf error:    2.9717392990846747E-008
- CPU time:          2.1360
-
- Solution files written in solution                                                                                                                
-
+ L1   error:    1.0462443831725942E-006
+ L2   error:    1.8918811121000862E-006
+ Linf error:    5.4226932400813777E-005
+ CPU time:          2.9742
 
  Start-up file name: SSDCstartup                                                                                                             
  ===============================================================
  Reading the start-up file
  ==========================================================================
- Polynomial order:            4
+ Polynomial order:            5
  ===============================================================
  Over-collocation:            0
  ===============================================================
  Master node reads the AFLR3 grid
  ===============================================================
  Master node builds connectivity and orientation arrays
-   Number of vertices             =          170
-   Number of hexahedrons          =           64
-   Number of boundary faces       =          168
+   Number of vertices             =           27
+   Number of hexahedrons          =            8
+   Number of boundary faces       =           24
    Number of vertices per element =            8
  ==========================================================================
  Master node calls metis to subdivide the domain
  ===============================================================
- Metis is attempting to divide the domain into 7 partitions
+ Metis is attempting to divide the domain into 2 partitions
    Returned from metis, 0
  ===============================================================
  Master node distributes elements
@@ -988,7 +578,7 @@
  Each process constructs the coordinates of the collocated nodes
  ===============================================================
  Each process constructs the metrics
-   Metric error: L_inf      9.9805734927830348E-015
+   Metric error: L_inf      1.4298978667781626E-013
  ===========================================================
  Each process finds the partner node of each collocated node
  ===============================================================
@@ -1000,15 +590,102 @@
  ===============================================================
  Each process constructs the normal vectors
  ===============================================================
-   Modified Elements and L_inf of modification          21   8.6487748407133238E-015
- ===========================================================
  Start actual computation
  ===============================================================
- P           4
- L1   error:    1.0210773069732624E-010
- L2   error:    5.0075407179584053E-010
- Linf error:    2.9717392879824445E-008
- CPU time:          1.7546
+ P           5
+ L1   error:    2.7859063632671472E-006
+ L2   error:    4.6955858201335578E-006
+ Linf error:    2.2794576258412802E-004
+ CPU time:          1.4312
 
- Solution files written in solution                                                                                                                
+ Start-up file name: SSDCstartup                                                                                                             
+ ===============================================================
+ Reading the start-up file
+ ==========================================================================
+ Polynomial order:            5
+ ===============================================================
+ Over-collocation:            0
+ ===============================================================
+ Master node reads the AFLR3 grid
+ ===============================================================
+ Master node builds connectivity and orientation arrays
+   Number of vertices             =           64
+   Number of hexahedrons          =           27
+   Number of boundary faces       =           54
+   Number of vertices per element =            8
+ ==========================================================================
+ Master node calls metis to subdivide the domain
+ ===============================================================
+ Metis is attempting to divide the domain into 3 partitions
+   Returned from metis, 0
+ ===============================================================
+ Master node distributes elements
+ ===============================================================
+ Each process constructs the coordinates of the collocated nodes
+ ===============================================================
+ Each process constructs the metrics
+   Metric error: L_inf      9.4757535151757111E-014
+ ===========================================================
+ Each process finds the partner node of each collocated node
+ ===============================================================
+ Each process finds the WENO partner node of each collocated node
+ ===============================================================
+ Each process initializes PETSc ghost vectors
+ ===============================================================
+ Each process constructs the face-node connectivity
+ ===============================================================
+ Each process constructs the normal vectors
+ ===============================================================
+ Start actual computation
+ ===============================================================
+ P           5
+ L1   error:    5.0457668678039160E-007
+ L2   error:    8.7892371052449508E-007
+ Linf error:    3.0314508838724663E-005
+ CPU time:          2.5323
 
+ Start-up file name: SSDCstartup                                                                                                             
+ ===============================================================
+ Reading the start-up file
+ ==========================================================================
+ Polynomial order:            5
+ ===============================================================
+ Over-collocation:            0
+ ===============================================================
+ Master node reads the AFLR3 grid
+ ===============================================================
+ Master node builds connectivity and orientation arrays
+   Number of vertices             =          125
+   Number of hexahedrons          =           64
+   Number of boundary faces       =           96
+   Number of vertices per element =            8
+ ==========================================================================
+ Master node calls metis to subdivide the domain
+ ===============================================================
+ Metis is attempting to divide the domain into 4 partitions
+   Returned from metis, 0
+ ===============================================================
+ Master node distributes elements
+ ===============================================================
+ Each process constructs the coordinates of the collocated nodes
+ ===============================================================
+ Each process constructs the metrics
+   Metric error: L_inf      1.4396817071826717E-013
+ ===========================================================
+ Each process finds the partner node of each collocated node
+ ===============================================================
+ Each process finds the WENO partner node of each collocated node
+ ===============================================================
+ Each process initializes PETSc ghost vectors
+ ===============================================================
+ Each process constructs the face-node connectivity
+ ===============================================================
+ Each process constructs the normal vectors
+ ===============================================================
+ Start actual computation
+ ===============================================================
+ P           5
+ L1   error:    1.3345549876770829E-007
+ L2   error:    2.3921817360323599E-007
+ Linf error:    1.0187498090674652E-005
+ CPU time:          4.7473

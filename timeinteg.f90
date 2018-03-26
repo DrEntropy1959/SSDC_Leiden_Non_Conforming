@@ -202,7 +202,8 @@ contains
       call timestepcontroller(itimestep)
 
       ! Compute time-averaged quantities and write output if needed
-      if(.not. non_conforming) call post_process_ts(itimestep,timeglobal)
+      !if(.not. non_conforming) call post_process_ts(itimestep,timeglobal)
+      call post_process_ts(itimestep,timeglobal)
 
       ! Call Solution filter to clip highest mode
       if (filter_solution) call Solution_Filter()
@@ -883,15 +884,23 @@ contains
         ! Compute specific entropy
         call compute_specific_entropy_elements()
 
-!-- DAVID DEBUG START
         ! Write solution file 
-!        call write_solution_vtu_file()
-        write(*,*)' timeinteg: post_process_ts you have turned off write_solution_vtu_file'
-!-- DAVID DEBUG END
+        if(non_conforming)then
+          !-- non-conforming grid use point cloud description
+
+        else
+          !-- conforming data
+          call write_solution_vtu_file()
+        endif
       
         ! Master node writes the .pvtu file
         if (myprocid .eq. 0) then
-          call write_solution_pvtu_file()
+          if(non_conforming)then
+            !-- non-conforming data use point cloud description
+            !DAVID: do not know if I need anything here yet
+          else
+            call write_solution_pvtu_file()
+          endif
         endif
 
       endif
