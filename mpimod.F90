@@ -1961,7 +1961,7 @@ contains
 
     end do
 
-    allocate(nxghst_LGL_shell(ndim,nghost_LGL_shell))
+    allocate(nxghst_LGL_shell(ndim+1,nghost_LGL_shell))
 
     call PetscComm1D_LGL_Shell_DataSetup(Jx_facenodenormal_LGL,nxghst_LGL_shell,nxpetsc_shell,nxlocpetsc_shell, &
              & size(Jx_facenodenormal_LGL,1), size(Jx_facenodenormal_LGL,2), nelems, size(nxghst_LGL_shell,2))
@@ -1974,14 +1974,16 @@ contains
 
   !============================================================================
   
-  subroutine PetscGridLocations_Gau()
+  subroutine Petsc_Gau_Mortar_Geometry_Data()
 
     ! Initialize the global and ghost arrays for the grid
     ! It is run in parallel by all processes
 
     use referencevariables
-    use variables,            only: xg_Gau_shell, xgghst_Gau_shell, ef2e
-    use petscvariables,       only: xpetsc_shell, xlocpetsc_shell
+    use variables,            only: xg_Gau_shell, xgghst_Gau_shell, ef2e, &
+                                    Jx_r_Gau_Shell,Jx_r_ghst_Gau_shell
+    use petscvariables,       only: xpetsc_shell, xlocpetsc_shell,        &
+                                    Jx_r_petsc_Gau_shell,Jx_r_locpetsc_Gau_shell
     use initcollocation,      only: element_properties
     use collocationvariables, only: elem_props
 
@@ -2014,6 +2016,18 @@ contains
 
     end do
 
+!   Communicate the Jacobian information on either side of nonconforming interfaces
+
+    allocate(Jx_r_ghst_Gau_shell(nghost_Gau_shell))
+
+    call PetscComm0D_Gau_Mortar_DataSetup(Jx_r_Gau_shell,Jx_r_ghst_Gau_shell,Jx_r_petsc_Gau_shell,Jx_r_locpetsc_Gau_shell, &
+                  & size(Jx_r_Gau_shell,1), nelems, size(Jx_r_ghst_Gau_shell,1))
+
+    call UpdateComm0D_Gau_Mortar_GhostData(Jx_r_Gau_shell,Jx_r_ghst_Gau_shell,Jx_r_petsc_Gau_shell,Jx_r_locpetsc_Gau_shell, &
+                  & size(Jx_r_Gau_shell,1),         size(Jx_r_ghst_Gau_shell,1))
+
+!   Communicate the Mortar Grid information on either side of nonconforming interfaces
+
     allocate(xgghst_Gau_shell(ndim,nghost_Gau_shell))
 
     call PetscComm1D_Gau_Mortar_DataSetup(xg_Gau_shell,xgghst_Gau_shell,xpetsc_shell,xlocpetsc_shell, &
@@ -2022,7 +2036,7 @@ contains
     call UpdateComm1D_Gau_Mortar_GhostData(xg_Gau_shell,xgghst_Gau_shell,xpetsc_shell,xlocpetsc_shell, &
                   & size(xg_Gau_shell,1), size(xg_Gau_shell,2),         size(xgghst_Gau_shell,2))
 
-  end subroutine PetscGridLocations_Gau
+  end subroutine Petsc_Gau_Mortar_Geometry_Data
   
   !============================================================================
 
@@ -2918,6 +2932,7 @@ contains
     call VecCreateSeq(petsc_comm_self, ntot + ntotG, Zlocin, ierrpetsc)
 
   end subroutine PetscComm0D_Gau_Mortar_DataSetup
+
   !============================================================================
 
   subroutine PetscComm1D_Gau_Mortar_DataSetup(Zin, Zghstin, Zpetscin, Zlocin, nq, nk, ne, ngh)
@@ -4623,6 +4638,7 @@ contains
     endif
     
   end subroutine distribute_e_edge2e
+
 subroutine parallel_write_grid_to_file(file_name)
 !==================================================================================================
 !

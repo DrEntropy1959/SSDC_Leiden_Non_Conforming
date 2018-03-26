@@ -345,7 +345,6 @@ contains
       endif
     endif
 
-    return
   end subroutine nse_communicationsetup
 
   !============================================================================
@@ -3272,21 +3271,17 @@ contains
     integer :: iface, kface
     integer :: i,j,k
 
-    ! reconstructed flux
-    real(wp), allocatable :: fstar(:), fstarV(:)
+    real(wp), allocatable :: fstar(:), fstarV(:)               ! reconstructed fluxs
     real(wp), allocatable :: fRoeI(:), fLLF(:)
-    ! local normal flux
-    real(wp), allocatable :: fn(:), fV_Off(:)
-    ! right and left eigenvector matrices
-    real(wp), allocatable, dimension(:,:) :: smat, sinv
-    ! eigenvalues
-    real(wp), allocatable, dimension(:)   :: ev, evabs
-    ! average state
-    real(wp), allocatable, dimension(:)   :: Vav
-    ! normal vector
-    real(wp) :: nx(3), nx_On(3), nx_Off(3)
-    ! Lax-Freidrich max Eigenvalue
-    real(wp) :: evmax
+    real(wp), allocatable :: fn(:), fV_Off(:)                  ! Inviscid and viscous fluxes
+
+    real(wp), allocatable, dimension(:,:) :: smat, sinv        ! right and left eigenvector matrices
+    real(wp), allocatable, dimension(:)   :: ev, evabs         ! eigenvalues
+    real(wp), allocatable, dimension(:)   :: Vav               ! average state
+
+    real(wp) :: nx(3), nx_On(3), nx_Off(3)                     ! normal vector
+    real(wp) :: evmax                                          ! Lax-Freidrich max Eigenvalue
+    real(wp) :: Jx_r_Ave                                       ! Average of Jacobian between and On- and Off- elements at interface
 
     integer                              :: n_S_1d_On , n_S_1d_Off, n_S_1d_Mort, n_S_1d_max
     integer                              :: n_S_2d_On , n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
@@ -3344,6 +3339,7 @@ contains
     real(wp), dimension(nequations,3)     :: phig_On_Normal, phig_On_Tangent
 
     real(wp), dimension(3)                :: unit_normal, normal_vel, tangent_vel, ref_vel_vector
+
     integer                               :: i_err
  
     ! allocate local arrays
@@ -3404,7 +3400,7 @@ contains
           
             nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)            ! On_Element outward facing face node normal
             if(SAT_type == "mod_metric")then
-              nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)
+              nx_Off = Jx_facenodenormal_LGL(1:3,jnode,ielem)
             elseif(SAT_type == "mod_SAT")then
               nx_Off = nx_On
             else
@@ -3486,7 +3482,7 @@ contains
 
 !           nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)                 ! On_Element outward facing face node normal
 !           if(SAT_type == "mod_metric")then
-!             nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)
+!             nx_Off = Jx_facenodenormal_LGL(1:3,jnode,ielem)
 !           elseif(SAT_type == "mod_SAT")then
 !             nx_Off = nx_On
 !           else
@@ -3603,24 +3599,29 @@ contains
             inode = ifacenodes_On(jnode)                                  ! Volumetric node index corresponding to facial node index
             
             gnode = efn2efn(3,jnode,ielem)                                ! Index in Petsc ghost stack (not volumetric stack)
-            nx_On =  Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
-            if(nonconforming_element) then
-              nx_Off = - nxghst_LGL_Shell(:,nghst_shell + i)                  ! Outward facing normal in Petsc ghost registers
-            else
-              nx_Off = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
-            endif
   
-            ug_On(:)  = ug   (:,inode,ielem)
-            ug_Off(:) = ughst(:,gnode)
-            call conserved_to_primitive(ug_On (:), vg_On (:), nequations)
+            ug_On(:)  = ug   (:,inode,ielem)                              ! On -element solution vector
+            ug_Off(:) = ughst(:,gnode)                                    ! Off-element solution vector from PETSc ghost registers
+
+            call conserved_to_primitive(ug_On (:), vg_On (:), nequations) ! Rotate to conserved variables
             call conserved_to_primitive(ug_Off(:), vg_Off(:), nequations)
   
-            phig_On (:,:) = phig   (:,:,inode,ielem)
-            phig_Off(:,:) = phighst(:,:,gnode)
+            phig_On (:,:) = phig   (:,:,inode,ielem)                      ! On -element dW/dx_j
+            phig_Off(:,:) = phighst(:,:,gnode)                            ! Off-element dW/dx_j from PETSC ghost registers
+
+            Jx_r_Ave = 0.5_wp * (abs(Jx_r(inode,ielem)) + abs(nxghst_LGL_Shell(4,nghst_shell+i)) )  !  Average of Jacobian at the face
+
+            nx_On =  Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
+            if(nonconforming_element) then
+              nx_Off = - nxghst_LGL_Shell(1:3,nghst_shell + i)            ! Outward facing normal in Petsc ghost registers
+            else
+              nx_Off = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node
+            endif
 
             SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
                                           & vg_On,vg_Off,              &
                                           & phig_On,phig_Off,          &
+!                                         & nx_On,nx_Off,Jx_r_Ave,     &
                                           & nx_On,nx_Off,Jx_r(inode,ielem),      &
                                           & pinv(1), mut(inode,ielem))
 
@@ -3648,19 +3649,21 @@ contains
               
             knode = efn2efn(1,jnode,ielem)                           ! Volumetric index of partner node
               
-            nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)              !-- test
-            nx_On = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node (On-Element)
-                  
-                  
-            vg_On(:)  = vg(:,inode,ielem)
-            vg_Off(:) = vg(:,knode,kelem)
+            vg_On(:)  = vg(:,inode,ielem)                            ! On -element primitive variables
+            vg_Off(:) = vg(:,knode,kelem)                            ! Off-element primitive variables
   
             phig_On (:,:) = phig(:,:,inode,ielem)
             phig_Off(:,:) = phig(:,:,knode,kelem)
+
+            Jx_r_Ave = 0.5_wp * (abs(Jx_r(inode,ielem)) + abs(Jx_r(knode,kelem)))
  
+            nx_Off =   Jx_facenodenormal_LGL(1:3,jnode,ielem)           !-- test
+            nx_On  = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node (On-Element)
+                  
             SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
                                           & vg_On,vg_Off,              &
                                           & phig_On,phig_Off,          &
+!                                         & nx_On,nx_Off,Jx_r_Ave,     &
                                           & nx_On,nx_Off,Jx_r(inode,ielem),      &
                                           & pinv(1), mut(inode,ielem))
 
@@ -3777,7 +3780,7 @@ contains
             phig_2d_Off(:,:,k) =         phighst(:,:,nghst_volume + k)            ! Viscous derivatives   in Petsc ghost registers
              mut_2d_Off(    k) =         mutghst(    nghst_volume + k)            ! Turbulent viscosity   in Petsc ghost registers
 
-              nx_2d_Off(:,  k) =  nxghst_LGL_Shell(:,nghst_shell  + k)            ! Outward facing normal in Petsc ghost registers
+              nx_2d_Off(:,  k) =  nxghst_LGL_Shell(1:3,nghst_shell  + k)          ! Outward facing normal in Petsc ghost registers
 
             call conserved_to_primitive(ug_Off   (:  ),vg_2d_Off(:,k),nequations) ! Rotate into primitive variables and store as face plane data
             call primitive_to_entropy  (vg_2d_Off(:,k),wg_2d_Off(:,k),nequations) ! Rotate into entropy   variables and store as face plane data
@@ -3795,7 +3798,7 @@ contains
 
             cnt_Mort_Off(j) = efn2efn_Gau(3,jnode,ielem)
 
-!           Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_ghst_Gau_shell(lnode)) * 0.5_wp
+            Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_ghst_Gau_shell(lnode)) * 0.5_wp
             Jx_r_2d_Mort(j) = 1.0_wp  !  HACK:  Take out
      
           enddo On_Mortar_0
@@ -3812,7 +3815,7 @@ contains
             phig_2d_Off(:,:,k) = phig(:,:,knode,kelem)                            ! Viscous derivatives
              mut_2d_Off(    k) =  mut(    knode,kelem)                            ! Outward facing normal of facial node
 
-              nx_2d_Off(:,  k) = Jx_facenodenormal_LGL(:,lnode,kelem)             ! Outward facing normal of facial node
+              nx_2d_Off(:,  k) = Jx_facenodenormal_LGL(1:3,lnode,kelem)           ! Outward facing normal of facial node
 
             call primitive_to_entropy(vg_2d_Off(:,k),wg_2d_Off(:,k),nequations)   ! Rotate into entropy variables and store as face plane data
 
@@ -3826,7 +3829,7 @@ contains
 
             lnode = efn2efn_Gau(4,jnode,ielem)
 
-!           Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_shell(lnode,kelem)) * 0.5_wp
+            Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_shell(lnode,kelem)) * 0.5_wp
             Jx_r_2d_Mort(j) = 1.0_wp  !  HACK:  Take out
      
           enddo On_Mortar_1
@@ -4468,16 +4471,15 @@ endif
     real(wp),  dimension(nequations)       ::   vg_On,   vg_Off
     real(wp),  dimension(nequations,ndim)  :: phig_On, phig_Off
 
+    real(wp), dimension(nequations,nequations) :: matrix_ip
+
     real(wp), allocatable, dimension(:,:) :: fV_2d_Mort, fV_Mort_On, fV_Mort_Off, fV_2d_On, fV_2d_Off
     real(wp), allocatable, dimension(:,:) :: IP_2d_On, IP_2d_Mort
 
     integer                               :: i, j, k, l
     integer                               :: inode, jnode
 
-    real(wp), dimension(nequations,nequations) :: hatc_Ave, matrix_ip
-
     real(wp)                                   ::  mut_Off
-    real(wp)                                   :: Jx_r_Ave
     real(wp)                                   :: l01_ldg_flip_flop
 
     continue
@@ -4543,10 +4545,6 @@ endif
 
         matrix_ip = 0.5_wp * pinv(1) * (matrix_hatc_node(vg_On (:),nx,nx,nequations) &
                                      +  matrix_hatc_node(vg_Off(:),nx,nx,nequations)) / Jx_r_2d_Mort(j)
-
-!       Jx_r_Ave = Jx_r_2d_Mort(j)
-!     
-!       matrix_ip = pinv(1) * hatc_Ave / Jx_r_Ave
 
         IP_2d_Mort(:,j) = - l00*matmul(matrix_ip,wg_Mort_On(:,j)-wg_Mort_Off(:,l))
           
@@ -6869,8 +6867,7 @@ endif
       real(wp), parameter :: deltaU          =  0.1_wp
       real(wp), parameter :: LocalLaxF_factor=  2.0_wp
 
-      real(wp),  dimension(neq,neq)             :: smat,sinv
-      real(wp),  dimension(neq,neq)             :: hatc_On, hatc_Off, matrix_ip
+      real(wp),  dimension(neq,neq)             :: smat, sinv, matrix_ip
 
       real(wp),  dimension(neq)                 :: fLLF
       real(wp),  dimension(neq)                 :: wg_On, wg_Off
@@ -6947,27 +6944,19 @@ endif
 
          end select
 
-         ! Add the LDG
-         l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
-         fstarV = normalviscousflux(vg_On (:), phig_On (:,:), nx_On, neq, mut)  &
+                                                                                           
+         l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop) ! Flip-flop sign convention
+         fstarV = normalviscousflux(vg_On (:), phig_On (:,:), nx_On , neq, mut)  &              ! Add LDG viscous flux dissipation
               & - normalviscousflux(vg_Off(:), phig_Off(:,:), nx_Off, neq, mut)
 
-         ! Compute the IP penalty contribution, 
-         ! c_ii_L matrix    ! cii_R matrix
-         hatc_On  = matrix_hatc_node(vg_On (:),nx_On,nx_Off,neq)
-         hatc_Off = matrix_hatc_node(vg_Off(:),nx_On,nx_Off,neq)
+         matrix_ip = 0.5_wp * pinv * ( matrix_hatc_node(vg_On (:),nx_On,nx_Off,neq) &       ! Average of c_ii_L and cii_R matrix  appropriately 
+                                     + matrix_hatc_node(vg_Off(:),nx_On,nx_Off,neq)) / Jx_r ! scaled by inverse norm and size of elements
 
-!  HACK: Fix this.  Should be the same on either side of interface.
-         matrix_ip = 0.5_wp*(hatc_On + hatc_Off) * pinv / Jx_r
-!  HACK: Fix this
-!        matrix_ip = (hatc_On + hatc_Off) * pinv / (Jx_r_On + Jx_r_Off)
-!        matrix_ip = 0.5_wp*(hatc_On/Jx_r_On + hatc_Off/Jx_r_Off) * pinv 
+         fn = normalflux( vg_On (:), nx_On, neq )                                           ! (Euler Flux)
 
-         fn = normalflux( vg_On (:), nx_On, neq )                                  ! (Euler Flux)
          SAT_Inv_Vis_Flux = + (fn - fstar) + l01_ldg_flip_flop*fstarV     &
                             - l00*matmul(matrix_ip,wg_On (:)-wg_Off(:))
 
-          return
      end function
 
   !============================================================================

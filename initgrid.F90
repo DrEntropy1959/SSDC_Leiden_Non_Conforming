@@ -2580,7 +2580,7 @@ contains
     if(toggle)then    
     else
       if(allocated(Jx_facenodenormal_LGL)) deallocate(Jx_facenodenormal_LGL)
-      allocate(Jx_facenodenormal_LGL(3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
+      allocate(Jx_facenodenormal_LGL(4,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
       Jx_facenodenormal_LGL = -5000000.0_wp
     endif
 
@@ -2607,16 +2607,15 @@ contains
           dx = sign(1.0_wp,real(elfacedirections(iface),wp)) ! sign so normal is facing outward
 
                                                  ! outward facing normal divided by Jacobian 
-             facenodenormal    (:,knode,ielem) =               r_x(idir,:,i,ielem) * dx
+               facenodenormal    (1:3,knode,ielem) =               r_x(idir,:,i,ielem) * dx
 
                                                  ! outward facing normal using metrics
-          !if(toggle.AND.(ef2e(1,iface,ielem) < 0))then
-           if(toggle)then
+          if(toggle)then
             !-- this checks if you are on the second computation of Jx_facenormal_LGL (toggle = .true.) and if you are on a boundary face
             !   in such a case you do not want to overwrite the metric terms
           else
-            Jx_facenodenormal_LGL(:,knode,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
-            !Jx_facenodenormal_LGL(:,inode+face_shift,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
+            Jx_facenodenormal_LGL(1:3,knode,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
+            Jx_facenodenormal_LGL(  4,knode,ielem) = abs(Jx_r(i,ielem))                         !  Jacobian is passed along again
           endif
 
         end do
@@ -2782,7 +2781,7 @@ contains
 !        iend_On = iend_Mort
 
         call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart_On:iend_On,ielem),Intrp)
+           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(1:3,istart_On:iend_On,ielem),Intrp)
         endif
       end do
 
@@ -3688,10 +3687,10 @@ contains
             !if (ef2e(4,iface,ielem) == elem_props(2,ielem)) then !    Conforming interface-- ORIGINAL
             if ((ef2e(4,iface,ielem) == elem_props(2,ielem)).OR.(ef2e(1,iface,ielem) < 0)) then !    Conforming interface or a boundary
               nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
-!             t1 = maxval(abs(nx(:) - Jx_facenodenormal_LGL(:,knode,ielem)))
+!             t1 = maxval(abs(nx(:) - Jx_facenodenormal_LGL(1:3,knode,ielem)))
 !             if(t1 >= 1.0e-10_wp) write(*,*)'metric differences: iface',iface, t1
             else                                                 ! NonConforming interface
-              nx(:) = Jx_facenodenormal_LGL(:,knode,ielem)
+              nx(:) = Jx_facenodenormal_LGL(1:3,knode,ielem)
             endif
 
             bvec(inode,:) = bvec(inode,:) + p_surf(i)*nx(:)
@@ -6863,7 +6862,7 @@ contains
     ! Loop over volumetric elements
     do ielem = ihelems(1), ihelems(2)
 
-      call element_properties(ielem,               &
+      call element_properties(ielem,                &
                               n_pts_1d=n_LGL_1d_On, &
                               x_pts_1d=x_LGL_1d_On)
 
