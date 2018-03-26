@@ -3466,13 +3466,13 @@ contains
 
             fstarV(:) = normalviscousflux( vg_On, phig_On, nx_On, nequations,mut(inode,ielem)) - fV_Off(:)
 
-            matrix_ip = 0.5_wp*( matrix_hatc_node(vg_On ,nx_On,nx_On,nequations)    &     ! IP penalty contribution, i.e. M (u-v), where M is S.P.D. and defined as
-                               + matrix_hatc_node(vg_Off,nx_On,nx_On,nequations))*pinv(1) ! M = pinv(1) (c_ii_side_1 + c_ii_side_2)/2, in the normal direction
-                                                                               ! ==  Fluxes
+            matrix_ip = 0.5_wp * pinv(1) * ( matrix_hatc_node(vg_On ,nx_On,nx_On,nequations)    &  ! IP penalty contribution, i.e. M (u-v), where M is S.P.D. and defined as
+                                           + matrix_hatc_node(vg_Off,nx_On,nx_On,nequations))      ! M = pinv(1) (c_ii_side_1 + c_ii_side_2)/2, in the normal direction
+                                                                                                   ! ==  Fluxes
 
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + &
               & pinv(1)* ( (fn - fstar) + l01*fstarV*bc_pen_strength ) - &
-              & pinv(1)* l00*matmul(matrix_ip,wg_On - wg_Off)
+              & pinv(1)* l00 * matmul(matrix_ip,wg_On - wg_Off)
 
           end do
         
@@ -3637,18 +3637,18 @@ contains
           !       On-Processor Contributions to gsat:  Conforming Interface is on-process
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-          kelem = ef2e(2,iface,ielem)                             ! adjoining element
-          kface = ef2e(1,iface,ielem)                             ! face on element
+          kelem = ef2e(2,iface,ielem)                                ! adjoining element
+          kface = ef2e(1,iface,ielem)                                ! face on element
 
           do i = 1, n_S_2d_On
         
-            jnode =  n_S_2d_On*(iface-1) + i                      ! Index in facial ordering
+            jnode =  n_S_2d_On*(iface-1) + i                         ! Index in facial ordering
               
-            inode = ifacenodes_On(jnode)                          ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes_On(jnode)                             ! Volumetric node index corresponding to facial node index
               
-            knode = efn2efn(1,jnode,ielem)                        ! Volumetric index of partner node
+            knode = efn2efn(1,jnode,ielem)                           ! Volumetric index of partner node
               
-            nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)           !-- test
+            nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)              !-- test
             nx_On = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node (On-Element)
                   
                   
@@ -3752,23 +3752,25 @@ contains
 !=========
 !       face data:  On_element, Off_element and On_Mortar
 !=========
-                                                                                 ! On_Element face data same for serial or parallel
-        On_Elem_0:do i = 1, n_S_2d_On                                            ! On_Element Loop over 2D LGL points
+                                                                                  ! ============================================
+                                                                                  ! On_Element face data same for serial or parallel
+                                                                                  ! ============================================
+        On_Elem_0:do i = 1, n_S_2d_On                                             ! On_Element Loop over 2D LGL points
         
-         jnode =  n_S_2d_On*(iface-1) + i                                        ! Index in facial ordering
-         inode = ifacenodes_On(jnode)                                            ! Volumetric node index corresponding to facial node index
+         jnode =  n_S_2d_On*(iface-1) + i                                         ! Index in facial ordering
+         inode = ifacenodes_On(jnode)                                             ! Volumetric node index corresponding to facial node index
 
-           vg_2d_On(:,  i) =   vg(:,  inode,ielem)                               ! On-element face data
-         phig_2d_On(:,:,i) = phig(:,:,inode,ielem)                               ! Viscous derivatives
+           vg_2d_On(:,  i) =   vg(:,  inode,ielem)                                ! On-element face data
+         phig_2d_On(:,:,i) = phig(:,:,inode,ielem)                                ! Viscous derivatives
 
-         call primitive_to_entropy(vg_2d_On(:,i),wg_2d_On(:,i),nequations)       ! Rotate into entropy variables and store as face plane data
+         call primitive_to_entropy(vg_2d_On(:,i),wg_2d_On(:,i),nequations)        ! Rotate into entropy variables and store as face plane data
 
-        enddo  On_Elem_0                                                         ! End off-element loop
+        enddo  On_Elem_0                                                          ! End off-element loop
 
-                                                                                 !  ============================================
-        if (ef2e(3,iface,ielem) /= myprocid) then                                !  Parallel NON-CONFORMING data
-                                                                                 !  ============================================
-          Off_Elem_0:do k = 1, n_S_2d_Off                                        ! Off-element loop over data
+                                                                                  ! ============================================
+        if (ef2e(3,iface,ielem) /= myprocid) then                                 ! ====== Parallel NON-CONFORMING data ========
+                                                                                  ! ============================================
+          Off_Elem_0:do k = 1, n_S_2d_Off                                         ! Off-element loop over data
 
            
                  ug_Off(:    ) =           ughst(:,  nghst_volume + k)            ! conserved variable    in Petsc ghost registers
@@ -3798,9 +3800,9 @@ contains
      
           enddo On_Mortar_0
 
-                                                                                  !  ============================================
-        else                                                                      !  Serial NON-CONFORMING data
-                                                                                  !  ============================================
+                                                                                  ! ============================================
+        else                                                                      ! ====== Serial NON-CONFORMING data ==========
+                                                                                  ! ============================================
           Off_Elem_1:do k = 1, n_S_2d_Off                                         ! Off-element loop over data
  
             lnode =  n_S_2d_Off*(kface-1) + k                                     ! Index in facial ordering
@@ -4539,12 +4541,12 @@ endif
         call entropy_to_primitive(wg_Mort_On (:,j),vg_On (:),nequations)
         call entropy_to_primitive(wg_Mort_Off(:,l),vg_Off(:),nequations)
 
-        hatc_Ave = (matrix_hatc_node(vg_On (:),nx,nx,nequations) &
-                 +  matrix_hatc_node(vg_Off(:),nx,nx,nequations)) * 0.5_wp
+        matrix_ip = 0.5_wp * pinv(1) * (matrix_hatc_node(vg_On (:),nx,nx,nequations) &
+                                     +  matrix_hatc_node(vg_Off(:),nx,nx,nequations)) / Jx_r_2d_Mort(j)
 
-        Jx_r_Ave = Jx_r_2d_Mort(j)
-      
-        matrix_ip = pinv(1) * hatc_Ave / Jx_r_Ave
+!       Jx_r_Ave = Jx_r_2d_Mort(j)
+!     
+!       matrix_ip = pinv(1) * hatc_Ave / Jx_r_Ave
 
         IP_2d_Mort(:,j) = - l00*matmul(matrix_ip,wg_Mort_On(:,j)-wg_Mort_Off(:,l))
           
