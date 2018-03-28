@@ -3286,7 +3286,7 @@ contains
     integer                              :: n_S_1d_On , n_S_1d_Off, n_S_1d_Mort, n_S_1d_max
     integer                              :: n_S_2d_On , n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
     integer                              :: poly_val
-    integer                              :: nghst_volume, nghst_shell
+    integer                              :: nghst_volume, nghst_shell, nghst_Mortar
  
     real(wp), allocatable, dimension(:)  :: x_S_1d_On, x_S_1d_Off
     real(wp), allocatable, dimension(:)  :: x_S_1d_Mort, w_S_1d_Mort
@@ -3359,6 +3359,9 @@ contains
     ! initialize penalty
     gsat(:,:,ielem) = 0.0_wp
 
+    n_S_1d_max  = (npoly_max+1)**1
+    n_S_2d_max  = (npoly_max+1)**2
+
     ! establish ``on-element'' face information
     call element_properties(ielem,&
                    n_pts_1d=n_S_1d_On,&
@@ -3369,6 +3372,7 @@ contains
 
     nghst_volume = nelem_ghst(1,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
     nghst_shell  = nelem_ghst(2,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
+    nghst_Mortar = nelem_ghst(3,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
        
     nonconforming_element = .false.
     do iface = 1,nfacesperelem
@@ -3400,7 +3404,7 @@ contains
           
             nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)            ! On_Element outward facing face node normal
             if(SAT_type == "mod_metric")then
-              nx_Off = Jx_facenodenormal_LGL(1:3,jnode,ielem)
+              nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)
             elseif(SAT_type == "mod_SAT")then
               nx_Off = nx_On
             else
@@ -3482,7 +3486,7 @@ contains
 
 !           nx_On = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)                 ! On_Element outward facing face node normal
 !           if(SAT_type == "mod_metric")then
-!             nx_Off = Jx_facenodenormal_LGL(1:3,jnode,ielem)
+!             nx_Off = Jx_facenodenormal_LGL(:,jnode,ielem)
 !           elseif(SAT_type == "mod_SAT")then
 !             nx_Off = nx_On
 !           else
@@ -3589,48 +3593,47 @@ contains
           !       Off Processor Contributions to gsat:  Conforming Interface straddles parallel partition
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-          kelem = ef2e(2,iface,ielem)                              ! adjoining element
-          kface = ef2e(1,iface,ielem)                              ! face on element
+          kelem = ef2e(2,iface,ielem)                                                  ! adjoining element
+          kface = ef2e(1,iface,ielem)                                                  ! face on element
 
           do i = 1,  n_S_2d_On
 
-            jnode =  n_S_2d_On*(iface-1) + i                              ! Index in facial ordering
+            jnode =  n_S_2d_On*(iface-1) + i                                           ! Index in facial ordering
             
-            inode = ifacenodes_On(jnode)                                  ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes_On(jnode)                                               ! Volumetric node index corresponding to facial node index
             
-            gnode = efn2efn(3,jnode,ielem)                                ! Index in Petsc ghost stack (not volumetric stack)
+            gnode = efn2efn(3,jnode,ielem)                                             ! Index in Petsc ghost stack (not volumetric stack)
   
-            ug_On(:)  = ug   (:,inode,ielem)                              ! On -element solution vector
-            ug_Off(:) = ughst(:,gnode)                                    ! Off-element solution vector from PETSc ghost registers
+            ug_On(:)  = ug   (:,inode,ielem)                                           ! On -element solution vector
+            ug_Off(:) = ughst(:,gnode)                                                 ! Off-element solution vector from PETSc ghost registers
 
-            call conserved_to_primitive(ug_On (:), vg_On (:), nequations) ! Rotate to conserved variables
+            call conserved_to_primitive(ug_On (:), vg_On (:), nequations)              ! Rotate to conserved variables
             call conserved_to_primitive(ug_Off(:), vg_Off(:), nequations)
   
-            phig_On (:,:) = phig   (:,:,inode,ielem)                      ! On -element dW/dx_j
-            phig_Off(:,:) = phighst(:,:,gnode)                            ! Off-element dW/dx_j from PETSC ghost registers
+            phig_On (:,:) = phig   (:,:,inode,ielem)                                   ! On -element dW/dx_j
+            phig_Off(:,:) = phighst(:,:,gnode)                                         ! Off-element dW/dx_j from PETSC ghost registers
 
-            Jx_r_Ave = 0.5_wp * (abs(Jx_r(inode,ielem)) + abs(nxghst_LGL_Shell(4,nghst_shell+i)) )  !  Average of Jacobian at the face
+            Jx_r_Ave = 0.5_wp * (abs(Jx_r(inode,ielem)) + abs(Jx_r_ghst_LGL(gnode)) )  ! Average of Jacobian at the face
 
-            nx_On =  Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)      ! Outward facing normal of facial node
+            nx_On = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)                  ! Outward facing normal of facial node
             if(nonconforming_element) then
-              nx_Off = - nxghst_LGL_Shell(1:3,nghst_shell + i)            ! Outward facing normal in Petsc ghost registers
+              nx_Off = - nxghst_LGL_Shell(:,nghst_shell + i)                           ! Outward facing normal in Petsc ghost registers
             else
-              nx_Off = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node
+              nx_Off = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)               ! Outward facing normal of facial node
             endif
 
-            SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
+            SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &               ! Build SAT for inviscid and viscous contributions
                                           & vg_On,vg_Off,              &
                                           & phig_On,phig_Off,          &
-!                                         & nx_On,nx_Off,Jx_r_Ave,     &
-                                          & nx_On,nx_Off,Jx_r(inode,ielem),      &
+                                          & nx_On,nx_Off,Jx_r_Ave,     &
                                           & pinv(1), mut(inode,ielem))
 
-            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)           !  Update global SAT
 
           end do
 
-          nghst_volume = nghst_volume + n_S_2d_On                         !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
-          nghst_shell  = nghst_shell  + n_S_2d_On                         !  Keep track of position in Ghost shell  stack (On and Off are the same)
+          nghst_volume = nghst_volume + n_S_2d_On                                      !  Track position in Ghost stack (n_S_2d_On=n_S_2d_Off)
+          nghst_shell  = nghst_shell  + n_S_2d_On                                      !  Track position in Ghost shell stack (On and Off are the same)
 
         else if (ef2e(3,iface,ielem) == myprocid) then 
 
@@ -3638,40 +3641,42 @@ contains
           !       On-Processor Contributions to gsat:  Conforming Interface is on-process
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-          kelem = ef2e(2,iface,ielem)                                ! adjoining element
-          kface = ef2e(1,iface,ielem)                                ! face on element
+          kelem = ef2e(2,iface,ielem)                                                  ! adjoining element
+          kface = ef2e(1,iface,ielem)                                                  ! face on element
 
           do i = 1, n_S_2d_On
         
-            jnode =  n_S_2d_On*(iface-1) + i                         ! Index in facial ordering
+            jnode =  n_S_2d_On*(iface-1) + i                                           ! Index in facial ordering
               
-            inode = ifacenodes_On(jnode)                             ! Volumetric node index corresponding to facial node index
+            inode = ifacenodes_On(jnode)                                               ! Volumetric node index corresponding to facial node index
               
-            knode = efn2efn(1,jnode,ielem)                           ! Volumetric index of partner node
+            knode = efn2efn(1,jnode,ielem)                                             ! Volumetric index of partner node
               
-            vg_On(:)  = vg(:,inode,ielem)                            ! On -element primitive variables
-            vg_Off(:) = vg(:,knode,kelem)                            ! Off-element primitive variables
+            vg_On(:)  = vg(:,inode,ielem)                                              ! On -element primitive variables
+            vg_Off(:) = vg(:,knode,kelem)                                              ! Off-element primitive variables
   
-            phig_On (:,:) = phig(:,:,inode,ielem)
-            phig_Off(:,:) = phig(:,:,knode,kelem)
+            phig_On (:,:) = phig(:,:,inode,ielem)                                      ! On -element dW/dx_j
+            phig_Off(:,:) = phig(:,:,knode,kelem)                                      ! Off-element dW/dx_j from PETSC ghost registers
 
-            Jx_r_Ave = 0.5_wp * (abs(Jx_r(inode,ielem)) + abs(Jx_r(knode,kelem)))
+            Jx_r_Ave = 0.5_wp * (abs(Jx_r(inode,ielem)) + abs(Jx_r(knode,kelem)))      ! Average of Jacobian at the face
  
-            nx_Off =   Jx_facenodenormal_LGL(1:3,jnode,ielem)           !-- test
-            nx_On  = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node (On-Element)
-                  
-            SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &
+            nx_On  = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)                 ! Outward facing normal of facial node (On -Element)
+            if(nonconforming_element) then
+              nx_Off = + Jx_facenodenormal_LGL(:,jnode,ielem)                          ! Initially conforming interfaces on nonconforming element were the same. Just use self.
+            else
+              nx_Off = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)               ! Outward facing normal of facial node (Off-Element)
+            endif
+
+            SAT_Pen(:) =  SAT_Inv_Vis_Flux( nequations,iface,ielem,    &               ! Build SAT for inviscid and viscous contributions
                                           & vg_On,vg_Off,              &
                                           & phig_On,phig_Off,          &
-!                                         & nx_On,nx_Off,Jx_r_Ave,     &
-                                          & nx_On,nx_Off,Jx_r(inode,ielem),      &
+                                          & nx_On,nx_Off,Jx_r_Ave,     &
                                           & pinv(1), mut(inode,ielem))
 
-            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+            gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)           ! Update global SAT
 
           end do
         endif
-
 
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 !       NON-CONFORMING Contributions to gsat
@@ -3679,8 +3684,6 @@ contains
 
       else if (elem_props(2,ielem) /= ef2e(4,iface,ielem)) then
 
-        n_S_1d_max  = (npoly_max+1)**1
-        n_S_2d_max  = (npoly_max+1)**2
         kface       = ef2e(1,iface,ielem)
         kelem       = ef2e(2,iface,ielem)
 
@@ -3755,9 +3758,9 @@ contains
 !=========
 !       face data:  On_element, Off_element and On_Mortar
 !=========
-                                                                                  ! ============================================
-                                                                                  ! On_Element face data same for serial or parallel
-                                                                                  ! ============================================
+                                                                             ! ============================================
+                                                                             ! On_Element face data same for serial or parallel
+                                                                             ! ============================================
         On_Elem_0:do i = 1, n_S_2d_On                                             ! On_Element Loop over 2D LGL points
         
          jnode =  n_S_2d_On*(iface-1) + i                                         ! Index in facial ordering
@@ -3770,9 +3773,9 @@ contains
 
         enddo  On_Elem_0                                                          ! End off-element loop
 
-                                                                                  ! ============================================
-        if (ef2e(3,iface,ielem) /= myprocid) then                                 ! ====== Parallel NON-CONFORMING data ========
-                                                                                  ! ============================================
+                                                                             ! ============================================
+        if (ef2e(3,iface,ielem) /= myprocid) then                            ! ====== Parallel NON-CONFORMING data ========
+                                                                             ! ============================================
           Off_Elem_0:do k = 1, n_S_2d_Off                                         ! Off-element loop over data
 
            
@@ -3780,7 +3783,7 @@ contains
             phig_2d_Off(:,:,k) =         phighst(:,:,nghst_volume + k)            ! Viscous derivatives   in Petsc ghost registers
              mut_2d_Off(    k) =         mutghst(    nghst_volume + k)            ! Turbulent viscosity   in Petsc ghost registers
 
-              nx_2d_Off(:,  k) =  nxghst_LGL_Shell(1:3,nghst_shell  + k)          ! Outward facing normal in Petsc ghost registers
+              nx_2d_Off(:,  k) =  nxghst_LGL_Shell(:,nghst_shell  + k)            ! Outward facing normal in Petsc ghost registers
 
             call conserved_to_primitive(ug_Off   (:  ),vg_2d_Off(:,k),nequations) ! Rotate into primitive variables and store as face plane data
             call primitive_to_entropy  (vg_2d_Off(:,k),wg_2d_Off(:,k),nequations) ! Rotate into entropy   variables and store as face plane data
@@ -3796,16 +3799,16 @@ contains
 
             lnode = efn2efn_Gau(3,jnode,ielem)
 
-            cnt_Mort_Off(j) = efn2efn_Gau(3,jnode,ielem)
+            cnt_Mort_Off(j) = efn2efn_Gau(3,jnode,ielem) - nghst_Mortar
 
-            Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_ghst_Gau_shell(lnode)) * 0.5_wp
-            Jx_r_2d_Mort(j) = 1.0_wp  !  HACK:  Take out
+            Jx_r_2d_Mort(j) = 0.5_wp * (abs(Jx_r_Gau_shell(jnode,ielem)) + abs(Jx_r_ghst_Gau_shell(lnode)))
      
           enddo On_Mortar_0
 
-                                                                                  ! ============================================
-        else                                                                      ! ====== Serial NON-CONFORMING data ==========
-                                                                                  ! ============================================
+          nghst_Mortar = nghst_Mortar + n_S_2d_Mort
+                                                                             ! ============================================
+        else                                                                 ! ====== Serial NON-CONFORMING data ==========
+                                                                             ! ============================================
           Off_Elem_1:do k = 1, n_S_2d_Off                                         ! Off-element loop over data
  
             lnode =  n_S_2d_Off*(kface-1) + k                                     ! Index in facial ordering
@@ -3815,7 +3818,7 @@ contains
             phig_2d_Off(:,:,k) = phig(:,:,knode,kelem)                            ! Viscous derivatives
              mut_2d_Off(    k) =  mut(    knode,kelem)                            ! Outward facing normal of facial node
 
-              nx_2d_Off(:,  k) = Jx_facenodenormal_LGL(1:3,lnode,kelem)           ! Outward facing normal of facial node
+              nx_2d_Off(:,  k) = Jx_facenodenormal_LGL(:,lnode,kelem)             ! Outward facing normal of facial node
 
             call primitive_to_entropy(vg_2d_Off(:,k),wg_2d_Off(:,k),nequations)   ! Rotate into entropy variables and store as face plane data
 
@@ -3829,8 +3832,7 @@ contains
 
             lnode = efn2efn_Gau(4,jnode,ielem)
 
-            Jx_r_2d_Mort(j) = (Jx_r_Gau_shell(jnode,ielem) + Jx_r_Gau_shell(lnode,kelem)) * 0.5_wp
-            Jx_r_2d_Mort(j) = 1.0_wp  !  HACK:  Take out
+            Jx_r_2d_Mort(j) = 0.5_wp * (abs(Jx_r_Gau_shell(jnode,ielem)) + abs(Jx_r_Gau_shell(lnode,kelem)))
      
           enddo On_Mortar_1
 
@@ -4467,7 +4469,7 @@ endif
     real(wp),  dimension(:,:),  intent(in) :: Intrp_On,   Extrp_Off
     
     real(wp),  dimension(ndim)             :: nx, nx_Off
-    real(wp),  dimension(nequations)       :: fstarV, SAT_Pen
+    real(wp),  dimension(nequations)       :: fV_Del, SAT_Pen
     real(wp),  dimension(nequations)       ::   vg_On,   vg_Off
     real(wp),  dimension(nequations,ndim)  :: phig_On, phig_Off
 
@@ -4534,11 +4536,11 @@ endif
 
       On_Mortar_4:do j = 1, n_S_2d_Mort
 
-        jnode =  n_S_2d_max*(iface-1) + j                   ! Index in facial ordering
+        jnode =  n_S_2d_max*(iface-1) + j                        ! Index in facial ordering
 
-        nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)        ! Outward facing normal of facial node
+        nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)             ! Outward facing normal of facial node
 
-            l = cnt_Mort_Off(j)                    ! Correct for face orientation and shift back to 1:n_S_2d_Mort
+            l = cnt_Mort_Off(j)                                  ! Correct for face orientation and shift back to 1:n_S_2d_Mort
 
         call entropy_to_primitive(wg_Mort_On (:,j),vg_On (:),nequations)
         call entropy_to_primitive(wg_Mort_Off(:,l),vg_Off(:),nequations)
@@ -4566,10 +4568,10 @@ endif
 
         l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
 
-        fstarV(:) = normalviscousflux(vg_On (:), phig_On (:,:), nx, nequations, mut(inode,ielem)) &
+        fV_Del(:) = normalviscousflux(vg_On (:), phig_On (:,:), nx, nequations, mut(inode,ielem)) &
                   - fV_2d_On(:,i)
 
-        SAT_Pen(:) = + l01_ldg_flip_flop*fstarV(:) + IP_2d_On(:,i)
+        SAT_Pen(:) = + l01_ldg_flip_flop*fV_Del(:) + IP_2d_On(:,i)
 
         gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
 
@@ -6873,7 +6875,7 @@ endif
       real(wp),  dimension(neq)                 :: wg_On, wg_Off
       real(wp),  dimension(neq)                 :: ug_On, ug_Off
       real(wp),  dimension(neq)                 :: vav, ev, evabs
-      real(wp),  dimension(neq)                 :: fn, fstar, fstarV
+      real(wp),  dimension(neq)                 :: fn, fstar, fV_Del
       real(wp)                                  :: evmax
       real(wp)                                  :: l01_ldg_flip_flop
 
@@ -6946,16 +6948,18 @@ endif
 
                                                                                            
          l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop) ! Flip-flop sign convention
-         fstarV = normalviscousflux(vg_On (:), phig_On (:,:), nx_On , neq, mut)  &              ! Add LDG viscous flux dissipation
+
+         fV_Del = normalviscousflux(vg_On (:), phig_On (:,:), nx_On , neq, mut)  &              ! Add LDG viscous flux dissipation
               & - normalviscousflux(vg_Off(:), phig_Off(:,:), nx_Off, neq, mut)
 
-         matrix_ip = 0.5_wp * pinv * ( matrix_hatc_node(vg_On (:),nx_On,nx_Off,neq) &       ! Average of c_ii_L and cii_R matrix  appropriately 
-                                     + matrix_hatc_node(vg_Off(:),nx_On,nx_Off,neq)) / Jx_r ! scaled by inverse norm and size of elements
+         matrix_ip = 0.5_wp * pinv * ( matrix_hatc_node(vg_On (:),nx_On,nx_Off,neq) &           ! Average of c_ii_L and cii_R matrix  appropriately 
+                                     + matrix_hatc_node(vg_Off(:),nx_On,nx_Off,neq)) / Jx_r     ! scaled by inverse norm and size of elements
 
-         fn = normalflux( vg_On (:), nx_On, neq )                                           ! (Euler Flux)
+         fn = normalflux( vg_On (:), nx_On, neq )                                               ! (Euler Flux)
 
-         SAT_Inv_Vis_Flux = + (fn - fstar) + l01_ldg_flip_flop*fstarV     &
-                            - l00*matmul(matrix_ip,wg_On (:)-wg_Off(:))
+         SAT_Inv_Vis_Flux = + (fn - fstar)                 &                                    ! Inviscid penalty
+                            + l01_ldg_flip_flop * fV_Del   &                                    ! Visous penalty
+                            - l00*matmul(matrix_ip,wg_On (:)-wg_Off(:))                         ! Interior penalty approach
 
      end function
 
@@ -7046,7 +7050,7 @@ endif
         integer :: ielem, iface
         integer :: kelem, kface
         integer :: poly_val
-        integer :: nghst_volume
+        integer :: nghst_volume, nghst_Mortar
 
         real(wp) :: l10_ldg_flip_flop
 
@@ -7108,6 +7112,7 @@ endif
           !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
             
           nghst_volume = nelem_ghst(1,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
+          nghst_Mortar = nelem_ghst(3,ielem)                  ! point at beginning of ``ielem'' data in ghost stack 
 
           face_loop:do iface = 1, nfacesperelem               ! loop over faces
   
@@ -7247,11 +7252,13 @@ endif
           
                   jnode =  n_S_2d_max*(iface-1) + j                     ! Index in facial ordering
           
-                  l = efn2efn_Gau(3,jnode,ielem)
+                  l = efn2efn_Gau(3,jnode,ielem) - nghst_Mortar
         
                   wg_2d_Mort_On(:,j) = wg_2d_Mort_Off(:,l)
 
                 enddo On_Mortar_0
+
+                nghst_Mortar = nghst_Mortar + n_S_2d_Mort
                                                                 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
               else                                              !       Serial Contributions to gsat:  Non-Conforming Interface
                                                                 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=

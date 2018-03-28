@@ -16,9 +16,9 @@ cp zerodat NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv
        cp NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv tmp87
        cat tmp87 tmp88 > NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv
 
-       mpirun -np  3 nice -19 ./SSDCNSE > tmp88
-       cp NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv tmp87
-       cat tmp87 tmp88 > NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv
+   #   mpirun -np  3 nice -19 ./SSDCNSE > tmp88
+   #   cp NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv tmp87
+   #   cat tmp87 tmp88 > NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv
    done
 #cp   NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv Scripts/Golden/NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv
  diff NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv Scripts/Golden/NS_Convergence.Data.VS.Cylinder_Grid_NonConforming_SSDC.csv

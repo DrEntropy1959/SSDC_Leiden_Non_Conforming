@@ -29,6 +29,8 @@ module variables
   real(wp), allocatable, dimension(:,:,:,:) :: r_x
   real(wp), allocatable, dimension(:,:)     :: Jx_r
   real(wp), allocatable, dimension(:)       :: dx_min_elem
+
+  real(wp), allocatable, dimension(:)       ::  Jx_r_ghst_LGL
   
   real(wp), allocatable, dimension(:,:,:) :: area_wall_faces
 

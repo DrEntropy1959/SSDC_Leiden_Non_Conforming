@@ -1875,7 +1875,7 @@ contains
     nghost_elem   = 0
     nodesperproc  = 0
 
-    if(allocated(nelem_ghst)) deallocate(nelem_ghst) ; allocate(nelem_ghst(1:2,ihelems(1):ihelems(2))) ; nelem_ghst(:,:) = 0
+    if(allocated(nelem_ghst)) deallocate(nelem_ghst) ; allocate(nelem_ghst(1:3,ihelems(1):ihelems(2))) ; nelem_ghst(:,:) = 0
 
     ! count necessary ghost points for each process loop over elements
   
@@ -1929,8 +1929,10 @@ contains
     ! It is run in parallel by all processes
 
     use referencevariables
-    use variables,            only: Jx_facenodenormal_LGL, nxghst_LGL_shell, ef2e
-    use petscvariables,       only: nxpetsc_shell, nxlocpetsc_shell
+    use variables,            only: Jx_facenodenormal_LGL, nxghst_LGL_shell, ef2e, &
+                                    Jx_r, Jx_r_ghst_LGL
+    use petscvariables,       only: nxpetsc_shell, nxlocpetsc_shell, &
+                                    Jx_r_petsc_LGL, Jx_r_locpetsc_LGL
     use initcollocation,      only: element_properties
 
     implicit none
@@ -1945,8 +1947,7 @@ contains
       ! loop over faces
       do iface = 1, nfacesperelem
 
-        ! if face neighbor is off process and non-conforming then count ghost nodes
-!       if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
+        ! if face neighbor is off process then count ghost nodes
         if(ef2e(3,iface,ielem) == myprocid) then
             cycle
         else
@@ -1961,7 +1962,13 @@ contains
 
     end do
 
-    allocate(nxghst_LGL_shell(ndim+1,nghost_LGL_shell))
+    allocate(Jx_r_ghst_LGL(nghost)) ;  Jx_r_ghst_LGL = -100000.0_wp
+
+    call PetscComm0DDataSetup (Jx_r,Jx_r_ghst_LGL,Jx_r_petsc_LGL,Jx_r_locpetsc_LGL, size(Jx_r,1), nelems, size(Jx_r_ghst_LGL))
+
+    call UpdateComm0DGhostData(Jx_r,Jx_r_ghst_LGL,Jx_r_petsc_LGL,Jx_r_locpetsc_LGL, size(Jx_r,1),         size(Jx_r_ghst_LGL))
+
+    allocate(nxghst_LGL_shell(ndim,nghost_LGL_shell)) ;  nxghst_LGL_shell(:,:) = -100000.0_wp
 
     call PetscComm1D_LGL_Shell_DataSetup(Jx_facenodenormal_LGL,nxghst_LGL_shell,nxpetsc_shell,nxlocpetsc_shell, &
              & size(Jx_facenodenormal_LGL,1), size(Jx_facenodenormal_LGL,2), nelems, size(nxghst_LGL_shell,2))
@@ -1981,7 +1988,8 @@ contains
 
     use referencevariables
     use variables,            only: xg_Gau_shell, xgghst_Gau_shell, ef2e, &
-                                    Jx_r_Gau_Shell,Jx_r_ghst_Gau_shell
+                                    Jx_r_Gau_Shell,Jx_r_ghst_Gau_shell,   &
+                                    nelem_ghst
     use petscvariables,       only: xpetsc_shell, xlocpetsc_shell,        &
                                     Jx_r_petsc_Gau_shell,Jx_r_locpetsc_Gau_shell
     use initcollocation,      only: element_properties
@@ -1993,13 +2001,14 @@ contains
     integer :: n_S_1d_Off, n_S_1d_On, n_S_1d_Mort
 
     nghost_Gau_shell = 0
-    ! loop over elements
-    do ielem = ihelems(1), ihelems(2)
+
+    do ielem = ihelems(1), ihelems(2)                  ! loop over elements
+
+      nelem_ghst(3,ielem) = nghost_Gau_shell
 
       call element_properties(ielem, n_pts_1d=n_S_1d_On)
 
-      ! loop over faces
-      do iface = 1, nfacesperelem
+      do iface = 1, nfacesperelem                      ! loop over faces
 
         ! if face neighbor is off process and non-conforming then count ghost nodes
         if((ef2e(3,iface,ielem) == myprocid) .or. (elem_props(2,ielem) == ef2e(4,iface,ielem))) then
@@ -2010,6 +2019,7 @@ contains
           n_S_1d_Mort = max(n_S_1d_On,n_S_1d_Off)
 
           nghost_Gau_shell = nghost_Gau_shell + (n_S_1d_Mort)**2
+
         endif
 
       end do
@@ -2069,11 +2079,10 @@ contains
 
     xinit = 0.0_wp
 
-    ntotu = nk * nelems                             ! length of on process data including padding (for 1D solution vector)
-    ntotG = ngh                                     ! length of ghost data on process
+    ntotu = nk * nelems                                  ! length of on process data including padding (for 1D solution vector)
+    ntotG = ngh                                          ! length of ghost data on process
 
-    ! allocate memory for ghost locations
-    allocate(iyu(ntotG))
+    allocate(iyu(ntotG))                                 ! allocate memory for ghost locations
 
     iloc = 0                                             ! ghost data counter
     elem_loop:do ielem = ihelems(1), ihelems(2)          ! loop over elements
@@ -2908,7 +2917,7 @@ contains
                                                      ! set position of ghost in global vector containing solution data
               iyu(iloc) = nk *(kelem-1)            & ! skip over previous elements
                         + nfacesize *(kface-1)     & ! nk/nfacesperelem is face dimension
-                        + i-1                        ! skip over previous eqns
+                        + i                          ! skip over previous eqns
 
           end do
 

@@ -2580,7 +2580,7 @@ contains
     if(toggle)then    
     else
       if(allocated(Jx_facenodenormal_LGL)) deallocate(Jx_facenodenormal_LGL)
-      allocate(Jx_facenodenormal_LGL(4,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
+      allocate(Jx_facenodenormal_LGL(3,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2)))
       Jx_facenodenormal_LGL = -5000000.0_wp
     endif
 
@@ -2607,15 +2607,14 @@ contains
           dx = sign(1.0_wp,real(elfacedirections(iface),wp)) ! sign so normal is facing outward
 
                                                  ! outward facing normal divided by Jacobian 
-               facenodenormal    (1:3,knode,ielem) =               r_x(idir,:,i,ielem) * dx
+             facenodenormal    (:,knode,ielem) =               r_x(idir,:,i,ielem) * dx
 
                                                  ! outward facing normal using metrics
           if(toggle)then
             !-- this checks if you are on the second computation of Jx_facenormal_LGL (toggle = .true.) and if you are on a boundary face
             !   in such a case you do not want to overwrite the metric terms
           else
-            Jx_facenodenormal_LGL(1:3,knode,ielem) = Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
-            Jx_facenodenormal_LGL(  4,knode,ielem) = abs(Jx_r(i,ielem))                         !  Jacobian is passed along again
+            Jx_facenodenormal_LGL(1:3,knode,ielem) =     Jx_r(i,ielem)*r_x(idir,:,i,ielem) * dx
           endif
 
         end do
@@ -2773,15 +2772,15 @@ contains
         endif
 
         ! Restrict all metric data from mortar back to element face
-        istart_Mort    = (iface-1)*n_pts_2d_max  + 1
-        istart_On    = (iface-1)*n_s_2d_On  + 1
+        istart_Mort = (iface-1)*n_pts_2d_max  + 1
+        istart_On   = (iface-1)*n_s_2d_On  + 1
 !        istart_On = istart_Mort
-        iend_Mort = istart_Mort + n_S_1d_Mort**2 - 1
-        iend_On   = istart_On + n_S_1d_On**2   - 1
+          iend_Mort = istart_Mort + n_S_1d_Mort**2 - 1
+          iend_On   = istart_On + n_S_1d_On**2   - 1
 !        iend_On = iend_Mort
 
         call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(1:3,istart_On:iend_On,ielem),Intrp)
+           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart_On:iend_On,ielem),Intrp)
         endif
       end do
 
@@ -3687,10 +3686,10 @@ contains
             !if (ef2e(4,iface,ielem) == elem_props(2,ielem)) then !    Conforming interface-- ORIGINAL
             if ((ef2e(4,iface,ielem) == elem_props(2,ielem)).OR.(ef2e(1,iface,ielem) < 0)) then !    Conforming interface or a boundary
               nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)
-!             t1 = maxval(abs(nx(:) - Jx_facenodenormal_LGL(1:3,knode,ielem)))
+!             t1 = maxval(abs(nx(:) - Jx_facenodenormal_LGL(:,knode,ielem)))
 !             if(t1 >= 1.0e-10_wp) write(*,*)'metric differences: iface',iface, t1
             else                                                 ! NonConforming interface
-              nx(:) = Jx_facenodenormal_LGL(1:3,knode,ielem)
+              nx(:) = Jx_facenodenormal_LGL(:,knode,ielem)
             endif
 
             bvec(inode,:) = bvec(inode,:) + p_surf(i)*nx(:)
@@ -6862,7 +6861,7 @@ contains
     ! Loop over volumetric elements
     do ielem = ihelems(1), ihelems(2)
 
-      call element_properties(ielem,                &
+      call element_properties(ielem,               &
                               n_pts_1d=n_LGL_1d_On, &
                               x_pts_1d=x_LGL_1d_On)
 
@@ -7271,8 +7270,7 @@ contains
 
     allocate(efn2efn_Gau(4,n_Gau_shell_max,ihelems(1):ihelems(2))) ; efn2efn_Gau = -1000 ;
 
-    ! Initialize position of the ghost point in the stack
-    i_low = 0
+    i_low = 0                                                    ! Initialize position of the ghost point in the stack
 
     elem_loop:do ielem = ihelems(1), ihelems(2)                  ! loop over elements
 
@@ -7320,8 +7318,8 @@ contains
                 efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
                 
                 ! Set the node index in the ghost array
-!               efn2efn_Gau(3,knode,ielem) = i_low + jnode
-                efn2efn_Gau(3,knode,ielem) = jnode
+                efn2efn_Gau(3,knode,ielem) = i_low + jnode
+!               efn2efn_Gau(3,knode,ielem) = jnode
 
                 exit
               
@@ -7367,7 +7365,9 @@ contains
               
               ! Coordinates of the jnode
               ! ef2e(1) gives the face on the neighboring element and ef2e(2) gives the element
+
               kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
+
               x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
               
               ! Check the distance between the two nodes
@@ -7425,8 +7425,6 @@ contains
     use referencevariables
     use initcollocation,      only: D_lagrange_basis_function_1d, &
                                       lagrange_basis_function_1d
-
-!   use variables, only:  Jx_r, facenodenormal
 
     implicit none
 

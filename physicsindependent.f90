@@ -221,6 +221,7 @@ contains
     ! Communicate grid values
     call PetscGridLocations_LGL()
 
+!   if(non_conforming .eqv. .true.) call PetscGridLocations_Gau()
     if(non_conforming .eqv. .true.) call Petsc_Gau_Mortar_Geometry_Data()
 
     if (myprocid == 0) then
