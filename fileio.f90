@@ -1425,8 +1425,8 @@ contains
     ! Subsonic Pressure Boundary condition 
     code_bc_names(15) = 'SubsonicOutflow'
 
-    ! Subsonic Pressure Boundary condition 
-    code_bc_names(16) = 'Sphere_Dirichlet'
+    ! Elevate the polynomial of the element on the boundaryBoundary condition 
+    code_bc_names(16) = 'dirichlet_elevate'
 
     return
   end subroutine init_code_bc_types
