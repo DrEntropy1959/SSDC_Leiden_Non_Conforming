@@ -22,7 +22,55 @@ contains
 !
 ! Purpose: This subroutine h refines the mesh at the boundaries
 ! 
-! Comments: hardcoded for 3D
+! Comments: Only setup for 3D. Numbering for the splitting: we only consider a equal subvdivision
+! of the hex in each direction. The nod numbering convention used here is given
+! in the following figure:
+!
+!                        8-------15--------7
+!                       /.                /|
+!                      / .               / |
+!                     /  .              /  |
+!                    /                 /   |
+!                   16   .            14   |
+!                  /     20          /    19
+!                 /      .          /      |
+!                /       .         /       |
+!               5---------13------6        |       
+!               |        4.....11.|........3
+!               |       .         |       /
+!               |      .          |      /
+!               17     .          18    /  zeta ^     
+!               |    12           |    10       |    / eta
+!               |   .             |   /         |   /
+!               |  .              |  /          |  /
+!               | .               | /           | /
+!               |.                |/            |/
+!               1-------9---------2             ----------> xi
+!               5---------13------6    6---------14------7   7---------15------8     
+!               |        |        |    |        |        |   |        |        |  
+!               |        |        |    |        |        |   |        |        |  
+!               |        |        |    |        |        |   |        |        |  
+!               |        |        |    |        |        |   |        |        |
+!               17       21       18   18       22       19  19       23       20
+!               |        |        |    |        |        |   |        |        |
+!               |        |        |    |        |        |   |        |        |
+!               |        |        |    |        |        |   |        |        |
+!               |        |        |    |        |        |   |        |        |
+!               1-------9---------2    4-------10--------3   3-------11--------4   
+!               8---------16------5    4---------11------3   8---------15------7     
+!               |        |        |    |        |        |   |        |        |  
+!               |        |        |    |        |        |   |        |        |  
+!               |        |        |    |        |        |   |        |        |  
+!               |        |        |    |        |        |   |        |        |
+!               20       24       17   12       25       10  16       26       14
+!               |        |        |    |        |        |   |        |        |
+!               |        |        |    |        |        |   |        |        |
+!               |        |        |    |        |        |   |        |        |
+!               |        |        |    |        |        |   |        |        |
+!               4-------12---------1   1-------9--------2    5-------13--------6   
+
+
+!               the node in the mindel of the volume is numbered 27
 !
 ! Outputs:
 !         
@@ -35,13 +83,27 @@ contains
      use variables, only : vx_master, e2v, vx, iae2e, jae2e, iae2v, jae2v, ic2nh, xg
 
      !-- local variables
-     integer :: ielem, iface, bc_element_count, max_partners
+     integer :: ielem, iface, bc_element_count, max_partners, nvertex,&
+                element_count, vertex_count
+     integer :: nelems_old, nvertex_old
      integer, allocatable, dimension(:,:,:) :: ef2e_temp                                            !-- (7 ,nfaceperelem, nelements)
      integer, allocatable, dimension(:,:,:,:,:) :: e_edge2e_temp                                    !-- (3,number_of_edges_per_face,max_partners,nfaceperelem,nelems)
+     integer, allocatable, dimension(:,:) :: vx_master_temp                                         !-- (3,number of vertices)
+     integer, allocatable, dimension(:) :: e_old2e
+
+     integer :: v1, v2, v3, v4, v5, v6, v7, v8
+     integer :: v9n, v10n, v11n, v12n, v13n, v14n, v15n, v16n,&
+                v17n, v18n, v19n, v20n, v21n, v22n, v23n, v24n,&
+                v25n, v26n, v27n
+
+     real(wp), dimension (3) :: xyz1, xyz2, xyz3, xyz4,& 
+                                xyz5, xyz6, xyz7, xyz8,&
+                                xyz9, xyz10, xyz11, xyz12,&
+                                xyz13, xyz14, xyz15, xyz16,&
+                                xyz17, xyz18, xyz19, xyz20,&
+                                xyz21, xyz22, xyz23, xyz24,&
+                                xyz25, xyz26, xyz27
      logical :: bcelement = .false.
-
-     integer :: i_err
-
 
      !-- first we loop over all elements to determine how many boundary elements we have
      bc_element_count = 0
@@ -61,20 +123,21 @@ contains
      enddo e_loop_bc1
 
      !-- allocate the necessary temporary arrays
-     if(ndim.EQ.1)then
-       call PetscFinalize(i_err); stop
-     elseif(ndim.EQ.2)then
-       nelems = nelems-bc_element_count+4*bc_element_count 
-     elseif(ndim.EQ.3)then
-       nelems = nelems-bc_element_count+8*bc_element_count                                           
-     endif
-
-     allocate(ef2e_temp(7,nfaces,nelems))
+     new_element_count = nelems+1                  !-- the starting position where new elements will be stored
+     nelems_old = nelems
+     nelems = nelems_old-bc_element_count+8*bc_element_count 
+     nvertex_old = size(vx_master(1,:)) 
+     nvertex = nvertex_old+19
      max_partners = size(e_edge2e(1,1,:,1,1))
+                                     
+     allocate(vx_master_temp(3,nvertex))
+     allocate(ef2e_temp(7,nfaces,nelems))     
      allocate(e_edge2e_temp(3,2**ndim,max_partners,nfaces,nelems))
+     allocate(e_old2e(nelems_old))
 
-     !-- loop over the elements copy original elements and split boundary elements
-     bc_element_count = 0
+     !-- Create a map between old element numbers and new element numbers (each
+     !   element that is split is replaced with 8 new elements)
+     element_count = 1
      e_loop_bc2 : do ielem = 1,nelems
 
        bcelement = .false.
@@ -82,20 +145,160 @@ contains
 
          !-- check if the element has a face with a boundary condition
          f_if_bc2: if (ef2e(1,iface,ielem) < 0) then
-           !-- split the element and append the information of the new elements at the bottom of the arrays
-           bc_element_count = bc_element_count+1
            bcelement = .true.
+           !-- exit f_loop_bc2
+           exit
          endif f_if_bc2
 
        end do f_loop_bc2
-       !-- if the element is a boundary element split otherwise copy relevant information
+     
        if(bcelement)then
+         e_old2e(ielem) = -1000
+         !-- update counter
+         element_count = element_count+8
        else
-         ef2e_temp(:,:,ielem) = ef2e(:,:,ielem)
-         e_edge2e_temp(:,:,:,:,ielem) = e_edge2e_temp(:,:,:,:,ielem)
+         e_old2e(ielem) = element_count
+         !-- update counter
+         element_count = element_count+1
        endif
 
      enddo e_loop_bc2
+
+     !-- loop over the elements copy original elements and split boundary elements
+     element_count = 1
+     vertex_count = 1
+     e_loop_bc3 : do ielem = 1,nelems
+
+       bcelement = .false.
+       f_loop_bc3: do iface = 1,nfaces
+
+         !-- check if the element has a face with a boundary condition
+         f_if_bc3: if (ef2e(1,iface,ielem) < 0) then
+           !-- split the element and append the information of the new elements at the bottom of the arrays
+           bc_element_count = bc_element_count+1
+           bcelement = .true.
+           !-- exit f_loop_bc2
+           exit
+         endif f_if_bc3
+
+       end do f_loop_bc3
+
+       !-- vertex number of the original 8 vertices
+       v1 = ic2nh(1,ielem);v2 = ic2nh(2,ielem); v3 = ic2nh(3,ielem); v4 = ic2nh(4,ielem);
+       v5 = ic2nh(5,ielem);v6 = ic2nh(6,ielem); v7 = ic2nh(7,ielem); v8 = ic2nh(8,ielem);
+
+       !-- spatial locations of the original 8 vertices
+       xyz1 = Vx_master(1:3,v1); xyz2 = Vx_master(1:3,v2); xyz3 = Vx_master(1:3,v3); xyz4 = Vx_master(1:3,v4)
+       xyz5 = Vx_master(1:3,v5); xyz6 = Vx_master(1:3,v6); xyz7 = Vx_master(1:3,v7); xyz8 = Vx_master(1:3,v8)
+
+       !-- set the new vertex numbers
+       v1n = vertex_counter; v2n = vertex_counter+1; v3n = vertex_counter+2; v4n = vertex_counter+3; 
+       v5n =vertex_counter+4 ; v6n = vertex_counter+5; v7n = vertex_counter+6; v8n = vertex_counter+7;
+
+       !-- if the element is a boundary element split otherwise copy relevant information
+       if(bcelement)then
+         !-- split the element
+
+
+         !-- construct new vertices (see figure at top)
+         xyz9 = 0.05_wp*(xyz1+xyz2); xyz10 = 0.05_wp*(xyz2+xyz3); xyz11 = 0.05_wp*(xyz3+xyz4); xyz12 = 0.05_wp*(xyz4+xyz1) 
+         xyz13 = 0.05_wp*(xyz5+xyz6); xyz14 = 0.05_wp*(xyz6+xyz7); xyz15 = 0.05_wp*(xyz7+xyz8); xyz16 = 0.05_wp*(xyz8+xyz5)
+         xyz17 = 0.05_wp*(xyz1+xyz5); xyz18 = 0.05_wp*(xyz2+xyz6); xyz19 = 0.05_wp*(xyz3+xyz7); xyz20 = 0.05_wp*(xyz4+xyz8)
+         xyz21 = 0.05_wp*(xyz9+xyz20); xyz22 = 0.05_wp*(xyz10+xyz14); xyz23 = 0.05_wp*(xyz11+xyz15); xyz24 = 0.05_wp*(xyz12+xyz16)
+         xyz25 = 0.05_wp*(xyz9+xyz11); xyz26 = 0.05_wp*(xyz13+xyz15);xyz27 = 0.05_wp*(xyz21+xyz23)
+
+         !-- set the new vertex numbers
+         v9n = vertex_counter+8; v10n = vertex_counter+9; v11n = vertex_counter+10; v12n = vertex_counter+11;
+         v13n = vertex_counter+12; v14n = vertex_counter+13; v15n = vertex_counter+14; v16n = vertex_counter+15;
+         v17n = vertex_counter+16; v17n = vertex_counter+17; v19n = vertex_counter+18; v20n = vertex_counter+19;
+         v21n = vertex_counter+20; v22n = vertex_counter+21; v23n = vertex_counter+22; v24n = vertex_counter+23;
+         v25n = vertex_counter+24; v26n = vertex_counter+25; v27n = vertex_counter+26;
+
+         !-- store the vertices
+         vx_master_temp(1:3,v1n) = xyz1; vx_master_temp(1:3,v2n) = xyz2; vx_master_temp(1:3,v3n) = xyz3; vx_master_temp(1:3,v4n) = xyz4;
+         vx_master_temp(1:3,v5n) = xyz5; vx_master_temp(1:3,v6n) = xyz6; vx_master_temp(1:3,v7n) = xyz7; vx_master_temp(1:3,v8n) = xyz8;
+         vx_master_temp(1:3,v9n) = xyz9;vx_master_temp(1:3,v10n) = xyz10;vx_master_temp(1:3,v11n) = xyz11;vx_master_temp(1:3,v12n) = xyz12;  
+         vx_master_temp(1:3,v13n) = xyz13;vx_master_temp(1:3,v14n) = xyz14;vx_master_temp(1:3,v15n) = xyz15;vx_master_temp(1:3,v16n) = xyz16; 
+         vx_master_temp(1:3,v17n) = xyz17;vx_master_temp(1:3,v18n) = xyz18;vx_master_temp(1:3,v19n) = xyz19;vx_master_temp(1:3,v20n) = xyz20; 
+         vx_master_temp(1:3,v21n) = xyz21;vx_master_temp(1:3,v22n) = xyz22;vx_master_temp(1:3,v23n) = xyz23;vx_master_temp(1:3,v24n) = xyz24;
+         vx_master_temp(1:3,v25n) = xyz25;vx_master_temp(1:3,v26n) = xyz26;vx_master_temp(1:3,v27n) = xyz27;
+
+         !-- store the vertex to element connectivity
+         ic2nh_temp(1:8,element_count) = (\v1n,v9n,v25n,v12n,v21n,v27n,v24n\)
+         ic2nh_temp(1:8,element_count+1) = (\V9n,V2n,V10n,V25n,v21n,v18n,v22n,v27n\)
+         ic2nh_temp(1:8, element_count+2) = (\v25n,v10n,v3n,v11n,v27n,v22n,v19n,v23n\)
+         ic2nh_temp(1:8, element_count+3) = (\v12n,v25n,v11n,v4n,v24n,v27n,v23n,v20n\)
+         ic2nh_temp(1:8, element_count+4) = (\v17n,v21n,v27n,v24n,v5n,v13n,v26n,v16n\)
+         ic2nh_temp(1:8, element_count+5) = (\v21n,v18n,v22n,v27n,v13n,v6n,v24n,v26n\)
+         ic2nh_temp(1:8, element_count+6) = (\v27n,v22n,v19n,v23n,v26n,v14n,v7n,v15n\)
+         ic2nh_temp(1:8, element_count+7) = (\v24n,v27n,v23n,v20n,v16n,v26n,v15n,v8n\)
+
+         !-- update ef2e
+         !-- new element 1 face 1
+         ef2e_temp(1,1,element_count) =                        !--Adjoining element face ID
+         ef2e_temp(2,1,element_count) =                        !--Adjoining element ID
+         ef2e_temp(3,1,element_count) = -1000                  !--Adjoining element process number
+         ef2e_temp(4,1,element_count) = ef2e(6,1,ielem)!--Adjoining element polynomial order
+         ef2e_temp(5,1,element_count) = !--Number of Adjoining elements
+         ef2e_temp(6,1,element_count) = ef2e(6,1,ielem)!-- self polynomial order
+         ef2e_temp(7,1,element_count) = ef2e(7,1,ielem)!--Face orientation
+         !-- new element 1 face 2
+         ef2e_temp(1,2,element_count) =                        !--Adjoining element face ID
+         ef2e_temp(2,2,element_count) =                        !--Adjoining element ID
+         ef2e_temp(3,2,element_count) = -1000                  !--Adjoining element process number
+         ef2e_temp(4,2,element_count) = ef2e(6,2,ielem)!--Adjoining element polynomial order
+         ef2e_temp(5,2,element_count) = !--Number of Adjoining elements
+         ef2e_temp(6,2,element_count) = ef2e(6,2,ielem)
+         ef2e_temp(7,2,element_count) = ef2e(7,2,ielem)!--Face orientation
+         !-- new element 1 face 3
+         ef2e_temp(1,3,element_count) =                        !--Adjoining element face ID
+         ef2e_temp(2,3,element_count) =                        !--Adjoining element ID
+         ef2e_temp(3,3,element_count) = -1000                  !--Adjoining element process number
+         ef2e_temp(4,3,element_count) = ef2e(6,3,ielem)!--Adjoining element polynomial order
+         ef2e_temp(5,3,element_count) = !--Number of Adjoining elements
+         ef2e_temp(6,3,element_count) = ef2e(6,3,ielem)
+         ef2e_temp(7,3,element_count) = ef2e(7,3,ielem)!--Face orientation
+         !-- new element 1 face 4
+         ef2e_temp(1,4,element_count) =                        !--Adjoining element face ID
+         ef2e_temp(2,4,element_count) =                        !--Adjoining element ID
+         ef2e_temp(3,4,element_count) = -1000                  !--Adjoining element process number
+         ef2e_temp(4,4,element_count) = ef2e(6,4,ielem)!--Adjoining element polynomial order
+         ef2e_temp(5,4,element_count) = !--Number of Adjoining elements
+         ef2e_temp(6,4,element_count) = ef2e(6,4,ielem)
+         ef2e_temp(7,4,element_count) = ef2e(7,4,ielem)!--Face orientation
+         !-- new element 1 face 5
+         ef2e_temp(1,5,element_count) =                        !--Adjoining element face ID
+         ef2e_temp(2,5,element_count) =                        !--Adjoining element ID
+         ef2e_temp(3,5,element_count) = -1000                  !--Adjoining element process number
+         ef2e_temp(4,5,element_count) = ef2e(6,5,ielem)!--Adjoining element polynomial order
+         ef2e_temp(5,5,element_count) = !--Number of Adjoining elements
+         ef2e_temp(6,5,element_count) = ef2e(6,5,ielem)
+         ef2e_temp(7,5,element_count) = ef2e(7,5,ielem)!--Face orientation
+         !-- new element 1 face 6
+         ef2e_temp(1,6,element_count) =                        !--Adjoining element face ID
+         ef2e_temp(2,6,element_count) =                        !--Adjoining element ID
+         ef2e_temp(3,6,element_count) = -1000                  !--Adjoining element process number
+         ef2e_temp(4,6,element_count) = ef2e(6,6,ielem)!--Adjoining element polynomial order
+         ef2e_temp(5,6,element_count) = !--Number of Adjoining elements
+         ef2e_temp(6,6,element_count) = ef2e(6,6,ielem)
+         ef2e_temp(7,6,element_count) = ef2e(7,6,ielem)!--Face orientation
+
+         !-- update counters
+         vertex_counter = vertex_counter+26
+         element_counter = element_counter+7
+       else
+         !-- store old values
+         vx_master_temp(1:3,v1n) = xyz1; vx_master_temp(1:3,v2n) = xyz2; vx_master_temp(1:3,v3n) = xyz3; vx_master_temp(1:3,v4n) = xyz4;
+         vx_master_temp(1:3,v5n) = xyz5; vx_master_temp(1:3,v6n) = xyz6; vx_master_temp(1:3,v7n) = xyz7; vx_master_temp(1:3,v8n) = xyz8;
+
+         ic2nh_temp(1:8,element_count) = (\v1n,v2n,v3n,v4n,v5n,v6n,v7n,v8n\)
+
+         !-- update counters
+         vertex_counter = vertex_counter+7
+         element_counter = element_counter+1
+       endif
+
+     enddo e_loop_bc3
    
 
      !-- assigne temp arrays to arrays used in main code
@@ -107,6 +310,7 @@ contains
      !-- deallocate statements
      deallocate(ef2e_temp)
      deallocate(e_edge2e_temp)
+     deallocate(e_old2e)
    end subroutine h_refine_boundary
 !==================================================================================================
 !
