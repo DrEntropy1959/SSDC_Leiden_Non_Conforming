@@ -38,6 +38,7 @@ contains
     use write_solution_file
     use referencevariables,  only: ihelems, nfacesperelem, nelems
     use initcollocation,     only: element_properties
+    use non_conforming,      only: h_refine_boundary
 
     ! Nothing is implicitly defined
     implicit none

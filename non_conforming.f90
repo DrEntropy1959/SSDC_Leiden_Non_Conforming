@@ -15,7 +15,62 @@ module non_conforming
   public Vandermonde_1D_monomial
   public Rotate_xione_2_xitwo_and_back
   public Rotate_GL_2_G_and_back_I
+  public h_refine_boundary
 contains
+!==================================================================================================
+!
+!
+! Purpose: This subroutine h refines the mesh at the boundaries
+! 
+! Comments: hardcoded for 3D
+!
+! Outputs:
+!         
+!
+!===================================================================================================
+   subroutine h_refine_boundary()
+
+     use referencevariables, only : nelems, nfaces, ndim
+     use variables, only : ef2e, e_edge2e
+     use variables, only : vx_master, e2v, vx, iae2e, jae2e, iae2v, jae2v, ic2nh, xg
+
+     !-- local variables
+     integer :: ielem, iface, bc_element_count, max_partners
+     integer, allocatable, dimension(:,:,:) :: ef2e_temp                                            !-- (7 ,nfaceperelem, nelements)
+     integer, allocatable, dimension(:,:,:,:,:) :: e_edge2e_temp                                    !-- (3,number_of_edges_per_face,max_partners,nfaceperelem,nelems)
+
+     integer :: i_err
+
+
+     !-- first we loop over all elements to determine how many boundary elements we have
+     bc_element_count = 0
+     e_loop_bc : do ielem = 1,nelems
+
+       f_loop_bc: do iface = 1,nfaces
+
+         !-- check if the element has a face with a boundary condition
+         f_if_bc: if (ef2e(1,iface,ielem) < 0) then
+           bc_element_count = bc_element_count+1
+         endif f_if_bc
+
+       end do f_loop_bc
+
+     enddo e_loop_bc
+
+     !-- allocate the necessary temporary arrays
+     if(ndim.EQ.1)then
+       call PetscFinalize(i_err); stop
+     elseif(ndim.EQ.2)then
+       nelems = nelems-bc_element_count+4*bc_element_count 
+     elseif(ndim.EQ.3)then
+       nelems = nelems-bc_element_count+8*bc_element_count                                           
+     endif
+     allocate(ef2e_temp(7,nfaces,nelems))
+     max_partners = size(e_edge2e(1,1,:,1,1))
+     allocate(e_edge2e_temp(3,2**ndim,max_partners,nfaces,nelems))
+
+
+   end subroutine h_refine_boundary
 !==================================================================================================
 !
 ! Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo()
