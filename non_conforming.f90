@@ -38,24 +38,27 @@ contains
      integer :: ielem, iface, bc_element_count, max_partners
      integer, allocatable, dimension(:,:,:) :: ef2e_temp                                            !-- (7 ,nfaceperelem, nelements)
      integer, allocatable, dimension(:,:,:,:,:) :: e_edge2e_temp                                    !-- (3,number_of_edges_per_face,max_partners,nfaceperelem,nelems)
+     logical :: bcelement = .false.
 
      integer :: i_err
 
 
      !-- first we loop over all elements to determine how many boundary elements we have
      bc_element_count = 0
-     e_loop_bc : do ielem = 1,nelems
+     e_loop_bc1 : do ielem = 1,nelems
 
-       f_loop_bc: do iface = 1,nfaces
+       f_loop_bc1: do iface = 1,nfaces
 
          !-- check if the element has a face with a boundary condition
-         f_if_bc: if (ef2e(1,iface,ielem) < 0) then
+         f_if_bc1: if (ef2e(1,iface,ielem) < 0) then
            bc_element_count = bc_element_count+1
-         endif f_if_bc
+           !-- exit f_loop_bc1
+           exit
+         endif f_if_bc1
 
-       end do f_loop_bc
+       end do f_loop_bc1
 
-     enddo e_loop_bc
+     enddo e_loop_bc1
 
      !-- allocate the necessary temporary arrays
      if(ndim.EQ.1)then
@@ -65,11 +68,45 @@ contains
      elseif(ndim.EQ.3)then
        nelems = nelems-bc_element_count+8*bc_element_count                                           
      endif
+
      allocate(ef2e_temp(7,nfaces,nelems))
      max_partners = size(e_edge2e(1,1,:,1,1))
      allocate(e_edge2e_temp(3,2**ndim,max_partners,nfaces,nelems))
 
+     !-- loop over the elements copy original elements and split boundary elements
+     bc_element_count = 0
+     e_loop_bc2 : do ielem = 1,nelems
 
+       bcelement = .false.
+       f_loop_bc2: do iface = 1,nfaces
+
+         !-- check if the element has a face with a boundary condition
+         f_if_bc2: if (ef2e(1,iface,ielem) < 0) then
+           !-- split the element and append the information of the new elements at the bottom of the arrays
+           bc_element_count = bc_element_count+1
+           bcelement = .true.
+         endif f_if_bc2
+
+       end do f_loop_bc2
+       !-- if the element is a boundary element split otherwise copy relevant information
+       if(bcelement)then
+       else
+         ef2e_temp(:,:,ielem) = ef2e(:,:,ielem)
+         e_edge2e_temp(:,:,:,:,ielem) = e_edge2e_temp(:,:,:,:,ielem)
+       endif
+
+     enddo e_loop_bc2
+   
+
+     !-- assigne temp arrays to arrays used in main code
+     deallocate(ef2e); allocate(ef2e(7,nfaces,nelems))
+     ef2e(:,:,:) = ef2e_temp(:,:,:)
+     deallocate(e_edge2e);allocate(e_edge2e(3,2**ndim,max_partners,nfaces,nelems))
+     e_edge2e(:,:,:,:,:) = e_edge2e_temp(:,:,:,:,:)
+
+     !-- deallocate statements
+     deallocate(ef2e_temp)
+     deallocate(e_edge2e_temp)
    end subroutine h_refine_boundary
 !==================================================================================================
 !
