@@ -36,6 +36,23 @@ CC = gcc
 FC = mpif90
 LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
 #=================================================================================================================
+#  ravindran-lan
+#=================================================================================================================
+else ifeq ($(HOSTPC),ravindran-lan)
+$(info ${HOSTPC})
+INCLUDESDIR = -I/scratch/OpenSourceLib/Lib-Install/include\
+              -I/scratch/OpenSourceLib/Lib-Install/petsc-3.5.2/include
+ FCFLAGS = -Wunused -Wsurprising -O3 $(INCLUDESDIR)
+#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -march=corei7-avx -Ofast -ftree-loop-distribution $(INCLUDESDIR)
+#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+#FCFLAGS = -g -Wall -Wmaybe-uninitialized -Wextra -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -ffpe-trap=zero,overflow,underflow -finit-real=nan $(INCLUDESDIR)
+CFLAGS = -O3  $(INCLUDESDIR)
+LFLAGS = -L/scratch/OpenSourceLib/Lib-Install/lib\
+         -L/scratch/OpenSourceLib/Lib-Install/petsc-3.5.2/lib
+CC = gcc
+FC = mpif90
+LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
+#=================================================================================================================
 #  dfernandez-lan
 #=================================================================================================================
 else ifeq ($(HOSTPC),dfernandez-lan)

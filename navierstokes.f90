@@ -3056,7 +3056,7 @@ contains
           fm = exp(2.0_wp*(1.0_wp-vf)*xin/alpha)-(vm-1.0_wp)**2/abs(vf-vm)**(2.0_wp*vf)
           tmp = (vm - vf) * (one - vm)
           if(tmp.lt.zero)tmp = -one*tmp
-          if(tmp.eq.zero)tmp = 1.0d-14
+          if(tmp.le.zero)tmp = 1.0d-14
           tmp1 = (one-vm)
           if(tmp1.lt.zero)tmp1=1.0d-14
           tmp2 = (vm-vf)
@@ -3654,7 +3654,7 @@ contains
               
             vg_On(:)  = vg(:,inode,ielem)                                              ! On -element primitive variables
             vg_Off(:) = vg(:,knode,kelem)                                              ! Off-element primitive variables
-  
+
             phig_On (:,:) = phig(:,:,inode,ielem)                                      ! On -element dW/dx_j
             phig_Off(:,:) = phig(:,:,knode,kelem)                                      ! Off-element dW/dx_j from PETSC ghost registers
 
@@ -5159,7 +5159,7 @@ endif
     use controlvariables
     use referencevariables
     use nsereferencevariables
-    use collocationvariables, only: pvol
+    use collocationvariables, only: pmat
     use initcollocation, only: element_properties
     use mpimod 
 
@@ -5175,19 +5175,23 @@ endif
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
 
-    integer :: ielem,  inode
-    integer :: m
+    integer :: ielem,  inode, n_pts_1d
+    integer :: i, j, k, m
 
     real(wp)               :: Lngth, a0, dt0, dt_min, dt_global_max
     real(wp)               :: tI, tV
+    real(wp)               :: eigtot, dtN, dt_minN, con1
     real(wp), dimension(3) :: sq, ucon
+    real(wp), dimension(3) :: sqN, uconN, eig
+
 
     continue
 
     ! Compute gradient of the velocity components
     ! ===========================================
     dt_global_max = dt_global*1.1_wp
-    dt_min = 100.0_wp
+    dt_min  = 100.0_wp
+    dt_minN = 100.0_wp
 
     ! Low and high  volumetric element index
     iell  = ihelems(1) ;  ielh = ihelems(2)
@@ -5195,31 +5199,57 @@ endif
     ! loop over all elements
     do ielem = ihelems(1), ihelems(2)
 
-      call element_properties(ielem, n_pts_3d=nodesperelem,pvol=pvol)
+      call element_properties(ielem, n_pts_1d=n_pts_1d, pmat=pmat)
 
-      do  inode = 1, nodesperelem
-                
-          Lngth = pvol( inode)**(third)
+      inode = 0
+      do k = 1,n_pts_1d
 
-          a0  = sqrt(abs(gamma0*vg(5, inode,ielem)/gM2))
+        do j = 1,n_pts_1d
 
-          sq(1) = magnitude(r_x(1,:, inode,ielem))
-          sq(2) = magnitude(r_x(2,:, inode,ielem))
-          sq(3) = magnitude(r_x(3,:, inode,ielem))
+          do i = 1,n_pts_1d
 
-          ucon(1) = dot_product(r_x(1,:, inode,ielem),vg(2:4, inode,ielem))
-          ucon(2) = dot_product(r_x(2,:, inode,ielem),vg(2:4, inode,ielem))
-          ucon(3) = dot_product(r_x(3,:, inode,ielem),vg(2:4, inode,ielem))
+            inode = inode + 1
 
-          tI  =  sum(abs(ucon(:))) + a0 * ( sum(sq) )
-          tV  =  Re0Inv * magnitude(sq)
+            Lngth = (pmat(i)*pmat(j)*pmat(k))**(third)
 
-          dt0 = CFL / (tI / Lngth + tV / Lngth / Lngth)
+            a0  = sqrt(abs(gamma0*vg(5,inode,ielem)/gM2))
 
-          dt_min = min(dt_min,dt0)
+            sq(1) = magnitude(r_x(1,:, inode,ielem))
+            sq(2) = magnitude(r_x(2,:, inode,ielem))
+            sq(3) = magnitude(r_x(3,:, inode,ielem))
+
+            ucon(1) = dot_product(r_x(1,:, inode,ielem),vg(2:4, inode,ielem))
+            ucon(2) = dot_product(r_x(2,:, inode,ielem),vg(2:4, inode,ielem))
+            ucon(3) = dot_product(r_x(3,:, inode,ielem),vg(2:4, inode,ielem))
+
+            tI  =  sum(abs(ucon(:))) + a0 * ( sum(sq) )
+
+            eig(:) = max(abs(ucon(:) - a0 * sq(:)),abs(ucon(:) + a0 * sq(:)))
+
+            con1 = 4.0_wp * Re0inv / gm1M2 / 3.0_wp
+
+            eig(1) = (eig(1) + con1 * sq(1) / pmat(i) ) / pmat(i)
+            eig(2) = (eig(2) + con1 * sq(2) / pmat(j) ) / pmat(j)
+            eig(3) = (eig(3) + con1 * sq(3) / pmat(k) ) / pmat(k)
+            eigtot = magnitude(eig(:))
+
+            tV  =  Re0Inv * magnitude(sq)
+
+            dt0 = CFL / (tI / Lngth + tV / Lngth / Lngth)
+            dtN = CFL / eigtot
+
+            dt_min  = min(dt_min ,dt0)
+            dt_minN = min(dt_minN,dtN)
+
+          enddo
+
+        enddo
 
       enddo
+
     enddo
+
+    dt_min = min(dt_min,dt_minN)
 
     ! Reduce values on all processes to a single value
     if(myprocid == 0 )  then
@@ -6145,6 +6175,9 @@ endif
 
         else if(initial_condition  == 'ExactSolutionViscousShock') then
           BoundaryCondition => viscousShockFull
+
+        else if(initial_condition  == 'ExactSolutionSupersonicVortex') then
+          BoundaryCondition => supersonicvortexFull
 
         else if(initial_condition  == 'PreserveFreeStream') then
           BoundaryCondition => UniformFreeStream
