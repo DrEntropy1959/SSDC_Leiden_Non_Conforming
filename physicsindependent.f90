@@ -127,6 +127,8 @@ contains
         ! create e_edge2e connectivity
         call e_edge2e_connectivity()   
 
+        ! h refine
+        call h_refine_boundary()
         ! Construct the vector of +1 and -1 for the LDG flip-flop
         call create_ldg_flip_flop_sign()
 
@@ -139,7 +141,9 @@ contains
 
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
-
+!-- DAVID DEBUG START
+        call PetscFinalize(i_err)
+!-- DAVID DEBUG END
       end if
 
       !-- pass number_of_possible_partners to all processes
