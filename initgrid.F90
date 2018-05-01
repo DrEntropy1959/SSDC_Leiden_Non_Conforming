@@ -3258,7 +3258,7 @@ contains
                  + matmul(v(1:m,1:m),transpose(v(1:m,1:m))) &
                  + matmul(transpose(u(1:n,1:m)),u(1:n,1:m)) 
         t1 = maxval(abs(3*eye(:,:) - wrk(:,:))) 
-        t2 = maxval(abs(transpose(amat)-matmul(u(1:n,1:m),matmul(diag(1:m,1:m),transpose(v(1:m,1:m))) )))
+        t2 = maxval(abs(transpose(amat(1:m,1:n))-matmul(u(1:n,1:m),matmul(diag(1:m,1:m),transpose(v(1:m,1:m))) )))
         if(w(perm(2)) <= tol) write(*,*)'second singular mode',w(perm(1:2))
         if(t1+t2 > tol) then
           write(*,*)'second singular mode',w(perm(1:2))
@@ -7245,9 +7245,10 @@ contains
     real(wp), parameter :: nodetol = 1.0e-8_wp
 
     integer ::  ielem, inode, jnode, iface, knode, kshell
-    integer ::  i_low
+    integer ::  i_low, ierr
 
     real(wp) :: x1(3), x2(3)
+    real(wp) :: distance_min
 
     integer :: n_Gau_1d_max , n_Gau_2d_max , n_Gau_shell_max
     integer :: n_Gau_1d_Mort, n_Gau_2d_Mort
@@ -7295,30 +7296,31 @@ contains
 
           do inode = 1, n_Gau_2d_Mort                            ! Loop over the nodes on the mortar
 
-            ! Update the facial node index counter
-            knode = knode + 1
+            knode = (iface-1) * n_Gau_2d_max + inode             ! location in the on-element stack
 
-            ! Save the coordinates of the facial node
-            x1 = xg_Gau_shell(:,knode,ielem)
+            x1 = xg_Gau_shell(:,knode,ielem)                     ! Save the coordinates of the facial node
               
-            ! Search for the connected node on face of the connected element
-            do jnode = 1, n_Gau_2d_Mort
+            distance_min = +10000000                             ! initial all distances to huge number
 
-              ! Coordinates of the jnode
-              ! ef2e(2) gives the element of the neighbor
-              x2 = xgghst_Gau_Shell(:,i_low + jnode)
+            do jnode = 1, n_Gau_2d_Mort                          ! Search for the connected node on face of the connected element
+
+              x2 = xgghst_Gau_Shell(:,i_low + jnode)             ! ef2e(2) gives the element of the neighbor
               
-              ! Check the distance between the two nodes
-              if (magnitude(x1-x2) <= nodetol) then
+              distance_min = min(distance_min,magnitude(x1-x2))  ! distance between two points
+
+            enddo
+
+            do jnode = 1,n_Gau_2d_Mort
+
+              x2 = xgghst_Gau_Shell(:,i_low + jnode)             ! ef2e(2) gives the element of the neighbor
+              
+              if(magnitude(x1-x2) <= distance_min + nodetol) then
                 
-                ! Set the volumetric node index of the connected node
-                efn2efn_Gau(1,knode,ielem) = -1000
+                efn2efn_Gau(1,knode,ielem) = -1000               ! Set the volumetric node index of the connected node
                 
-                ! Set the element of the connected node
-                efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
+                efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem) ! Set the element of the connected node
                 
-                ! Set the node index in the ghost array
-                efn2efn_Gau(3,knode,ielem) = i_low + jnode
+                efn2efn_Gau(3,knode,ielem) = i_low + jnode       ! Set the node index in the ghost array
 !               efn2efn_Gau(3,knode,ielem) = jnode
 
                 exit
@@ -7327,60 +7329,60 @@ contains
             
             end do
               
-            ! Print information at screen if there is a problem and stop computation
-!           if (jnode > n_Gau_2d_Mort .and. myprocid==1) then
-!             write(*,*) 'Connectivity error in face-node connectivity_Gau, Parallel.'
-!             write(*,*) 'Process ID, element ID, face ID, ef2e'
-!             write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-!             write(*,*) 'Node coordinates'
-!             write(*,*) x1
-!             write(*,*) 'Possible partner node coordinates'
-!             
-!             do jnode = i_low+1, i_low+n_Gau_2d_Mort
-!               x2 = xgghst_Gau_Shell(:,jnode)
-!               write(*,*) x2
-!             end do 
-!             write(*,*) 'Exiting...'
-!             call PetscFinalize(ierr) ; stop
-!           end if
+            if (jnode > n_Gau_2d_Mort .and. myprocid==1) then       ! Print information at screen if there is a problem and stop computation
+
+              write(*,*) 'Connectivity error in face-node connectivity_Gau, Parallel.'
+              write(*,*) 'Process ID, element ID, face ID, ef2e'
+              write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
+              write(*,*) 'Node coordinates'
+              write(*,*) x1
+              write(*,*) 'Possible partner node coordinates'
+              
+              do jnode = i_low+1, i_low+n_Gau_2d_Mort
+                x2 = xgghst_Gau_Shell(:,jnode)
+                write(*,*) x2
+              end do 
+              write(*,*) 'Exiting...'
+              call PetscFinalize(ierr) ; stop
+            end if
 
           end do
 
-          ! Update the position in the ghost stack
-          i_low = i_low + n_Gau_2d_Mort
+          i_low = i_low + n_Gau_2d_Mort                             ! Update the position in the ghost stack
           
         else if((ef2e(3,iface,ielem) == myprocid) .and. (elem_props(2,ielem) /= ef2e(4,iface,ielem))) then  ! On-process - Non-conforming
 
-          ! Loop over the nodes on the face
-          do inode = 1, n_Gau_2d_Mort
+          do inode = 1, n_Gau_2d_Mort                               ! Loop over the nodes on the face
 
-            ! Update the facial node index counter
-            knode = knode + 1
+            knode = (iface-1) * n_Gau_2d_max + inode                ! location in the on-element stack
 
-            ! Save coordinates of the facial ndoes
-            x1 = xg_Gau_shell(:,knode,ielem)
-            ! Search the for connected node on the face of the connected element
-            
-            do jnode = 1, n_Gau_2d_Mort
+            x1 = xg_Gau_shell(:,knode,ielem)                        ! Save coordinates of the facial ndoes
+
+            distance_min = +10000000                                ! initial all distances to huge number
+
+            do jnode = 1, n_Gau_2d_Mort                             ! Search the for connected node on the face of the connected element
               
-              ! Coordinates of the jnode
-              ! ef2e(1) gives the face on the neighboring element and ef2e(2) gives the element
+              kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode ! ef2e(1) gives the face on the neighboring element 
 
-              kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
-
-              x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
+              x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))       ! ef2e(2) gives the element
               
-              ! Check the distance between the two nodes
-              if (magnitude(x1-x2) <= nodetol) then
+              distance_min = min(distance_min,magnitude(x1-x2))     ! distance between two points
 
-                ! Set the volumetric node index of the connected node
-                efn2efn_Gau(1,knode,ielem) = -1000
+            enddo
+
+            do jnode = 1,n_Gau_2d_Mort
+
+              kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode ! ef2e(1) gives the face on the neighboring element 
+
+              x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))       ! ef2e(2) gives the element
+
+              if(magnitude(x1-x2) <= distance_min + nodetol) then
+
+                efn2efn_Gau(1,knode,ielem) = -1000                  ! Set the volumetric node index of the connected node
                 
-                ! Set the element of the connected node
-                efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)
+                efn2efn_Gau(2,knode,ielem) = ef2e(2,iface,ielem)    ! Set the element of the connected node
                 
-                ! Set the index of the connected node
-                efn2efn_Gau(4,knode,ielem) = kshell
+                efn2efn_Gau(4,knode,ielem) = kshell                 ! Set the index of the connected node
                 
                 exit
               
@@ -7389,22 +7391,23 @@ contains
             end do ! End do jnode
 
             ! Print information at screen if there is a problem and stop computation
-!           if (efn2efn_Gau(2,knode,ielem) < 0) then
-!             write(*,*) 'Connectivity error in face-node connectivity of Gauss path.'
-!             write(*,*) 'Process ID, element ID, face ID, ef2e'
-!             write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
-!             write(*,*) 'Node coordinates'
-!             write(*,*) x1
-!             write(*,*) 'Possible partner node coordinates'
-!             
-!             do jnode = 1, n_Gau_2d_Mort
-!               kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
-!               x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
-!               write(*,*) x2
-!             end do 
-!             write(*,*) 'Exiting...'
-!             call PetscFinalize(ierr) ; stop
-!           end if
+
+            if (efn2efn_Gau(2,knode,ielem) < 0) then
+              write(*,*) 'Connectivity error in face-node connectivity of Gauss path.'
+              write(*,*) 'Process ID, element ID, face ID, ef2e'
+              write(*,*) myprocid, ielem, iface, ef2e(:,iface,ielem)
+              write(*,*) 'Node coordinates'
+              write(*,*) x1
+              write(*,*) 'Possible partner node coordinates'
+              
+              do jnode = 1, n_Gau_2d_Mort
+                kshell = (ef2e(1,iface,ielem)-1)*n_Gau_2d_max + jnode
+                x2 = xg_Gau_shell(:,kshell,ef2e(2,iface,ielem))
+                write(*,*) x2
+              end do 
+              write(*,*) 'Exiting...'
+              call PetscFinalize(ierr) ; stop
+            end if
 
           end do ! End do inode
           
