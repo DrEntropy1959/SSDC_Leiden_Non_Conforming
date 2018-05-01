@@ -70,7 +70,7 @@ contains
 !               4-------12---------1   1-------9--------2    5-------13--------6   
 
 
-!               the node in the mindel of the volume is numbered 27
+!               the node in the middle of the volume is numbered 27
 !
 ! Outputs:
 !         
@@ -104,6 +104,9 @@ contains
                                 xyz21, xyz22, xyz23, xyz24,&
                                 xyz25, xyz26, xyz27
      logical :: bcelement = .false.
+
+     !-- update the number of faces per element (this is a maximum for one level refinment)
+     nfaces = 4*6
 
      !-- first we loop over all elements to determine how many boundary elements we have
      bc_element_count = 0
@@ -234,54 +237,110 @@ contains
          ic2nh_temp(1:8, element_count+7) = (\v24n,v27n,v23n,v20n,v16n,v26n,v15n,v8n\)
 
          !-- update ef2e
+         !-- new element 1
+         ef2e_temp(:,:,element_count) = ef2e(:,:,ielem)
          !-- new element 1 face 1
-         ef2e_temp(1,1,element_count) =                        !--Adjoining element face ID
-         ef2e_temp(2,1,element_count) =                        !--Adjoining element ID
-         ef2e_temp(3,1,element_count) = -1000                  !--Adjoining element process number
-         ef2e_temp(4,1,element_count) = ef2e(6,1,ielem)!--Adjoining element polynomial order
-         ef2e_temp(5,1,element_count) = !--Number of Adjoining elements
-         ef2e_temp(6,1,element_count) = ef2e(6,1,ielem)!-- self polynomial order
-         ef2e_temp(7,1,element_count) = ef2e(7,1,ielem)!--Face orientation
+         ef2e_temp(1,1,element_count) = ef2e(1,1,ielem)        !--Adjoining element face ID
+         ef2e_temp(2,1,element_count) = e_old2e(ef2e(2,1,ielem)!--Adjoining element ID
          !-- new element 1 face 2
-         ef2e_temp(1,2,element_count) =                        !--Adjoining element face ID
-         ef2e_temp(2,2,element_count) =                        !--Adjoining element ID
-         ef2e_temp(3,2,element_count) = -1000                  !--Adjoining element process number
-         ef2e_temp(4,2,element_count) = ef2e(6,2,ielem)!--Adjoining element polynomial order
-         ef2e_temp(5,2,element_count) = !--Number of Adjoining elements
-         ef2e_temp(6,2,element_count) = ef2e(6,2,ielem)
-         ef2e_temp(7,2,element_count) = ef2e(7,2,ielem)!--Face orientation
+         ef2e_temp(1,2,element_count) = ef2e(1,2,ielem)        !--Adjoining element face ID
+         ef2e_temp(2,2,element_count) = e_old2e(ef2e(2,1,ielem)!--Adjoining element ID
          !-- new element 1 face 3
-         ef2e_temp(1,3,element_count) =                        !--Adjoining element face ID
-         ef2e_temp(2,3,element_count) =                        !--Adjoining element ID
-         ef2e_temp(3,3,element_count) = -1000                  !--Adjoining element process number
-         ef2e_temp(4,3,element_count) = ef2e(6,3,ielem)!--Adjoining element polynomial order
-         ef2e_temp(5,3,element_count) = !--Number of Adjoining elements
-         ef2e_temp(6,3,element_count) = ef2e(6,3,ielem)
-         ef2e_temp(7,3,element_count) = ef2e(7,3,ielem)!--Face orientation
+         ef2e_temp(1,3,element_count) = 5                      !--Adjoining element face ID
+         ef2e_temp(2,3,element_count) = element_count+1        !--Adjoining element ID (element 2 locally)
          !-- new element 1 face 4
-         ef2e_temp(1,4,element_count) =                        !--Adjoining element face ID
-         ef2e_temp(2,4,element_count) =                        !--Adjoining element ID
-         ef2e_temp(3,4,element_count) = -1000                  !--Adjoining element process number
-         ef2e_temp(4,4,element_count) = ef2e(6,4,ielem)!--Adjoining element polynomial order
-         ef2e_temp(5,4,element_count) = !--Number of Adjoining elements
-         ef2e_temp(6,4,element_count) = ef2e(6,4,ielem)
-         ef2e_temp(7,4,element_count) = ef2e(7,4,ielem)!--Face orientation
+         ef2e_temp(1,4,element_count) = 2                      !--Adjoining element face ID
+         ef2e_temp(2,4,element_count) = element_count+3        !--Adjoining element ID (element 4 locally)
          !-- new element 1 face 5
-         ef2e_temp(1,5,element_count) =                        !--Adjoining element face ID
-         ef2e_temp(2,5,element_count) =                        !--Adjoining element ID
-         ef2e_temp(3,5,element_count) = -1000                  !--Adjoining element process number
-         ef2e_temp(4,5,element_count) = ef2e(6,5,ielem)!--Adjoining element polynomial order
-         ef2e_temp(5,5,element_count) = !--Number of Adjoining elements
-         ef2e_temp(6,5,element_count) = ef2e(6,5,ielem)
-         ef2e_temp(7,5,element_count) = ef2e(7,5,ielem)!--Face orientation
+         ef2e_temp(1,5,element_count) = ef2e(1,5,ielem)        !--Adjoining element face ID
+         ef2e_temp(2,5,element_count) = e_old2e(ef2e(2,5,ielem)!--Adjoining element ID
          !-- new element 1 face 6
-         ef2e_temp(1,6,element_count) =                        !--Adjoining element face ID
-         ef2e_temp(2,6,element_count) =                        !--Adjoining element ID
-         ef2e_temp(3,6,element_count) = -1000                  !--Adjoining element process number
-         ef2e_temp(4,6,element_count) = ef2e(6,6,ielem)!--Adjoining element polynomial order
-         ef2e_temp(5,6,element_count) = !--Number of Adjoining elements
-         ef2e_temp(6,6,element_count) = ef2e(6,6,ielem)
-         ef2e_temp(7,6,element_count) = ef2e(7,6,ielem)!--Face orientation
+         ef2e_temp(1,6,element_count) = 1                      !--Adjoining element face ID
+         ef2e_temp(2,6,element_count) = element_count+4        !--Adjoining element ID
+
+         !-- new element 2
+         ef2e_temp(:,:,element_count+1) = ef2e(:,:,ielem)
+         !-- new element 2 face 1
+         ef2e_temp(1,1,element_count+1) = ef2e(1,1,ielem)        !--Adjoining element face ID
+         ef2e_temp(2,1,element_count+1) = e_old2e(ef2e(2,1,ielem)!--Adjoining element ID
+         !-- new element 2 face 2
+         ef2e_temp(1,2,element_count+1) = ef2e(1,2,ielem)        !--Adjoining element face ID
+         ef2e_temp(2,2,element_count+1) = e_old2e(ef2e(2,1,ielem)!--Adjoining element ID
+         !-- new element 2 face 3
+         ef2e_temp(1,3,element_count+1) = ef2e(1,3,ielem)        !--Adjoining element face ID
+         ef2e_temp(2,3,element_count+1) = element_count+1        !--Adjoining element ID (element 2 locally)
+         !-- new element 2 face 4
+         ef2e_temp(1,4,element_count+1) = 2                      !--Adjoining element face ID
+         ef2e_temp(2,4,element_count+1) = element_count+3        !--Adjoining element ID (element 4 locally)
+         !-- new element 2 face 5
+         ef2e_temp(1,5,element_count+1) = 3                      !--Adjoining element face ID
+         ef2e_temp(2,5,element_count+1) = element_counter        !--Adjoining element ID
+         !-- new element 2 face 6
+         ef2e_temp(1,6,element_count+1) = 1                      !--Adjoining element face ID
+         ef2e_temp(2,6,element_count+1) = element_count+4        !--Adjoining element ID
+
+         !-- new element 3
+         ef2e_temp(:,:,element_count+2) = ef2e(:,:,ielem)
+         !-- new element 3 face 1
+         ef2e_temp(1,1,element_count+2) = ef2e(1,1,ielem)        !--Adjoining element face ID
+         ef2e_temp(2,1,element_count+2) = e_old2e(ef2e(2,1,ielem)!--Adjoining element ID
+         !-- new element 3 face 2
+         ef2e_temp(1,2,element_count+2) = 4                      !--Adjoining element face ID
+         ef2e_temp(2,2,element_count+2) = element_count+1        !--Adjoining element ID
+         !-- new element 3 face 3
+         ef2e_temp(1,3,element_count+2) = ef2e(1,3,ielem)         !--Adjoining element face ID
+         ef2e_temp(2,3,element_count+2) = e_old2e(ef2e(2,3,ielem))!--Adjoining element ID (element 2 locally)
+         !-- new element 3 face 4
+         ef2e_temp(1,4,element_count+2) = ef2e(1,4,ielem)         !--Adjoining element face ID
+         ef2e_temp(2,4,element_count+2) = e_old2e(ef2e(2,4,ielem))!--Adjoining element ID (element 4 locally)
+         !-- new element 3 face 5
+         ef2e_temp(1,5,element_count+2) = 3                      !--Adjoining element face ID
+         ef2e_temp(2,5,element_count+2) = element_count+3        !--Adjoining element ID
+         !-- new element 3 face 6
+         ef2e_temp(1,6,element_count+2) = 1                      !--Adjoining element face ID
+         ef2e_temp(2,6,element_count+2) = element_count+6        !--Adjoining element ID
+
+         !-- new element 4
+         ef2e_temp(:,:,element_count+3) = ef2e(:,:,ielem)
+         !-- new element 4 face 1
+         ef2e_temp(1,1,element_count+3) = ef2e(1,1,ielem)        !--Adjoining element face ID
+         ef2e_temp(2,1,element_count+3) = e_old2e(ef2e(2,1,ielem)!--Adjoining element ID
+         !-- new element 4 face 2
+         ef2e_temp(1,2,element_count+3) = 4                      !--Adjoining element face ID
+         ef2e_temp(2,2,element_count+3) = element_count          !--Adjoining element ID
+         !-- new element 4 face 3
+         ef2e_temp(1,3,element_count+3) = ef2e(1,3,ielem)         !--Adjoining element face ID
+         ef2e_temp(2,3,element_count+3) = e_old2e(ef2e(2,3,ielem))!--Adjoining element ID (element 2 locally)
+         !-- new element 4 face 4
+         ef2e_temp(1,4,element_count+3) = ef2e(1,4,ielem)         !--Adjoining element face ID
+         ef2e_temp(2,4,element_count+3) = e_old2e(ef2e(2,4,ielem))!--Adjoining element ID (element 4 locally)
+         !-- new element 4 face 5
+         ef2e_temp(1,5,element_count+3) = ef2e(1,5,ielem)         !--Adjoining element face ID
+         ef2e_temp(2,5,element_count+3) = e_old2e(ef2e(2,5,ielem))!--Adjoining element ID
+         !-- new element 4 face 6
+         ef2e_temp(1,6,element_count+3) = 1                      !--Adjoining element face ID
+         ef2e_temp(2,6,element_count+3) = element_count+7        !--Adjoining element ID
+
+         !-- new element 5
+         ef2e_temp(:,:,element_count+4) = ef2e(:,:,ielem)
+         !-- new element 5 face 1
+         ef2e_temp(1,1,element_count+4) = 6                       !--Adjoining element face ID
+         ef2e_temp(2,1,element_count+4) = element_count           !--Adjoining element ID
+         !-- new element 5 face 2
+         ef2e_temp(1,2,element_count+4) = ef2e(1,2,ielem)         !--Adjoining element face ID
+         ef2e_temp(2,2,element_count+4) = e_old2e(ef2e(2,2,ielem))!--Adjoining element ID
+         !-- new element 5 face 3
+         ef2e_temp(1,3,element_count+4) = 5                       !--Adjoining element face ID
+         ef2e_temp(2,3,element_count+4) = element_count+5         !--Adjoining element ID (element 2 locally)
+         !-- new element 5 face 4
+         ef2e_temp(1,4,element_count+4) = 2                       !--Adjoining element face ID
+         ef2e_temp(2,4,element_count+4) = element_count+7         !--Adjoining element ID (element 4 locally)
+         !-- new element 5 face 5
+         ef2e_temp(1,5,element_count+4) = ef2e(1,5,ielem)         !--Adjoining element face ID
+         ef2e_temp(2,5,element_count+4) = e_old2e(ef2e(2,5,ielem))!--Adjoining element ID
+         !-- new element 5 face 6
+         ef2e_temp(1,6,element_count+4) = ef2e(1,6,ielem)         !--Adjoining element face ID
+         ef2e_temp(2,6,element_count+4) = e_old2e(ef2e(2,6,ielem))!--Adjoining element ID
 
          !-- update counters
          vertex_counter = vertex_counter+26
