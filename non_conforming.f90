@@ -78,7 +78,7 @@ contains
 !===================================================================================================
    subroutine h_refine_boundary()
 
-     use referencevariables, only : nelems, nfaces, ndim
+     use referencevariables, only : nelems, nfacesperelem, ndim
      use variables, only : ef2e, e_edge2e
      use variables, only : vx_master, ic2nh
 
@@ -88,7 +88,6 @@ contains
      integer :: nelems_old, nvertex_old, nfaces_old
      integer, allocatable, dimension(:,:,:) :: ef2e_temp                                            !-- (7 ,nfaceperelem, nelements)
      integer, allocatable, dimension(:,:,:,:,:) :: e_edge2e_temp                                    !-- (3,number_of_edges_per_face,max_partners,nfaceperelem,nelems)
-     integer, allocatable, dimension(:,:) :: vx_master_temp                                         !-- (3,number of vertices)
      integer, allocatable, dimension(:) :: e_old2e
      integer, allocatable, dimension(:,:) :: ic2nh_temp
 
@@ -106,11 +105,13 @@ contains
                                 xyz17, xyz18, xyz19, xyz20,&
                                 xyz21, xyz22, xyz23, xyz24,&
                                 xyz25, xyz26, xyz27
+     real(wp), allocatable, dimension(:,:) :: vx_master_temp                                         !-- (3,number of vertices)
+
      logical :: bcelement = .false.
 
      !-- update the number of faces per element (this is a maximum for one level refinment)
-     nfaces_old = nfaces
-     nfaces = 4*6
+     nfaces_old = nfacesperelem
+     nfacesperelem = 4*6
 
      !-- first we loop over all elements to determine how many boundary elements we have
      !-- and construct a map between the old element numbers and new element numbers
@@ -147,22 +148,20 @@ contains
      nelems_old = nelems
      nelems = element_count 
      nvertex_old = size(vx_master(1,:)) 
-     nvertex = nvertex_old+19
+     nvertex = nelems*8
      max_partners = size(e_edge2e(1,1,:,1,1))
                                      
      allocate(vx_master_temp(3,nvertex))
-     allocate(ef2e_temp(7,nfaces,nelems))     
-     allocate(e_edge2e_temp(3,2**ndim,max_partners,nfaces,nelems))
+     allocate(ef2e_temp(7,nfacesperelem,nelems))     
+     allocate(e_edge2e_temp(3,2**ndim,max_partners,nfacesperelem,nelems))
      allocate(ic2nh_temp(8,nelems))
 
      !-- store unsplit elements
      e_loop_bc2: do ielem = 1,nelems_old
        bcelement = .false.
-       write(*,*)'nfaces_old = ',nfaces_old
        f_loop_bc2: do iface = 1,nfaces_old
 
          !-- check if the element has a face with a boundary condition
-         write(*,*)'ielem = ',ielem,'ef2e(1,iface,ielem) = ',ef2e(1,iface,ielem)
          f_if_bc2: if (ef2e(1,iface,ielem) < 0) then
            !-- split the element and append the information of the new elements at the bottom of the arrays
            bcelement = .true.
@@ -174,7 +173,6 @@ contains
        if(bcelement)then
          !-- do nothing this is an element that will be split
        else
-         write(*,*)'ielem = ',ielem,'e_old2e(ielem) = ',e_old2e(ielem)
          !-- first set it equal to original ef2e and e_edge2e
          ef2e_temp(:,:,e_old2e(ielem)) = ef2e(:,:,ielem)
          e_edge2e_temp(:,:,:,:,e_old2e(ielem)) = e_edge2e(:,:,:,:,ielem)
@@ -189,7 +187,7 @@ contains
          enddo iface_loop
        endif
      enddo e_loop_bc2
-     write(*,*)'here2'
+    
      !-- loop over the element, split boundary elements, update face conectivity
      !of adjoining elements and populate vx_master_temp, and icn2h_temp
      element_count = 1
@@ -208,38 +206,38 @@ contains
          endif f_if_bc3
 
        end do f_loop_bc3
-
+       write(*,*)'ielem = ',ielem
        !-- vertex number of the original 8 vertices
        v1 = ic2nh(1,ielem);v2 = ic2nh(2,ielem); v3 = ic2nh(3,ielem); v4 = ic2nh(4,ielem);
        v5 = ic2nh(5,ielem);v6 = ic2nh(6,ielem); v7 = ic2nh(7,ielem); v8 = ic2nh(8,ielem);
-
+write(*,*)'here1'
        !-- spatial locations of the original 8 vertices
        xyz1 = Vx_master(1:3,v1); xyz2 = Vx_master(1:3,v2); xyz3 = Vx_master(1:3,v3); xyz4 = Vx_master(1:3,v4)
        xyz5 = Vx_master(1:3,v5); xyz6 = Vx_master(1:3,v6); xyz7 = Vx_master(1:3,v7); xyz8 = Vx_master(1:3,v8)
-
+write(*,*)'here2'
        !-- set the new vertex numbers
        v1n = vertex_count; v2n = vertex_count+1; v3n = vertex_count+2; v4n = vertex_count+3; 
        v5n =vertex_count+4 ; v6n = vertex_count+5; v7n = vertex_count+6; v8n = vertex_count+7;
-
+write(*,*)'here3'
        !-- if the element is a boundary element split otherwise copy relevant information
        if(bcelement)then
          !-- split the element
 
 
          !-- construct new vertices (see figure at top)
-         xyz9 = 0.05_wp*(xyz1+xyz2); xyz10 = 0.05_wp*(xyz2+xyz3); xyz11 = 0.05_wp*(xyz3+xyz4); xyz12 = 0.05_wp*(xyz4+xyz1) 
-         xyz13 = 0.05_wp*(xyz5+xyz6); xyz14 = 0.05_wp*(xyz6+xyz7); xyz15 = 0.05_wp*(xyz7+xyz8); xyz16 = 0.05_wp*(xyz8+xyz5)
-         xyz17 = 0.05_wp*(xyz1+xyz5); xyz18 = 0.05_wp*(xyz2+xyz6); xyz19 = 0.05_wp*(xyz3+xyz7); xyz20 = 0.05_wp*(xyz4+xyz8)
-         xyz21 = 0.05_wp*(xyz9+xyz20); xyz22 = 0.05_wp*(xyz10+xyz14); xyz23 = 0.05_wp*(xyz11+xyz15); xyz24 = 0.05_wp*(xyz12+xyz16)
-         xyz25 = 0.05_wp*(xyz9+xyz11); xyz26 = 0.05_wp*(xyz13+xyz15);xyz27 = 0.05_wp*(xyz21+xyz23)
-
+         xyz9 = 0.5_wp*(xyz1+xyz2); xyz10 = 0.5_wp*(xyz2+xyz3); xyz11 = 0.5_wp*(xyz3+xyz4); xyz12 = 0.5_wp*(xyz4+xyz1) 
+         xyz13 = 0.5_wp*(xyz5+xyz6); xyz14 = 0.5_wp*(xyz6+xyz7); xyz15 = 0.5_wp*(xyz7+xyz8); xyz16 = 0.5_wp*(xyz8+xyz5)
+         xyz17 = 0.5_wp*(xyz1+xyz5); xyz18 = 0.5_wp*(xyz2+xyz6); xyz19 = 0.5_wp*(xyz3+xyz7); xyz20 = 0.5_wp*(xyz4+xyz8)
+         xyz21 = 0.5_wp*(xyz9+xyz13); xyz22 = 0.5_wp*(xyz10+xyz14); xyz23 = 0.5_wp*(xyz11+xyz15); xyz24 = 0.5_wp*(xyz12+xyz16)
+         xyz25 = 0.5_wp*(xyz9+xyz11); xyz26 = 0.5_wp*(xyz13+xyz15);xyz27 = 0.5_wp*(xyz21+xyz23)
+write(*,*)'here4'
          !-- set the new vertex numbers
          v9n = vertex_count+8; v10n = vertex_count+9; v11n = vertex_count+10; v12n = vertex_count+11;
          v13n = vertex_count+12; v14n = vertex_count+13; v15n = vertex_count+14; v16n = vertex_count+15;
          v17n = vertex_count+16; v18n = vertex_count+17; v19n = vertex_count+18; v20n = vertex_count+19;
          v21n = vertex_count+20; v22n = vertex_count+21; v23n = vertex_count+22; v24n = vertex_count+23;
          v25n = vertex_count+24; v26n = vertex_count+25; v27n = vertex_count+26;
-
+write(*,*)'here5'
          !-- store the vertices
          vx_master_temp(1:3,v1n) = xyz1; vx_master_temp(1:3,v2n) = xyz2; vx_master_temp(1:3,v3n) = xyz3; 
          vx_master_temp(1:3,v4n) = xyz4;
@@ -255,6 +253,7 @@ contains
          vx_master_temp(1:3,v24n) = xyz24;
          vx_master_temp(1:3,v25n) = xyz25;vx_master_temp(1:3,v26n) = xyz26;vx_master_temp(1:3,v27n) = xyz27;
 
+write(*,*)'here6'
          !-- store the vertex to element connectivity
          ic2nh_temp(1:8,element_count) = (/v1n,v9n,v25n,v12n,v17n,v21n,v27n,v24n/)
          ic2nh_temp(1:8,element_count+1) = (/V9n,V2n,V10n,V25n,v21n,v18n,v22n,v27n/)
@@ -264,7 +263,28 @@ contains
          ic2nh_temp(1:8, element_count+5) = (/v21n,v18n,v22n,v27n,v13n,v6n,v24n,v26n/)
          ic2nh_temp(1:8, element_count+6) = (/v27n,v22n,v19n,v23n,v26n,v14n,v7n,v15n/)
          ic2nh_temp(1:8, element_count+7) = (/v24n,v27n,v23n,v20n,v16n,v26n,v15n,v8n/)
+if(ielem.EQ.1)then
+write(*,*)'xyz1 = [',xyz1,'];'
+write(*,*)'xyz9 = [',xyz9,'];'
+write(*,*)'xyz25 = [',xyz25,'];'
+write(*,*)'xyz12 = [',xyz12,'];'
+write(*,*)'xyz17 = [',xyz17,'];'
+write(*,*)'xyz21 = [',xyz21,'];'
+write(*,*)'xyz27 = [',xyz27,'];'
+write(*,*)'xyz24 = [',xyz24,'];'
+write(*,*)'1 = ',vx_master_temp(1:3,ic2nh_temp(1,element_count))
+write(*,*)'2 = ',vx_master_temp(1:3,ic2nh_temp(2,element_count))
+write(*,*)'3 = ',vx_master_temp(1:3,ic2nh_temp(3,element_count))
+write(*,*)'4 = ',vx_master_temp(1:3,ic2nh_temp(4,element_count))
+write(*,*)'5 = ',vx_master_temp(1:3,ic2nh_temp(5,element_count))
+write(*,*)'6 = ',vx_master_temp(1:3,ic2nh_temp(6,element_count))
+write(*,*)'7 = ',vx_master_temp(1:3,ic2nh_temp(7,element_count))
+write(*,*)'8 = ',vx_master_temp(1:3,ic2nh_temp(8,element_count))
+write(*,*)'element_count = ',element_count
+endif
 
+write(*,*)'here7'
+if(.false.)then
          !-- update ef2e
          !-- new element 1
          ef2e_temp(:,:,element_count) = ef2e(:,:,ielem)
@@ -286,7 +306,7 @@ contains
          !-- new element 1 face 6
          ef2e_temp(1,6,element_count) = 1                      !--Adjoining element face ID
          ef2e_temp(2,6,element_count) = element_count+4        !--Adjoining element ID
-
+write(*,*)'here8'
          !-- new element 2
          ef2e_temp(:,:,element_count+1) = ef2e(:,:,ielem)
          !-- new element 2 face 1
@@ -307,7 +327,7 @@ contains
          !-- new element 2 face 6
          ef2e_temp(1,6,element_count+1) = 1                      !--Adjoining element face ID
          ef2e_temp(2,6,element_count+1) = element_count+5        !--Adjoining element ID
-
+write(*,*)'here9'
          !-- new element 3
          ef2e_temp(:,:,element_count+2) = ef2e(:,:,ielem)
          !-- new element 3 face 1
@@ -472,7 +492,7 @@ contains
          ef2e_temp(2,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = (/5,6,7,8/)
 
          !-- update e_edge2e of elements touching the new elements
-         
+endif         
          !-- update counters
          vertex_count = vertex_count+26
          element_count = element_count+7
@@ -491,18 +511,39 @@ contains
        endif
 
      enddo e_loop_bc3
-   
+write(*,*)'1 = ',vx_master_temp(1:3,ic2nh_temp(1,1))
+write(*,*)'2 = ',vx_master_temp(1:3,ic2nh_temp(2,1))
+write(*,*)'3 = ',vx_master_temp(1:3,ic2nh_temp(3,1))
+write(*,*)'4 = ',vx_master_temp(1:3,ic2nh_temp(4,1))
+write(*,*)'5 = ',vx_master_temp(1:3,ic2nh_temp(5,1))
+write(*,*)'6 = ',vx_master_temp(1:3,ic2nh_temp(6,1))
+write(*,*)'7 = ',vx_master_temp(1:3,ic2nh_temp(7,1))
+write(*,*)' = ',vx_master_temp(1:3,ic2nh_temp(8,1))
 
+write(*,*)'finishes spliting'
      !-- assigne temp arrays to arrays used in main code
-     deallocate(ef2e); allocate(ef2e(7,nfaces,nelems))
+     deallocate(ef2e); allocate(ef2e(7,nfacesperelem,nelems))
      ef2e(:,:,:) = ef2e_temp(:,:,:)
-     deallocate(e_edge2e);allocate(e_edge2e(3,2**ndim,max_partners,nfaces,nelems))
+write(*,*)'after ef2e'
+     deallocate(e_edge2e);allocate(e_edge2e(3,2**ndim,max_partners,nfacesperelem,nelems))
      e_edge2e(:,:,:,:,:) = e_edge2e_temp(:,:,:,:,:)
-
+write(*,*)'after e_edgef2e'
+     deallocate(vx_master); allocate(vx_master(3,nelems*8))
+write(*,*) 'shape(vx_master) = ',shape(vx_master),'shape(vx_master_temp) = ',shape(vx_master_temp)
+     vx_master(:,:) = vx_master_temp(:,:)
+write(*,*)'after vx_master'
+     deallocate(ic2nh); 
+allocate(ic2nh(8,nelems))
+write(*,*)'after deallocate allocate'
+     ic2nh(:,:) = ic2nh_temp(:,:)
+write(*,*)'after ic2nh'
+     
      !-- deallocate statements
      deallocate(ef2e_temp)
      deallocate(e_edge2e_temp)
      deallocate(e_old2e)
+     deallocate(vx_master_temp)
+     deallocate(ic2nh_temp)
    end subroutine h_refine_boundary
 !==================================================================================================
 !

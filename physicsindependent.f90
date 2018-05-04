@@ -39,12 +39,17 @@ contains
     use referencevariables,  only: ihelems, nfacesperelem, nelems
     use initcollocation,     only: element_properties
     use non_conforming,      only: h_refine_boundary
+!-- DAVID DEBUG START
+    use variables, only : ef2e, vx_master, ic2nh
+!-- DAVID DEBUG END
 
     ! Nothing is implicitly defined
     implicit none
 
     integer :: i_err
-
+!-- DAVID DEBUG START
+    integer :: ielem, iface
+!-- DAVID DEBUG END
     continue
 
     ! Initialize collocation approximation
@@ -129,19 +134,42 @@ contains
 
         ! h refine
         call h_refine_boundary()
+write(*,*)'after h_refine'
         ! Construct the vector of +1 and -1 for the LDG flip-flop
-        call create_ldg_flip_flop_sign()
+!-- DAVID DEBUG START
+!        call create_ldg_flip_flop_sign()
+!-- DAVID DEBUG END
 
         write(*,*) 'Master node calls metis to subdivide the domain'
         write(*,*) '==============================================================='
 
         ! Metis calculates the partitions
-        call calculatepartitions() 
-
+!-- DAVID DEBUG START
+!        call calculatepartitions() 
+!-- DAVID DEBUG END
 
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
 !-- DAVID DEBUG START
+        do ielem = 1,nelems
+          write(*,*)'======================================'
+          write(*,*)'ielem = ',ielem
+          write(*,*)'v1 = [',vx_master(1:3,ic2nh(1,ielem)),'];'
+          write(*,*)'v2 = [',vx_master(1:3,ic2nh(2,ielem)),'];'
+          write(*,*)'v3 = [',vx_master(1:3,ic2nh(3,ielem)),'];'
+          write(*,*)'v4 = [',vx_master(1:3,ic2nh(4,ielem)),'];'
+          write(*,*)'v5 = [',vx_master(1:3,ic2nh(5,ielem)),'];'
+          write(*,*)'v6 = [',vx_master(1:3,ic2nh(6,ielem)),'];'
+          write(*,*)'v7 = [',vx_master(1:3,ic2nh(7,ielem)),'];'
+          write(*,*)'v8 = [',vx_master(1:3,ic2nh(8,ielem)),'];'
+!          do iface = 1,nfacesperelem
+!          write(*,*)'iface = ',iface
+!          write(*,*)'ef2e(1,iface,ielem) = ',ef2e(1,iface,ielem)  
+!          write(*,*)'ef2e(2,iface,ielem) = ',ef2e(2,iface,ielem)
+!          write(*,*)'ef2e(7,iface,ielem) = ',ef2e(7,iface,ielem)
+!          enddo
+          write(*,*)'======================================'
+        enddo
         call PetscFinalize(i_err)
 !-- DAVID DEBUG END
       end if
