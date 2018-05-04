@@ -15,8 +15,44 @@ module non_conforming
   public Vandermonde_1D_monomial
   public Rotate_xione_2_xitwo_and_back
   public Rotate_GL_2_G_and_back_I
-  public h_refine_boundary
+  public h_refine
+  public h_refine_list_BC
 contains
+!==================================================================================================
+!
+!
+! Purpose: This subroutine determines which elements are at the boundaries and
+! populates h_refine_list which is used to refine elements
+!
+!
+!==================================================================================================
+subroutine h_refine_list_BC
+     use referencevariables, only : nelems, nfacesperelem
+     use variables, only : ef2e, h_refine_list, nelems_to_refine
+
+     !-- local variables
+     integer :: ielem, iface
+
+     !-- allocate list of which elements to refine
+     allocate(h_refine_list(nelems))
+     h_refine_list(1:nelems) = .false.
+
+     !-- loop over the elements identify which ones are boundary elements and
+     !tag for refinment
+     nelems_to_refine = 0
+     e_loop_bc1 : do ielem = 1,nelems
+       f_loop_bc1: do iface = 1,nfacesperelem
+         !-- check if the element has a face with a boundary condition
+         f_if_bc1: if (ef2e(1,iface,ielem) < 0) then
+           h_refine_list(ielem) = .true.
+           nelems_to_refine = nelems_to_refine+1
+           !-- exit f_loop_bc2
+           exit
+         endif f_if_bc1
+       end do f_loop_bc1
+     enddo e_loop_bc1
+
+end subroutine h_refine_list_BC
 !==================================================================================================
 !
 !
@@ -76,27 +112,26 @@ contains
 !         
 !
 !===================================================================================================
-   subroutine h_refine_boundary()
+   subroutine h_refine()
 
      use referencevariables, only : nelems, nfacesperelem, ndim
-     use variables, only : ef2e, e_edge2e
+     use variables, only : ef2e, e_edge2e, h_refine_list, nelems_to_refine
      use variables, only : vx_master, ic2nh
 
      !-- local variables
      integer :: ielem, iface, iedge, ipartner, max_partners, nvertex,&
-                element_count, vertex_count
+                element_count, vertex_count, refine
      integer :: nelems_old, nvertex_old, nfaces_old
      integer, allocatable, dimension(:,:,:) :: ef2e_temp                                            !-- (7 ,nfaceperelem, nelements)
      integer, allocatable, dimension(:,:,:,:,:) :: e_edge2e_temp                                    !-- (3,number_of_edges_per_face,max_partners,nfaceperelem,nelems)
-     integer, allocatable, dimension(:) :: e_old2e
+     integer, allocatable, dimension(:,:) :: e_old2e
      integer, allocatable, dimension(:,:) :: ic2nh_temp
 
-     integer :: v1, v2, v3, v4, v5, v6, v7, v8
      integer :: v1n, v2n, v3n, v4n, v5n, v6n, v7n, v8n,&
                 v9n, v10n, v11n, v12n, v13n, v14n, v15n, v16n,&
                 v17n, v18n, v19n, v20n, v21n, v22n, v23n, v24n,&
                 v25n, v26n, v27n
-     integer :: element_number_adjoining, faceID_adjoining
+     integer :: element_number_adjoining, faceID_adjoining, split_count
 
      real(wp), dimension (3) :: xyz1, xyz2, xyz3, xyz4,& 
                                 xyz5, xyz6, xyz7, xyz8,&
@@ -107,120 +142,48 @@ contains
                                 xyz25, xyz26, xyz27
      real(wp), allocatable, dimension(:,:) :: vx_master_temp                                         !-- (3,number of vertices)
 
-     logical :: bcelement = .false.
 
      !-- update the number of faces per element (this is a maximum for one level refinment)
      nfaces_old = nfacesperelem
      nfacesperelem = 4*6
-
-     !-- first we loop over all elements to determine how many boundary elements we have
-     !-- and construct a map between the old element numbers and new element numbers
-     allocate(e_old2e(nelems))
-     element_count = 1
-     e_loop_bc1 : do ielem = 1,nelems
-
-       bcelement = .false.
-       f_loop_bc1: do iface = 1,nfaces_old
-
-         !-- check if the element has a face with a boundary condition
-         f_if_bc1: if (ef2e(1,iface,ielem) < 0) then
-           bcelement = .true.
-           !-- exit f_loop_bc2
-           exit
-         endif f_if_bc1
-
-       end do f_loop_bc1
-     
-       if(bcelement)then
-         e_old2e(ielem) = -1000
-         !-- update counter
-         element_count = element_count+8
-       else
-         e_old2e(ielem) = element_count
-
-         !-- update counter
-         element_count = element_count+1
-       endif
-
-     enddo e_loop_bc1
      
      !-- allocate the necessary temporary arrays
      nelems_old = nelems
-     nelems = element_count 
+     nelems = nelems-nelems_to_refine+8*nelems_to_refine
      nvertex_old = size(vx_master(1,:)) 
-     nvertex = nelems*8
+     nvertex = nvertex_old+23*nelems_to_refine
      max_partners = size(e_edge2e(1,1,:,1,1))
                                      
      allocate(vx_master_temp(3,nvertex))
      allocate(ef2e_temp(7,nfacesperelem,nelems))     
-     allocate(e_edge2e_temp(3,2**ndim,max_partners,nfacesperelem,nelems))
+     allocate(e_edge2e_temp(3,2**(ndim-1),max_partners,nfacesperelem,nelems))
      allocate(ic2nh_temp(8,nelems))
+     allocate(e_old2e(nelems_to_refine,8))
 
-     !-- store unsplit elements
-     e_loop_bc2: do ielem = 1,nelems_old
-       bcelement = .false.
-       f_loop_bc2: do iface = 1,nfaces_old
+     !-- store old information
+     vx_master_temp(1:3,1:nvertex_old) = vx_master(1:3,1:nvertex_old)
+     ic2nh_temp(1:8,1:nelems_old) = ic2nh(1:8,1:nelems_old)
+     ef2e_temp(1:7,1:nfaces_old,1:nelems_old) = ef2e(1:7,1:nfaces_old,1:nelems_old)
+     e_edge2e_temp(1:3,1:2**(ndim-1),1:max_partners,1:nfaces_old,1:nelems_old) = &
+      e_edge2e(1:3,1:2**(ndim-1),1:max_partners,1:nfaces_old,1:nelems_old)
 
-         !-- check if the element has a face with a boundary condition
-         f_if_bc2: if (ef2e(1,iface,ielem) < 0) then
-           !-- split the element and append the information of the new elements at the bottom of the arrays
-           bcelement = .true.
-           !-- exit f_loop_bc2
-           exit
-         endif f_if_bc2
-       
-       end do f_loop_bc2
-       if(bcelement)then
-         !-- do nothing this is an element that will be split
-       else
-         !-- first set it equal to original ef2e and e_edge2e
-         ef2e_temp(:,:,e_old2e(ielem)) = ef2e(:,:,ielem)
-         e_edge2e_temp(:,:,:,:,e_old2e(ielem)) = e_edge2e(:,:,:,:,ielem)
-         !-- update the connectivity
-         iface_loop: do iface = 1,nfaces_old
-           ef2e_temp(2,iface,e_old2e(ielem)) = e_old2e(ef2e(2,iface,ielem))
-           iedge_loop: do iedge = 1,4
-             ipartner_loop: do ipartner = 1,max_partners
-               e_edge2e_temp(2,iedge,ipartner,iface,e_old2e(ielem)) = e_old2e(e_edge2e(2,iedge,ipartner,iface,ielem))
-             enddo ipartner_loop
-           enddo iedge_loop
-         enddo iface_loop
-       endif
-     enddo e_loop_bc2
     
-     !-- loop over the element, split boundary elements, update face conectivity
-     !of adjoining elements and populate vx_master_temp, and icn2h_temp
-     element_count = 1
-     vertex_count = 1
+     !-- loop over the element and split
+     element_count = nelems_old+1
+     vertex_count = nvertex_old+1
+     split_count = 1
      e_loop_bc3 : do ielem = 1,nelems_old
 
-       bcelement = .false.
-       f_loop_bc3: do iface = 1,nfaces_old
-
-         !-- check if the element has a face with a boundary condition
-         f_if_bc3: if (ef2e(1,iface,ielem) < 0) then
-           !-- split the element and append the information of the new elements at the bottom of the arrays
-           bcelement = .true.
-           !-- exit f_loop_bc2
-           exit
-         endif f_if_bc3
-
-       end do f_loop_bc3
-       write(*,*)'ielem = ',ielem
+       !-- element to be split
+       if(h_refine_list(ielem))then
        !-- vertex number of the original 8 vertices
-       v1 = ic2nh(1,ielem);v2 = ic2nh(2,ielem); v3 = ic2nh(3,ielem); v4 = ic2nh(4,ielem);
-       v5 = ic2nh(5,ielem);v6 = ic2nh(6,ielem); v7 = ic2nh(7,ielem); v8 = ic2nh(8,ielem);
-write(*,*)'here1'
+       v1n = ic2nh(1,ielem);v2n = ic2nh(2,ielem); v3n = ic2nh(3,ielem); v4n = ic2nh(4,ielem);
+       v5n = ic2nh(5,ielem);v6n = ic2nh(6,ielem); v7n = ic2nh(7,ielem); v8n = ic2nh(8,ielem);
+
        !-- spatial locations of the original 8 vertices
-       xyz1 = Vx_master(1:3,v1); xyz2 = Vx_master(1:3,v2); xyz3 = Vx_master(1:3,v3); xyz4 = Vx_master(1:3,v4)
-       xyz5 = Vx_master(1:3,v5); xyz6 = Vx_master(1:3,v6); xyz7 = Vx_master(1:3,v7); xyz8 = Vx_master(1:3,v8)
-write(*,*)'here2'
-       !-- set the new vertex numbers
-       v1n = vertex_count; v2n = vertex_count+1; v3n = vertex_count+2; v4n = vertex_count+3; 
-       v5n =vertex_count+4 ; v6n = vertex_count+5; v7n = vertex_count+6; v8n = vertex_count+7;
-write(*,*)'here3'
-       !-- if the element is a boundary element split otherwise copy relevant information
-       if(bcelement)then
+       xyz1 = Vx_master(1:3,v1n); xyz2 = Vx_master(1:3,v2n); xyz3 = Vx_master(1:3,v3n); xyz4 = Vx_master(1:3,v4n)
+       xyz5 = Vx_master(1:3,v5n); xyz6 = Vx_master(1:3,v6n); xyz7 = Vx_master(1:3,v7n); xyz8 = Vx_master(1:3,v8n)
+
          !-- split the element
 
 
@@ -230,19 +193,19 @@ write(*,*)'here3'
          xyz17 = 0.5_wp*(xyz1+xyz5); xyz18 = 0.5_wp*(xyz2+xyz6); xyz19 = 0.5_wp*(xyz3+xyz7); xyz20 = 0.5_wp*(xyz4+xyz8)
          xyz21 = 0.5_wp*(xyz9+xyz13); xyz22 = 0.5_wp*(xyz10+xyz14); xyz23 = 0.5_wp*(xyz11+xyz15); xyz24 = 0.5_wp*(xyz12+xyz16)
          xyz25 = 0.5_wp*(xyz9+xyz11); xyz26 = 0.5_wp*(xyz13+xyz15);xyz27 = 0.5_wp*(xyz21+xyz23)
-write(*,*)'here4'
-         !-- set the new vertex numbers
-         v9n = vertex_count+8; v10n = vertex_count+9; v11n = vertex_count+10; v12n = vertex_count+11;
-         v13n = vertex_count+12; v14n = vertex_count+13; v15n = vertex_count+14; v16n = vertex_count+15;
-         v17n = vertex_count+16; v18n = vertex_count+17; v19n = vertex_count+18; v20n = vertex_count+19;
-         v21n = vertex_count+20; v22n = vertex_count+21; v23n = vertex_count+22; v24n = vertex_count+23;
-         v25n = vertex_count+24; v26n = vertex_count+25; v27n = vertex_count+26;
-write(*,*)'here5'
+
+         !-- set the vertex numbers
+         v9n = vertex_count; v10n = vertex_count+1; v11n = vertex_count+2; v12n = vertex_count+3;
+         v13n = vertex_count+4; v14n = vertex_count+5; v15n = vertex_count+6; v16n = vertex_count+7;
+         v17n = vertex_count+8; v18n = vertex_count+9; v19n = vertex_count+10; v20n = vertex_count+11;
+         v21n = vertex_count+12; v22n = vertex_count+13; v23n = vertex_count+14; v24n = vertex_count+15;
+         v25n = vertex_count+16; v26n = vertex_count+17; v27n = vertex_count+18;
+
          !-- store the vertices
-         vx_master_temp(1:3,v1n) = xyz1; vx_master_temp(1:3,v2n) = xyz2; vx_master_temp(1:3,v3n) = xyz3; 
+         vx_master_temp(1:3,v1n) = xyz1;vx_master_temp(1:3,v2n) = xyz2;vx_master_temp(1:3,v3n) = xyz3;
          vx_master_temp(1:3,v4n) = xyz4;
-         vx_master_temp(1:3,v5n) = xyz5; vx_master_temp(1:3,v6n) = xyz6; vx_master_temp(1:3,v7n) = xyz7; 
-         vx_master_temp(1:3,v8n) = xyz8;
+         vx_master_temp(1:3,v5n) = xyz5;vx_master_temp(1:3,v6n) = xyz6;vx_master_temp(1:3,v7n) = xyz7;
+         vx_master_temp(1:3,v8n) = xyz8; 
          vx_master_temp(1:3,v9n) = xyz9;vx_master_temp(1:3,v10n) = xyz10;vx_master_temp(1:3,v11n) = xyz11;
          vx_master_temp(1:3,v12n) = xyz12;  
          vx_master_temp(1:3,v13n) = xyz13;vx_master_temp(1:3,v14n) = xyz14;vx_master_temp(1:3,v15n) = xyz15;
@@ -253,298 +216,89 @@ write(*,*)'here5'
          vx_master_temp(1:3,v24n) = xyz24;
          vx_master_temp(1:3,v25n) = xyz25;vx_master_temp(1:3,v26n) = xyz26;vx_master_temp(1:3,v27n) = xyz27;
 
-write(*,*)'here6'
          !-- store the vertex to element connectivity
-         ic2nh_temp(1:8,element_count) = (/v1n,v9n,v25n,v12n,v17n,v21n,v27n,v24n/)
-         ic2nh_temp(1:8,element_count+1) = (/V9n,V2n,V10n,V25n,v21n,v18n,v22n,v27n/)
-         ic2nh_temp(1:8, element_count+2) = (/v25n,v10n,v3n,v11n,v27n,v22n,v19n,v23n/)
-         ic2nh_temp(1:8, element_count+3) = (/v12n,v25n,v11n,v4n,v24n,v27n,v23n,v20n/)
-         ic2nh_temp(1:8, element_count+4) = (/v17n,v21n,v27n,v24n,v5n,v13n,v26n,v16n/)
-         ic2nh_temp(1:8, element_count+5) = (/v21n,v18n,v22n,v27n,v13n,v6n,v24n,v26n/)
-         ic2nh_temp(1:8, element_count+6) = (/v27n,v22n,v19n,v23n,v26n,v14n,v7n,v15n/)
-         ic2nh_temp(1:8, element_count+7) = (/v24n,v27n,v23n,v20n,v16n,v26n,v15n,v8n/)
-if(ielem.EQ.1)then
-write(*,*)'xyz1 = [',xyz1,'];'
-write(*,*)'xyz9 = [',xyz9,'];'
-write(*,*)'xyz25 = [',xyz25,'];'
-write(*,*)'xyz12 = [',xyz12,'];'
-write(*,*)'xyz17 = [',xyz17,'];'
-write(*,*)'xyz21 = [',xyz21,'];'
-write(*,*)'xyz27 = [',xyz27,'];'
-write(*,*)'xyz24 = [',xyz24,'];'
-write(*,*)'1 = ',vx_master_temp(1:3,ic2nh_temp(1,element_count))
-write(*,*)'2 = ',vx_master_temp(1:3,ic2nh_temp(2,element_count))
-write(*,*)'3 = ',vx_master_temp(1:3,ic2nh_temp(3,element_count))
-write(*,*)'4 = ',vx_master_temp(1:3,ic2nh_temp(4,element_count))
-write(*,*)'5 = ',vx_master_temp(1:3,ic2nh_temp(5,element_count))
-write(*,*)'6 = ',vx_master_temp(1:3,ic2nh_temp(6,element_count))
-write(*,*)'7 = ',vx_master_temp(1:3,ic2nh_temp(7,element_count))
-write(*,*)'8 = ',vx_master_temp(1:3,ic2nh_temp(8,element_count))
-write(*,*)'element_count = ',element_count
-endif
+         ic2nh_temp(1:8,ielem) = (/v1n,v9n,v25n,v12n,v17n,v21n,v27n,v24n/)
+         ic2nh_temp(1:8,element_count) = (/V9n,V2n,V10n,V25n,v21n,v18n,v22n,v27n/)
+         ic2nh_temp(1:8, element_count+1) = (/v25n,v10n,v3n,v11n,v27n,v22n,v19n,v23n/)
+         ic2nh_temp(1:8, element_count+2) = (/v12n,v25n,v11n,v4n,v24n,v27n,v23n,v20n/)
+         ic2nh_temp(1:8, element_count+3) = (/v17n,v21n,v27n,v24n,v5n,v13n,v26n,v16n/)
+         ic2nh_temp(1:8, element_count+4) = (/v21n,v18n,v22n,v27n,v13n,v6n,v24n,v26n/)
+         ic2nh_temp(1:8, element_count+5) = (/v27n,v22n,v19n,v23n,v26n,v14n,v7n,v15n/)
+         ic2nh_temp(1:8, element_count+6) = (/v24n,v27n,v23n,v20n,v16n,v26n,v15n,v8n/)
 
-write(*,*)'here7'
-if(.false.)then
-         !-- update ef2e
-         !-- new element 1
-         ef2e_temp(:,:,element_count) = ef2e(:,:,ielem)
-         !-- new element 1 face 1
-         ef2e_temp(1,1,element_count) = ef2e(1,1,ielem)        !--Adjoining element face ID
-         ef2e_temp(2,1,element_count) = e_old2e(ef2e(2,1,ielem))!--Adjoining element ID
-         !-- new element 1 face 2
-         ef2e_temp(1,2,element_count) = ef2e(1,2,ielem)        !--Adjoining element face ID
-         ef2e_temp(2,2,element_count) = e_old2e(ef2e(2,1,ielem))!--Adjoining element ID
-         !-- new element 1 face 3
-         ef2e_temp(1,3,element_count) = 5                      !--Adjoining element face ID
-         ef2e_temp(2,3,element_count) = element_count+1        !--Adjoining element ID 
-         !-- new element 1 face 4
-         ef2e_temp(1,4,element_count) = 2                      !--Adjoining element face ID
-         ef2e_temp(2,4,element_count) = element_count+3        !--Adjoining element ID 
-         !-- new element 1 face 5
-         ef2e_temp(1,5,element_count) = ef2e(1,5,ielem)        !--Adjoining element face ID
-         ef2e_temp(2,5,element_count) = e_old2e(ef2e(2,5,ielem))!--Adjoining element ID
-         !-- new element 1 face 6
-         ef2e_temp(1,6,element_count) = 1                      !--Adjoining element face ID
-         ef2e_temp(2,6,element_count) = element_count+4        !--Adjoining element ID
-write(*,*)'here8'
-         !-- new element 2
-         ef2e_temp(:,:,element_count+1) = ef2e(:,:,ielem)
-         !-- new element 2 face 1
-         ef2e_temp(1,1,element_count+1) = ef2e(1,1,ielem)        !--Adjoining element face ID
-         ef2e_temp(2,1,element_count+1) = e_old2e(ef2e(2,1,ielem))!--Adjoining element ID
-         !-- new element 2 face 2
-         ef2e_temp(1,2,element_count+1) = ef2e(1,2,ielem)        !--Adjoining element face ID
-         ef2e_temp(2,2,element_count+1) = e_old2e(ef2e(2,2,ielem))!--Adjoining element ID
-         !-- new element 2 face 3
-         ef2e_temp(1,3,element_count+1) = ef2e(1,3,ielem)        !--Adjoining element face ID
-         ef2e_temp(2,3,element_count+1) = e_old2e(ef2e(2,3,ielem))!--Adjoining element ID 
-         !-- new element 2 face 4
-         ef2e_temp(1,4,element_count+1) = 2                      !--Adjoining element face ID
-         ef2e_temp(2,4,element_count+1) = element_count+2        !--Adjoining element ID 
-         !-- new element 2 face 5
-         ef2e_temp(1,5,element_count+1) = 3                      !--Adjoining element face ID
-         ef2e_temp(2,5,element_count+1) = element_count         !--Adjoining element ID
-         !-- new element 2 face 6
-         ef2e_temp(1,6,element_count+1) = 1                      !--Adjoining element face ID
-         ef2e_temp(2,6,element_count+1) = element_count+5        !--Adjoining element ID
-write(*,*)'here9'
-         !-- new element 3
-         ef2e_temp(:,:,element_count+2) = ef2e(:,:,ielem)
-         !-- new element 3 face 1
-         ef2e_temp(1,1,element_count+2) = ef2e(1,1,ielem)        !--Adjoining element face ID
-         ef2e_temp(2,1,element_count+2) = e_old2e(ef2e(2,1,ielem))!--Adjoining element ID
-         !-- new element 3 face 2
-         ef2e_temp(1,2,element_count+2) = 4                      !--Adjoining element face ID
-         ef2e_temp(2,2,element_count+2) = element_count+1        !--Adjoining element ID
-         !-- new element 3 face 3
-         ef2e_temp(1,3,element_count+2) = ef2e(1,3,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,3,element_count+2) = e_old2e(ef2e(2,3,ielem))!--Adjoining element ID 
-         !-- new element 3 face 4
-         ef2e_temp(1,4,element_count+2) = ef2e(1,4,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,4,element_count+2) = e_old2e(ef2e(2,4,ielem))!--Adjoining element ID
-         !-- new element 3 face 5
-         ef2e_temp(1,5,element_count+2) = 3                      !--Adjoining element face ID
-         ef2e_temp(2,5,element_count+2) = element_count+3        !--Adjoining element ID
-         !-- new element 3 face 6
-         ef2e_temp(1,6,element_count+2) = 1                      !--Adjoining element face ID
-         ef2e_temp(2,6,element_count+2) = element_count+6        !--Adjoining element ID
+        !-- update maping for split elements
+        e_old2e(split_count,1:8) =&
+          (/ielem,element_count,element_count+1,element_count+2,element_count+3,element_count+4,element_count+5,element_count+6/)
 
-         !-- new element 4
-         ef2e_temp(:,:,element_count+3) = ef2e(:,:,ielem)
-         !-- new element 4 face 1
-         ef2e_temp(1,1,element_count+3) = ef2e(1,1,ielem)        !--Adjoining element face ID
-         ef2e_temp(2,1,element_count+3) = e_old2e(ef2e(2,1,ielem))!--Adjoining element ID
-         !-- new element 4 face 2
-         ef2e_temp(1,2,element_count+3) = 4                      !--Adjoining element face ID
-         ef2e_temp(2,2,element_count+3) = element_count          !--Adjoining element ID
-         !-- new element 4 face 3
-         ef2e_temp(1,3,element_count+3) = ef2e(1,3,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,3,element_count+3) = e_old2e(ef2e(2,3,ielem))!--Adjoining element ID 
-         !-- new element 4 face 4
-         ef2e_temp(1,4,element_count+3) = ef2e(1,4,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,4,element_count+3) = e_old2e(ef2e(2,4,ielem))!--Adjoining element ID 
-         !-- new element 4 face 5
-         ef2e_temp(1,5,element_count+3) = ef2e(1,5,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,5,element_count+3) = e_old2e(ef2e(2,5,ielem))!--Adjoining element ID
-         !-- new element 4 face 6
-         ef2e_temp(1,6,element_count+3) = 1                      !--Adjoining element face ID
-         ef2e_temp(2,6,element_count+3) = element_count+7        !--Adjoining element ID
-
-         !-- new element 5
-         ef2e_temp(:,:,element_count+4) = ef2e(:,:,ielem)
-         !-- new element 5 face 1
-         ef2e_temp(1,1,element_count+4) = 6                       !--Adjoining element face ID
-         ef2e_temp(2,1,element_count+4) = element_count           !--Adjoining element ID
-         !-- new element 5 face 2
-         ef2e_temp(1,2,element_count+4) = ef2e(1,2,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,2,element_count+4) = e_old2e(ef2e(2,2,ielem))!--Adjoining element ID
-         !-- new element 5 face 3
-         ef2e_temp(1,3,element_count+4) = 5                       !--Adjoining element face ID
-         ef2e_temp(2,3,element_count+4) = element_count+5         !--Adjoining element ID 
-         !-- new element 5 face 4
-         ef2e_temp(1,4,element_count+4) = 2                       !--Adjoining element face ID
-         ef2e_temp(2,4,element_count+4) = element_count+7         !--Adjoining element ID 
-         !-- new element 5 face 5
-         ef2e_temp(1,5,element_count+4) = ef2e(1,5,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,5,element_count+4) = e_old2e(ef2e(2,5,ielem))!--Adjoining element ID
-         !-- new element 5 face 6
-         ef2e_temp(1,6,element_count+4) = ef2e(1,6,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,6,element_count+4) = e_old2e(ef2e(2,6,ielem))!--Adjoining element ID
-
-         !-- new element 6
-         ef2e_temp(:,:,element_count+5) = ef2e(:,:,ielem)
-         !-- new element 6 face 1
-         ef2e_temp(1,1,element_count+5) = 6                       !--Adjoining element face ID
-         ef2e_temp(2,1,element_count+5) = element_count+1         !--Adjoining element ID
-         !-- new element 6 face 2
-         ef2e_temp(1,2,element_count+5) = ef2e(1,2,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,2,element_count+5) = e_old2e(ef2e(2,2,ielem))!--Adjoining element ID
-         !-- new element 6 face 3
-         ef2e_temp(1,3,element_count+5) = ef2e(1,3,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,3,element_count+5) = e_old2e(ef2e(2,3,ielem))!--Adjoining element ID 
-         !-- new element 6 face 4
-         ef2e_temp(1,4,element_count+5) = 2                       !--Adjoining element face ID
-         ef2e_temp(2,4,element_count+5) = element_count+6         !--Adjoining element ID 
-         !-- new element 6 face 5
-         ef2e_temp(1,5,element_count+5) = 3                       !--Adjoining element face ID
-         ef2e_temp(2,5,element_count+5) = element_count+4         !--Adjoining element ID
-         !-- new element 6 face 6
-         ef2e_temp(1,6,element_count+5) = ef2e(1,6,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,6,element_count+5) = e_old2e(ef2e(2,6,ielem))!--Adjoining element ID
-
-         !-- new element 7
-         ef2e_temp(:,:,element_count+6) = ef2e(:,:,ielem)
-         !-- new element 7 face 1
-         ef2e_temp(1,1,element_count+6) = 6                       !--Adjoining element face ID
-         ef2e_temp(2,1,element_count+6) = element_count+2         !--Adjoining element ID
-         !-- new element 7 face 2
-         ef2e_temp(1,2,element_count+6) = 4                       !--Adjoining element face ID
-         ef2e_temp(2,2,element_count+6) = element_count+5         !--Adjoining element ID
-         !-- new element 7 face 3
-         ef2e_temp(1,3,element_count+6) = ef2e(1,3,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,3,element_count+6) = e_old2e(ef2e(2,3,ielem))!--Adjoining element ID
-         !-- new element 7 face 4
-         ef2e_temp(1,4,element_count+6) = ef2e(1,4,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,4,element_count+6) = e_old2e(ef2e(2,4,ielem))!--Adjoining element ID
-         !-- new element 7 face 5
-         ef2e_temp(1,5,element_count+6) = 3                       !--Adjoining element face ID
-         ef2e_temp(2,5,element_count+6) = element_count+7         !--Adjoining element ID
-         !-- new element 7 face 6
-         ef2e_temp(1,6,element_count+6) = ef2e(1,6,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,6,element_count+6) = e_old2e(ef2e(2,6,ielem))!--Adjoining element ID
-
-         !-- new element 8
-         ef2e_temp(:,:,element_count+7) = ef2e(:,:,ielem)
-         !-- new element 8 face 1
-         ef2e_temp(1,1,element_count+7) = 6                       !--Adjoining element face ID
-         ef2e_temp(2,1,element_count+7) = element_count+3         !--Adjoining element ID
-         !-- new element 8 face 2
-         ef2e_temp(1,2,element_count+7) = 4                       !--Adjoining element face ID
-         ef2e_temp(2,2,element_count+7) = element_count+4         !--Adjoining element ID
-         !-- new element 8 face 3
-         ef2e_temp(1,3,element_count+7) = 5                       !--Adjoining element face ID
-         ef2e_temp(2,3,element_count+7) = element_count+6         !--Adjoining element ID
-         !-- new element 8 face 4
-         ef2e_temp(1,4,element_count+7) = ef2e(1,4,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,4,element_count+7) = e_old2e(ef2e(2,4,ielem))!--Adjoining element ID
-         !-- new element 8 face 5
-         ef2e_temp(1,5,element_count+7) = ef2e(1,5,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,5,element_count+7) = e_old2e(ef2e(2,5,ielem))!--Adjoining element ID
-         !-- new element 8 face 6
-         ef2e_temp(1,6,element_count+7) = ef2e(1,6,ielem)         !--Adjoining element face ID
-         ef2e_temp(2,6,element_count+7) = e_old2e(ef2e(2,6,ielem))!--Adjoining element ID
-
-         !-- update the ef2e of elements touching the new elements 
-         !-- old face 1
-         element_number_adjoining = e_old2e(ef2e(2,1,ielem))
-         faceID_adjoining = ef2e(1,1,ielem)
-         ef2e_temp(1,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = 1
-         ef2e_temp(2,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = (/1,2,3,4/)
-
-         !-- old face 2
-         element_number_adjoining = e_old2e(ef2e(2,2,ielem))
-         faceID_adjoining = ef2e(1,2,ielem)
-         ef2e_temp(1,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = 2
-         ef2e_temp(2,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = (/1,2,6,5/)
-
-         !-- old face 3
-         element_number_adjoining = e_old2e(ef2e(2,3,ielem))
-         faceID_adjoining = ef2e(1,3,ielem)
-         ef2e_temp(1,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = 3
-         ef2e_temp(2,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = (/2,3,7,6/)
-
-         !-- old face 4
-         element_number_adjoining = e_old2e(ef2e(2,4,ielem))
-         faceID_adjoining = ef2e(1,4,ielem)
-         ef2e_temp(1,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = 4
-         ef2e_temp(2,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = (/4,3,7,6/)
-
-         !-- old face 5
-         element_number_adjoining = e_old2e(ef2e(2,5,ielem))
-         faceID_adjoining = ef2e(1,5,ielem)
-         ef2e_temp(1,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = 5
-         ef2e_temp(2,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = (/1,4,8,5/)
-
-         !-- old face 6
-         element_number_adjoining = e_old2e(ef2e(2,6,ielem))
-         faceID_adjoining = ef2e(1,6,ielem)
-         ef2e_temp(1,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = 6
-         ef2e_temp(2,4*(faceID_adjoining-1)+1:4*faceID_adjoining,element_number_adjoining) = (/5,6,7,8/)
-
-         !-- update e_edge2e of elements touching the new elements
-endif         
          !-- update counters
-         vertex_count = vertex_count+26
+         vertex_count = vertex_count+19
          element_count = element_count+7
-       else
-         !-- store old values
-         vx_master_temp(1:3,v1n) = xyz1; vx_master_temp(1:3,v2n) = xyz2; vx_master_temp(1:3,v3n) = xyz3; 
-         vx_master_temp(1:3,v4n) = xyz4;
-         vx_master_temp(1:3,v5n) = xyz5; vx_master_temp(1:3,v6n) = xyz6; vx_master_temp(1:3,v7n) = xyz7; 
-         vx_master_temp(1:3,v8n) = xyz8;
-
-         ic2nh_temp(1:8,element_count) = (/v1n,v2n,v3n,v4n,v5n,v6n,v7n,v8n/)
-
-         !-- update counters
-         vertex_count = vertex_count+7
-         element_count = element_count+1
+         split_count = split_count+1
        endif
-
      enddo e_loop_bc3
-write(*,*)'1 = ',vx_master_temp(1:3,ic2nh_temp(1,1))
-write(*,*)'2 = ',vx_master_temp(1:3,ic2nh_temp(2,1))
-write(*,*)'3 = ',vx_master_temp(1:3,ic2nh_temp(3,1))
-write(*,*)'4 = ',vx_master_temp(1:3,ic2nh_temp(4,1))
-write(*,*)'5 = ',vx_master_temp(1:3,ic2nh_temp(5,1))
-write(*,*)'6 = ',vx_master_temp(1:3,ic2nh_temp(6,1))
-write(*,*)'7 = ',vx_master_temp(1:3,ic2nh_temp(7,1))
-write(*,*)' = ',vx_master_temp(1:3,ic2nh_temp(8,1))
 
-write(*,*)'finishes spliting'
+    !-- update ef2e
+     ef2e_loop: do refine = 1,nelems_to_refine
+          ielem = e_old2e(refine,1)
+           write(*,*)'refine = ',refine,'ielem = ',ielem
+          iface1: do iface = 1,nfaces_old
+            bc_if: if(ef2e(1,iface,ielem)<0)then
+              !-- this is a boundary face
+              !-- set the boundary face of the new elements (2:7) to the
+              !boundary condition
+              ! the first element has alredy been taken care of when we copied
+              ! ef2e into ef2e_temp
+              ef2e_temp(1,iface,e_olde2e(refine,2)) = ef2e(1,iface,ielem); ef2e_temp(2,iface,e_olde2e(refine,2)) = ef2e(2,iface,ielem)
+              ef2e_temp(1,iface,e_olde2e(refine,3)) = ef2e(1,iface,ielem); ef2e_temp(2,iface,e_olde2e(refine,3)) = ef2e(2,iface,ielem)
+              ef2e_temp(1,iface,e_olde2e(refine,4)) = ef2e(1,iface,ielem); ef2e_temp(2,iface,e_olde2e(refine,4)) = ef2e(2,iface,ielem)
+              ef2e_temp(1,iface,e_olde2e(refine,5)) = ef2e(1,iface,ielem); ef2e_temp(2,iface,e_olde2e(refine,5)) = ef2e(2,iface,ielem)
+              ef2e_temp(1,iface,e_olde2e(refine,6)) = ef2e(1,iface,ielem); ef2e_temp(2,iface,e_olde2e(refine,6)) = ef2e(2,iface,ielem)
+              ef2e_temp(1,iface,e_olde2e(refine,7)) = ef2e(1,iface,ielem); ef2e_temp(2,iface,e_olde2e(refine,7)) = ef2e(2,iface,ielem)
+              ef2e_temp(1,iface,e_olde2e(refine,8)) = ef2e(1,iface,ielem); ef2e_temp(2,iface,e_olde2e(refine,8)) = ef2e(2,iface,ielem)
+              
+            else(h_refine_list(ef2e(2,iface,ielem))then
+              !-- both faces have been split
+              if(ef2e(7,iface,ielem).EQ.0)then
+                !-- same orientation
+              elseif(ef2e(7,iface,ielem).EQ.1)then
+              elseif(ef2e(7,iface,ielem).EQ.2)then
+              elseif(ef2e(7,iface,ielem).EQ.3)then
+              elseif(ef2e(7,iface,ielem).EQ.4)then
+              elseif(ef2e(7,iface,ielem).EQ.5)then
+              elseif(ef2e(7,iface,ielem).EQ.6)then
+              elseif(ef2e(7,iface,ielem).EQ.7)then
+              endif
+            else
+              !-- nonconforming face
+              if(ef2e(7,iface,ielem).EQ.0)then
+                !-- same orientation
+              elseif(ef2e(7,iface,ielem).EQ.1)then
+              elseif(ef2e(7,iface,ielem).EQ.2)then
+              elseif(ef2e(7,iface,ielem).EQ.3)then
+              elseif(ef2e(7,iface,ielem).EQ.4)then
+              elseif(ef2e(7,iface,ielem).EQ.5)then
+              elseif(ef2e(7,iface,ielem).EQ.6)then
+              elseif(ef2e(7,iface,ielem).EQ.7)then
+              endif
+            endif bc_if
+          enddo iface1
+      enddo ef2e_loop
      !-- assigne temp arrays to arrays used in main code
      deallocate(ef2e); allocate(ef2e(7,nfacesperelem,nelems))
      ef2e(:,:,:) = ef2e_temp(:,:,:)
-write(*,*)'after ef2e'
-     deallocate(e_edge2e);allocate(e_edge2e(3,2**ndim,max_partners,nfacesperelem,nelems))
+     deallocate(e_edge2e);allocate(e_edge2e(3,2**(ndim-1),max_partners,nfacesperelem,nelems))
      e_edge2e(:,:,:,:,:) = e_edge2e_temp(:,:,:,:,:)
-write(*,*)'after e_edgef2e'
-     deallocate(vx_master); allocate(vx_master(3,nelems*8))
-write(*,*) 'shape(vx_master) = ',shape(vx_master),'shape(vx_master_temp) = ',shape(vx_master_temp)
+     deallocate(vx_master); allocate(vx_master(3,nvertex))
      vx_master(:,:) = vx_master_temp(:,:)
-write(*,*)'after vx_master'
-     deallocate(ic2nh); 
-allocate(ic2nh(8,nelems))
-write(*,*)'after deallocate allocate'
+     deallocate(ic2nh);allocate(ic2nh(8,nelems))
      ic2nh(:,:) = ic2nh_temp(:,:)
-write(*,*)'after ic2nh'
      
      !-- deallocate statements
      deallocate(ef2e_temp)
      deallocate(e_edge2e_temp)
-     deallocate(e_old2e)
      deallocate(vx_master_temp)
      deallocate(ic2nh_temp)
-   end subroutine h_refine_boundary
+   end subroutine h_refine
 !==================================================================================================
 !
 ! Vandermonde_1D_Lagrange_on_XIone_eval_at_XItwo()
