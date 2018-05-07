@@ -38,7 +38,7 @@ subroutine construct_h_refine_list
      allocate(h_refine_list(nelems))
      h_refine_list(1:nelems) = .false.
 
-     refine_method = 1
+     refine_method = 2
      select case(refine_method)
      case(1)
        !-- loop over the elements identify which ones are boundary elements and
@@ -173,9 +173,11 @@ end subroutine construct_h_refine_list
                 v17n, v18n, v19n, v20n, v21n, v22n, v23n, v24n,&
                 v25n, v26n, v27n
      integer :: ielem1, ielem2, ielem3, ielem4, ielem5, ielem6, ielem7, ielem8,&
-                kface, kelem1, kelem2, kelem3, kelem4, kelem_old
+                kface, kelem1, kelem2, kelem3, kelem4, kelem_old,&
+                kface1, kface2, kface3,kface4
      integer :: element_number_adjoining, faceID_adjoining, split_count
-     integer :: face2elem(6,4)
+     integer :: face2elem(6,4), kelemsv(4), ielemsv(4), kfacesv(4)
+
 
      real(wp), dimension (3) :: xyz1, xyz2, xyz3, xyz4,& 
                                 xyz5, xyz6, xyz7, xyz8,&
@@ -208,7 +210,8 @@ end subroutine construct_h_refine_list
      vx_master_temp(1:3,1:nvertex_old) = vx_master(1:3,1:nvertex_old)
      ic2nh_temp(1:8,1:nelems_old) = ic2nh(1:8,1:nelems_old)
      ef2e_temp = 0
-    
+     ef2e_temp(1:7,1:nfaces_old,1:nelems_old) = ef2e(1:7,1:nfaces_old,1:nelems_old)
+
      !-- loop over the element and split
      element_count = nelems_old+1
      vertex_count = nvertex_old+1
@@ -395,83 +398,105 @@ end subroutine construct_h_refine_list
               endif
             elseif(h_refine_list(ef2e(2,iface,ielem_old)))then
               !-- both faces have been split
-              if(ef2e(7,iface,ielem_old).EQ.0)then
-                !-- same orientation
+
                 kface = ef2e(1,iface,ielem_old)
                 kelem_old = ef2e(2,iface,ielem_old) 
                 kelem1 = e_old2e(e2refine(kelem_old),face2elem(kface,1))
                 kelem2 = e_old2e(e2refine(kelem_old),face2elem(kface,2))
                 kelem3 = e_old2e(e2refine(kelem_old),face2elem(kface,3))
                 kelem4 = e_old2e(e2refine(kelem_old),face2elem(kface,4))
-!write(*,*)'ielem1 = ',ielem_old,'iface = ',iface,'kelem1 = ',kelem_old,'kface = ',kface
-                
-
 
                 ielem1 = e_old2e(refine,face2elem(iface,1)); ielem2 = e_old2e(refine,face2elem(iface,2))
                 ielem3 = e_old2e(refine,face2elem(iface,3)); ielem4 = e_old2e(refine,face2elem(iface,4))
-               
-                ef2e_temp(1,iface,ielem1) = kface; ef2e_temp(2,iface,ielem1) = kelem1
-                ef2e_temp(1,iface,ielem2) = kface; ef2e_temp(2,iface,ielem2) = kelem2
-                ef2e_temp(1,iface,ielem3) = kface; ef2e_temp(2,iface,ielem3) = kelem3
-                ef2e_temp(1,iface,ielem4) = kface; ef2e_temp(2,iface,ielem4) = kelem4
-if((ielem_old.EQ.9).AND.(kelem_old.EQ.6))then
-write(*,*)'GETS'
-endif
-
-!write(*,*)'ielem1 = ',ielem1,'kelem1 = ',kelem1
-!write(*,*)'ielem2 = ',ielem2,'kelem2 = ',kelem2
-!write(*,*)'ielem3 = ',ielem3,'kelem3 = ',kelem3
-!write(*,*)'ielem4 = ',ielem4,'kelem4 = ',kelem4
-
+ 
+              if(ef2e(7,iface,ielem_old).EQ.0)then
+                kelemsv = (/kelem1,kelem2,kelem3,kelem4/)
               elseif(ef2e(7,iface,ielem_old).EQ.1)then
+                kelemsv =(/kelem2,kelem3,kelem4,kelem1/)
               elseif(ef2e(7,iface,ielem_old).EQ.2)then
+                kelemsv = (/kelem3,kelem4,kelem1,kelem2/)
               elseif(ef2e(7,iface,ielem_old).EQ.3)then
+                kelemsv = (/kelem4,kelem1,kelem2,kelem3/)
               elseif(ef2e(7,iface,ielem_old).EQ.4)then
+                kelemsv = (/kelem4,kelem3,kelem2,kelem1/)
               elseif(ef2e(7,iface,ielem_old).EQ.5)then
+                kelemsv = (/kelem1,kelem4,kelem3,kelem2/)
               elseif(ef2e(7,iface,ielem_old).EQ.6)then
+                kelemsv = (/kelem2,kelem1,kelem4,kelem3/)
               elseif(ef2e(7,iface,ielem_old).EQ.7)then
+                kelemsv = (/kelem3,kelem2,kelem1,kelem4/)
               endif
+  
+              !-- update connectivity             
+              ef2e_temp(1,iface,ielem1) = kface; ef2e_temp(2,iface,ielem1) = kelemsv(1) 
+              ef2e_temp(7,iface,ielem1) = ef2e(7,iface,ielem_old)
+              ef2e_temp(1,iface,ielem2) = kface; ef2e_temp(2,iface,ielem2) = kelemsv(2) 
+              ef2e_temp(7,iface,ielem2) = ef2e(7,iface,ielem_old)
+              ef2e_temp(1,iface,ielem3) = kface; ef2e_temp(2,iface,ielem3) = kelemsv(3)
+              ef2e_temp(7,iface,ielem3) = ef2e(7,iface,ielem_old)
+              ef2e_temp(1,iface,ielem4) = kface; ef2e_temp(2,iface,ielem4) = kelemsv(4)
+              ef2e_temp(7,iface,ielem4) = ef2e(7,iface,ielem_old)
+
             else
               !-- nonconforming face
+              kface = ef2e(1,iface,ielem_old)
+              kface1 = kface; kface2 = kface+6; kface3 = kface+12; kface4 = kface+18
+              kelem_old = ef2e(2,iface,ielem_old) 
+
+              ielem1 = e_old2e(refine,face2elem(iface,1)); ielem2 = e_old2e(refine,face2elem(iface,2))
+              ielem3 = e_old2e(refine,face2elem(iface,3)); ielem4 = e_old2e(refine,face2elem(iface,4))
+
+
               if(ef2e(7,iface,ielem_old).EQ.0)then
-                !-- same orientation
-                kface = ef2e(1,iface,ielem_old)
-                kelem_old = ef2e(2,iface,ielem_old) 
-
-                ielem1 = e_old2e(refine,face2elem(iface,1)); ielem2 = e_old2e(refine,face2elem(iface,2))
-                ielem3 = e_old2e(refine,face2elem(iface,3)); ielem4 = e_old2e(refine,face2elem(iface,4))
-               
-                ef2e_temp(1,iface,ielem1) = kface; ef2e_temp(2,iface,ielem1) = kelem_old
-                ef2e_temp(1,iface,ielem2) = kface; ef2e_temp(2,iface,ielem2) = kelem_old
-                ef2e_temp(1,iface,ielem3) = kface; ef2e_temp(2,iface,ielem3) = kelem_old
-                ef2e_temp(1,iface,ielem4) = kface; ef2e_temp(2,iface,ielem4) = kelem_old
-
-                !-- populate subfaces of kelem_old
-                ef2e_temp(1,kface,kelem_old) = iface; ef2e_temp(2,kface,kelem_old) = ielem1
-                ef2e_temp(1,6+kface,kelem_old) = iface; ef2e_temp(2,6+kface,kelem_old) = ielem2
-                ef2e_temp(1,12+kface,kelem_old) = iface; ef2e_temp(2,12+kface,kelem_old) = ielem3
-                ef2e_temp(1,18+kface,kelem_old) = iface; ef2e_temp(2,18+kface,kelem_old) = ielem4
-write(*,*)'ielem1 = ',ielem1,'ielem2 = ',ielem2,'ielem3 = ',ielem3,'ielem4 = ',ielem4
-write(*,*)'ef2e_temp(1,kface,kelem_old) = ',ef2e_temp(1,kface,kelem_old),'ef2e_temp(2,kface,kelem_old) = ',&
-ef2e_temp(2,kface,kelem_old)
-write(*,*)'ef2e_temp(1,6+kface,kelem_old) = ',ef2e_temp(1,6+kface,kelem_old),'ef2e_temp(2,6+kface,kelem_old) = ',&
-ef2e_temp(2,6+kface,kelem_old)
-write(*,*)'ef2e_temp(1,12+kface,kelem_old) = ',ef2e_temp(1,12+kface,kelem_old),'ef2e_temp(2,12+kface,kelem_old) = ',&
-ef2e_temp(2,12+kface,kelem_old)
-write(*,*)'ef2e_temp(1,18+kface,kelem_old) = ',ef2e_temp(1,18+kface,kelem_old),'ef2e_temp(2,18+kface,kelem_old) = ',&
-ef2e_temp(2,18+kface,kelem_old)
+                ielemsv = (/ielem1,ielem2,ielem3,ielem4/)
+                kfacesv = (/kface1,kface2,kface3,kface4/)
               elseif(ef2e(7,iface,ielem_old).EQ.1)then
+                ielemsv =(/ielem2,ielem3,ielem4,ielem1/)
+                kfacesv =(/kface2,kface3,kface4,kface1/)
               elseif(ef2e(7,iface,ielem_old).EQ.2)then
+                ielemsv = (/ielem3,ielem4,ielem1,ielem2/)
+                kfacesv = (/kface3,kface4,kface1,kface2/)
               elseif(ef2e(7,iface,ielem_old).EQ.3)then
+                ielemsv = (/ielem4,ielem1,ielem2,ielem3/)
+                kfacesv = (/kface4,kface1,kface2,kface3/)
               elseif(ef2e(7,iface,ielem_old).EQ.4)then
+                ielemsv = (/ielem4,ielem3,ielem2,ielem1/)
+                kfacesv = (/kface4,kface3,kface2,kface1/)
               elseif(ef2e(7,iface,ielem_old).EQ.5)then
+                ielemsv = (/ielem1,ielem4,ielem3,ielem2/)
+                kfacesv = (/kface1,kface4,kface3,kface2/)
               elseif(ef2e(7,iface,ielem_old).EQ.6)then
+                ielemsv = (/ielem2,ielem1,ielem4,ielem3/)
+                kfacesv = (/kface2,kface1,kface4,kface3/)
               elseif(ef2e(7,iface,ielem_old).EQ.7)then
+                ielemsv = (/ielem3,ielem2,ielem1,ielem4/)
+                kfacesv = (/kface3,kface2,kface1,kface4/)
               endif
+
+              !-- populate new elements
+              ef2e_temp(1,iface,ielem1) = kfacesv(1); ef2e_temp(2,iface,ielem1) = kelem_old
+              ef2e_temp(7,iface,ielem1) = ef2e(7,iface,ielem_old)
+              ef2e_temp(1,iface,ielem2) = kfacesv(2); ef2e_temp(2,iface,ielem2) = kelem_old
+              ef2e_temp(7,iface,ielem2) = ef2e(7,iface,ielem_old)
+              ef2e_temp(1,iface,ielem3) = kfacesv(3); ef2e_temp(2,iface,ielem3) = kelem_old
+              ef2e_temp(7,iface,ielem3) = ef2e(7,iface,ielem_old)
+              ef2e_temp(1,iface,ielem4) = kfacesv(4); ef2e_temp(2,iface,ielem4) = kelem_old
+              ef2e_temp(7,iface,ielem4) = ef2e(7,iface,ielem_old)
+
+              !-- populate subfaces of kelem_old
+              ef2e_temp(1,kface1,kelem_old) = iface; ef2e_temp(2,kface1,kelem_old) = ielemsv(1)
+              ef2e_temp(7,kface1,kelem_old) = ef2e(7,kface,kelem_old)
+              ef2e_temp(1,kface2,kelem_old) = iface; ef2e_temp(2,kface2,kelem_old) = ielemsv(2)
+              ef2e_temp(7,kface2,kelem_old) = ef2e(7,kface,kelem_old)
+              ef2e_temp(1,kface3,kelem_old) = iface; ef2e_temp(2,kface3,kelem_old) = ielemsv(3)
+              ef2e_temp(7,kface3,kelem_old) = ef2e(7,kface,kelem_old)
+              ef2e_temp(1,kface4,kelem_old) = iface; ef2e_temp(2,kface4,kelem_old) = ielemsv(4)
+              ef2e_temp(7,kface4,kelem_old) = ef2e(7,kface,kelem_old)
+
             endif bc_if
           enddo iface1
       enddo ef2e_loop
-write(*,*)'ef2e(7,4,9)=',ef2e(7,4,9)
+
      !-- assigne temp arrays to arrays used in main code
      deallocate(ef2e); allocate(ef2e(7,nfacesperelem,nelems))
      ef2e(:,:,:) = ef2e_temp(:,:,:)
@@ -481,16 +506,16 @@ write(*,*)'ef2e(7,4,9)=',ef2e(7,4,9)
      vx_master(:,:) = vx_master_temp(:,:)
      deallocate(ic2nh);allocate(ic2nh(8,nelems))
      ic2nh(:,:) = ic2nh_temp(:,:)
-
-!ielem =96
-!do iface = 1,6
-!write(*,*)'========================'
-!write(*,*)'iface = ',iface
-!write(*,*)'ef2e(1,iface,ielem) = ',ef2e_temp(1,iface,ielem)
-!write(*,*)'ef2e(2,iface,ielem) = ',ef2e_temp(2,iface,ielem)
-!write(*,*)'ef2e(7,iface,ielem) = ',ef2e_temp(7,iface,ielem)
-!write(*,*)'========================'
-!enddo     
+do ielem = 1,nelems
+write(*,*)'========================'
+do iface = 1,nfacesperelem
+write(*,*)'ielem = ',ielem,'iface = ',iface
+write(*,*)'ef2e(1,iface,ielem) = ',ef2e(1,iface,ielem)
+write(*,*)'ef2e(2,iface,ielem) = ',ef2e(2,iface,ielem)
+write(*,*)'ef2e(7,iface,ielem) = ',ef2e(7,iface,ielem)
+enddo
+write(*,*)'========================'
+enddo     
      !-- deallocate statements
      deallocate(ef2e_temp)
      deallocate(e_edge2e_temp)
