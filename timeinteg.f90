@@ -211,16 +211,18 @@ contains
       ! Output to file this timestep
       if (myprocid == 0) then
 
-        ! If verbose is set to true then output more at screen
-        if (verbose) then
+        if (verbose) then                                                     ! If verbose is set to true then output more at screen
         
-          ! Write meaning of variables
-          if(mod(itimestep-1,20) == 0 ) write(*,100)
+          if((mod(itimestep,verbose_fac) == 0 ) .or. (itimestep == 1) ) then  ! Only write every verbose_fac times
 
-          ! Write values
-          write(*,101) itimestep, timeglobal, timestep, err_time_lf,  &
-            & err_space_lf
+            if(mod(itimestep,verbose_fac*20) == 0 ) write(*,100)              ! Write meaning of variables
+
+            write(*,101) itimestep, timeglobal, timestep, err_time_lf, err_space_lf
+
+          endif
+
         endif
+
       endif
 
     end do timeloop

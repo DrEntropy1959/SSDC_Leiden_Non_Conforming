@@ -39,7 +39,7 @@
  timemaximum =  0.00100000,
  verbose = .false., 
  Dt_by_CFL = .true.,
- CFL = 0.25,
+ CFL = 1.50,
  variabletimestep = .false., 
  /
 

@@ -912,7 +912,8 @@ contains
 
     integer :: iunit, ierr
 
-    namelist /RunParameters/ timestep, timemaximum , verbose, variabletimestep, CFL, Dt_by_CFL
+    namelist /RunParameters/ timestep, timemaximum , verbose, verbose_fac, &
+                           & variabletimestep, CFL, Dt_by_CFL
 
     continue
 

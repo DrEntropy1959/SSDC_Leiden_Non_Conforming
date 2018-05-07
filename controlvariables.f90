@@ -25,11 +25,13 @@ module controlvariables
 
   character(120) :: Grid_Topology            = 'linear'  !  'cylinder' 'sphere'
   real(wp), dimension(3) :: cylinder_x0, cylinder_x1
-  real(wp)               :: radius
   real(wp), dimension(3) :: origin
+  real(wp)               :: radius
 
   integer   :: itimestep
+  integer   :: verbose_fac = 1
   integer   :: restart_time_steps = 0
+
   real(wp)  :: timelocal, timeglobal
   real(wp)  :: timestep, timemaximum
   real(wp)  :: CFL = 1.0_wp
