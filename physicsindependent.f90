@@ -38,12 +38,18 @@ contains
     use write_solution_file
     use referencevariables,  only: ihelems, nfacesperelem, nelems
     use initcollocation,     only: element_properties
+    use non_conforming,      only: h_refine, construct_h_refine_list
+!-- DAVID DEBUG START
+    use variables, only : ef2e, vx_master, ic2nh
+!-- DAVID DEBUG END
 
     ! Nothing is implicitly defined
     implicit none
 
     integer :: i_err
-
+!-- DAVID DEBUG START
+    integer :: ielem, iface
+!-- DAVID DEBUG END
     continue
 
     ! Initialize collocation approximation
@@ -126,19 +132,46 @@ contains
         ! create e_edge2e connectivity
         call e_edge2e_connectivity()   
 
+        ! h refine
+        call construct_h_refine_list()
+        call h_refine()
+write(*,*)'after h_refine'
         ! Construct the vector of +1 and -1 for the LDG flip-flop
-        call create_ldg_flip_flop_sign()
+!-- DAVID DEBUG START
+!        call create_ldg_flip_flop_sign()
+!-- DAVID DEBUG END
 
         write(*,*) 'Master node calls metis to subdivide the domain'
         write(*,*) '==============================================================='
 
         ! Metis calculates the partitions
-        call calculatepartitions() 
-
+!-- DAVID DEBUG START
+!        call calculatepartitions() 
+!-- DAVID DEBUG END
 
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
-
+!-- DAVID DEBUG START
+!         write(*,*)'M = [...'
+!        do ielem = 1,nelems
+!          write(*,*)vx_master(1:3,ic2nh(1,ielem)),';'
+!          write(*,*)vx_master(1:3,ic2nh(2,ielem)),';'
+!          write(*,*)vx_master(1:3,ic2nh(3,ielem)),';'
+!          write(*,*)vx_master(1:3,ic2nh(4,ielem)),';'
+!          write(*,*)vx_master(1:3,ic2nh(5,ielem)),';'
+!          write(*,*)vx_master(1:3,ic2nh(6,ielem)),';'
+!          write(*,*)vx_master(1:3,ic2nh(7,ielem)),';'
+!          write(*,*)vx_master(1:3,ic2nh(8,ielem)),';'
+!          do iface = 1,nfacesperelem
+!          write(*,*)'iface = ',iface
+!          write(*,*)'ef2e(1,iface,ielem) = ',ef2e(1,iface,ielem)  
+!          write(*,*)'ef2e(2,iface,ielem) = ',ef2e(2,iface,ielem)
+!          write(*,*)'ef2e(7,iface,ielem) = ',ef2e(7,iface,ielem)
+!          enddo
+!        enddo
+!        write(*,*)'];'
+        call PetscFinalize(i_err)
+!-- DAVID DEBUG END
       end if
 
       !-- pass number_of_possible_partners to all processes

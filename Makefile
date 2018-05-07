@@ -56,6 +56,23 @@ LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack 
 #  dfernandez-lan
 #=================================================================================================================
 else ifeq ($(HOSTPC),dfernandez-lan)
+INCLUDESDIR = -I/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/openmpi-1.8.3/include\
+              -I/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/petsc-3.5.2/include\
+              -I/ump/fldmd/home/ddelreyf/Documents/NASA/hp_SSDC/SSDC_Leiden_Non_Conforming/Libraries
+#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+CFLAGS = -Ofast  $(INCLUDESDIR)
+LFLAGS = -L/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/openmpi-1.8.3/lib\
+         -L/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/petsc-3.5.2/lib\
+         -L/ump/fldmd/home/ddelreyf/Documents/NASA/hp_SSDC/SSDC_Leiden_Non_Conforming/Libraries
+
+CC = gcc
+FC = mpif90
+LIBS = -lpetsc -lHYPRE -lsuperlu_dist_3.3 -lscalapack -lmetis -lparmetis -lcgns
+#=================================================================================================================
+# niavisi13-Latitude-3440
+#=================================================================================================================
+else ifeq ($(HOSTPC),niavisi13-Latitude-3440)
 $(info ${HOSTPC})
 INCLUDESDIR = -I/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/openmpi-1.8.3/include\
               -I/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/petsc-3.5.2/include\
@@ -77,8 +94,8 @@ $(info ${HOSTPC})
 INCLUDESDIR = -I/home/dcdelrey/Documents/Postdoc2/open_source/deps/openmpi-1.8.3/include\
               -I/home/dcdelrey/Documents/Postdoc2/open_source/deps/petsc-3.5.2/include\
               -I/home/dcdelrey/Documents/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
-FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
-#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
 CFLAGS = -Ofast  $(INCLUDESDIR)
 LFLAGS = -L/home/dcdelrey/Documents/Postdoc2/open_source/deps/openmpi-1.8.3/lib\
          -L/home/dcdelrey/Documents/Postdoc2/open_source/deps/petsc-3.5.2/lib\

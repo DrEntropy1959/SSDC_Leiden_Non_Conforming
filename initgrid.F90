@@ -3802,7 +3802,7 @@ contains
     !  nelems     :    elements  =  nhex in this case
     !
     !                   Dim,    Dim,         Dim
-    !  ef2e       :    ( 6 ,nfaceperelem, nelements) 
+    !  ef2e       :    ( 7 ,nfaceperelem, nelements) 
     !             :  Two situation occur.  The face is either an 
     !                  (Interior face 
     !                      :  (1,j,k) = Adjoining element face ID
