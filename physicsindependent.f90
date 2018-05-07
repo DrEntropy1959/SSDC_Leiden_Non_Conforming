@@ -38,7 +38,7 @@ contains
     use write_solution_file
     use referencevariables,  only: ihelems, nfacesperelem, nelems
     use initcollocation,     only: element_properties
-    use non_conforming,      only: h_refine, h_refine_list_BC
+    use non_conforming,      only: h_refine, construct_h_refine_list
 !-- DAVID DEBUG START
     use variables, only : ef2e, vx_master, ic2nh
 !-- DAVID DEBUG END
@@ -133,7 +133,7 @@ contains
         call e_edge2e_connectivity()   
 
         ! h refine
-        call h_refine_list_BC()
+        call construct_h_refine_list()
         call h_refine()
 write(*,*)'after h_refine'
         ! Construct the vector of +1 and -1 for the LDG flip-flop
