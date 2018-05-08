@@ -3812,6 +3812,10 @@ contains
     !                      :  (5,j,k) = Number of Adjoining elements
     !                      :  (6,j,k) = HACK self polynomial order assigned to each face
     !                      :  (7,j,k) = face_orientation
+    !                      :  (8,j,k) = This is used for nonconforming the first
+    !                      8 entries are the locations of the 8 verticies of the
+    !                      parent element while the 9th number is the local
+    !                      element number (1:8)
     !                  (Boundary face 
     !                      :  (1,j,k) = Set to -11 
     !                      :  (2,j,k) = -100000000
@@ -3887,7 +3891,7 @@ contains
 
 
       ! Calculate element-to-element connectivity using shared nodes
-      allocate(ef2e(qdim,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
+      allocate(ef2e(qdim+1,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
 
       allocate(ivtmp1(nverticesperface*bigN),ivtmp2(nverticesperface*bigN))
       allocate(ivtmp3(nverticesperface),     ivtmp4(nverticesperface))

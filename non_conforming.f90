@@ -374,29 +374,39 @@ end subroutine construct_h_refine_list
           ef2e_temp(1,3,ielem8) = 5; ef2e_temp(2,3,ielem8) = ielem7
 
           !-- e_edge2e connections
-          !-- new element 1 face 3 edge 2
-          !e_edge2e_temp(1,2,1,3,ielem_old) = ielem2;e_edge2e_temp(1,2,2,3,ielem_old) = ielem3;e_edge2e_temp(1,2,3,3,ielem_old) = ielem4 
-          !e_edge2e_temp(2,2,1:3,3,ielem_old) = ef2e(6,3,ielem_old)
+          !-- new element 1 face 1 edge 1
+          e_edge2e_temp(1,1,1,1,ielem_old) = ;e_edge2e_temp(1,1,2,1,ielem_old) = ;e_edge2e_temp(1,1,3,1,ielem_old) =  
+          e_edge2e_temp(2,1,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
-          !-- new element 1 face 3 edge 3
-          !e_edge2e_temp(1,3,1,3,ielem_old) = ielem2;e_edge2e_temp(1,3,2,3,ielem_old) = ielem5;e_edge2e_temp(1,3,3,3,ielem_old) = ielem6 
-          !e_edge2e_temp(2,3,1:3,3,ielem_old) = ef2e(6,3,ielem_old)         
+          !-- new element 1 face 1 edge 2
+          e_edge2e_temp(1,2,1,1,ielem_old) = ;e_edge2e_temp(1,2,2,1,ielem_old) = ;e_edge2e_temp(1,2,3,1,ielem_old) =  
+          e_edge2e_temp(2,2,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
-          !-- new element 1 face 4 edge 2
-          !e_edge2e_temp(1,2,1,4,ielem_old) = ielem2;e_edge2e_temp(1,2,2,4,ielem_old) = ielem3;e_edge2e_temp(1,2,3,4,ielem_old) = ielem4 
-          !e_edge2e_temp(2,2,1:3,4,ielem_old) = ef2e(6,4,ielem_old)
+          !-- new element 1 face 1 edge 3
+          e_edge2e_temp(1,3,1,1,ielem_old) = ;e_edge2e_temp(1,3,2,1,ielem_old) = ;e_edge2e_temp(1,3,3,1,ielem_old) =  
+          e_edge2e_temp(2,3,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
-          !-- new element 1 face 4 edge 3
-          !e_edge2e_temp(1,3,1,4,ielem_old) = ielem4;e_edge2e_temp(1,3,2,4,ielem_old) = ielem5;e_edge2e_temp(1,3,3,4,ielem_old) = ielem8 
-          !e_edge2e_temp(2,3,1:3,4,ielem_old) = ef2e(6,4,ielem_old)       
+          !-- new element 1 face 1 edge 4
+          e_edge2e_temp(1,4,1,1,ielem_old) = ;e_edge2e_temp(1,4,2,1,ielem_old) = ;e_edge2e_temp(1,4,3,1,ielem_old) =  
+          e_edge2e_temp(2,4,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
-          !-- new element 1 face 6 edge 2
-          !e_edge2e_temp(1,2,1,6,ielem_old) = ielem2;e_edge2e_temp(1,2,2,6,ielem_old) = ielem5;e_edge2e_temp(1,2,3,6,ielem_old) = ielem6 
-          !e_edge2e_temp(2,2,1:3,6,ielem_old) = ef2e(6,6,ielem_old)
+          !-- new element 1 face 2 edge 1
+          e_edge2e_temp(1,1,1,2,ielem_old) = ;e_edge2e_temp(1,1,1,2,ielem_old) = ;e_edge2e_temp(1,1,1,3,ielem_old) =  
+          e_edge2e_temp(2,1,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
-          !-- new element 1 face 6 edge 3
-          !e_edge2e_temp(1,3,1,6,ielem_old) = ielem4;e_edge2e_temp(1,3,2,6,ielem_old) = ielem5;e_edge2e_temp(1,3,3,6,ielem_old) = ielem8 
-          !e_edge2e_temp(2,3,1:3,6,ielem_old) = ef2e(6,6,ielem_old)
+          !-- new element 1 face 2 edge 2
+          e_edge2e_temp(1,2,1,1,ielem_old) = ;e_edge2e_temp(1,2,2,1,ielem_old) = ;e_edge2e_temp(1,2,3,1,ielem_old) =  
+          e_edge2e_temp(2,2,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+
+          !-- new element 1 face 2 edge 3
+          e_edge2e_temp(1,3,1,1,ielem_old) = ;e_edge2e_temp(1,3,2,1,ielem_old) = ;e_edge2e_temp(1,3,3,1,ielem_old) =  
+          e_edge2e_temp(2,3,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+
+          !-- new element 1 face 2 edge 4
+          e_edge2e_temp(1,4,1,1,ielem_old) = ;e_edge2e_temp(1,4,2,1,ielem_old) = ;e_edge2e_temp(1,4,3,1,ielem_old) =  
+          e_edge2e_temp(2,4,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+
+
 
           !-- loop over the original faces and determine the connectivity
           iface1: do iface = 1,nfaces_old
