@@ -8428,6 +8428,16 @@ end subroutine write_matrix_to_file_matlab
   !  e_edge2e(3,iedge,ipartner,iface,ielem) = procid of the ith element (ipartner) touching iedge (not setup)
   !
   ! Notes:
+  !-- the edge numbering is counter-clockwise starting from the origin i.e.
+  !                 edge 3
+  !               ----------
+  !               |        |
+  !        edge4  |        | edge 2
+  !               |        |
+  !               |        |
+  !               ----------
+  !               edge 1
+  !
   !================================================================================================
 
     use mpimod

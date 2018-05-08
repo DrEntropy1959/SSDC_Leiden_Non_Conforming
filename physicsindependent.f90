@@ -133,12 +133,12 @@ contains
         call e_edge2e_connectivity()   
 
         ! h refine
-        call construct_h_refine_list()
-        call h_refine()
-write(*,*)'after h_refine'
+!        call construct_h_refine_list()
+!        call h_refine()
+!write(*,*)'after h_refine'
         ! Construct the vector of +1 and -1 for the LDG flip-flop
 !-- DAVID DEBUG START
-!        call create_ldg_flip_flop_sign()
+        call create_ldg_flip_flop_sign()
 !-- DAVID DEBUG END
 
         write(*,*) 'Master node calls metis to subdivide the domain'
@@ -146,7 +146,7 @@ write(*,*)'after h_refine'
 
         ! Metis calculates the partitions
 !-- DAVID DEBUG START
-!        call calculatepartitions() 
+        call calculatepartitions() 
 !-- DAVID DEBUG END
 
         write(*,*) 'Master node distributes elements'
@@ -170,7 +170,7 @@ write(*,*)'after h_refine'
 !          enddo
 !        enddo
 !        write(*,*)'];'
-        call PetscFinalize(i_err)
+!        call PetscFinalize(i_err)
 !-- DAVID DEBUG END
       end if
 

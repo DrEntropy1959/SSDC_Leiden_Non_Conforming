@@ -70,7 +70,8 @@ end subroutine construct_h_refine_list
 !
 ! Purpose: This subroutine h refines the mesh at the boundaries
 ! 
-! Comments: Only setup for 3D. Numbering for the splitting: we only consider a equal subvdivision
+! Comments: Only setup for 3D. The connectivity in e_edge2e is setup assuming only h refinement. 
+! Numbering for the splitting: we only consider a equal subvdivision
 ! of the hex in each direction. The nod numbering convention used here is given
 ! in the following figure:
 !
@@ -211,6 +212,8 @@ end subroutine construct_h_refine_list
      ic2nh_temp(1:8,1:nelems_old) = ic2nh(1:8,1:nelems_old)
      ef2e_temp = 0
      ef2e_temp(1:7,1:nfaces_old,1:nelems_old) = ef2e(1:7,1:nfaces_old,1:nelems_old)
+     e_edge2e_temp(1:3,1:2**(ndim-1),1:max_partners,1:nfaces_old,1:nelems_old) = &
+       e_edge2e(1:3,1:2**(ndim-1),1:max_partners,1:nfaces_old,1:nelems_old)
 
      !-- loop over the element and split
      element_count = nelems_old+1
@@ -314,6 +317,16 @@ end subroutine construct_h_refine_list
 !   write(*,*)ic2nh(refine,1:nelems_old),';'
 !enddo
 !write(*,*)'];'
+!-- the edge numbering is counter-clockwise starting from the origin i.e.
+!                 edge 3
+!               ----------
+!               |        |
+!        edge4  |        | edge 2
+!               |        |
+!               |        |
+!               ----------
+!               edge 1
+
     !-- update ef2e
      ef2e_loop: do refine = 1,nelems_to_refine
           ielem_old = e_old2e(refine,1); ielem2 = e_old2e(refine,2); ielem3 = e_old2e(refine,3); ielem4 = e_old2e(refine,4)
@@ -324,7 +337,7 @@ end subroutine construct_h_refine_list
           ef2e_temp(1,3,ielem_old) = 5; ef2e_temp(2,3,ielem_old) = ielem2
           ef2e_temp(1,4,ielem_old) = 2; ef2e_temp(2,4,ielem_old) = ielem4
           ef2e_temp(1,6,ielem_old) = 1; ef2e_temp(2,6,ielem_old) = ielem5
-
+        
           !-- element 2
           ef2e_temp(1,4,ielem2) = 2; ef2e_temp(2,4,ielem2) = ielem3
           ef2e_temp(1,5,ielem2) = 3; ef2e_temp(2,5,ielem2) = ielem_old
@@ -359,6 +372,31 @@ end subroutine construct_h_refine_list
           ef2e_temp(1,1,ielem8) = 6; ef2e_temp(2,1,ielem8) = ielem4
           ef2e_temp(1,2,ielem8) = 4; ef2e_temp(2,2,ielem8) = ielem5
           ef2e_temp(1,3,ielem8) = 5; ef2e_temp(2,3,ielem8) = ielem7
+
+          !-- e_edge2e connections
+          !-- new element 1 face 3 edge 2
+          !e_edge2e_temp(1,2,1,3,ielem_old) = ielem2;e_edge2e_temp(1,2,2,3,ielem_old) = ielem3;e_edge2e_temp(1,2,3,3,ielem_old) = ielem4 
+          !e_edge2e_temp(2,2,1:3,3,ielem_old) = ef2e(6,3,ielem_old)
+
+          !-- new element 1 face 3 edge 3
+          !e_edge2e_temp(1,3,1,3,ielem_old) = ielem2;e_edge2e_temp(1,3,2,3,ielem_old) = ielem5;e_edge2e_temp(1,3,3,3,ielem_old) = ielem6 
+          !e_edge2e_temp(2,3,1:3,3,ielem_old) = ef2e(6,3,ielem_old)         
+
+          !-- new element 1 face 4 edge 2
+          !e_edge2e_temp(1,2,1,4,ielem_old) = ielem2;e_edge2e_temp(1,2,2,4,ielem_old) = ielem3;e_edge2e_temp(1,2,3,4,ielem_old) = ielem4 
+          !e_edge2e_temp(2,2,1:3,4,ielem_old) = ef2e(6,4,ielem_old)
+
+          !-- new element 1 face 4 edge 3
+          !e_edge2e_temp(1,3,1,4,ielem_old) = ielem4;e_edge2e_temp(1,3,2,4,ielem_old) = ielem5;e_edge2e_temp(1,3,3,4,ielem_old) = ielem8 
+          !e_edge2e_temp(2,3,1:3,4,ielem_old) = ef2e(6,4,ielem_old)       
+
+          !-- new element 1 face 6 edge 2
+          !e_edge2e_temp(1,2,1,6,ielem_old) = ielem2;e_edge2e_temp(1,2,2,6,ielem_old) = ielem5;e_edge2e_temp(1,2,3,6,ielem_old) = ielem6 
+          !e_edge2e_temp(2,2,1:3,6,ielem_old) = ef2e(6,6,ielem_old)
+
+          !-- new element 1 face 6 edge 3
+          !e_edge2e_temp(1,3,1,6,ielem_old) = ielem4;e_edge2e_temp(1,3,2,6,ielem_old) = ielem5;e_edge2e_temp(1,3,3,6,ielem_old) = ielem8 
+          !e_edge2e_temp(2,3,1:3,6,ielem_old) = ef2e(6,6,ielem_old)
 
           !-- loop over the original faces and determine the connectivity
           iface1: do iface = 1,nfaces_old

@@ -2,7 +2,7 @@
  ndim = 3,
  npoly = NPoly, 
  npoly_DeltaF = 0,
- casefile = '../Grids/GMSH/Sphere_Uniform_Orthogonal/Sphere_Uniform_Orthogonal_PTSxPTSxPTS',
+ casefile = 'Scripts/Grids/Sphere_Uniform_Orthogonal_PTSxPTSxPTS',
  grid_format = 'aflr3',
  viscous = .false.,
  crossterms = .true.,

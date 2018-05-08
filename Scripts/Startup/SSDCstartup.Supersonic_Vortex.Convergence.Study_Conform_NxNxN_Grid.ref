@@ -2,7 +2,7 @@
  ndim = 3,
  npoly = NPoly, 
  npoly_DeltaF = 0,
- casefile = '../Grids/GMSH/Supersonic_Vortex_Cylinder/supersonic_vortex_XPTxYPTx01',
+ casefile = 'Scripts/Grids/supersonic_vortex_XPTxYPTx01',
  grid_format = 'aflr3',
  viscous = .false.,
  crossterms = .true.,
