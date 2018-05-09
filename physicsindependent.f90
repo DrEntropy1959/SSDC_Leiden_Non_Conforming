@@ -132,22 +132,18 @@ contains
         ! create e_edge2e connectivity
         call e_edge2e_connectivity()   
 
-        ! h refine
-!        call construct_h_refine_list()
-!        call h_refine()
-!write(*,*)'after h_refine'
-        ! Construct the vector of +1 and -1 for the LDG flip-flop
-!-- DAVID DEBUG START
-        call create_ldg_flip_flop_sign()
-!-- DAVID DEBUG END
 
+        ! Construct the vector of +1 and -1 for the LDG flip-flop
+        call create_ldg_flip_flop_sign()
+
+        ! h refine
+        call construct_h_refine_list()
+        call h_refine()
         write(*,*) 'Master node calls metis to subdivide the domain'
         write(*,*) '==============================================================='
 
         ! Metis calculates the partitions
-!-- DAVID DEBUG START
         call calculatepartitions() 
-!-- DAVID DEBUG END
 
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
@@ -177,13 +173,18 @@ contains
       !-- pass number_of_possible_partners to all processes
       call mpi_bcast(number_of_possible_partners,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)
       
-      ! Push edge connectivity to all processes (has to be before distribute_elements_aflr3 
-      !  because in that routine nelems is changed to the local number of elements)
-      call distribute_e_edge2e()
+      if(hrefine)then
+      else
+        ! Push edge connectivity to all processes (has to be before distribute_elements_aflr3 
+        !  because in that routine nelems is changed to the local number of elements)
+        call distribute_e_edge2e()
+      endif
 
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()
-
+!-- DAVID DEBUG START
+!        call PetscFinalize(i_err)
+!-- DAVID DEBUG END
     end if
 
     call mpi_bcast(npoly_max,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)
@@ -290,6 +291,9 @@ contains
 
     ! Set binary sizes for writing the solution vtu files in raw binary vtu format
     call calculate_binary_sizes_vtu()
+!-- DAVID DEBUG START
+        call PetscFinalize(i_err)
+!-- DAVID DEBUG END
 
   end subroutine physics_independent_setup
 

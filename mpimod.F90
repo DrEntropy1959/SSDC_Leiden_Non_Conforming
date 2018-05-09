@@ -334,7 +334,7 @@ contains
 
     integer            :: n_elems
 
-    integer, parameter :: qdim = 7   !  dimension of first array in ef2e see initgrid.F90 
+    integer, parameter :: qdim = 8   !  dimension of first array in ef2e see initgrid.F90 
                                      !  for definitions of each of the qdim 
 
     continue
@@ -1041,14 +1041,16 @@ contains
           end do
           
           ! Loop over all faces
-          do j = 1, 2*ndim
+!          do j = 1, 2*ndim ----------------------------------------------------- original
+           do j = 1,nfacesperelem
             ! Face of neighbor
             ef2etmp1(1,j,i) = ef2e(1,j,ii)
             ef2etmp1(4,j,i) = ef2e(4,j,ii)
             ef2etmp1(5,j,i) = ef2e(5,j,ii)
             ef2etmp1(6,j,i) = ef2e(6,j,ii)
             ef2etmp1(7,j,i) = ef2e(7,j,ii)
-            
+            ef2etmp1(8,j,i) = ef2e(8,j,ii)            
+
             ! Original element index of neighbor
             jj = ef2e(2,j,ii)
             

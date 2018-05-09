@@ -38,7 +38,7 @@ subroutine construct_h_refine_list
      allocate(h_refine_list(nelems))
      h_refine_list(1:nelems) = .false.
 
-     refine_method = 2
+     refine_method = 3
      select case(refine_method)
      case(1)
        !-- loop over the elements identify which ones are boundary elements and
@@ -59,6 +59,9 @@ subroutine construct_h_refine_list
        nelems_to_refine = 2
        h_refine_list(4) = .true.
        h_refine_list(9) = .true.
+     case(3)
+       nelems_to_refine = 1
+       h_refine_list(3) = .true.
      case default
        write(*,*)'non_conforming: construct_h_refine_list: incorrect choice of refine_method = ',refine_method
        call PetscFinalize(i_err); stop
@@ -155,8 +158,9 @@ end subroutine construct_h_refine_list
 !===================================================================================================
    subroutine h_refine()
 
-     use referencevariables, only : nelems, nfacesperelem, ndim
-     use variables, only : ef2e, e_edge2e, h_refine_list, nelems_to_refine
+     use referencevariables, only : nelems, nfacesperelem, ndim, nvertices
+     use variables, only : ef2e, e_edge2e, h_refine_list, nelems_to_refine, &
+                           iae2v, iae2v_tmp, jae2v, jae2v_tmp
      use variables, only : vx_master, ic2nh
 
      !-- local variables
@@ -179,6 +183,7 @@ end subroutine construct_h_refine_list
      integer :: element_number_adjoining, faceID_adjoining, split_count
      integer :: face2elem(6,4), kelemsv(4), ielemsv(4), kfacesv(4)
 
+     integer :: i, j, nnze2v, cnt
 
      real(wp), dimension (3) :: xyz1, xyz2, xyz3, xyz4,& 
                                 xyz5, xyz6, xyz7, xyz8,&
@@ -189,6 +194,8 @@ end subroutine construct_h_refine_list
                                 xyz25, xyz26, xyz27
      real(wp), allocatable, dimension(:,:) :: vx_master_temp                                         !-- (3,number of vertices)
 
+     integer :: qdim = 8
+
      !-- update the number of faces per element (this is a maximum for one level refinment)
      nfaces_old = nfacesperelem
      nfacesperelem = 4*6
@@ -198,10 +205,11 @@ end subroutine construct_h_refine_list
      nelems = nelems-nelems_to_refine+8*nelems_to_refine
      nvertex_old = size(vx_master(1,:)) 
      nvertex = nvertex_old+19*nelems_to_refine
+     nvertices = nvertex
      max_partners = size(e_edge2e(1,1,:,1,1))
                                      
      allocate(vx_master_temp(3,nvertex))
-     allocate(ef2e_temp(7,nfacesperelem,nelems))     
+     allocate(ef2e_temp(qdim,nfacesperelem,nelems))     
      allocate(e_edge2e_temp(3,2**(ndim-1),max_partners,nfacesperelem,nelems))
      allocate(ic2nh_temp(8,nelems))
      allocate(e_old2e(nelems_to_refine,8))
@@ -373,38 +381,48 @@ end subroutine construct_h_refine_list
           ef2e_temp(1,2,ielem8) = 4; ef2e_temp(2,2,ielem8) = ielem5
           ef2e_temp(1,3,ielem8) = 5; ef2e_temp(2,3,ielem8) = ielem7
 
+          !-- populate pointers to original vertices of split elements
+          ef2e_temp(8,1:9,ielem_old) = (/ic2nh(1:8,ielem_old),1/)
+          ef2e_temp(8,1:9,ielem2) = (/ic2nh(1:8,ielem_old),2/)
+          ef2e_temp(8,1:9,ielem3) = (/ic2nh(1:8,ielem_old),3/)
+          ef2e_temp(8,1:9,ielem4) = (/ic2nh(1:8,ielem_old),4/)
+          ef2e_temp(8,1:9,ielem5) = (/ic2nh(1:8,ielem_old),5/)
+          ef2e_temp(8,1:9,ielem6) = (/ic2nh(1:8,ielem_old),6/)
+          ef2e_temp(8,1:9,ielem7) = (/ic2nh(1:8,ielem_old),7/)
+          ef2e_temp(8,1:9,ielem8) = (/ic2nh(1:8,ielem_old),8/)
+
           !-- e_edge2e connections
           !-- new element 1 face 1 edge 1
-          e_edge2e_temp(1,1,1,1,ielem_old) = ;e_edge2e_temp(1,1,2,1,ielem_old) = ;e_edge2e_temp(1,1,3,1,ielem_old) =  
-          e_edge2e_temp(2,1,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+          !e_edge2e_temp(1,1,1,1,ielem_old) = ;e_edge2e_temp(1,1,2,1,ielem_old) = ;e_edge2e_temp(1,1,3,1,ielem_old) =  
+          !e_edge2e_temp(2,1,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
           !-- new element 1 face 1 edge 2
-          e_edge2e_temp(1,2,1,1,ielem_old) = ;e_edge2e_temp(1,2,2,1,ielem_old) = ;e_edge2e_temp(1,2,3,1,ielem_old) =  
-          e_edge2e_temp(2,2,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+          !e_edge2e_temp(1,2,1,1,ielem_old) = ;e_edge2e_temp(1,2,2,1,ielem_old) = ;e_edge2e_temp(1,2,3,1,ielem_old) =  
+          !e_edge2e_temp(2,2,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
           !-- new element 1 face 1 edge 3
-          e_edge2e_temp(1,3,1,1,ielem_old) = ;e_edge2e_temp(1,3,2,1,ielem_old) = ;e_edge2e_temp(1,3,3,1,ielem_old) =  
-          e_edge2e_temp(2,3,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+          !e_edge2e_temp(1,3,1,1,ielem_old) = ;e_edge2e_temp(1,3,2,1,ielem_old) = ;e_edge2e_temp(1,3,3,1,ielem_old) =  
+          !e_edge2e_temp(2,3,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
           !-- new element 1 face 1 edge 4
-          e_edge2e_temp(1,4,1,1,ielem_old) = ;e_edge2e_temp(1,4,2,1,ielem_old) = ;e_edge2e_temp(1,4,3,1,ielem_old) =  
-          e_edge2e_temp(2,4,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+          !e_edge2e_temp(1,4,1,1,ielem_old) = ;e_edge2e_temp(1,4,2,1,ielem_old) = ;e_edge2e_temp(1,4,3,1,ielem_old) =  
+          !e_edge2e_temp(2,4,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
           !-- new element 1 face 2 edge 1
-          e_edge2e_temp(1,1,1,2,ielem_old) = ;e_edge2e_temp(1,1,1,2,ielem_old) = ;e_edge2e_temp(1,1,1,3,ielem_old) =  
-          e_edge2e_temp(2,1,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+          !e_edge2e_temp(1,1,1,2,ielem_old) = ;e_edge2e_temp(1,1,1,2,ielem_old) = ;e_edge2e_temp(1,1,1,3,ielem_old) =  
+          !e_edge2e_temp(2,1,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
           !-- new element 1 face 2 edge 2
-          e_edge2e_temp(1,2,1,1,ielem_old) = ;e_edge2e_temp(1,2,2,1,ielem_old) = ;e_edge2e_temp(1,2,3,1,ielem_old) =  
-          e_edge2e_temp(2,2,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+          !e_edge2e_temp(1,2,1,1,ielem_old) = ;e_edge2e_temp(1,2,2,1,ielem_old) = ;e_edge2e_temp(1,2,3,1,ielem_old) =  
+          !e_edge2e_temp(2,2,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
           !-- new element 1 face 2 edge 3
-          e_edge2e_temp(1,3,1,1,ielem_old) = ;e_edge2e_temp(1,3,2,1,ielem_old) = ;e_edge2e_temp(1,3,3,1,ielem_old) =  
-          e_edge2e_temp(2,3,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+          !e_edge2e_temp(1,3,1,1,ielem_old) = ;e_edge2e_temp(1,3,2,1,ielem_old) = ;e_edge2e_temp(1,3,3,1,ielem_old) =  
+          !e_edge2e_temp(2,3,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
           !-- new element 1 face 2 edge 4
-          e_edge2e_temp(1,4,1,1,ielem_old) = ;e_edge2e_temp(1,4,2,1,ielem_old) = ;e_edge2e_temp(1,4,3,1,ielem_old) =  
-          e_edge2e_temp(2,4,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
+          !e_edge2e_temp(1,4,1,1,ielem_old) = ;e_edge2e_temp(1,4,2,1,ielem_old) = ;e_edge2e_temp(1,4,3,1,ielem_old) =  
+          !e_edge2e_temp(2,4,1:3,1,ielem_old) = ef2e(6,1,ielem_old)
 
 
 
@@ -545,8 +563,34 @@ end subroutine construct_h_refine_list
           enddo iface1
       enddo ef2e_loop
 
+     !-- populate iae2v and jae2v
+      ! Construct iae2v and jae2v
+      ! =========================
+      nnze2v = (2**ndim)*nelems
+      if(allocated(iae2v)) deallocate(iae2v); allocate(iae2v(nelems+1)); iae2v = 0
+      if(allocated(iae2v_tmp)) deallocate(iae2v_tmp); allocate(iae2v_tmp(nelems+1)); iae2v_tmp = 0
+      if(allocated(jae2v)) deallocate(jae2v); allocate(jae2v(nnze2v)); jae2v = 0
+      if(allocated(jae2v_tmp)) deallocate(jae2v_tmp); allocate(jae2v_tmp(nnze2v)); jae2v_tmp = 0
+
+      iae2v(1) = 1
+      do j = 2,nelems+1
+        iae2v(j) = iae2v(j-1) + (2**ndim)
+      end do
+      
+      iae2v_tmp = iae2v
+
+      cnt = 0
+      do j = 1,nelems
+        do i = 1,(2**ndim)
+          cnt = cnt + 1
+          jae2v(cnt) = ic2nh_temp(i,j)
+        enddo
+      enddo
+
+      jae2v_tmp = jae2v
+
      !-- assigne temp arrays to arrays used in main code
-     deallocate(ef2e); allocate(ef2e(7,nfacesperelem,nelems))
+     deallocate(ef2e); allocate(ef2e(qdim,nfacesperelem,nelems))
      ef2e(:,:,:) = ef2e_temp(:,:,:)
      deallocate(e_edge2e);allocate(e_edge2e(3,2**(ndim-1),max_partners,nfacesperelem,nelems))
      e_edge2e(:,:,:,:,:) = e_edge2e_temp(:,:,:,:,:)
@@ -554,16 +598,16 @@ end subroutine construct_h_refine_list
      vx_master(:,:) = vx_master_temp(:,:)
      deallocate(ic2nh);allocate(ic2nh(8,nelems))
      ic2nh(:,:) = ic2nh_temp(:,:)
-do ielem = 1,nelems
-write(*,*)'========================'
-do iface = 1,nfacesperelem
-write(*,*)'ielem = ',ielem,'iface = ',iface
-write(*,*)'ef2e(1,iface,ielem) = ',ef2e(1,iface,ielem)
-write(*,*)'ef2e(2,iface,ielem) = ',ef2e(2,iface,ielem)
-write(*,*)'ef2e(7,iface,ielem) = ',ef2e(7,iface,ielem)
-enddo
-write(*,*)'========================'
-enddo     
+!do ielem = 1,nelems
+!write(*,*)'========================'
+!do iface = 1,nfacesperelem
+!write(*,*)'ielem = ',ielem,'iface = ',iface
+!write(*,*)'ef2e(1,iface,ielem) = ',ef2e(1,iface,ielem)
+!write(*,*)'ef2e(2,iface,ielem) = ',ef2e(2,iface,ielem)
+!write(*,*)'ef2e(7,iface,ielem) = ',ef2e(7,iface,ielem)
+!enddo
+!write(*,*)'========================'
+!enddo     
      !-- deallocate statements
      deallocate(ef2e_temp)
      deallocate(e_edge2e_temp)

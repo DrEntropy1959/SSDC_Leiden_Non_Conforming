@@ -3778,7 +3778,7 @@ contains
     !integer, allocatable, dimension(:) :: list_partner_faces
 
     real(wp), parameter  :: diff_toll = 1e-8
-    integer,  parameter  :: qdim = 7             !  dimension of ef2e array
+    integer,  parameter  :: qdim = 8             !  dimension of ef2e array
 
     continue
 
