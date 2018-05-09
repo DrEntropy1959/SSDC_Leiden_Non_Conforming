@@ -186,5 +186,9 @@ module variables
 
   ! Time derivative of the kinetic energy
   real(wp) :: dkinetic_energy_dt
+  
+  ! Variables used for h refinment
+  integer :: nelems_to_refine
+  logical, allocatable, dimension(:) :: h_refine_list
 
 end module variables

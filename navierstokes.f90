@@ -3056,7 +3056,7 @@ contains
           fm = exp(2.0_wp*(1.0_wp-vf)*xin/alpha)-(vm-1.0_wp)**2/abs(vf-vm)**(2.0_wp*vf)
           tmp = (vm - vf) * (one - vm)
           if(tmp.lt.zero)tmp = -one*tmp
-          if(tmp.eq.zero)tmp = 1.0d-14
+          if(tmp.le.zero)tmp = 1.0d-14
           tmp1 = (one-vm)
           if(tmp1.lt.zero)tmp1=1.0d-14
           tmp2 = (vm-vf)
@@ -3467,8 +3467,9 @@ contains
             fstarV(:) = normalviscousflux( vg_On, phig_On, nx_On, nequations,mut(inode,ielem)) - fV_Off(:)
 
             matrix_ip = 0.5_wp * pinv(1) * ( matrix_hatc_node(vg_On ,nx_On,nx_On,nequations)    &  ! IP penalty contribution, i.e. M (u-v), where M is S.P.D. and defined as
-                                           + matrix_hatc_node(vg_Off,nx_On,nx_On,nequations))      ! M = pinv(1) (c_ii_side_1 + c_ii_side_2)/2, in the normal direction
-                                                                                                   ! ==  Fluxes
+                                           + matrix_hatc_node(vg_Off,nx_On,nx_On,nequations)) / &  ! M = pinv(1) (c_ii_side_1 + c_ii_side_2)/2, in the normal direction
+                                             Jx_r(inode,ielem)
+
 
             gsat(:,inode,ielem) = gsat(:,inode,ielem) + &
               & pinv(1)* ( (fn - fstar) + l01*fstarV*bc_pen_strength ) - &
@@ -3562,21 +3563,21 @@ contains
 
             fV_Off(:) = normalviscousflux(vg_On,phig_Off,nx,nequations,mut(inode,ielem))             ! normal viscous flux arising from the ghost point
             
-            ref_vel_vector(:) = U0                                                  ! c_ii reference state matrix
+            ref_vel_vector(:) = U0                                                                   ! c_ii reference state matrix
             prim_ref(1) = rho0
             prim_ref(2) = Magnitude(ref_vel_vector)
             prim_ref(3) = Magnitude(ref_vel_vector)
             prim_ref(4) = Magnitude(ref_vel_vector)
             prim_ref(5) = T0
 
-            matrix_ip = matrix_hatc_node(prim_ref,nx,nx,nequations)                 ! IP penalty matrix
+            matrix_ip = pinv(1) * matrix_hatc_node(prim_ref,nx,nx,nequations) / Jx_r(inode,ielem)    ! IP penalty contribution, i.e. M (u-v), where M is S.P.D. and defined as                                           
 
-            matrix_ip(5,:) = 0.0_wp ; matrix_ip(:,5) = 0.0_wp ;                     ! Zero out last row and column
+            matrix_ip(5,:) = 0.0_wp ; matrix_ip(:,5) = 0.0_wp ;                                      ! Zero out last row and column
 
-            gsat(:,inode,ielem) = gsat(:,inode,ielem) &                             ! Compute the penalty term
-              & + pinv(1)*(fn - fstar) &
-              & - pinv(1)*(fstarV-fV_Off) &
-              & - pinv(1)*1.0_wp*matmul(matrix_ip,wg_On - wg_Off_NoSlip)
+            gsat(:,inode,ielem) = gsat(:,inode,ielem) &                                              ! Compute the penalty term
+              & + pinv(1)* (fn - fstar) &
+              & - pinv(1)* (fstarV-fV_Off) &
+              & - pinv(1)* l00 * matmul(matrix_ip,wg_On - wg_Off_NoSlip)
 
           end do
         end if
@@ -3654,7 +3655,7 @@ contains
               
             vg_On(:)  = vg(:,inode,ielem)                                              ! On -element primitive variables
             vg_Off(:) = vg(:,knode,kelem)                                              ! Off-element primitive variables
-  
+
             phig_On (:,:) = phig(:,:,inode,ielem)                                      ! On -element dW/dx_j
             phig_Off(:,:) = phig(:,:,knode,kelem)                                      ! Off-element dW/dx_j from PETSC ghost registers
 
@@ -5159,7 +5160,7 @@ endif
     use controlvariables
     use referencevariables
     use nsereferencevariables
-    use collocationvariables, only: pvol
+    use collocationvariables, only: pmat
     use initcollocation, only: element_properties
     use mpimod 
 
@@ -5175,19 +5176,21 @@ endif
     integer :: s_status(mpi_status_size)
     integer :: r_status(mpi_status_size)
 
-    integer :: ielem,  inode
-    integer :: m
+    integer :: ielem,  inode, n_pts_1d
+    integer :: i, j, k, m
 
     real(wp)               :: Lngth, a0, dt0, dt_min, dt_global_max
     real(wp)               :: tI, tV
-    real(wp), dimension(3) :: sq, ucon
+    real(wp)               :: eigtot, dtN, con1
+    real(wp), dimension(3) :: sq, ucon, eig
+
 
     continue
 
     ! Compute gradient of the velocity components
     ! ===========================================
     dt_global_max = dt_global*1.1_wp
-    dt_min = 100.0_wp
+    dt_min  = 100.0_wp
 
     ! Low and high  volumetric element index
     iell  = ihelems(1) ;  ielh = ihelems(2)
@@ -5195,34 +5198,59 @@ endif
     ! loop over all elements
     do ielem = ihelems(1), ihelems(2)
 
-      call element_properties(ielem, n_pts_3d=nodesperelem,pvol=pvol)
+      call element_properties(ielem, n_pts_1d=n_pts_1d, pmat=pmat)
 
-      do  inode = 1, nodesperelem
-                
-          Lngth = pvol( inode)**(third)
+      inode = 0
+      do k = 1,n_pts_1d                                                          !  z-dir
 
-          a0  = sqrt(abs(gamma0*vg(5, inode,ielem)/gM2))
+        do j = 1,n_pts_1d                                                        !  y-dir
 
-          sq(1) = magnitude(r_x(1,:, inode,ielem))
-          sq(2) = magnitude(r_x(2,:, inode,ielem))
-          sq(3) = magnitude(r_x(3,:, inode,ielem))
+          do i = 1,n_pts_1d                                                      !  x-dir
 
-          ucon(1) = dot_product(r_x(1,:, inode,ielem),vg(2:4, inode,ielem))
-          ucon(2) = dot_product(r_x(2,:, inode,ielem),vg(2:4, inode,ielem))
-          ucon(3) = dot_product(r_x(3,:, inode,ielem),vg(2:4, inode,ielem))
+            inode = inode + 1                                                    !  Accumulate volume index
 
-          tI  =  sum(abs(ucon(:))) + a0 * ( sum(sq) )
-          tV  =  Re0Inv * magnitude(sq)
+            Lngth = (pmat(i)*pmat(j)*pmat(k))**(third)                           !  approximate scale of computational volume
 
-          dt0 = CFL / (tI / Lngth + tV / Lngth / Lngth)
+            a0  = sqrt(abs(gamma0*vg(5,inode,ielem)/gM2))                        ! Speed of sound (in strange nondimensionalization)
 
-          dt_min = min(dt_min,dt0)
+            sq(1) = magnitude(r_x(1,:, inode,ielem))                             !  Sqrt( d(xi_1)/dx_j . d(xi_1)/dx_j )
+            sq(2) = magnitude(r_x(2,:, inode,ielem))                             !  Sqrt( d(xi_2)/dx_j . d(xi_2)/dx_j )
+            sq(3) = magnitude(r_x(3,:, inode,ielem))                             !  Sqrt( d(xi_3)/dx_j . d(xi_3)/dx_j )
+
+            ucon(1) = dot_product(r_x(1,:, inode,ielem),vg(2:4, inode,ielem))    !  d(xi_1)/dx_j . U
+            ucon(2) = dot_product(r_x(2,:, inode,ielem),vg(2:4, inode,ielem))    !  d(xi_2)/dx_j . U
+            ucon(3) = dot_product(r_x(3,:, inode,ielem),vg(2:4, inode,ielem))    !  d(xi_3)/dx_j . U
+!    ========                                                                    !  Simplified version of timestep constraint 
+            tI  =  sum(abs(ucon(:))) + a0 * ( sum(sq) )                          !  Inviscid scale
+
+            tV  =  Re0Inv * magnitude(sq)                                        !  viscous  scale
+
+            dt0 = CFL / (tI / Lngth + tV / Lngth / Lngth)                        !  Dt_max
+!    ========                                                                    !  Directional version of timestep constraint 
+            eig(:) = abs(ucon(:)) + a0 * sq(:)                                   !  Magnitude of contravariant velocity + scales speed of sound
+
+            con1 = 4.0_wp * Re0inv / gm1M2 / 3.0_wp                              !  viscous  scaling
+
+            eig(1) = (eig(1) + con1 * sq(1) * sq(1) / pmat(i) ) / pmat(i)        !  Inviscid + viscous scaling in xi_1 direction
+            eig(2) = (eig(2) + con1 * sq(2) * sq(2) / pmat(j) ) / pmat(j)        !  Inviscid + viscous scaling in xi_2 direction
+            eig(3) = (eig(3) + con1 * sq(3) * sq(3) / pmat(k) ) / pmat(k)        !  Inviscid + viscous scaling in xi_3 direction
+
+            eigtot = magnitude(eig(:))                                           !  Magnitude of eigenvalue vector
+
+            dtN = CFL / eigtot                                                   !  Dt_max
+
+            dt_min  = min(dt_min,dt0)                                            !  minimum of simplified  version
+            dt_min  = min(dt_min,dtN)                                            !  minimum of directional version
+
+          enddo
+
+        enddo
 
       enddo
+
     enddo
 
-    ! Reduce values on all processes to a single value
-    if(myprocid == 0 )  then
+    if(myprocid == 0 )  then                                                     ! Reduce values on all processes to a single value
       allocate(dt_min_proc(0:nprocs-1))
       dt_min_proc(:) = 10000.0_wp ; dt_min_proc(0) = dt_min ;
     end if
@@ -5251,17 +5279,13 @@ endif
       if(dt_global >= dt_global_max)dt_global = dt_global_max
     end if
 
-    ! Create a barrier synchronization in the group. 
-    call mpi_barrier(petsc_comm_world,i_err)
+    call mpi_barrier(petsc_comm_world,i_err)                                     ! Create a barrier synchronization in the group. 
 
-    ! Broadcast dt_global
-    m_size = 1
+    m_size = 1                                                                   ! Broadcast dt_global
     call mpi_bcast(dt_global,m_size,mpi_default_wp,0,petsc_comm_world,i_err)
 
-    return
   end subroutine compute_explicit_timestep
 
-  
 !============================================================================
     ! compute_vorticity_field_elements - Computes the vorticity field for all the elements
 !============================================================================
@@ -6145,6 +6169,9 @@ endif
 
         else if(initial_condition  == 'ExactSolutionViscousShock') then
           BoundaryCondition => viscousShockFull
+
+        else if(initial_condition  == 'ExactSolutionSupersonicVortex') then
+          BoundaryCondition => supersonicvortexFull
 
         else if(initial_condition  == 'PreserveFreeStream') then
           BoundaryCondition => UniformFreeStream

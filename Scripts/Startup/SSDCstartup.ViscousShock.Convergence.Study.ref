@@ -2,7 +2,7 @@
  ndim = 3,
  npoly = NPoly, 
  npoly_DeltaF = deltaf,
- casefile = 'Build_Test_Pencil_Uniform_PTSx1x1',
+ casefile = 'Scripts/Grids/Pencil_Uniform_KAUST_PTSx1x1',
  grid_format = 'aflr3',
  viscous = .true.,
  crossterms = .true.,
@@ -34,7 +34,9 @@
  timestep    =   .00001000, 
  timemaximum =  0.20000000,
  verbose = .false., 
- variabletimestep = .true., 
+ variabletimestep = .false., 
+ Dt_by_CFL = .true., 
+ CFL = 1.0, 
  /
 
  &FlowParameters

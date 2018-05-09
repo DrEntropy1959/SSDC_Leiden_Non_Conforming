@@ -36,12 +36,11 @@
  /
 
  &RunParameters
- timestep    =   .00005000, 
+ timestep    =   .00100000,
  timemaximum =  0.10000000,
- verbose = .false., 
- variabletimestep = .false., 
- Dt_by_CFL = .true., 
- CFL = 0.5,
+ verbose = .false.,
+ variabletimestep = .false.,
+ Dt_by_CFL = .false., 
  /
 
  &FlowParameters

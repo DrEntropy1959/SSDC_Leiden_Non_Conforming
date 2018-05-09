@@ -36,32 +36,53 @@ CC = gcc
 FC = mpif90
 LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
 #=================================================================================================================
+#  ravindran-lan
+#=================================================================================================================
+else ifeq ($(HOSTPC),ravindran-lan)
+$(info ${HOSTPC})
+INCLUDESDIR = -I/scratch/OpenSourceLib/Lib-Install/include\
+              -I/scratch/OpenSourceLib/Lib-Install/petsc-3.5.2/include
+ FCFLAGS = -Wunused -Wsurprising -O3 $(INCLUDESDIR)
+#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -march=corei7-avx -Ofast -ftree-loop-distribution $(INCLUDESDIR)
+#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+#FCFLAGS = -g -Wall -Wmaybe-uninitialized -Wextra -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -ffpe-trap=zero,overflow,underflow -finit-real=nan $(INCLUDESDIR)
+CFLAGS = -O3  $(INCLUDESDIR)
+LFLAGS = -L/scratch/OpenSourceLib/Lib-Install/lib\
+         -L/scratch/OpenSourceLib/Lib-Install/petsc-3.5.2/lib
+CC = gcc
+FC = mpif90
+LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
+#=================================================================================================================
 #  dfernandez-lan
 #=================================================================================================================
 else ifeq ($(HOSTPC),dfernandez-lan)
-$(info ${HOSTPC})
-INCLUDESDIR = -I/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/lib/include\
-              -I/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/petsc
-#FCFLAGS = -Wunused -Wsurprising -O1 $(INCLUDESDIR)
-FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
-CFLAGS = -O1  $(INCLUDESDIR)
-LFLAGS = -L/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/lib/lib\
-         -L/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/petsc
-#        -L/ump/fldmd/home/ddelreyf/Documents/NASA/NEW/open_source/lib/lib\
-CC = gcc
-FC = mpif90
-LIBS = -lpetsc -lHYPRE -lsuperlu_dist -lscalapack -lmetis -lparmetis -lcgns
-else ifeq ($(HOSTPC),niavisi13-Latitude-3440)
-$(info ${HOSTPC})
-INCLUDESDIR = -I/home/nia-visi13/Postdoc2/open_source/deps/openmpi-1.8.3/include\
-              -I/home/nia-visi13/Postdoc2/open_source/deps/petsc-3.5.2/include\
-              -I/home/nia-visi13/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
+INCLUDESDIR = -I/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/openmpi-1.8.3/include\
+              -I/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/petsc-3.5.2/include\
+              -I/ump/fldmd/home/ddelreyf/Documents/NASA/hp_SSDC/SSDC_Leiden_Non_Conforming/Libraries
 #FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
 FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
 CFLAGS = -Ofast  $(INCLUDESDIR)
-LFLAGS = -L/home/nia-visi13/Postdoc2/open_source/deps/openmpi-1.8.3/lib\
-         -L/home/nia-visi13/Postdoc2/open_source/deps/petsc-3.5.2/lib\
-         -L/home/nia-visi13/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
+LFLAGS = -L/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/openmpi-1.8.3/lib\
+         -L/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/petsc-3.5.2/lib\
+         -L/ump/fldmd/home/ddelreyf/Documents/NASA/hp_SSDC/SSDC_Leiden_Non_Conforming/Libraries
+
+CC = gcc
+FC = mpif90
+LIBS = -lpetsc -lHYPRE -lsuperlu_dist_3.3 -lscalapack -lmetis -lparmetis -lcgns
+#=================================================================================================================
+# niavisi13-Latitude-3440
+#=================================================================================================================
+else ifeq ($(HOSTPC),niavisi13-Latitude-3440)
+$(info ${HOSTPC})
+INCLUDESDIR = -I/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/openmpi-1.8.3/include\
+              -I/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/petsc-3.5.2/include\
+              -I/ump/fldmd/home/ddelreyf/Documents/NASA/hp_SSDC/SSDC_Leiden_Non_Conforming/Libraries
+FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+CFLAGS = -Ofast  $(INCLUDESDIR)
+LFLAGS = -L/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/openmpi-1.8.3/lib\
+         -L/ump/fldmd/home/ddelreyf/Documents/NASA/open_source/deps/petsc-3.5.2/lib\
+         -L/ump/fldmd/home/ddelreyf/Documents/NASA/hp_SSDC/SSDC_Leiden_Non_Conforming/Libraries
 CC = gcc
 FC = mpif90
 LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
@@ -73,8 +94,8 @@ $(info ${HOSTPC})
 INCLUDESDIR = -I/home/dcdelrey/Documents/Postdoc2/open_source/deps/openmpi-1.8.3/include\
               -I/home/dcdelrey/Documents/Postdoc2/open_source/deps/petsc-3.5.2/include\
               -I/home/dcdelrey/Documents/Postdoc2/SSDC_Leiden_Non_Conforming/Libraries
-FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
-#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O3 $(INCLUDESDIR)
+FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
 CFLAGS = -Ofast  $(INCLUDESDIR)
 LFLAGS = -L/home/dcdelrey/Documents/Postdoc2/open_source/deps/openmpi-1.8.3/lib\
          -L/home/dcdelrey/Documents/Postdoc2/open_source/deps/petsc-3.5.2/lib\
