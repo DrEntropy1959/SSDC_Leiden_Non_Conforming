@@ -158,10 +158,10 @@ end subroutine construct_h_refine_list
 !===================================================================================================
    subroutine h_refine()
 
-     use collocationvariables, only : elem_props
+     use collocationvariables, only : elem_props, ldg_flip_flop_sign
      use referencevariables, only : nelems, nfacesperelem, ndim, nvertices
      use variables, only : ef2e, e_edge2e, h_refine_list, nelems_to_refine, &
-                           iae2v, iae2v_tmp, jae2v, jae2v_tmp
+                           iae2v, iae2v_tmp, jae2v, jae2v_tmp 
      use variables, only : vx_master, ic2nh
 
      !-- local variables
@@ -171,6 +171,7 @@ end subroutine construct_h_refine_list
      integer, allocatable, dimension(:,:,:) :: ef2e_temp                                            !-- (7 ,nfaceperelem, nelements)
      integer, allocatable, dimension(:,:,:,:,:) :: e_edge2e_temp                                    !-- (3,number_of_edges_per_face,max_partners,nfaceperelem,nelems)
      integer, allocatable, dimension(:,:) :: elem_props_temp
+     integer, allocatable, dimension(:,:) :: ldg_flip_flop_sign_temp
 
      integer, allocatable, dimension(:,:) :: e_old2e
      integer, allocatable, dimension(:,:) :: ic2nh_temp
@@ -218,6 +219,7 @@ end subroutine construct_h_refine_list
      allocate(e_old2e(nelems_to_refine,8))
      allocate(e2refine(nelems_old))
      allocate(elem_props_temp(2,nelems))
+     allocate(ldg_flip_flop_sign_temp(nfacesperelem,nelems))
 
 
      !-- store old information/initialize 
@@ -229,6 +231,10 @@ end subroutine construct_h_refine_list
        e_edge2e(1:3,1:2**(ndim-1),1:max_partners,1:nfaces_old,1:nelems_old)
      elem_props_temp = 0
      elem_props_temp(2,1:nelems_old) = elem_props(2,1:nelems_old)
+
+     !-- not curently using ldg_flip_lop_sign
+     deallocate(ldg_flip_flop_sign); allocate(ldg_flip_flop_sign(nfacesperelem,nelems)); ldg_flip_flop_sign = 0
+     deallocate(ldg_flip_flop_sign_temp)
 
      !-- loop over the element and split
      element_count = nelems_old+1

@@ -5674,6 +5674,7 @@ contains
     use variables
     use collocationvariables
     use referencevariables, only : ihelems, nfacesperelem
+    use controlvariables, only : hrefine
 
     ! Nothing is implicitly defined
     implicit none
@@ -5708,10 +5709,15 @@ contains
     ! ef2e has poly order stored in the parallel ordering 
     do ielem = ihelems(1),ihelems(2)
 
-      qface = size(ef2e,2)
-      if(sum(ef2e(6,:,ielem))/qface /= ef2e(6,1,ielem)) then
-         write(*,*)'mpi bug in transfering ef2e:   Stopping'
-         call PetscFinalize(ierr) ; stop ! Finalize MPI and the hooks to PETSc
+      !-HACK
+      if(hrefine)then
+        !-- not testing
+      else
+        qface = size(ef2e,2)
+        if(sum(ef2e(6,:,ielem))/qface /= ef2e(6,1,ielem)) then
+           write(*,*)'mpi bug in transfering ef2e:   Stopping'
+           call PetscFinalize(ierr) ; stop ! Finalize MPI and the hooks to PETSc
+        endif
       endif
       elem_props(2,ielem) = ef2e(6,1,ielem) 
 

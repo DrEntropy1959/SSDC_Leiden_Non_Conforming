@@ -1000,7 +1000,7 @@ contains
         allocate(e2vtmp(2**ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1)))
         
         ! Allocate memory for temporary array for face-to-face connectivity on the process
-        allocate(ef2etmp1(qdim,2*ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1))) 
+        allocate(ef2etmp1(qdim,nfacesperelem,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1))) 
 
         ! Allocate memory for temporary array for the LDG flip-flop sign on the process
         allocate(ldg_flip_flop_sign_tmp1(2*ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1))) 
