@@ -158,6 +158,7 @@ end subroutine construct_h_refine_list
 !===================================================================================================
    subroutine h_refine()
 
+     use collocationvariables, only : elem_props
      use referencevariables, only : nelems, nfacesperelem, ndim, nvertices
      use variables, only : ef2e, e_edge2e, h_refine_list, nelems_to_refine, &
                            iae2v, iae2v_tmp, jae2v, jae2v_tmp
@@ -169,6 +170,8 @@ end subroutine construct_h_refine_list
      integer :: nelems_old, nvertex_old, nfaces_old
      integer, allocatable, dimension(:,:,:) :: ef2e_temp                                            !-- (7 ,nfaceperelem, nelements)
      integer, allocatable, dimension(:,:,:,:,:) :: e_edge2e_temp                                    !-- (3,number_of_edges_per_face,max_partners,nfaceperelem,nelems)
+     integer, allocatable, dimension(:,:) :: elem_props_temp
+
      integer, allocatable, dimension(:,:) :: e_old2e
      integer, allocatable, dimension(:,:) :: ic2nh_temp
      integer, allocatable, dimension(:) :: e2refine
@@ -214,33 +217,35 @@ end subroutine construct_h_refine_list
      allocate(ic2nh_temp(8,nelems))
      allocate(e_old2e(nelems_to_refine,8))
      allocate(e2refine(nelems_old))
+     allocate(elem_props_temp(2,nelems))
 
-     !-- store old information
+
+     !-- store old information/initialize 
      vx_master_temp(1:3,1:nvertex_old) = vx_master(1:3,1:nvertex_old)
      ic2nh_temp(1:8,1:nelems_old) = ic2nh(1:8,1:nelems_old)
      ef2e_temp = 0
      ef2e_temp(1:7,1:nfaces_old,1:nelems_old) = ef2e(1:7,1:nfaces_old,1:nelems_old)
      e_edge2e_temp(1:3,1:2**(ndim-1),1:max_partners,1:nfaces_old,1:nelems_old) = &
        e_edge2e(1:3,1:2**(ndim-1),1:max_partners,1:nfaces_old,1:nelems_old)
+     elem_props_temp = 0
+     elem_props_temp(2,1:nelems_old) = elem_props(2,1:nelems_old)
 
      !-- loop over the element and split
      element_count = nelems_old+1
      vertex_count = nvertex_old+1
      split_count = 1
      e_loop_bc3 : do ielem = 1,nelems_old
-
        !-- element to be split
        if(h_refine_list(ielem))then
-       !-- vertex number of the original 8 vertices
-       v1n = ic2nh(1,ielem);v2n = ic2nh(2,ielem); v3n = ic2nh(3,ielem); v4n = ic2nh(4,ielem);
-       v5n = ic2nh(5,ielem);v6n = ic2nh(6,ielem); v7n = ic2nh(7,ielem); v8n = ic2nh(8,ielem);
+         !-- vertex number of the original 8 vertices
+         v1n = ic2nh(1,ielem);v2n = ic2nh(2,ielem); v3n = ic2nh(3,ielem); v4n = ic2nh(4,ielem);
+         v5n = ic2nh(5,ielem);v6n = ic2nh(6,ielem); v7n = ic2nh(7,ielem); v8n = ic2nh(8,ielem);
 
-       !-- spatial locations of the original 8 vertices
-       xyz1 = Vx_master(1:3,v1n); xyz2 = Vx_master(1:3,v2n); xyz3 = Vx_master(1:3,v3n); xyz4 = Vx_master(1:3,v4n)
-       xyz5 = Vx_master(1:3,v5n); xyz6 = Vx_master(1:3,v6n); xyz7 = Vx_master(1:3,v7n); xyz8 = Vx_master(1:3,v8n)
+         !-- spatial locations of the original 8 vertices
+         xyz1 = Vx_master(1:3,v1n); xyz2 = Vx_master(1:3,v2n); xyz3 = Vx_master(1:3,v3n); xyz4 = Vx_master(1:3,v4n)
+         xyz5 = Vx_master(1:3,v5n); xyz6 = Vx_master(1:3,v6n); xyz7 = Vx_master(1:3,v7n); xyz8 = Vx_master(1:3,v8n)
 
          !-- split the element
-
 
          !-- construct new vertices (see figure at top)
          xyz9 = 0.5_wp*(xyz1+xyz2); xyz10 = 0.5_wp*(xyz2+xyz3); xyz11 = 0.5_wp*(xyz3+xyz4); xyz12 = 0.5_wp*(xyz4+xyz1) 
@@ -286,7 +291,32 @@ end subroutine construct_h_refine_list
            (/ielem,element_count,element_count+1,element_count+2,element_count+3,element_count+4,element_count+5,element_count+6/)
          !-- update map from old element numbering to split element map (e_old2e)
          e2refine(ielem) = split_count
-        
+
+         !-- update one entrie in elem_props
+         elem_props_temp(2,ielem) = elem_props(2,ielem); elem_props_temp(2,element_count) = elem_props(2,ielem)
+         elem_props_temp(2,element_count+1) = elem_props(2,ielem);elem_props_temp(2,element_count+2) = elem_props(2,ielem)
+         elem_props_temp(2,element_count+3) = elem_props(2,ielem);elem_props_temp(2,element_count+4) = elem_props(2,ielem)
+         elem_props_temp(2,element_count+1) = elem_props(2,ielem);elem_props_temp(2,element_count+6) = elem_props(2,ielem)
+
+         !-- update some entries in ef2e (the assumption here is that we have uniform order)
+         ef2e_temp(4,1:nfacesperelem,ielem) = ef2e_temp(4,1,ielem)
+         ef2e_temp(4,1:nfacesperelem,element_count) = ef2e_temp(4,1,ielem)
+         ef2e_temp(4,1:nfacesperelem,element_count+1) = ef2e_temp(4,1,ielem)
+         ef2e_temp(4,1:nfacesperelem,element_count+2) = ef2e_temp(4,1,ielem)
+         ef2e_temp(4,1:nfacesperelem,element_count+3) = ef2e_temp(4,1,ielem)
+         ef2e_temp(4,1:nfacesperelem,element_count+4) = ef2e_temp(4,1,ielem)
+         ef2e_temp(4,1:nfacesperelem,element_count+5) = ef2e_temp(4,1,ielem)
+         ef2e_temp(4,1:nfacesperelem,element_count+6) = ef2e_temp(4,1,ielem)
+
+         ef2e_temp(6,1:nfacesperelem,ielem) = ef2e_temp(6,1,ielem)
+         ef2e_temp(6,1:nfacesperelem,element_count) = ef2e_temp(6,1,ielem)
+         ef2e_temp(6,1:nfacesperelem,element_count+1) = ef2e_temp(6,1,ielem)
+         ef2e_temp(6,1:nfacesperelem,element_count+2) = ef2e_temp(6,1,ielem)
+         ef2e_temp(6,1:nfacesperelem,element_count+3) = ef2e_temp(6,1,ielem)
+         ef2e_temp(6,1:nfacesperelem,element_count+4) = ef2e_temp(6,1,ielem)
+         ef2e_temp(6,1:nfacesperelem,element_count+5) = ef2e_temp(6,1,ielem)
+         ef2e_temp(6,1:nfacesperelem,element_count+6) = ef2e_temp(6,1,ielem)
+
          !-- update counters
          vertex_count = vertex_count+19
          element_count = element_count+7
@@ -335,7 +365,7 @@ end subroutine construct_h_refine_list
 !               ----------
 !               edge 1
 
-    !-- update ef2e
+    !-- update ef2e and elem_propos
      ef2e_loop: do refine = 1,nelems_to_refine
           ielem_old = e_old2e(refine,1); ielem2 = e_old2e(refine,2); ielem3 = e_old2e(refine,3); ielem4 = e_old2e(refine,4)
           ielem5 = e_old2e(refine,5); ielem6 = e_old2e(refine,6); ielem7 = e_old2e(refine,7); ielem8 = e_old2e(refine,8)
@@ -558,6 +588,11 @@ end subroutine construct_h_refine_list
               ef2e_temp(7,kface3,kelem_old) = ef2e(7,kface,kelem_old)
               ef2e_temp(1,kface4,kelem_old) = iface; ef2e_temp(2,kface4,kelem_old) = ielemsv(4)
               ef2e_temp(7,kface4,kelem_old) = ef2e(7,kface,kelem_old)
+
+              !-- populate elem_props
+              elem_props_temp(1,ielem1) = 1;elem_props_temp(1,ielem2) = 1
+              elem_props_temp(1,ielem3) = 1;elem_props_temp(1,ielem4) = 1
+              elem_props_temp(1,kelem_old) = 1
 
             endif bc_if
           enddo iface1

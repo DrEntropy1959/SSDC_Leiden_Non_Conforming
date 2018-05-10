@@ -137,8 +137,10 @@ contains
         call create_ldg_flip_flop_sign()
 
         ! h refine
-        call construct_h_refine_list()
-        call h_refine()
+        if(hrefine)then
+          call construct_h_refine_list()
+          call h_refine()
+        endif
         write(*,*) 'Master node calls metis to subdivide the domain'
         write(*,*) '==============================================================='
 
@@ -292,7 +294,7 @@ contains
     ! Set binary sizes for writing the solution vtu files in raw binary vtu format
     call calculate_binary_sizes_vtu()
 !-- DAVID DEBUG START
-        call PetscFinalize(i_err)
+!        call PetscFinalize(i_err)
 !-- DAVID DEBUG END
 
   end subroutine physics_independent_setup
