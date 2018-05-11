@@ -3453,15 +3453,25 @@ contains
     integer                                  :: k,kk,ierr
     integer                                  :: face_orientation_hex
 
+!   integer,  dimension(4,8), parameter :: perm = reshape(    &
+!                                               & (/1,2,3,4,  &
+!                                               &   2,3,4,1,  &
+!                                               &   3,4,1,2,  &
+!                                               &   4,1,2,3,  &
+!                                               &   4,3,2,1,  &
+!                                               &   1,4,3,2,  &
+!                                               &   2,1,4,3,  &
+!                                               &   3,2,1,4/),&
+!                                               &   (/4,8/) )
     integer,  dimension(4,8), parameter :: perm = reshape(    &
                                                 & (/1,2,3,4,  &
-                                                &   2,3,4,1,  &
-                                                &   3,4,1,2,  &
-                                                &   4,1,2,3,  &
+                                                &   3,1,4,2,  &
                                                 &   4,3,2,1,  &
-                                                &   1,4,3,2,  &
+                                                &   2,4,1,3,  &
+                                                &   1,3,2,4,  &
                                                 &   2,1,4,3,  &
-                                                &   3,2,1,4/),&
+                                                &   4,2,3,1,  &
+                                                &   3,4,1,2/),&
                                                 &   (/4,8/) )
 
        kk = hex_8_nverticesperface
@@ -5424,7 +5434,7 @@ contains
     integer,  dimension(:), allocatable :: irand_order, jrand_order
 
     integer :: ielem, nhex, iface
-    integer :: i, j, nval, icnt
+    integer :: i, j, nval, icnt, ierr, nx, nxb2
 
     real(wp)                                           :: r
 
@@ -5631,6 +5641,39 @@ contains
 
         do ielem = 2,24
           elem_props(2,ielem) = npoly+1
+        enddo
+
+      case(20)
+
+        !-- Plus sign on Cartesian mesh  (assumes equal dimensions in X and Y directions)
+
+        !         |-------------|
+        !         |      +      |
+        !         |      +      |
+        !         |      +      |
+        !         |+ + + + + + +|
+        !         |      +      |
+        !         |      +      |
+        !         |      +      |
+        !         |-------------|
+
+        nx = int(sqrt(nhex + 1.0e-10_wp))
+
+        if(nx*nx - nhex /= 0) then
+          write(*,*)'inappropriate mesh for elevating polynomial orders.  Not a square mesh '
+          write(*,*)'stopping'
+          call PetscFinalize(ierr) ; stop
+        endif
+        nxb2 = nx/2 + 1
+
+        elem_props(2,:) = npoly+1
+
+        ielem = 0 
+        do i = 1,nx
+          do j = 1,nx
+            ielem = ielem + 1
+            if((i == nxb2) .or. (j == nxb2)) elem_props(2,ielem) = npoly+2
+          enddo
         enddo
 
       end select

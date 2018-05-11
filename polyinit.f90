@@ -212,7 +212,18 @@ contains
                                        w_LGL_1d_p0,w_Gau_1d_p1, &
                                        Ext_LGL_p0_2_Gau_p1_1d,  &
                                        Int_Gau_p1_2_LGL_p0_1d )
+
+!   Allocate and build the 1D interpolation matrices and prolong (coarse_2_fine)
+!   and restrict (fine_2_coarse) data at a non-conforming H-refinement interface 
+
+    allocate(LGL_Coarse_2_LGL_Fine_1d(n_LGL_1d_p0,n_LGL_1d_p0)) ; LGL_Coarse_2_LGL_Fine_1d = 0.0_wp ;
+    allocate(LGL_Fine_2_LGL_Coarse_1d(n_LGL_1d_p0,n_LGL_1d_p0)) ; LGL_Fine_2_LGL_Coarse_1d = 0.0_wp ;
                                        
+    call Rotate_xione_2_xitwo_and_back(n_LGL_1d_p0,n_LGL_1d_p0,                 &
+                                       x_LGL_1d_p0,0.5_wp*(1.0_wp+x_LGL_1d_p0), &
+                                       w_LGL_1d_p0,0.5_wp*w_LGL_1d_p0,          &
+                                       LGL_Coarse_2_LGL_Fine_1d,                &
+                                       LGL_Fine_2_LGL_Coarse_1d )
 
 !   Filter Matrix
     allocate(Filter(nodesperedge,nodesperedge))
@@ -259,11 +270,6 @@ contains
 !
     allocate(Ext_SSSCE_S2F(N_Flux_Pts+1,N_Flux_Pts))
     call Get_Ext_SSSCE_S2F(N_Flux_Pts,Ext_SSSCE_S2F)
-
-!    allocate(x_gll(N_Soln_Pts))
-!    allocate(w_gll(N_Soln_Pts))
-!    write(*,*) 'order', polyorder
-!    call Gauss_Lobatto_Legendre_points(polyorder+1,x_gll,w_gll)
 
     call WENO_Coeffs
 

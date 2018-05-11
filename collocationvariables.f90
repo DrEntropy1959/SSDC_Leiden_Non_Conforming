@@ -126,4 +126,8 @@ module collocationvariables
   real(wp), allocatable, dimension(:,:)   :: Rot_Gau_p2_2_LGL_p2_1d
   real(wp), allocatable, dimension(:,:)   :: Rot_LGL_p2_2_Gau_p2_1d
 
+  real(wp), allocatable, dimension(:,:)   :: LGL_Coarse_2_LGL_Fine_1d
+  real(wp), allocatable, dimension(:,:)   :: LGL_Fine_2_LGL_Coarse_1d
+
+
 end module collocationvariables
