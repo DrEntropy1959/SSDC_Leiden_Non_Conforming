@@ -61,7 +61,7 @@ subroutine construct_h_refine_list
        h_refine_list(9) = .true.
      case(3)
        nelems_to_refine = 1
-       h_refine_list(3) = .true.
+       h_refine_list(2) = .true.
      case default
        write(*,*)'non_conforming: construct_h_refine_list: incorrect choice of refine_method = ',refine_method
        call PetscFinalize(i_err); stop

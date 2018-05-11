@@ -2030,7 +2030,9 @@ contains
 
     nodesperface_max = (npoly_max+1)**(ndim-1)
 
-    allocate(efn2efn(4,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2))) ; efn2efn = -1000 ;
+    !-- old
+    !allocate(efn2efn(4,nfacesperelem*nodesperface_max,ihelems(1):ihelems(2))) ; efn2efn = -1000 ;
+    allocate(efn2efn(4,(2*ndim)*nodesperface_max,ihelems(1):ihelems(2))) ; efn2efn = -1000 ;
 
     ! Initialize position of the ghost point in the stack
     i_low = 0
@@ -2048,7 +2050,9 @@ contains
       knode = 0
       
       ! Loop over faces
-      do iface = 1, nfacesperelem
+!-- old
+!      do iface = 1, nfacesperelem
+      do iface = 1, 2*ndim
 
         kelem = ef2e(2,iface,ielem)
         call element_properties(kelem, n_pts_2d=n_LGL_2d_Off)
@@ -2472,7 +2476,7 @@ contains
                   efn2efn(2,knode,ielem) = ef2e(2,iface,ielem)                       ! Set the element of the connected node
                   
                   efn2efn(4,knode,ielem) = jnode                                     ! Set the index of the connected node
-                  
+                 
                   exit
                 
                 end if
@@ -2519,6 +2523,50 @@ contains
 
   end subroutine calculate_face_node_connectivity_LGL
 
+pure function face_map(n_on,orientation,n_pts_1d)
+  integer, intent(in) :: n_on, orientation, n_pts_1d
+  
+  !--local variables
+  integer :: i_on,j_on, i_off, j_off
+  integer :: a, b, c, d, e, f
+  integer :: face_map
+  
+  !-- convert from n_on to (i,j) coordinates on on face
+  i_on = mod(n_on-1,n_pts_1d) + 1 ; j_on = (n_on-i_on) / n_pts_1d + 1 ;
+  
+  if(orientation.EQ.0)then
+    a = 1; b = 0; c = 0 
+    d = 0; e = 1; f = 0
+  elseif(orientation.EQ.1)then
+    a = 0; b = 1; c = 0
+    d = -1; e = 0; f = n_pts_1d+1
+  elseif(orientation.EQ.2)then
+    a = -1; b = 0; c = n_pts_1d+1
+    d = 0; e = -1; f = n_pts_1d+1
+  elseif(orientation.EQ.3)then
+    a = 0; b = -1; c = n_pts_1d+1
+    d = 1; e = 0; f = 0
+  elseif(orientation.EQ.4)then
+    a = 0; b = 1; c = 0 
+    d = 1; e = 0; f = 0
+  elseif(orientation.EQ.5)then
+    a = -1; b = 0; c = n_pts_1d+1 
+    d = 0; e = 1; f = 0
+  elseif(orientation.EQ.6)then
+    a = 0; b = -1; c = n_pts_1d+1 
+    d = -1; e = 0; f = n_pts_1d+1
+  elseif(orientation.EQ.7)then
+    a = 1; b = 0; c = 0 
+    d = 0; e = -1; f = n_pts_1d+1
+  endif
+
+  !-- local (i,j) on off face
+  i_off = a*i_on + b*j_on + c
+  j_off = d*i_on + e*j_on + f
+
+  !-- convert to local numbering
+  face_map = (j_off-1)*n_pts_1d+i_off
+end function 
   !============================================================================
   
   pure function Extract_Parallel_Invariant(p_dir,x)
@@ -3815,7 +3863,7 @@ contains
     !  ef2e       :    ( 7 ,nfaceperelem, nelements) 
     !             :  Two situation occur.  The face is either an 
     !                  (Interior face 
-    !                      :  (1,j,k) = Adjoining element face ID
+    !                      :  (1,j,k) = A!      do iface = 1, nfacesperelemdjoining element face ID
     !                      :  (2,j,k) = Adjoining element ID
     !                      :  (3,j,k) = Adjoining element process ID
     !                      :  (4,j,k) = Adjoining element polynomial order
@@ -3826,6 +3874,8 @@ contains
     !                      8 entries are the locations of the 8 verticies of the
     !                      parent element while the 9th number is the local
     !                      element number (1:8)
+    !                      :  (9,j,k) = if 0 then conforming face if 1
+    !  !      do iface = 1, nfacesperelemnonconforming face
     !                  (Boundary face 
     !                      :  (1,j,k) = Set to -11 
     !                      :  (2,j,k) = -100000000
@@ -3901,7 +3951,7 @@ contains
 
 
       ! Calculate element-to-element connectivity using shared nodes
-      allocate(ef2e(qdim+1,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
+      allocate(ef2e(qdim,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
 
       allocate(ivtmp1(nverticesperface*bigN),ivtmp2(nverticesperface*bigN))
       allocate(ivtmp3(nverticesperface),     ivtmp4(nverticesperface))
