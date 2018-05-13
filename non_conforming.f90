@@ -161,7 +161,7 @@ end subroutine construct_h_refine_list
      use collocationvariables, only : elem_props, ldg_flip_flop_sign
      use referencevariables, only : nelems, nfacesperelem, ndim, nvertices
      use variables, only : ef2e, e_edge2e, h_refine_list, nelems_to_refine, &
-                           iae2v, iae2v_tmp, jae2v, jae2v_tmp 
+                           iae2v, iae2v_tmp, jae2v, jae2v_tmp, nnze2v 
      use variables, only : vx_master, ic2nh
 
      !-- local variables
@@ -187,7 +187,7 @@ end subroutine construct_h_refine_list
      integer :: element_number_adjoining, faceID_adjoining, split_count
      integer :: face2elem(6,4), kelemsv(4), ielemsv(4), kfacesv(4)
 
-     integer :: i, j, nnze2v, cnt
+     integer :: i, j, cnt
 
      real(wp), dimension (3) :: xyz1, xyz2, xyz3, xyz4,& 
                                 xyz5, xyz6, xyz7, xyz8,&
@@ -198,7 +198,7 @@ end subroutine construct_h_refine_list
                                 xyz25, xyz26, xyz27
      real(wp), allocatable, dimension(:,:) :: vx_master_temp                                         !-- (3,number of vertices)
 
-     integer :: qdim = 8
+     integer :: qdim = 9
 
      !-- update the number of faces per element (this is a maximum for one level refinment)
      nfaces_old = nfacesperelem
@@ -225,7 +225,7 @@ end subroutine construct_h_refine_list
      !-- store old information/initialize 
      vx_master_temp(1:3,1:nvertex_old) = vx_master(1:3,1:nvertex_old)
      ic2nh_temp(1:8,1:nelems_old) = ic2nh(1:8,1:nelems_old)
-     ef2e_temp = 0
+     ef2e_temp = -1
      ef2e_temp(1:7,1:nfaces_old,1:nelems_old) = ef2e(1:7,1:nfaces_old,1:nelems_old)
      e_edge2e_temp(1:3,1:2**(ndim-1),1:max_partners,1:nfaces_old,1:nelems_old) = &
        e_edge2e(1:3,1:2**(ndim-1),1:max_partners,1:nfaces_old,1:nelems_old)
@@ -378,44 +378,44 @@ end subroutine construct_h_refine_list
 
           !-- internal connections 
           !-- element 1
-          ef2e_temp(1,3,ielem_old) = 5; ef2e_temp(2,3,ielem_old) = ielem2
-          ef2e_temp(1,4,ielem_old) = 2; ef2e_temp(2,4,ielem_old) = ielem4
-          ef2e_temp(1,6,ielem_old) = 1; ef2e_temp(2,6,ielem_old) = ielem5
+          ef2e_temp(1,3,ielem_old) = 5; ef2e_temp(2,3,ielem_old) = ielem2; ef2e_temp(9,3,ielem_old) = 0
+          ef2e_temp(1,4,ielem_old) = 2; ef2e_temp(2,4,ielem_old) = ielem4; ef2e_temp(9,4,ielem_old) = 0
+          ef2e_temp(1,6,ielem_old) = 1; ef2e_temp(2,6,ielem_old) = ielem5; ef2e_temp(9,6,ielem_old) = 0
         
           !-- element 2
-          ef2e_temp(1,4,ielem2) = 2; ef2e_temp(2,4,ielem2) = ielem3
-          ef2e_temp(1,5,ielem2) = 3; ef2e_temp(2,5,ielem2) = ielem_old
-          ef2e_temp(1,6,ielem2) = 1; ef2e_temp(2,6,ielem2) = ielem6
+          ef2e_temp(1,4,ielem2) = 2; ef2e_temp(2,4,ielem2) = ielem3; ef2e_temp(9,4,ielem2) = 0
+          ef2e_temp(1,5,ielem2) = 3; ef2e_temp(2,5,ielem2) = ielem_old; ef2e_temp(9,5,ielem2) = 0 
+          ef2e_temp(1,6,ielem2) = 1; ef2e_temp(2,6,ielem2) = ielem6; ef2e_temp(9,6,ielem2) = 0
 
           !-- element 3
-          ef2e_temp(1,2,ielem3) = 4; ef2e_temp(2,2,ielem3) = ielem2
-          ef2e_temp(1,5,ielem3) = 3; ef2e_temp(2,5,ielem3) = ielem4
-          ef2e_temp(1,6,ielem3) = 1; ef2e_temp(2,6,ielem3) = ielem7
+          ef2e_temp(1,2,ielem3) = 4; ef2e_temp(2,2,ielem3) = ielem2; ef2e_temp(9,2,ielem3) = 0 
+          ef2e_temp(1,5,ielem3) = 3; ef2e_temp(2,5,ielem3) = ielem4; ef2e_temp(9,5,ielem3) = 0
+          ef2e_temp(1,6,ielem3) = 1; ef2e_temp(2,6,ielem3) = ielem7; ef2e_temp(9,6,ielem3) = 0 
 
           !-- element 4
-          ef2e_temp(1,2,ielem4) = 4; ef2e_temp(2,2,ielem4) = ielem_old
-          ef2e_temp(1,3,ielem4) = 5; ef2e_temp(2,3,ielem4) = ielem3
-          ef2e_temp(1,6,ielem4) = 1; ef2e_temp(2,6,ielem4) = ielem8
+          ef2e_temp(1,2,ielem4) = 4; ef2e_temp(2,2,ielem4) = ielem_old; ef2e_temp(9,2,ielem4) = 0 
+          ef2e_temp(1,3,ielem4) = 5; ef2e_temp(2,3,ielem4) = ielem3; ef2e_temp(9,3,ielem4) = 0
+          ef2e_temp(1,6,ielem4) = 1; ef2e_temp(2,6,ielem4) = ielem8; ef2e_temp(9,6,ielem4) = 0
 
           !-- element 5
-          ef2e_temp(1,1,ielem5) = 6; ef2e_temp(2,1,ielem5) = ielem_old
-          ef2e_temp(1,3,ielem5) = 5; ef2e_temp(2,3,ielem5) = ielem6
-          ef2e_temp(1,4,ielem5) = 2; ef2e_temp(2,4,ielem5) = ielem8
+          ef2e_temp(1,1,ielem5) = 6; ef2e_temp(2,1,ielem5) = ielem_old; ef2e_temp(9,1,ielem5) = 0 
+          ef2e_temp(1,3,ielem5) = 5; ef2e_temp(2,3,ielem5) = ielem6; ef2e_temp(9,3,ielem5) = 0
+          ef2e_temp(1,4,ielem5) = 2; ef2e_temp(2,4,ielem5) = ielem8; ef2e_temp(9,4,ielem5) = 0
 
           !-- element 6
-          ef2e_temp(1,1,ielem6) = 6; ef2e_temp(2,1,ielem6) = ielem2
-          ef2e_temp(1,4,ielem6) = 2; ef2e_temp(2,4,ielem6) = ielem7
-          ef2e_temp(1,5,ielem6) = 3; ef2e_temp(2,5,ielem6) = ielem5
+          ef2e_temp(1,1,ielem6) = 6; ef2e_temp(2,1,ielem6) = ielem2; ef2e_temp(9,1,ielem6) = 0
+          ef2e_temp(1,4,ielem6) = 2; ef2e_temp(2,4,ielem6) = ielem7; ef2e_temp(9,4,ielem6) = 0
+          ef2e_temp(1,5,ielem6) = 3; ef2e_temp(2,5,ielem6) = ielem5; ef2e_temp(9,5,ielem6) = 0
 
           !-- element 7
-          ef2e_temp(1,1,ielem7) = 6; ef2e_temp(2,1,ielem7) = ielem3
-          ef2e_temp(1,2,ielem7) = 4; ef2e_temp(2,2,ielem7) = ielem6
-          ef2e_temp(1,5,ielem7) = 3; ef2e_temp(2,5,ielem7) = ielem8
+          ef2e_temp(1,1,ielem7) = 6; ef2e_temp(2,1,ielem7) = ielem3; ef2e_temp(9,1,ielem7) = 0 
+          ef2e_temp(1,2,ielem7) = 4; ef2e_temp(2,2,ielem7) = ielem6; ef2e_temp(9,2,ielem7) = 0 
+          ef2e_temp(1,5,ielem7) = 3; ef2e_temp(2,5,ielem7) = ielem8; ef2e_temp(9,5,ielem7) = 0
 
           !-- element 8
-          ef2e_temp(1,1,ielem8) = 6; ef2e_temp(2,1,ielem8) = ielem4
-          ef2e_temp(1,2,ielem8) = 4; ef2e_temp(2,2,ielem8) = ielem5
-          ef2e_temp(1,3,ielem8) = 5; ef2e_temp(2,3,ielem8) = ielem7
+          ef2e_temp(1,1,ielem8) = 6; ef2e_temp(2,1,ielem8) = ielem4; ef2e_temp(9,1,ielem8) = 0
+          ef2e_temp(1,2,ielem8) = 4; ef2e_temp(2,2,ielem8) = ielem5; ef2e_temp(9,2,ielem8) = 0
+          ef2e_temp(1,3,ielem8) = 5; ef2e_temp(2,3,ielem8) = ielem7; ef2e_temp(9,3,ielem8) = 0
 
           !-- populate pointers to original vertices of split elements
           ef2e_temp(8,1:9,ielem_old) = (/ic2nh(1:8,ielem_old),1/)
@@ -531,13 +531,13 @@ end subroutine construct_h_refine_list
   
               !-- update connectivity             
               ef2e_temp(1,iface,ielem1) = kface; ef2e_temp(2,iface,ielem1) = kelemsv(1) 
-              ef2e_temp(7,iface,ielem1) = ef2e(7,iface,ielem_old)
+              ef2e_temp(7,iface,ielem1) = ef2e(7,iface,ielem_old);ef2e_temp(9,iface,ielem1) = 0
               ef2e_temp(1,iface,ielem2) = kface; ef2e_temp(2,iface,ielem2) = kelemsv(2) 
-              ef2e_temp(7,iface,ielem2) = ef2e(7,iface,ielem_old)
+              ef2e_temp(7,iface,ielem2) = ef2e(7,iface,ielem_old); ef2e_temp(9,iface,ielem2) = 0
               ef2e_temp(1,iface,ielem3) = kface; ef2e_temp(2,iface,ielem3) = kelemsv(3)
-              ef2e_temp(7,iface,ielem3) = ef2e(7,iface,ielem_old)
+              ef2e_temp(7,iface,ielem3) = ef2e(7,iface,ielem_old); ef2e_temp(9,iface,ielem3) = 0
               ef2e_temp(1,iface,ielem4) = kface; ef2e_temp(2,iface,ielem4) = kelemsv(4)
-              ef2e_temp(7,iface,ielem4) = ef2e(7,iface,ielem_old)
+              ef2e_temp(7,iface,ielem4) = ef2e(7,iface,ielem_old); ef2e_temp(9,iface,ielem4) = 0
 
             else
               !-- nonconforming face
@@ -577,23 +577,23 @@ end subroutine construct_h_refine_list
 
               !-- populate new elements
               ef2e_temp(1,iface,ielem1) = kfacesv(1); ef2e_temp(2,iface,ielem1) = kelem_old
-              ef2e_temp(7,iface,ielem1) = ef2e(7,iface,ielem_old)
+              ef2e_temp(7,iface,ielem1) = ef2e(7,iface,ielem_old); ef2e_temp(9,iface,ielem1) = 1
               ef2e_temp(1,iface,ielem2) = kfacesv(2); ef2e_temp(2,iface,ielem2) = kelem_old
-              ef2e_temp(7,iface,ielem2) = ef2e(7,iface,ielem_old)
+              ef2e_temp(7,iface,ielem2) = ef2e(7,iface,ielem_old); ef2e_temp(9,iface,ielem2) = 1
               ef2e_temp(1,iface,ielem3) = kfacesv(3); ef2e_temp(2,iface,ielem3) = kelem_old
-              ef2e_temp(7,iface,ielem3) = ef2e(7,iface,ielem_old)
+              ef2e_temp(7,iface,ielem3) = ef2e(7,iface,ielem_old); ef2e_temp(9,iface,ielem3) = 1
               ef2e_temp(1,iface,ielem4) = kfacesv(4); ef2e_temp(2,iface,ielem4) = kelem_old
-              ef2e_temp(7,iface,ielem4) = ef2e(7,iface,ielem_old)
+              ef2e_temp(7,iface,ielem4) = ef2e(7,iface,ielem_old); ef2e_temp(9,iface,ielem4) = 1
 
               !-- populate subfaces of kelem_old
               ef2e_temp(1,kface1,kelem_old) = iface; ef2e_temp(2,kface1,kelem_old) = ielemsv(1)
-              ef2e_temp(7,kface1,kelem_old) = ef2e(7,kface,kelem_old)
+              ef2e_temp(7,kface1,kelem_old) = ef2e(7,kface,kelem_old); ef2e_temp(9,kface1,kelem_old) = 1
               ef2e_temp(1,kface2,kelem_old) = iface; ef2e_temp(2,kface2,kelem_old) = ielemsv(2)
-              ef2e_temp(7,kface2,kelem_old) = ef2e(7,kface,kelem_old)
+              ef2e_temp(7,kface2,kelem_old) = ef2e(7,kface,kelem_old); ef2e_temp(9,kface2,kelem_old) = 1
               ef2e_temp(1,kface3,kelem_old) = iface; ef2e_temp(2,kface3,kelem_old) = ielemsv(3)
-              ef2e_temp(7,kface3,kelem_old) = ef2e(7,kface,kelem_old)
+              ef2e_temp(7,kface3,kelem_old) = ef2e(7,kface,kelem_old); ef2e_temp(9,kface3,kelem_old) = 1
               ef2e_temp(1,kface4,kelem_old) = iface; ef2e_temp(2,kface4,kelem_old) = ielemsv(4)
-              ef2e_temp(7,kface4,kelem_old) = ef2e(7,kface,kelem_old)
+              ef2e_temp(7,kface4,kelem_old) = ef2e(7,kface,kelem_old); ef2e_temp(9,kface4,kelem_old) = 1
 
               !-- populate elem_props
               elem_props_temp(1,ielem1) = 1;elem_props_temp(1,ielem2) = 1

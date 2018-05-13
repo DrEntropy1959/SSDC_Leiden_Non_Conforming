@@ -140,6 +140,8 @@ contains
         if(hrefine)then
           call construct_h_refine_list()
           call h_refine()
+        write(*,*) 'h-refinement applied, number of hexahedron ',nelems
+        write(*,*) '==============================================================='
         endif
         write(*,*) 'Master node calls metis to subdivide the domain'
         write(*,*) '==============================================================='
@@ -296,7 +298,6 @@ contains
 !-- DAVID DEBUG START
 !        call PetscFinalize(i_err)
 !-- DAVID DEBUG END
-
   end subroutine physics_independent_setup
 
   !============================================================================

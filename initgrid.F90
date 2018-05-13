@@ -2076,7 +2076,9 @@ contains
         ! ==========================================================================================
         !                           Parallel       .and.               Conforming interface
         ! ==========================================================================================
-        else if ((ef2e(3,iface,ielem) /= myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem)) ) then
+!        else if ((ef2e(3,iface,ielem) /= myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem))) then
+        else if ((ef2e(3,iface,ielem) /= myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem)) &
+                 .and. (ef2e(9,iface,ielem) == 0)) then
 
           !  ==================================================
           !  Parallel periodic logic in x1, x2, x3 directions
@@ -2282,6 +2284,9 @@ contains
                 write(*,*) 'Node coordinates'
                 write(*,*) x1(:)
                 write(*,*) 'ghost node coordinates'
+                write(*,*)'ef2e(1,iface,ielem) = ',ef2e(1,iface,ielem)
+                write(*,*)'ef2e(2,iface,ielem) = ',ef2e(2,iface,ielem)
+                write(*,*)'ef2e(9,iface,ielem) = ',ef2e(9,iface,ielem)
                 do ii = 1,size(xghst_LGL,2)
 !               do ii = i_low+1,i_low+n_LGL_2d
                   write(*,*)ii,xghst_LGL(:,ii)
@@ -2299,7 +2304,9 @@ contains
         ! ==========================================================================================
         !                           Serial         .and.                  Conforming interface
         ! ==========================================================================================
-        else if ((ef2e(3,iface,ielem) == myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem)) ) then
+!        else if ((ef2e(3,iface,ielem) == myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem))) then
+        else if ((ef2e(3,iface,ielem) == myprocid) .and. (ef2e(4,iface,ielem) == elem_props(2,ielem)) &
+                 .and. (ef2e(9,iface,ielem) == 0) ) then
 
           match_found = .false.                                        ! Initialize match_found
 
@@ -2508,7 +2515,9 @@ contains
           
           end if ! End if not a periodic face (match_found = .false.)
               
-        else if (ef2e(4,iface,ielem) /= elem_props(2,ielem) .and. (ef2e(3,iface,ielem) /= myprocid)) then
+!        else if (ef2e(4,iface,ielem) /= elem_props(2,ielem) .and. (ef2e(3,iface,ielem) /= myprocid)) then
+        else if (((ef2e(4,iface,ielem) /= elem_props(2,ielem)) .and. (ef2e(3,iface,ielem) /= myprocid)).or.&
+                 ((ef2e(9,iface,ielem) == 1) .and. (ef2e(3,iface,ielem) /= myprocid))) then!HACK
 
           kelem = ef2e(2,iface,ielem)
           call element_properties(kelem, n_pts_2d=n_LGL_2d_Off)
@@ -3836,7 +3845,7 @@ end function
     !integer, allocatable, dimension(:) :: list_partner_faces
 
     real(wp), parameter  :: diff_toll = 1e-8
-    integer,  parameter  :: qdim = 8             !  dimension of ef2e array
+    integer,  parameter  :: qdim = 9             !  dimension of ef2e array
 
     continue
 
@@ -5500,6 +5509,8 @@ end function
     elem_props(1,:) = 1
     elem_props(2,:) = npoly+1
 
+    !-- set ef2e(9,:,:) = 0 so that all faces are h-conforming
+    ef2e(9,:,:) = 0
 
     !  adjust the element polynomials as per directives
     if(non_conforming .eqv. .true.) then
