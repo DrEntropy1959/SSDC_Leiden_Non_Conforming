@@ -458,7 +458,7 @@ contains
     integer(c_int), allocatable, target :: xadjtmp(:), jadjtmp(:)
     ! loop index
     integer :: i
-
+write(*,*)"in caluclate partiations nelems = ",nelems
     ! row pointer for element-to-vertex connectivity
     allocate(xadjtmp(0:nelems))
     xadjtmp(0:nelems) = iae2v(1:nelems+1)

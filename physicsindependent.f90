@@ -114,7 +114,11 @@ contains
         ! Read only the necessary information from the datafile
         call aflr3ReadUnstructuredGrid(casefile)
         ! Check the number of processors and the number of elements
-        call check_n_procs_n_elems(nprocs,nelems) 
+        if(hrefine)then
+          !-- if we are doing h-refinement we check after the refinement
+        else
+          call check_n_procs_n_elems(nprocs,nelems) 
+        endif
 
         write(*,*) 'Master node builds connectivity and orientation arrays'
 !      write(*,*) '==============================================================='
@@ -140,8 +144,11 @@ contains
         if(hrefine)then
           call construct_h_refine_list()
           call h_refine()
-        write(*,*) 'h-refinement applied, number of hexahedron ',nelems
-        write(*,*) '==============================================================='
+          write(*,*) 'h-refinement applied, number of hexahedron ',nelems
+          write(*,*) '==============================================================='
+
+          ! Check the number of processors and the number of elements
+          call check_n_procs_n_elems(nprocs,nelems) 
         endif
         write(*,*) 'Master node calls metis to subdivide the domain'
         write(*,*) '==============================================================='
@@ -217,7 +224,7 @@ contains
 
     call calcnodes_LGL()
 !-- uncomment to write solution to file in a way that can be read by Matlab
-!   call parallel_write_grid_to_file('true.tf')
+   call parallel_write_grid_to_file('true.tf')
 !-- end of write to file
 
     call calc_Gau_shell_pts_all_hexas()
