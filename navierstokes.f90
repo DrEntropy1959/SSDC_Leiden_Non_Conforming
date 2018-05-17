@@ -3583,10 +3583,10 @@ contains
         end if
 
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-!       Conforming interface:  polynomial orders match 
+!       Conforming interface:  polynomial orders match and h conforming 
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-      else if (elem_props(2,ielem) == ef2e(4,iface,ielem)) then
+!      else if (elem_props(2,ielem) == ef2e(4,iface,ielem)) then
+      else if ((elem_props(2,ielem) == ef2e(4,iface,ielem)) .and. (ef2e(9,iface,ielem) == 0)) then
 
         if (ef2e(3,iface,ielem) /= myprocid) then 
         
@@ -3680,10 +3680,10 @@ contains
         endif
 
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-!       NON-CONFORMING Contributions to gsat
+!       NON-CONFORMING p refinement Contributions to gsat
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-      else if (elem_props(2,ielem) /= ef2e(4,iface,ielem)) then
+!      else if (elem_props(2,ielem) /= ef2e(4,iface,ielem)) then
+      else if ((elem_props(2,ielem) /= ef2e(4,iface,ielem)) .and. (ef2e(9,iface,ielem) == 0)) then
 
         kface       = ef2e(1,iface,ielem)
         kelem       = ef2e(2,iface,ielem)
@@ -3915,7 +3915,12 @@ contains
         deallocate(x_S_1d_Off,x_S_1d_Mort)
         deallocate(phig_2d_On, phig_2d_Off)
         deallocate(Jx_r_2d_Mort)
- 
+
+!-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+!       NON-CONFORMING h refinement: note that ghost faces are skipped over since ef2e(9,iface,ielem) = -1
+!-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+      elseif(ef2e(9,iface,ielem) == 1)then
       end if  !  main if statement differentiating different paths (interface / BC type) in SAT_Penalty routine
 
     end do faceloop
@@ -7147,9 +7152,9 @@ endif
 
               cycle
                                                !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-                                               !       CONFORMING INTERFACES:  polynomial orders match 
+                                               !       CONFORMING INTERFACES:  polynomial orders match and h conforming
                                                !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-            else if (elem_props(2,ielem) == ef2e(4,iface,ielem)) then
+            else if ((elem_props(2,ielem) == ef2e(4,iface,ielem)) .and. (ef2e(9,iface,ielem) == 0)) then
                                                                 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
               if (ef2e(3,iface,ielem) /= myprocid) then         !       Off-Processor Contributions to gsat:  Conforming Interface
                                                                 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -7211,7 +7216,7 @@ endif
                                                !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
                                                !       NON-CONFORMING INTERFACES:  polynomial orders do NOT match 
                                                !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-            else if (elem_props(2,ielem) /= ef2e(4,iface,ielem)) then 
+            else if ((elem_props(2,ielem) /= ef2e(4,iface,ielem)) .and. (ef2e(9,iface,ielem) == 0)) then 
 
               n_S_1d_max  = (npoly_max+1)**1
               n_S_2d_max  = (npoly_max+1)**2
@@ -7346,6 +7351,10 @@ endif
               deallocate(wg_2d_Mort_On, wg_2d_Mort_Off)
               deallocate(wg_2d_On, wg_2d_Off)
               deallocate(Intrp_On,Extrp_On, Extrp_Off)
+!-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+!       NON-CONFORMING h refinement: note that ghost faces are skipped over since ef2e(9,iface,ielem) = -1
+!-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+            elseif(ef2e(9,iface,ielem) == 1)then
 
             end if          !  face cycle for BC / Off / On-process face-types
 

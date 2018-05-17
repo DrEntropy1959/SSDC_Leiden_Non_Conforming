@@ -334,7 +334,7 @@ contains
 
     integer            :: n_elems
 
-    integer, parameter :: qdim = 7   !  dimension of first array in ef2e see initgrid.F90 
+    integer, parameter :: qdim = 9   !  dimension of first array in ef2e see initgrid.F90 
                                      !  for definitions of each of the qdim 
 
     continue
@@ -1000,7 +1000,7 @@ contains
         allocate(e2vtmp(2**ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1)))
         
         ! Allocate memory for temporary array for face-to-face connectivity on the process
-        allocate(ef2etmp1(qdim,2*ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1))) 
+        allocate(ef2etmp1(qdim,nfacesperelem,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1))) 
 
         ! Allocate memory for temporary array for the LDG flip-flop sign on the process
         allocate(ldg_flip_flop_sign_tmp1(2*ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1))) 
@@ -1041,14 +1041,17 @@ contains
           end do
           
           ! Loop over all faces
-          do j = 1, 2*ndim
+!          do j = 1, 2*ndim ----------------------------------------------------- original
+           do j = 1,nfacesperelem
             ! Face of neighbor
             ef2etmp1(1,j,i) = ef2e(1,j,ii)
             ef2etmp1(4,j,i) = ef2e(4,j,ii)
             ef2etmp1(5,j,i) = ef2e(5,j,ii)
             ef2etmp1(6,j,i) = ef2e(6,j,ii)
             ef2etmp1(7,j,i) = ef2e(7,j,ii)
-            
+            ef2etmp1(8,j,i) = ef2e(8,j,ii)            
+            ef2etmp1(9,j,i) = ef2e(9,j,ii)
+
             ! Original element index of neighbor
             jj = ef2e(2,j,ii)
             
@@ -1888,10 +1891,13 @@ contains
       nodesperproc = nodesperproc + nodesperelem
 
       ! loop over faces
-      do iface = 1, nfacesperelem
+!      do iface = 1, nfacesperelem
+       do iface = 1, 2*ndim !HACK
 
         if (ef2e(3,iface,ielem) == myprocid) then
             cycle
+        elseif(ef2e(9,iface,ielem) == 1) then! HACK
+          cycle
         else
 
           kelem = ef2e(2,iface,ielem)                        ! element of neighbor
@@ -2054,7 +2060,7 @@ contains
 
     ! this routine allocates the ghost data for Navier Stokes computations
 
-    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems
+    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems, ndim
     use variables,           only: ef2e, kfacenodes
     use initcollocation,     only: element_properties
     implicit none
@@ -2087,9 +2093,11 @@ contains
     iloc = 0                                             ! ghost data counter
     elem_loop:do ielem = ihelems(1), ihelems(2)          ! loop over elements
 
-      face_loop:do iface = 1,nfacesperelem               ! loop over faces on element
+!      face_loop:do iface = 1,nfacesperelem               ! loop over faces on element
+      face_loop:do iface = 1,2*ndim                       ! loop over faces on element HACK
 
         if (ef2e(3,iface,ielem) == myprocid) cycle       ! cycle if neighbor is ON process
+        if (ef2e(9,iface,ielem) == 1) cycle              ! cycle if nonconforming face HACK
 
         kelem = ef2e(2,iface,ielem)                      ! element of neighbor
         kface = ef2e(1,iface,ielem)                      ! face of neighbor
@@ -2134,7 +2142,7 @@ contains
 
     ! this routine allocates the ghost data for Navier Stokes computations
 
-    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems
+    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems, ndim
     use variables,           only: ef2e, kfacenodes
     use initcollocation,     only: element_properties
     implicit none
@@ -2168,9 +2176,11 @@ contains
     iloc = 0                                             ! ghost data counter
     elem_loop:do ielem = ihelems(1), ihelems(2)          ! loop over elements
 
-      face_loop:do iface = 1,nfacesperelem               ! loop over faces on element
+!      face_loop:do iface = 1,nfacesperelem               ! loop over faces on element
+      face_loop:do iface = 1,2*ndim                       ! loop over faces on element HACK
 
         if (ef2e(3,iface,ielem) == myprocid) cycle       ! cycle if neighbor is ON process
+        if (ef2e(9,iface,ielem) == 1) cycle              ! cycle if this is a non-conforming face HACK
 
         kelem = ef2e(2,iface,ielem)                      ! element of neighbor
         kface = ef2e(1,iface,ielem)                      ! face of neighbor
@@ -2302,7 +2312,7 @@ contains
 
     ! this routine allocates the ghost data for Navier Stokes computations
 
-    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems
+    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems, ndim
     use variables,           only: ef2e, kfacenodes
     use initcollocation,     only: element_properties
     implicit none
@@ -2335,9 +2345,11 @@ contains
     iloc = 0                                             ! ghost data counter
     elem_loop:do ielem = ihelems(1), ihelems(2)          ! loop over elements
 
-      face_loop:do iface = 1,nfacesperelem               ! loop over faces on element
+!      face_loop:do iface = 1,nfacesperelem               ! loop over faces on element
+      face_loop:do iface = 1,2*ndim                       ! loop over faces on element HACK
 
         if (ef2e(3,iface,ielem) == myprocid) cycle       ! cycle if neighbor is ON process
+        if (ef2e(9,iface,ielem) == 1) cycle              ! cycle if nonconforming face HACK
 
         kelem = ef2e(2,iface,ielem)                      ! element of neighbor
         kface = ef2e(1,iface,ielem)                      ! face of neighbor
@@ -3053,7 +3065,7 @@ contains
 
     ! this subroutine communicates solution data across processes and updates the array ughst.
 
-    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems, ndim
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
 
@@ -3117,9 +3129,11 @@ contains
     iloc = 0
     do ielem = ihelems(1), ihelems(2)                       ! loop over elements
 
-      do iface = 1,nfacesperelem                            ! loop over faces
+!      do iface = 1,nfacesperelem                            ! loop over faces
+      do iface = 1, 2*ndim                                   ! loop over faces HACK
 
         if (ef2e(3,iface,ielem) == myprocid) cycle          ! cycle if neighbor is on process
+        if (ef2e(9,iface,ielem) == 1) cycle                 ! cycle if nonconforming face HACK
 
         kelem = ef2e(2,iface,ielem)                         ! element of neighbor
 
@@ -3148,7 +3162,7 @@ contains
 
     ! this subroutine communicates solution data across processes and updates the array ughst.
 
-    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
+    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems, ndim
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
 
@@ -3218,9 +3232,11 @@ contains
     iloc = 0
     do ielem = ihelems(1), ihelems(2)                       ! loop over elements
 
-      do iface = 1,nfacesperelem                            ! loop over faces
+!      do iface = 1,nfacesperelem                            ! loop over faces
+      do iface = 1,2*ndim                                    ! loop over faces HACK
 
         if (ef2e(3,iface,ielem) == myprocid) cycle          ! cycle if neighbor is on process
+        if (ef2e(9,iface,ielem) == 1) cycle                 ! nonconfomring face HACK
 
         kelem = ef2e(2,iface,ielem)                         ! element of neighbor
 

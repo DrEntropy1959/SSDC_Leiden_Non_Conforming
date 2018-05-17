@@ -70,6 +70,7 @@ module controlvariables
   logical          :: variable_viscosity             = .false.
   logical          :: Dt_by_CFL                      = .false.
   logical          :: non_conforming                 = .false.
+  logical          :: hrefine                        = .false.
   logical          :: symmetric_metric               = .true.
 
   logical          :: write_restart                  = .true.
