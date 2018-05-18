@@ -224,7 +224,7 @@ contains
 
     call calcnodes_LGL()
 !-- uncomment to write solution to file in a way that can be read by Matlab
-   call parallel_write_grid_to_file('true.tf')
+!   call parallel_write_grid_to_file('true.tf')
 !-- end of write to file
 
     call calc_Gau_shell_pts_all_hexas()

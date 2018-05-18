@@ -469,34 +469,58 @@ end subroutine construct_h_refine_list
 
               if(iface.EQ.1)then
                 ef2e_temp(1,iface,ielem_old) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem_old) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem_old) = 0 
                 ef2e_temp(1,iface,ielem2) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem2) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem2) = 0
                 ef2e_temp(1,iface,ielem3) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem3) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem3) = 0
                 ef2e_temp(1,iface,ielem4) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem4) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem4) = 0
               elseif(iface.EQ.2)then
-                ef2e_temp(1,iface,ielem_old) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem_old) = ef2e(2,iface,ielem_old)
+                ef2e_temp(1,iface,ielem_old) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem_old) = ef2e(2,iface,ielem_old) 
+                ef2e_temp(9,iface,ielem_old) = 0
                 ef2e_temp(1,iface,ielem2) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem2) = ef2e(2,iface,ielem_old)
-                ef2e_temp(1,iface,ielem6) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem6) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem2) = 0
+                ef2e_temp(1,iface,ielem6) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem6) = ef2e(2,iface,ielem_old) 
+                ef2e_temp(9,iface,ielem6) = 0
                 ef2e_temp(1,iface,ielem5) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem5) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem5) = 0
               elseif(iface.EQ.3)then
                 ef2e_temp(1,iface,ielem2) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem2) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem2) = 0
                 ef2e_temp(1,iface,ielem3) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem3) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem3) = 0
                 ef2e_temp(1,iface,ielem7) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem7) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem7) = 0
                 ef2e_temp(1,iface,ielem6) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem6) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem6) = 0
               elseif(iface.EQ.4)then
                 ef2e_temp(1,iface,ielem4) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem4) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem4) = 0
                 ef2e_temp(1,iface,ielem3) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem3) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem3) = 0
                 ef2e_temp(1,iface,ielem7) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem7) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem7) = 0
                 ef2e_temp(1,iface,ielem8) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem8) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem8) = 0
               elseif(iface.EQ.5)then
                 ef2e_temp(1,iface,ielem_old) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem_old) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem_old) = 0
                 ef2e_temp(1,iface,ielem4) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem4) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem4) = 0
                 ef2e_temp(1,iface,ielem8) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem8) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem8) = 0
                 ef2e_temp(1,iface,ielem5) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem5) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem5) = 0
               elseif(iface.EQ.6)then
                 ef2e_temp(1,iface,ielem5) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem5) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem5) = 0
                 ef2e_temp(1,iface,ielem6) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem6) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem6) = 0
                 ef2e_temp(1,iface,ielem7) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem7) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem7) = 0
                 ef2e_temp(1,iface,ielem8) = ef2e(1,iface,ielem_old); ef2e_temp(2,iface,ielem8) = ef2e(2,iface,ielem_old)
+                ef2e_temp(9,iface,ielem8) = 0
               endif
             elseif(h_refine_list(ef2e(2,iface,ielem_old)))then
               !-- both faces have been split

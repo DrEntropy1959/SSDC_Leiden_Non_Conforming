@@ -458,7 +458,7 @@ contains
     integer(c_int), allocatable, target :: xadjtmp(:), jadjtmp(:)
     ! loop index
     integer :: i
-write(*,*)"in caluclate partiations nelems = ",nelems
+
     ! row pointer for element-to-vertex connectivity
     allocate(xadjtmp(0:nelems))
     xadjtmp(0:nelems) = iae2v(1:nelems+1)
@@ -2054,7 +2054,7 @@ write(*,*)"in caluclate partiations nelems = ",nelems
 !      do iface = 1, nfacesperelem
       do iface = 1, 2*ndim
 
-        kelem = ef2e(2,iface,ielem)
+        kelem = ef2e(2,iface,ielem)  
         call element_properties(kelem, n_pts_2d=n_LGL_2d_Off)
 
         knode = n_LGL_2d * (iface - 1)
@@ -2276,7 +2276,9 @@ write(*,*)"in caluclate partiations nelems = ",nelems
                 end if             
               
               end do
-              
+!if(myprocid.EQ.0)then
+!  write(*,*)'test: ielem = ',ielem,'iface = ',iface
+!endif             
               if (jnode > n_LGL_2d .and. myprocid==0) then                           ! Print information at screen if there is a problem and stop computation
                 write(*,*) 'Connectivity error in face-node connectivity_LGL Parallel.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
@@ -2284,9 +2286,22 @@ write(*,*)"in caluclate partiations nelems = ",nelems
                 write(*,*) 'Node coordinates'
                 write(*,*) x1(:)
                 write(*,*) 'ghost node coordinates'
-                write(*,*)'ef2e(1,iface,ielem) = ',ef2e(1,iface,ielem)
-                write(*,*)'ef2e(2,iface,ielem) = ',ef2e(2,iface,ielem)
-                write(*,*)'ef2e(9,iface,ielem) = ',ef2e(9,iface,ielem)
+                write(*,*)'ielem = ',ielem,' iface = ',iface
+                write(*,*)'i_low = ',i_low
+                write(*,*)'ef2e(9,1,ielem) = ',ef2e(9,1,ielem)
+write(*,*)'ef2e(9,2,ielem) = ',ef2e(9,2,ielem)
+write(*,*)'ef2e(9,3,ielem) = ',ef2e(9,3,ielem)
+write(*,*)'ef2e(9,4,ielem) = ',ef2e(9,4,ielem)
+write(*,*)'ef2e(9,5,ielem) = ',ef2e(9,5,ielem)
+write(*,*)'ef2e(9,6,ielem) = ',ef2e(9,6,ielem)
+
+write(*,*)'ef2e(3,1,ielem) = ',ef2e(3,1,ielem)
+write(*,*)'ef2e(3,2,ielem) = ',ef2e(3,2,ielem)
+write(*,*)'ef2e(3,3,ielem) = ',ef2e(3,3,ielem)
+write(*,*)'ef2e(3,4,ielem) = ',ef2e(3,4,ielem)
+write(*,*)'ef2e(3,5,ielem) = ',ef2e(3,5,ielem)
+write(*,*)'ef2e(3,6,ielem) = ',ef2e(3,6,ielem)
+
                 do ii = 1,size(xghst_LGL,2)
 !               do ii = i_low+1,i_low+n_LGL_2d
                   write(*,*)ii,xghst_LGL(:,ii)
@@ -2515,9 +2530,9 @@ write(*,*)"in caluclate partiations nelems = ",nelems
           
           end if ! End if not a periodic face (match_found = .false.)
               
-!        else if (ef2e(4,iface,ielem) /= elem_props(2,ielem) .and. (ef2e(3,iface,ielem) /= myprocid)) then
-        else if (((ef2e(4,iface,ielem) /= elem_props(2,ielem)) .and. (ef2e(3,iface,ielem) /= myprocid)).or.&
-                 ((ef2e(9,iface,ielem) == 1) .and. (ef2e(3,iface,ielem) /= myprocid))) then!HACK
+        else if (ef2e(4,iface,ielem) /= elem_props(2,ielem) .and. (ef2e(3,iface,ielem) /= myprocid)) then
+!        else if (((ef2e(4,iface,ielem) /= elem_props(2,ielem)) .and. (ef2e(3,iface,ielem) /= myprocid)).or.&
+!                 ((ef2e(9,iface,ielem) == 1) .and. (ef2e(3,iface,ielem) /= myprocid))) then!HACK
 
           kelem = ef2e(2,iface,ielem)
           call element_properties(kelem, n_pts_2d=n_LGL_2d_Off)
