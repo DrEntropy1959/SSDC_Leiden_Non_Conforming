@@ -1896,8 +1896,10 @@ contains
        do iface = 1, 2*ndim !HACK
 
         if (ef2e(3,iface,ielem) == myprocid) then
+            !-- skips on process interfaces and boundary interfaces (the proc id of BC faces is set to self)
             cycle
         elseif(ef2e(9,iface,ielem) == 1) then! HACK
+          !-- skips over h-nonconforming faces
           cycle
         else
 

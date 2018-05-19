@@ -2276,9 +2276,7 @@ contains
                 end if             
               
               end do
-!if(myprocid.EQ.0)then
-!  write(*,*)'test: ielem = ',ielem,'iface = ',iface
-!endif             
+             
               if (jnode > n_LGL_2d .and. myprocid==0) then                           ! Print information at screen if there is a problem and stop computation
                 write(*,*) 'Connectivity error in face-node connectivity_LGL Parallel.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
@@ -2286,21 +2284,6 @@ contains
                 write(*,*) 'Node coordinates'
                 write(*,*) x1(:)
                 write(*,*) 'ghost node coordinates'
-                write(*,*)'ielem = ',ielem,' iface = ',iface
-                write(*,*)'i_low = ',i_low
-                write(*,*)'ef2e(9,1,ielem) = ',ef2e(9,1,ielem)
-write(*,*)'ef2e(9,2,ielem) = ',ef2e(9,2,ielem)
-write(*,*)'ef2e(9,3,ielem) = ',ef2e(9,3,ielem)
-write(*,*)'ef2e(9,4,ielem) = ',ef2e(9,4,ielem)
-write(*,*)'ef2e(9,5,ielem) = ',ef2e(9,5,ielem)
-write(*,*)'ef2e(9,6,ielem) = ',ef2e(9,6,ielem)
-
-write(*,*)'ef2e(3,1,ielem) = ',ef2e(3,1,ielem)
-write(*,*)'ef2e(3,2,ielem) = ',ef2e(3,2,ielem)
-write(*,*)'ef2e(3,3,ielem) = ',ef2e(3,3,ielem)
-write(*,*)'ef2e(3,4,ielem) = ',ef2e(3,4,ielem)
-write(*,*)'ef2e(3,5,ielem) = ',ef2e(3,5,ielem)
-write(*,*)'ef2e(3,6,ielem) = ',ef2e(3,6,ielem)
 
                 do ii = 1,size(xghst_LGL,2)
 !               do ii = i_low+1,i_low+n_LGL_2d
