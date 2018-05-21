@@ -3857,7 +3857,7 @@ contains
 
         if(SAT_type == "mod_metric")then                                         !-- modified metric approach
 
-          call Inviscid_SAT_Non_Conforming_Interface(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_Metric(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
@@ -3873,7 +3873,7 @@ contains
           nx_Off_ghst = -nx_2d_Off
 
           if(.true.)then
-            call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+            call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                         n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                         n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                         pinv, nx_Off_ghst,                              &
@@ -3883,7 +3883,7 @@ contains
 
           else
             !-- old version
-            call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+            call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_OLD(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                         n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                         n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                         n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
@@ -4098,13 +4098,13 @@ contains
 
           nx_Off_ghst = -nx_2d_Off
 
-!         call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW(ielem, iface, ifacenodes_On ,n_S_2d_max, &
-!                                                     n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
-!                                                     n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
-!                                                     pinv, nx_Off_ghst,                              &
-!                                                     vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,      &
-!                                                     Intrp_On_2_Off_x1, Intrp_On_2_Off_x2,           &
-!                                                     Intrp_Off_2_On_x1, Intrp_Off_2_On_x2)
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                      pinv, nx_Off_ghst,                              &
+                                                      vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,      &
+                                                      Intrp_On_2_Off_x1, Intrp_On_2_Off_x2,           &
+                                                      Intrp_Off_2_On_x1, Intrp_Off_2_On_x2)
         else
           write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
             SAT_type,' ending computation'
@@ -4151,7 +4151,7 @@ contains
 
   !============================================================================
   
-  subroutine Inviscid_SAT_Non_Conforming_Interface(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_Metric(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
@@ -4210,11 +4210,11 @@ contains
         enddo Off_Element_1                                                  ! End Off_Element
 
         call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                               FxA,FxB,Extrp_Off,Extrp_Off)  ! Extrapolate f^S_x
+                               FxA,FxB,Extrp_Off,Extrp_Off)                  ! Extrapolate f^S_x
         call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                               FyA,FyB,Extrp_Off,Extrp_Off)  ! Extrapolate f^S_y
+                               FyA,FyB,Extrp_Off,Extrp_Off)                  ! Extrapolate f^S_y
         call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                               FzA,FzB,Extrp_Off,Extrp_Off)  ! Extrapolate f^S_z
+                               FzA,FzB,Extrp_Off,Extrp_Off)                  ! Extrapolate f^S_z
 
         On_Mortar_1:do j = 1, n_S_2d_Mort                                    ! Mortar loop over 2D Gauss points
   
@@ -4283,7 +4283,7 @@ contains
       deallocate(FC_Mort_On)
       deallocate(Up_diss_On,Up_diss_Mort)
 
-  end subroutine Inviscid_SAT_Non_Conforming_Interface
+  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_Metric
   !============================================================================
   !
   ! Purpose: Constructs the inviscid SAT for the modified SAT approach where the 
@@ -4326,7 +4326,7 @@ contains
   ! Notes: 
   !
   !=============================================================================
-  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max,  &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      pinv, nx_Off_ghst,                              &
@@ -4485,7 +4485,7 @@ contains
 
       deallocate(FA,FB,Up_diss_On,Up_diss_Off)
 
-  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW
+  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT
 
   !============================================================================
   !
@@ -4529,7 +4529,7 @@ contains
   ! Notes: 
   !
   !=============================================================================
-  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_OLD(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
@@ -4660,7 +4660,7 @@ endif
 
       deallocate(FC_Mort_On,FA,FB)
 
-  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT
+  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_OLD
 
   !============================================================================
   !       NONCONFORMING VISCOUS interface SATs 
@@ -4748,7 +4748,7 @@ endif
 
       call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
                              fV_2d_Off(:,:),fV_Mort_Off(:,:),Extrp_Off, Extrp_Off)
-      
+
       On_Mortar_3:do j = 1, n_S_2d_Mort
 
         jnode =  n_S_2d_max*(iface-1) + j          ! Index in facial ordering
