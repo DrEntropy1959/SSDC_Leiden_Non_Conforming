@@ -3252,7 +3252,7 @@ contains
     use collocationvariables, only: l01, l00, Sfix, elem_props,              &
                                  Restrct_Gau_2_LGL_1d, Prolong_LGL_2_Gau_1d
 
-    use initcollocation,  only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, &
+    use initcollocation,  only: ExtrpXA2XB_2D_neq, &
                                 JacobiP11, Gauss_Legendre_points, element_properties
 
     use initgrid
@@ -4021,7 +4021,8 @@ contains
 
         ival = mod(i-1,n_S_1d_On) + 1 ; jval = (i-ival) / n_S_1d_On + 1 ;    ! Decode On-element point coordinates (i,j) from planar coordinates
 
-        call ExtrpXA2XB_2D_neq_k(nequations,n_S_1d_Mort,n_S_1d_On,ival,jval,x_S_1d_Mort,x_S_1d_On,FC_Mort_On,fstar,Intrp_On)  ! Restrict planar data to the (ival,jval) point
+        call ExtrpXA2XB_2D_neq_k(nequations,n_S_1d_Mort,n_S_1d_On,ival,jval,x_S_1d_Mort,x_S_1d_On, &
+                                 FC_Mort_On,fstar,Intrp_On,Intrp_On)         ! Restrict planar data to the (ival,jval) point
 
         jnode =  n_S_2d_On*(iface-1) + i                                     ! Index in facial ordering
               
@@ -4125,7 +4126,7 @@ contains
 
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, gsat, ef2e
-    use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, element_properties
+    use initcollocation,      only: ExtrpXA2XB_2D_neq, element_properties
     use initgrid,             only: map_face_orientation_k_On_2_k_Off
 
     implicit none
@@ -4402,7 +4403,8 @@ contains
 
         ival = mod(i-1,n_S_1d_On) + 1 ; jval = (i-ival) / n_S_1d_On + 1 ;    ! Decode On-element point coordinates (i,j) from planar coordinates
 
-        call ExtrpXA2XB_2D_neq_k(nequations,n_S_1d_Mort,n_S_1d_On,ival,jval,x_S_1d_Mort,x_S_1d_On,FC_Mort_On,fstar,Intrp_On)  ! Restrict planar data to the (ival,jval) point
+        call ExtrpXA2XB_2D_neq_k(nequations,n_S_1d_Mort,n_S_1d_On,ival,jval,x_S_1d_Mort,x_S_1d_On, &
+                                 FC_Mort_On,fstar,Intrp_On,Intrp_On)         ! Restrict planar data to the (ival,jval) point
 
         gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar)     ! SAT penalty:  subtract the on-element contribution and replace with penalty 
 
@@ -4467,7 +4469,7 @@ endif
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, mut
     use collocationvariables, only: l00, l01, ldg_flip_flop_sign, alpha_ldg_flip_flop
-    use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
+    use initcollocation,      only: ExtrpXA2XB_2D_neq
 
     implicit none
 
@@ -7062,7 +7064,7 @@ endif
                                       & ldg_flip_flop_sign, alpha_ldg_flip_flop,&
                                       & elem_props, &
                                       & Restrct_Gau_2_LGL_1d, Prolong_LGL_2_Gau_1d
-        use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, &
+        use initcollocation,      only: ExtrpXA2XB_2D_neq, &
                                         & Gauss_Legendre_points, element_properties
 
         implicit none

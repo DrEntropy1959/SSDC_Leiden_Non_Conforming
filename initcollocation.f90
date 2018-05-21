@@ -1206,7 +1206,7 @@ contains
 
 !=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-  subroutine ExtrpXA2XB_2D_neq_k(neq,NPtsA,NPtsB,ii,jj,XA,XB,FA,FB,Extrp)
+  subroutine ExtrpXA2XB_2D_neq_k(neq,NPtsA,NPtsB,ii,jj,XA,XB,FA,FB,Extrp_x1,Extrp_x2)
 
   ! Extrapolate from Tensor product XA points to Tensor product XB points
 
@@ -1216,7 +1216,7 @@ contains
   integer,                          intent(in   )  :: ii, jj
   real(wp), dimension(NPtsA),       intent(in   )  :: XA
   real(wp), dimension(NPtsB),       intent(in   )  :: XB
-  real(wp), dimension(NPtsB,NptsA), intent(in   )  :: Extrp
+  real(wp), dimension(NPtsB,NptsA), intent(in   )  :: Extrp_x1,Extrp_x2
   real(wp), dimension(:,:),         intent(in   )  :: FA
   real(wp), dimension(:),           intent(inout)  :: FB
 
@@ -1235,7 +1235,7 @@ contains
         i = ii
         do m = 1,NPtsA
           n = + (j-1)*StrideY + m
-          F1(:,i,j) = F1(:,i,j) + Extrp(i,m)*FA(:,n)
+          F1(:,i,j) = F1(:,i,j) + Extrp_x1(i,m)*FA(:,n)
         enddo
 !     enddo
     enddo
@@ -1249,7 +1249,7 @@ contains
          i = ii
         do m = 1,NPtsA
 !         n = + (j-1)*StrideY + i
-          FB(:) = FB(:) + Extrp(j,m)*F1(:,i,m)
+          FB(:) = FB(:) + Extrp_x2(j,m)*F1(:,i,m)
         enddo
 !     enddo
 !   enddo
