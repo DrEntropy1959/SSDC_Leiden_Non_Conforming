@@ -2054,7 +2054,7 @@ contains
 !      do iface = 1, nfacesperelem
       do iface = 1, 2*ndim
 
-        kelem = ef2e(2,iface,ielem)
+        kelem = ef2e(2,iface,ielem)  
         call element_properties(kelem, n_pts_2d=n_LGL_2d_Off)
 
         knode = n_LGL_2d * (iface - 1)
@@ -2276,7 +2276,7 @@ contains
                 end if             
               
               end do
-              
+             
               if (jnode > n_LGL_2d .and. myprocid==0) then                           ! Print information at screen if there is a problem and stop computation
                 write(*,*) 'Connectivity error in face-node connectivity_LGL Parallel.'
                 write(*,*) 'Process ID, element ID, face ID, ef2e'
@@ -2284,9 +2284,7 @@ contains
                 write(*,*) 'Node coordinates'
                 write(*,*) x1(:)
                 write(*,*) 'ghost node coordinates'
-                write(*,*)'ef2e(1,iface,ielem) = ',ef2e(1,iface,ielem)
-                write(*,*)'ef2e(2,iface,ielem) = ',ef2e(2,iface,ielem)
-                write(*,*)'ef2e(9,iface,ielem) = ',ef2e(9,iface,ielem)
+
                 do ii = 1,size(xghst_LGL,2)
 !               do ii = i_low+1,i_low+n_LGL_2d
                   write(*,*)ii,xghst_LGL(:,ii)
@@ -2515,9 +2513,9 @@ contains
           
           end if ! End if not a periodic face (match_found = .false.)
               
-!        else if (ef2e(4,iface,ielem) /= elem_props(2,ielem) .and. (ef2e(3,iface,ielem) /= myprocid)) then
-        else if (((ef2e(4,iface,ielem) /= elem_props(2,ielem)) .and. (ef2e(3,iface,ielem) /= myprocid)).or.&
-                 ((ef2e(9,iface,ielem) == 1) .and. (ef2e(3,iface,ielem) /= myprocid))) then!HACK
+        else if (ef2e(4,iface,ielem) /= elem_props(2,ielem) .and. (ef2e(3,iface,ielem) /= myprocid)) then
+!        else if (((ef2e(4,iface,ielem) /= elem_props(2,ielem)) .and. (ef2e(3,iface,ielem) /= myprocid)).or.&
+!                 ((ef2e(9,iface,ielem) == 1) .and. (ef2e(3,iface,ielem) /= myprocid))) then!HACK
 
           kelem = ef2e(2,iface,ielem)
           call element_properties(kelem, n_pts_2d=n_LGL_2d_Off)
@@ -2766,7 +2764,7 @@ end function
     ! this subroutine calculates the outward facing normals
     ! of each facial node
     use referencevariables
-    use initcollocation,      only: element_properties, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
+    use initcollocation,      only: element_properties, ExtrpXA2XB_2D_neq, Gauss_Legendre_points
     use collocationvariables, only: Restrct_Gau_2_LGL_1d, elem_props
     use variables, only: Jx_facenodenormal_Gau, Jx_facenodenormal_LGL, xg_Gau_Shell, ef2e
 
@@ -2837,7 +2835,8 @@ end function
 !        iend_On = iend_Mort
 
         call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart_On:iend_On,ielem),Intrp)
+           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart_On:iend_On,ielem),&
+                          Intrp, Intrp)
         endif
       end do
 

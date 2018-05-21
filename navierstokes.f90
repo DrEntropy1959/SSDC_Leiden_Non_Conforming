@@ -3250,9 +3250,10 @@ contains
     use controlvariables, only: heat_entropy_flow_wall_bc, Riemann_Diss_BC,  &
                                 entropy_flux_BC, SAT_type
     use collocationvariables, only: l01, l00, Sfix, elem_props,              &
-                                 Restrct_Gau_2_LGL_1d, Prolong_LGL_2_Gau_1d
+                                 Restrct_Gau_2_LGL_1d, Prolong_LGL_2_Gau_1d, &
+                                 LGL_Fine_2_LGL_Coarse_1d, LGL_Coarse_2_LGL_Fine_1d
 
-    use initcollocation,  only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, &
+    use initcollocation,  only: ExtrpXA2XB_2D_neq, &
                                 JacobiP11, Gauss_Legendre_points, element_properties
 
     use initgrid
@@ -3283,16 +3284,21 @@ contains
     real(wp) :: evmax                                          ! Lax-Freidrich max Eigenvalue
     real(wp) :: Jx_r_Ave                                       ! Average of Jacobian between and On- and Off- elements at interface
 
-    integer                              :: n_S_1d_On , n_S_1d_Off, n_S_1d_Mort, n_S_1d_max
-    integer                              :: n_S_2d_On , n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
-    integer                              :: poly_val
-    integer                              :: nghst_volume, nghst_shell, nghst_Mortar
+    integer                               :: n_S_1d_On , n_S_1d_Off, n_S_1d_Mort, n_S_1d_max
+    integer                               :: n_S_2d_On , n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
+    integer                               :: poly_val
+    integer                               :: nghst_volume, nghst_shell, nghst_Mortar
  
-    real(wp), allocatable, dimension(:)  :: x_S_1d_On, x_S_1d_Off
-    real(wp), allocatable, dimension(:)  :: x_S_1d_Mort, w_S_1d_Mort
+    integer,  allocatable, dimension(:,:) :: Eye, Jay
+
+    real(wp), allocatable, dimension(:)   :: x_S_1d_On, x_S_1d_Off
+    real(wp), allocatable, dimension(:)   :: x_S_1d_Mort, w_S_1d_Mort
 
     real(wp), allocatable, dimension(:)   :: mut_2d_Off
     real(wp), allocatable, dimension(:)   :: Jx_r_2d_Mort
+
+    real(wp), allocatable, dimension(:,:) :: Intrp_On_2_Off_x1, Intrp_On_2_Off_x2
+    real(wp), allocatable, dimension(:,:) :: Intrp_Off_2_On_x1, Intrp_Off_2_On_x2
 
     real(wp), allocatable, dimension(:,:) :: Extrp_Off, Extrp_On
     real(wp), allocatable, dimension(:,:) ::            Intrp_On
@@ -3840,8 +3846,10 @@ contains
         endif
 
         ! Extrapolate On_element and Off_element entropy variables wg ==>  Mortar
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Mort,x_S_1d_On ,x_S_1d_Mort,wg_2d_On ,wg_Mort_On ,Extrp_On )
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,wg_2d_Off,wg_Mort_Off,Extrp_Off)
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Mort,x_S_1d_On ,x_S_1d_Mort, &
+                               wg_2d_On ,wg_Mort_On ,Extrp_On ,Extrp_On )
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
+                               wg_2d_Off,wg_Mort_Off,Extrp_Off,Extrp_Off)
 
 !=========
 !       Inviscid interface SATs (skew-symmetric portion + Upwind Entropy Stable dissipation)
@@ -3849,7 +3857,7 @@ contains
 
         if(SAT_type == "mod_metric")then                                         !-- modified metric approach
 
-          call Inviscid_SAT_Non_Conforming_Interface(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_Metric(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
@@ -3865,16 +3873,17 @@ contains
           nx_Off_ghst = -nx_2d_Off
 
           if(.true.)then
-            call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+            call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                         n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                         n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
-                                                        pinv,                                           &
-                                                        vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,  &
-                                                        IOn2Off, IOff2On, nx_Off_ghst)
+                                                        pinv, nx_Off_ghst,                              &
+                                                        vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,      &
+                                                        IOn2Off, IOn2Off,                               &
+                                                        IOff2On, IOff2On )
 
           else
             !-- old version
-            call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+            call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_OLD(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                         n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                         n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                         n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
@@ -3921,13 +3930,215 @@ contains
 !-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
       elseif(ef2e(9,iface,ielem) == 1)then
-      end if  !  main if statement differentiating different paths (interface / BC type) in SAT_Penalty routine
 
-    end do faceloop
+        kface       = ef2e(1,iface,ielem)
+        kelem       = ef2e(2,iface,ielem)
+
+        call element_properties(kelem,&
+                       n_pts_1d=n_S_1d_Off,&
+                       n_pts_2d=n_S_2d_Off,&
+                       x_pts_1d=x_S_1d_Off,&
+                     kfacenodes=kfacenodes_Off,&
+                     ifacenodes=ifacenodes_Off)
+
+        allocate(  nx_2d_Off (ndim,n_S_2D_Off ))
+        allocate( mut_2d_Off (     n_S_2D_Off ))
+
+        allocate(vg_2d_On    (nequations,n_S_2d_On  ))
+        allocate(wg_2d_On    (nequations,n_S_2d_On  ))
+
+        allocate(vg_2d_Off   (nequations,n_S_2d_Off ))
+        allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
+
+        allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
+        allocate(phig_2d_Off (nequations,ndim,n_S_2d_Off))
+
+!         Sub-face ordering
+
+!                face 1      face 2      face 3      face 4      face 5       face 6
+!               ---------   ---------   ---------   ---------   ---------   ---------
+!               | 19| 13|   | 20| 14|   | 21| 15|   | 22| 16|   | 23| 17|   | 24| 18|  
+!               ---------   ---------   ---------   ---------   ---------   ---------
+!               |  1|  7|   |  2|  8|   |  3|  9|   |  4| 10|   |  5| 11|   |  6| 12|
+!               ---------   ---------   ---------   ---------   ---------   ---------
+!               ---------   ---------   ---------   ---------   ---------   ---------
+!               | +-| --|   | 20| 14|   | 21| 15|   | 22| 16|   | 23| 17|   | 24| 18|  
+!               ---------   ---------   ---------   ---------   ---------   ---------
+!               | ++| -+|   |  2|  8|   |  3|  9|   |  4| 10|   |  5| 11|   |  6| 12|
+!               ---------   ---------   ---------   ---------   ---------   ---------
+!
+        allocate(Eye(n_S_1d_On,n_S_1d_On)); Eye(:,:) = 0 ;                                  !  Initialize matrix to zero
+        allocate(Jay(n_S_1d_On,n_S_1d_On)); Jay(:,:) = 0 ;                                  !  Initialize matrix to zero
+
+        do i = 1,n_S_1d_On ; Eye(i,i) = 1 ; Jay(i,n_S_1d_On+1-i) = 1 ; enddo                !  Set diagonal and per-diagonal to 1
+
+        allocate(Intrp_On_2_Off_x1(n_S_1d_On,n_S_1d_On)) ; Intrp_On_2_Off_x1(:,:) = 0.0_wp  ! Intialize Interpolation matrices
+        allocate(Intrp_Off_2_On_x1(n_S_1d_On,n_S_1d_On)) ; Intrp_Off_2_On_x1(:,:) = 0.0_wp  ! Intialize Interpolation matrices
+        allocate(Intrp_On_2_Off_x2(n_S_1d_On,n_S_1d_On)) ; Intrp_On_2_Off_x2(:,:) = 0.0_wp  ! Intialize Interpolation matrices
+        allocate(Intrp_Off_2_On_x2(n_S_1d_On,n_S_1d_On)) ; Intrp_Off_2_On_x2(:,:) = 0.0_wp  ! Intialize Interpolation matrices
+
+        if(ef2e(10,iface,ielem) == 0) then                                                  !  The Coarse Side
+              
+           select case(iface)
+             case( 1: 6)
+                Intrp_On_2_Off_x1(:,:) = matmul(eye,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_On_2_Off_x2(:,:) = matmul(eye,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_Off_2_On_x1(:,:) = matmul(eye,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_Off_2_On_x2(:,:) = matmul(eye,LGL_Coarse_2_LGL_Fine_1d(:,:))
+             case( 7:12)
+                Intrp_On_2_Off_x1(:,:) = matmul(Jay,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_On_2_Off_x2(:,:) = matmul(eye,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_Off_2_On_x1(:,:) = matmul(Jay,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_Off_2_On_x2(:,:) = matmul(eye,LGL_Coarse_2_LGL_Fine_1d(:,:))
+             case(13:18)
+                Intrp_On_2_Off_x1(:,:) = matmul(Jay,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_On_2_Off_x2(:,:) = matmul(Jay,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_Off_2_On_x1(:,:) = matmul(Jay,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_Off_2_On_x2(:,:) = matmul(Jay,LGL_Coarse_2_LGL_Fine_1d(:,:))
+             case(19:24)
+                Intrp_On_2_Off_x1(:,:) = matmul(eye,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_On_2_Off_x2(:,:) = matmul(Jay,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_Off_2_On_x1(:,:) = matmul(eye,LGL_Coarse_2_LGL_Fine_1d(:,:))
+                Intrp_Off_2_On_x2(:,:) = matmul(Jay,LGL_Coarse_2_LGL_Fine_1d(:,:))
+           end select
+
+        elseif(ef2e(10,iface,ielem) == 1) then                                              !  The Fine side
+
+           select case(iface)
+             case( 1: 6)
+                Intrp_On_2_Off_x1(:,:) = matmul(eye,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_On_2_Off_x2(:,:) = matmul(eye,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_Off_2_On_x1(:,:) = matmul(eye,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_Off_2_On_x2(:,:) = matmul(eye,LGL_Fine_2_LGL_Coarse_1d(:,:))
+             case( 7:12)
+                Intrp_On_2_Off_x1(:,:) = matmul(Jay,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_On_2_Off_x2(:,:) = matmul(eye,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_Off_2_On_x1(:,:) = matmul(Jay,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_Off_2_On_x2(:,:) = matmul(eye,LGL_Fine_2_LGL_Coarse_1d(:,:))
+             case(13:18)
+                Intrp_On_2_Off_x1(:,:) = matmul(Jay,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_On_2_Off_x2(:,:) = matmul(Jay,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_Off_2_On_x1(:,:) = matmul(Jay,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_Off_2_On_x2(:,:) = matmul(Jay,LGL_Fine_2_LGL_Coarse_1d(:,:))
+             case(19:24)
+                Intrp_On_2_Off_x1(:,:) = matmul(eye,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_On_2_Off_x2(:,:) = matmul(Jay,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_Off_2_On_x1(:,:) = matmul(eye,LGL_Fine_2_LGL_Coarse_1d(:,:))
+                Intrp_Off_2_On_x2(:,:) = matmul(Jay,LGL_Fine_2_LGL_Coarse_1d(:,:))
+           end select
+
+        endif
+
+!=========
+!       face data:  On_element, Off_element
+!=========
+                                                                             ! ============================================
+                                                                             ! On_Element face data same for serial or parallel
+                                                                             ! ============================================
+        On_Elem_1:do i = 1, n_S_2d_On                                             ! On_Element Loop over 2D LGL points
+        
+         jnode =  n_S_2d_On*(iface-1) + i                                         ! Index in facial ordering
+         inode = ifacenodes_On(jnode)                                             ! Volumetric node index corresponding to facial node index
+
+           vg_2d_On(:,  i) =   vg(:,  inode,ielem)                                ! On-element face data
+         phig_2d_On(:,:,i) = phig(:,:,inode,ielem)                                ! Viscous derivatives
+
+         call primitive_to_entropy(vg_2d_On(:,i),wg_2d_On(:,i),nequations)        ! Rotate into entropy variables and store as face plane data
+
+        enddo  On_Elem_1                                                          ! End off-element loop
+
+                                                                             ! ============================================
+        if (ef2e(3,iface,ielem) /= myprocid) then                            ! ====== Parallel NON-CONFORMING data ========
+                                                                             ! ============================================
+          Off_Elem_2:do k = 1, n_S_2d_Off                                         ! Off-element loop over data
+
+           
+                 ug_Off(:    ) =           ughst(:,  nghst_volume + k)            ! conserved variable    in Petsc ghost registers
+            phig_2d_Off(:,:,k) =         phighst(:,:,nghst_volume + k)            ! Viscous derivatives   in Petsc ghost registers
+             mut_2d_Off(    k) =         mutghst(    nghst_volume + k)            ! Turbulent viscosity   in Petsc ghost registers
+
+              nx_2d_Off(:,  k) =  nxghst_LGL_Shell(:,nghst_shell  + k)            ! Outward facing normal in Petsc ghost registers
+
+            call conserved_to_primitive(ug_Off   (:  ),vg_2d_Off(:,k),nequations) ! Rotate into primitive variables and store as face plane data
+            call primitive_to_entropy  (vg_2d_Off(:,k),wg_2d_Off(:,k),nequations) ! Rotate into entropy   variables and store as face plane data
+
+          enddo Off_Elem_2                                                        ! End off-element loop
+
+          nghst_volume = nghst_volume + n_S_2d_Off                                !  Keep track of position in Ghost volume stack
+          nghst_shell  = nghst_shell  + n_S_2d_Off                                !  Keep track of position in Ghost shell  stack
+
+                                                                             ! ============================================
+        else                                                                 ! ====== Serial NON-CONFORMING data ==========
+                                                                             ! ============================================
+          Off_Elem_3:do k = 1, n_S_2d_Off                                         ! Off-element loop over data
+ 
+            lnode =  n_S_2d_Off*(kface-1) + k                                     ! Index in facial ordering
+            knode = ifacenodes_Off(lnode)                                         ! Volumetric node index corresponding to facial node index
+
+              vg_2d_Off(:,  k) =   vg(:,  knode,kelem)                            ! volumetric node data from off element face
+            phig_2d_Off(:,:,k) = phig(:,:,knode,kelem)                            ! Viscous derivatives
+             mut_2d_Off(    k) =  mut(    knode,kelem)                            ! Outward facing normal of facial node
+
+              nx_2d_Off(:,  k) = Jx_facenodenormal_LGL(:,lnode,kelem)             ! Outward facing normal of facial node
+
+            call primitive_to_entropy(vg_2d_Off(:,k),wg_2d_Off(:,k),nequations)   ! Rotate into entropy variables and store as face plane data
+
+          enddo Off_Elem_3                                                        ! End off-element loop
+
+        endif
+
+!=========
+!       Inviscid interface SATs (skew-symmetric portion + Upwind Entropy Stable dissipation)
+!=========
+
+        if(SAT_type == "mod_SAT")then                                         !-- modified metric approach
+
+          if(allocated(nx_Off_ghst)) deallocate(nx_Off_ghst)
+          allocate(nx_Off_ghst(3,n_S_2d_Off))
+
+          nx_Off_ghst = -nx_2d_Off
+
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                      pinv, nx_Off_ghst,                              &
+                                                      vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,      &
+                                                      Intrp_On_2_Off_x1, Intrp_On_2_Off_x2,           &
+                                                      Intrp_Off_2_On_x1, Intrp_Off_2_On_x2)
+        else
+          write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
+            SAT_type,' ending computation'
+          call PetscFinalize(i_err); stop
+        endif
+
+! ========
+!       Viscous interface SATs 
+! ========
+
+        if(viscous .eqv. .true.) then
+          call Viscous_SAT_Non_Conforming_Interface(ielem, kelem, iface, kface,                    &
+                                                    ifacenodes_On, ifacenodes_Off, n_S_2d_max,     &
+                                                    n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,           &
+                                                    n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,           &
+                                                    n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,           &
+                                                    pinv,                                          &
+                                                      vg_2d_On,   vg_2d_Off,                       &
+                                                    phig_2d_On, phig_2d_Off,                       &
+                                                    wg_Mort_On, wg_Mort_Off,                       &
+                                                    nx_2d_Off, mut_2d_Off, Jx_r_2d_Mort,           &
+                                                    cnt_Mort_Off, Intrp_On, Extrp_Off)
+        endif
+
+        deallocate(Eye,Jay)
+        deallocate(Intrp_On_2_Off_x1,Intrp_On_2_Off_x2)
+        deallocate(Intrp_Off_2_On_x1,Intrp_Off_2_On_x2)
+
+      end if                                                        !  Main ``if'' conditional (interface / BC type) in SAT_Pen routine
+
+    end do faceloop                                                 !  Main ``face'' conditional in SAT_Pen routine
     
-    ! Deallocate memory
 
-    deallocate(x_S_1d_On)
+    deallocate(x_S_1d_On)                                           ! Deallocate memory
 
     deallocate(fRoeI,fLLF)
     deallocate(fstar,fstarV)
@@ -3940,7 +4151,7 @@ contains
 
   !============================================================================
   
-  subroutine Inviscid_SAT_Non_Conforming_Interface(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
+  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_Metric(ielem, iface, kface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
@@ -3998,9 +4209,12 @@ contains
 
         enddo Off_Element_1                                                  ! End Off_Element
 
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FxA,FxB,Extrp_Off)  ! Extrapolate f^S_x
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FyA,FyB,Extrp_Off)  ! Extrapolate f^S_y
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FzA,FzB,Extrp_Off)  ! Extrapolate f^S_z
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
+                               FxA,FxB,Extrp_Off,Extrp_Off)                  ! Extrapolate f^S_x
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
+                               FyA,FyB,Extrp_Off,Extrp_Off)                  ! Extrapolate f^S_y
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
+                               FzA,FzB,Extrp_Off,Extrp_Off)                  ! Extrapolate f^S_z
 
         On_Mortar_1:do j = 1, n_S_2d_Mort                                    ! Mortar loop over 2D Gauss points
   
@@ -4016,7 +4230,8 @@ contains
 
         ival = mod(i-1,n_S_1d_On) + 1 ; jval = (i-ival) / n_S_1d_On + 1 ;    ! Decode On-element point coordinates (i,j) from planar coordinates
 
-        call ExtrpXA2XB_2D_neq_k(nequations,n_S_1d_Mort,n_S_1d_On,ival,jval,x_S_1d_Mort,x_S_1d_On,FC_Mort_On,fstar,Intrp_On)  ! Restrict planar data to the (ival,jval) point
+        call ExtrpXA2XB_2D_neq_k(nequations,n_S_1d_Mort,n_S_1d_On,ival,jval,x_S_1d_Mort,x_S_1d_On, &
+                                 FC_Mort_On,fstar,Intrp_On,Intrp_On)         ! Restrict planar data to the (ival,jval) point
 
         jnode =  n_S_2d_On*(iface-1) + i                                     ! Index in facial ordering
               
@@ -4050,7 +4265,8 @@ contains
       enddo On_Mortar_2                                                      ! End mortar loop
 
                                                                                  ! Restrict data plane from Mortar to on-face plane
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort ,n_S_1d_On ,x_S_1d_Mort ,x_S_1d_On,Up_diss_Mort,Up_diss_On, Intrp_On )
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort ,n_S_1d_On ,x_S_1d_Mort ,x_S_1d_On, &
+                             Up_diss_Mort,Up_diss_On, Intrp_On , Intrp_On)
 
       On_Elem_2: do i = 1, n_S_2d_On                                         ! On-element loop: Begin
         
@@ -4067,7 +4283,7 @@ contains
       deallocate(FC_Mort_On)
       deallocate(Up_diss_On,Up_diss_Mort)
 
-  end subroutine Inviscid_SAT_Non_Conforming_Interface
+  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_Metric
   !============================================================================
   !
   ! Purpose: Constructs the inviscid SAT for the modified SAT approach where the 
@@ -4110,16 +4326,17 @@ contains
   ! Notes: 
   !
   !=============================================================================
-  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max,  &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
-                                                     pinv,                                           &
-                                                     vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,  &
-                                                     IOn2Off,IOff2On ,nx_Off_ghst)
+                                                     pinv, nx_Off_ghst,                              &
+                                                     vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,      &
+                                                     IOn2Off_x1, IOn2Off_x2,                         &
+                                                     IOff2On_x1, IOff2On_x2 )
 
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, gsat, ef2e
-    use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, element_properties
+    use initcollocation,      only: ExtrpXA2XB_2D_neq, element_properties
     use initgrid,             only: map_face_orientation_k_On_2_k_Off
 
     implicit none
@@ -4127,12 +4344,15 @@ contains
     integer,                    intent(in) :: ielem, iface
     integer,                    intent(in) :: n_S_1d_On, n_S_1d_Off
     integer,                    intent(in) :: n_S_2d_On, n_S_2d_Off, n_S_2d_max
+    integer,   dimension(:),    intent(in) :: ifacenodes_On
+
     real(wp),  dimension(:),    intent(in) :: x_S_1d_On, x_S_1d_Off
     real(wp),  dimension(:),    intent(in) :: pinv
-    integer,   dimension(:),    intent(in) :: ifacenodes_On
+    real(wp),  dimension(:,:),  intent(in) :: nx_Off_ghst
     real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
     real(wp),  dimension(:,:),  intent(in) :: wg_2d_On, wg_2d_Off
-    real(wp),  dimension(:,:),  intent(in) :: IOn2Off, IOff2On, nx_Off_ghst
+    real(wp),  dimension(:,:),  intent(in) :: IOn2Off_x1,IOn2Off_x2
+    real(wp),  dimension(:,:),  intent(in) :: IOff2On_x1,IOff2On_x2
     
     real(wp),  dimension(ndim)             :: nx, nx_On, nx_Off, nx_Ave
     real(wp),  dimension(nequations)       :: fn, fstar
@@ -4152,16 +4372,17 @@ contains
       allocate(wg_Off2On(nequations,1:n_S_2d_On))
 
       !-- interpolate/extrapolate wg from On to Off and vice versa
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Off,x_S_1d_On ,x_S_1d_Off,wg_2d_On ,wg_On2Off,IOn2Off)
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On ,x_S_1d_Off,x_S_1d_On ,wg_2d_Off,wg_Off2On,IOff2On)
+      call ExtrpXA2XB_2D_neq(nequations, n_S_1d_On , n_S_1d_Off, x_S_1d_On , x_S_1d_Off, &
+                             wg_2d_On ,wg_On2Off, IOn2Off_x1, IOn2Off_x2) 
+      call ExtrpXA2XB_2D_neq(nequations, n_S_1d_Off, n_S_1d_On , x_S_1d_Off, x_S_1d_On , &
+                             wg_2d_Off,wg_Off2On, IOff2On_x1, IOff2On_x2)
 
       allocate(FA (nequations,n_S_2D_Off ))
-      allocate(FB (nequations,n_S_2D_On ))
+      allocate(FB (nequations,n_S_2D_On  ))
       allocate(Up_diss_On  (nequations,n_S_2d_On  ))
-      allocate(Up_diss_Off  (nequations,n_S_2d_Off  ))
+      allocate(Up_diss_Off (nequations,n_S_2d_Off ))
 
-      !-- orientation of the off element relative to the on element
-      orientation = ef2e(7,iface,ielem)
+      orientation = ef2e(7,iface,ielem)                                        !-- orientation of the off element relative to the on element
 
 !=========
 !         Skew-symmetric matrix portion of SATs (Entropy Conservative without Mortar)
@@ -4190,7 +4411,8 @@ contains
 
         enddo Off_Element_1                                                    ! End Off_Element
 
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On,FA,FB,IOff2On)  ! Extrapolate f^S_x
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On, &
+                               FA,FB, IOff2On_x1, IOff2On_x2)  ! Extrapolate f^S_x
 
         l =  map_face_orientation_k_On_2_k_Off(i,orientation,n_S_1d_On)        ! Correct for face orientation and shift back to 1:n_S_2d_On
 
@@ -4246,7 +4468,8 @@ contains
       enddo Off_Element_2
  
                                                                                       ! Restrict data plane from Mortar to on-face plane
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off ,n_S_1d_On ,x_S_1d_Off ,x_S_1d_On,Up_diss_Off,Up_diss_On, IOff2On )
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off ,n_S_1d_On ,x_S_1d_Off ,x_S_1d_On, &
+                             Up_diss_Off,Up_diss_On, IOff2On_x1, IOff2On_x2)
 
       !-- add dissipation to sat
 
@@ -4262,7 +4485,7 @@ contains
 
       deallocate(FA,FB,Up_diss_On,Up_diss_Off)
 
-  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW
+  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT
 
   !============================================================================
   !
@@ -4306,7 +4529,7 @@ contains
   ! Notes: 
   !
   !=============================================================================
-  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+  subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_OLD(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                      n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
@@ -4379,7 +4602,8 @@ contains
 
         enddo Off_Element_1                                                  ! End Off_Element
 
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FA,FB,Extrp_Off)  ! Extrapolate f^S_x
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
+                               FA,FB,Extrp_Off, Extrp_Off)                   ! Extrapolate f^S_x
 
         On_Mortar_1:do j = 1, n_S_2d_Mort                                    ! Mortar loop over 2D Gauss points
   
@@ -4391,7 +4615,8 @@ contains
 
         ival = mod(i-1,n_S_1d_On) + 1 ; jval = (i-ival) / n_S_1d_On + 1 ;    ! Decode On-element point coordinates (i,j) from planar coordinates
 
-        call ExtrpXA2XB_2D_neq_k(nequations,n_S_1d_Mort,n_S_1d_On,ival,jval,x_S_1d_Mort,x_S_1d_On,FC_Mort_On,fstar,Intrp_On)  ! Restrict planar data to the (ival,jval) point
+        call ExtrpXA2XB_2D_neq_k(nequations,n_S_1d_Mort,n_S_1d_On,ival,jval,x_S_1d_Mort,x_S_1d_On, &
+                                 FC_Mort_On,fstar,Intrp_On,Intrp_On)         ! Restrict planar data to the (ival,jval) point
 
         gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1)*(fn - fstar)     ! SAT penalty:  subtract the on-element contribution and replace with penalty 
 
@@ -4417,7 +4642,8 @@ if(.true.)then
       enddo On_Mortar_2                                                      ! End mortar loop
 
                                                                                  ! Restrict data plane from Mortar to on-face plane
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort ,n_S_1d_On ,x_S_1d_Mort ,x_S_1d_On,Up_diss_Mort,Up_diss_On, Intrp_On )
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort ,n_S_1d_On ,x_S_1d_Mort ,x_S_1d_On, &
+                             Up_diss_Mort,Up_diss_On, Intrp_On, Intrp_On )
 
       On_Elem_2: do i = 1, n_S_2d_On                                         ! On-element loop: Begin
         
@@ -4434,7 +4660,7 @@ endif
 
       deallocate(FC_Mort_On,FA,FB)
 
-  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT
+  end subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_OLD
 
   !============================================================================
   !       NONCONFORMING VISCOUS interface SATs 
@@ -4455,7 +4681,7 @@ endif
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, mut
     use collocationvariables, only: l00, l01, ldg_flip_flop_sign, alpha_ldg_flip_flop
-    use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k
+    use initcollocation,      only: ExtrpXA2XB_2D_neq
 
     implicit none
 
@@ -4521,8 +4747,8 @@ endif
       enddo Off_Elem_3
 
       call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                             fV_2d_Off(:,:),fV_Mort_Off(:,:),Extrp_Off)
-      
+                             fV_2d_Off(:,:),fV_Mort_Off(:,:),Extrp_Off, Extrp_Off)
+
       On_Mortar_3:do j = 1, n_S_2d_Mort
 
         jnode =  n_S_2d_max*(iface-1) + j          ! Index in facial ordering
@@ -4534,7 +4760,7 @@ endif
       enddo On_Mortar_3
 
       call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                             fV_Mort_On(:,:),fV_2d_On(:,:),Intrp_On)
+                             fV_Mort_On(:,:),fV_2d_On(:,:),Intrp_On,Intrp_On)
 
       !  =======
       !  IP dissipation: formed on the common mortar between element interfaces
@@ -4559,7 +4785,7 @@ endif
       enddo On_Mortar_4
 
       call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                                IP_2d_Mort(:,:),IP_2d_On(:,:),Intrp_On)
+                                IP_2d_Mort(:,:),IP_2d_On(:,:),Intrp_On,Intrp_On)
 
       On_Elem_4:do i = 1, n_S_2d_On                              !  Onface sweep 
     
@@ -7050,7 +7276,7 @@ endif
                                       & ldg_flip_flop_sign, alpha_ldg_flip_flop,&
                                       & elem_props, &
                                       & Restrct_Gau_2_LGL_1d, Prolong_LGL_2_Gau_1d
-        use initcollocation,      only: ExtrpXA2XB_2D_neq, ExtrpXA2XB_2D_neq_k, &
+        use initcollocation,      only: ExtrpXA2XB_2D_neq, &
                                         & Gauss_Legendre_points, element_properties
 
         implicit none
@@ -7278,7 +7504,7 @@ endif
                 nghst_volume = nghst_volume + n_S_2d_Off                !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
 
                 call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                                       wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off)
+                                       wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off,Extrp_Off)
 
                 On_Mortar_0:do j = 1, n_S_2d_Mort
           
@@ -7309,7 +7535,7 @@ endif
 
 
                 call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                                       wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off)
+                                       wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off,Extrp_Off)
 
                 On_Mortar_1:do j = 1, n_S_2d_Mort
           
@@ -7324,7 +7550,7 @@ endif
               endif
 
               call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                                     wg_2d_Mort_On(:,:),wg_2d_On(:,:),Intrp_On)
+                                     wg_2d_Mort_On(:,:),wg_2d_On(:,:),Intrp_On,Intrp_On)
 
               On_Elem:do i = 1,n_S_2d_On                                  ! On-Element face loop
     

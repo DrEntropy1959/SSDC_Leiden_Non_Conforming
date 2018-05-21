@@ -1028,12 +1028,12 @@ contains
 
         ! Loop over all elements on process
         do i = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
-         
+        
           cnt_pack = cnt_pack + 1
           
           ! Original element index
           ii = i2jelems(i)
-
+ 
           ! Fill the e2v connectivity
           do j = 1, 2**ndim
             jj = iae2v(ii) + j - 1
@@ -1367,7 +1367,8 @@ contains
       allocate(ef2etmp2(qdim,2*ndim,ihelems(1):ihelems(2)))
       cnt_unpack = 0
       do ii = ihelems(1),ihelems(2)
-        do jj = 1, 2*ndim
+        !do jj = 1, 2*ndim
+         do jj = 1, nfacesperelem
           do kk = 1, qdim
             cnt_unpack = cnt_unpack + 1
             ef2etmp2(kk,jj,ii) = tmp_ef2etmp2(cnt_unpack)
@@ -1895,8 +1896,10 @@ contains
        do iface = 1, 2*ndim !HACK
 
         if (ef2e(3,iface,ielem) == myprocid) then
+            !-- skips on process interfaces and boundary interfaces (the proc id of BC faces is set to self)
             cycle
         elseif(ef2e(9,iface,ielem) == 1) then! HACK
+          !-- skips over h-nonconforming faces
           cycle
         else
 
