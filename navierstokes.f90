@@ -3876,9 +3876,10 @@ contains
             call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                         n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                         n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
-                                                        pinv,                                           &
-                                                        vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,  &
-                                                        IOn2Off, IOff2On, nx_Off_ghst)
+                                                        pinv, nx_Off_ghst,                              &
+                                                        vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,      &
+                                                        IOn2Off, IOn2Off,                               &
+                                                        IOff2On, IOff2On )
 
           else
             !-- old version
@@ -3966,17 +3967,17 @@ contains
 !               | ++| -+|   |  2|  8|   |  3|  9|   |  4| 10|   |  5| 11|   |  6| 12|
 !               ---------   ---------   ---------   ---------   ---------   ---------
 !
-        allocate(Eye(n_S_1d_On,n_S_1d_On)); Eye(:,:) = 0 ;
-        allocate(Jay(n_S_1d_On,n_S_1d_On)); Jay(:,:) = 0 ;
+        allocate(Eye(n_S_1d_On,n_S_1d_On)); Eye(:,:) = 0 ;                                  !  Initialize matrix to zero
+        allocate(Jay(n_S_1d_On,n_S_1d_On)); Jay(:,:) = 0 ;                                  !  Initialize matrix to zero
 
-        do i = 1,n_S_1d_On ; Eye(i,i) = 1 ; Jay(i,n_S_1d_On+1-i) = 1 ; enddo
+        do i = 1,n_S_1d_On ; Eye(i,i) = 1 ; Jay(i,n_S_1d_On+1-i) = 1 ; enddo                !  Set diagonal and per-diagonal to 1
 
-        allocate(Intrp_On_2_Off_x1(n_S_1d_On,n_S_1d_On)) ; Intrp_On_2_Off_x1(:,:) = 0.0_wp
-        allocate(Intrp_Off_2_On_x1(n_S_1d_On,n_S_1d_On)) ; Intrp_Off_2_On_x1(:,:) = 0.0_wp
-        allocate(Intrp_On_2_Off_x2(n_S_1d_On,n_S_1d_On)) ; Intrp_On_2_Off_x2(:,:) = 0.0_wp
-        allocate(Intrp_Off_2_On_x2(n_S_1d_On,n_S_1d_On)) ; Intrp_Off_2_On_x2(:,:) = 0.0_wp
+        allocate(Intrp_On_2_Off_x1(n_S_1d_On,n_S_1d_On)) ; Intrp_On_2_Off_x1(:,:) = 0.0_wp  ! Intialize Interpolation matrices
+        allocate(Intrp_Off_2_On_x1(n_S_1d_On,n_S_1d_On)) ; Intrp_Off_2_On_x1(:,:) = 0.0_wp  ! Intialize Interpolation matrices
+        allocate(Intrp_On_2_Off_x2(n_S_1d_On,n_S_1d_On)) ; Intrp_On_2_Off_x2(:,:) = 0.0_wp  ! Intialize Interpolation matrices
+        allocate(Intrp_Off_2_On_x2(n_S_1d_On,n_S_1d_On)) ; Intrp_Off_2_On_x2(:,:) = 0.0_wp  ! Intialize Interpolation matrices
 
-        if(ef2e(10,iface,ielem) == 0) then     !  The Coarse Side
+        if(ef2e(10,iface,ielem) == 0) then                                                  !  The Coarse Side
               
            select case(iface)
              case( 1: 6)
@@ -4001,7 +4002,7 @@ contains
                 Intrp_Off_2_On_x2(:,:) = matmul(Jay,LGL_Coarse_2_LGL_Fine_1d(:,:))
            end select
 
-        elseif(ef2e(10,iface,ielem) == 1) then
+        elseif(ef2e(10,iface,ielem) == 1) then                                              !  The Fine side
 
            select case(iface)
              case( 1: 6)
@@ -4100,16 +4101,16 @@ contains
 !         call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW(ielem, iface, ifacenodes_On ,n_S_2d_max, &
 !                                                     n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
 !                                                     n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
-!                                                     pinv,                                           &
+!                                                     pinv, nx_Off_ghst,                              &
 !                                                     vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,      &
 !                                                     Intrp_On_2_Off_x1, Intrp_On_2_Off_x2,           &
-!                                                     Intrp_Off_2_On_x1, Intrp_Off_2_On_x2, nx_Off_ghst)
+!                                                     Intrp_Off_2_On_x1, Intrp_Off_2_On_x2)
         else
           write(*,*)'In navierstokes: SAT_Penalty you have chosen an incorrect value of SAT_type = ',&
             SAT_type,' ending computation'
           call PetscFinalize(i_err); stop
         endif
-                                                                             ! ============================================
+
 ! ========
 !       Viscous interface SATs 
 ! ========
@@ -4132,13 +4133,12 @@ contains
         deallocate(Intrp_On_2_Off_x1,Intrp_On_2_Off_x2)
         deallocate(Intrp_Off_2_On_x1,Intrp_Off_2_On_x2)
 
-      end if  !  main if statement differentiating different paths (interface / BC type) in SAT_Penalty routine
+      end if                                                        !  Main ``if'' conditional (interface / BC type) in SAT_Pen routine
 
-    end do faceloop
+    end do faceloop                                                 !  Main ``face'' conditional in SAT_Pen routine
     
-    ! Deallocate memory
 
-    deallocate(x_S_1d_On)
+    deallocate(x_S_1d_On)                                           ! Deallocate memory
 
     deallocate(fRoeI,fLLF)
     deallocate(fstar,fstarV)
@@ -4329,9 +4329,10 @@ contains
   subroutine Inviscid_SAT_Non_Conforming_Interface_Mod_SAT_NEW(ielem, iface, ifacenodes_On ,n_S_2d_max, &
                                                      n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                      n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
-                                                     pinv,                                           &
-                                                     vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,  &
-                                                     IOn2Off,IOff2On ,nx_Off_ghst)
+                                                     pinv, nx_Off_ghst,                              &
+                                                     vg_2d_On,  vg_2d_Off, wg_2d_On, wg_2d_Off,      &
+                                                     IOn2Off_x1, IOn2Off_x2,                         &
+                                                     IOff2On_x1, IOff2On_x2 )
 
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, gsat, ef2e
@@ -4343,12 +4344,15 @@ contains
     integer,                    intent(in) :: ielem, iface
     integer,                    intent(in) :: n_S_1d_On, n_S_1d_Off
     integer,                    intent(in) :: n_S_2d_On, n_S_2d_Off, n_S_2d_max
+    integer,   dimension(:),    intent(in) :: ifacenodes_On
+
     real(wp),  dimension(:),    intent(in) :: x_S_1d_On, x_S_1d_Off
     real(wp),  dimension(:),    intent(in) :: pinv
-    integer,   dimension(:),    intent(in) :: ifacenodes_On
+    real(wp),  dimension(:,:),  intent(in) :: nx_Off_ghst
     real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
     real(wp),  dimension(:,:),  intent(in) :: wg_2d_On, wg_2d_Off
-    real(wp),  dimension(:,:),  intent(in) :: IOn2Off, IOff2On, nx_Off_ghst
+    real(wp),  dimension(:,:),  intent(in) :: IOn2Off_x1,IOn2Off_x2
+    real(wp),  dimension(:,:),  intent(in) :: IOff2On_x1,IOff2On_x2
     
     real(wp),  dimension(ndim)             :: nx, nx_On, nx_Off, nx_Ave
     real(wp),  dimension(nequations)       :: fn, fstar
@@ -4368,10 +4372,10 @@ contains
       allocate(wg_Off2On(nequations,1:n_S_2d_On))
 
       !-- interpolate/extrapolate wg from On to Off and vice versa
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Off,x_S_1d_On ,x_S_1d_Off, &
-                             wg_2d_On ,wg_On2Off,IOn2Off,IOn2Off) 
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On ,x_S_1d_Off,x_S_1d_On , &
-                             wg_2d_Off,wg_Off2On,IOff2On,IOff2On)
+      call ExtrpXA2XB_2D_neq(nequations, n_S_1d_On , n_S_1d_Off, x_S_1d_On , x_S_1d_Off, &
+                             wg_2d_On ,wg_On2Off, IOn2Off_x1, IOn2Off_x2) 
+      call ExtrpXA2XB_2D_neq(nequations, n_S_1d_Off, n_S_1d_On , x_S_1d_Off, x_S_1d_On , &
+                             wg_2d_Off,wg_Off2On, IOff2On_x1, IOff2On_x2)
 
       allocate(FA (nequations,n_S_2D_Off ))
       allocate(FB (nequations,n_S_2D_On  ))
@@ -4408,7 +4412,7 @@ contains
         enddo Off_Element_1                                                    ! End Off_Element
 
         call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On, &
-                               FA,FB,IOff2On, IOff2On)  ! Extrapolate f^S_x
+                               FA,FB, IOff2On_x1, IOff2On_x2)  ! Extrapolate f^S_x
 
         l =  map_face_orientation_k_On_2_k_Off(i,orientation,n_S_1d_On)        ! Correct for face orientation and shift back to 1:n_S_2d_On
 
@@ -4465,7 +4469,7 @@ contains
  
                                                                                       ! Restrict data plane from Mortar to on-face plane
       call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off ,n_S_1d_On ,x_S_1d_Off ,x_S_1d_On, &
-                             Up_diss_Off,Up_diss_On, IOff2On, IOff2On )
+                             Up_diss_Off,Up_diss_On, IOff2On_x1, IOff2On_x2)
 
       !-- add dissipation to sat
 
