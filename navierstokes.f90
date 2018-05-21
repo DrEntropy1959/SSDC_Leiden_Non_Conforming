@@ -3840,8 +3840,10 @@ contains
         endif
 
         ! Extrapolate On_element and Off_element entropy variables wg ==>  Mortar
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Mort,x_S_1d_On ,x_S_1d_Mort,wg_2d_On ,wg_Mort_On ,Extrp_On )
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,wg_2d_Off,wg_Mort_Off,Extrp_Off)
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Mort,x_S_1d_On ,x_S_1d_Mort, &
+                               wg_2d_On ,wg_Mort_On ,Extrp_On ,Extrp_On )
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
+                               wg_2d_Off,wg_Mort_Off,Extrp_Off,Extrp_Off)
 
 !=========
 !       Inviscid interface SATs (skew-symmetric portion + Upwind Entropy Stable dissipation)
@@ -3998,9 +4000,12 @@ contains
 
         enddo Off_Element_1                                                  ! End Off_Element
 
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FxA,FxB,Extrp_Off)  ! Extrapolate f^S_x
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FyA,FyB,Extrp_Off)  ! Extrapolate f^S_y
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FzA,FzB,Extrp_Off)  ! Extrapolate f^S_z
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
+                               FxA,FxB,Extrp_Off,Extrp_Off)  ! Extrapolate f^S_x
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
+                               FyA,FyB,Extrp_Off,Extrp_Off)  ! Extrapolate f^S_y
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
+                               FzA,FzB,Extrp_Off,Extrp_Off)  ! Extrapolate f^S_z
 
         On_Mortar_1:do j = 1, n_S_2d_Mort                                    ! Mortar loop over 2D Gauss points
   
@@ -4050,7 +4055,8 @@ contains
       enddo On_Mortar_2                                                      ! End mortar loop
 
                                                                                  ! Restrict data plane from Mortar to on-face plane
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort ,n_S_1d_On ,x_S_1d_Mort ,x_S_1d_On,Up_diss_Mort,Up_diss_On, Intrp_On )
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort ,n_S_1d_On ,x_S_1d_Mort ,x_S_1d_On, &
+                             Up_diss_Mort,Up_diss_On, Intrp_On , Intrp_On)
 
       On_Elem_2: do i = 1, n_S_2d_On                                         ! On-element loop: Begin
         
@@ -4152,13 +4158,15 @@ contains
       allocate(wg_Off2On(nequations,1:n_S_2d_On))
 
       !-- interpolate/extrapolate wg from On to Off and vice versa
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Off,x_S_1d_On ,x_S_1d_Off,wg_2d_On ,wg_On2Off,IOn2Off)
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On ,x_S_1d_Off,x_S_1d_On ,wg_2d_Off,wg_Off2On,IOff2On)
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_On ,n_S_1d_Off,x_S_1d_On ,x_S_1d_Off, &
+                             wg_2d_On ,wg_On2Off,IOn2Off,IOn2Off) 
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On ,x_S_1d_Off,x_S_1d_On , &
+                             wg_2d_Off,wg_Off2On,IOff2On,IOff2On)
 
       allocate(FA (nequations,n_S_2D_Off ))
-      allocate(FB (nequations,n_S_2D_On ))
+      allocate(FB (nequations,n_S_2D_On  ))
       allocate(Up_diss_On  (nequations,n_S_2d_On  ))
-      allocate(Up_diss_Off  (nequations,n_S_2d_Off  ))
+      allocate(Up_diss_Off (nequations,n_S_2d_Off ))
 
       !-- orientation of the off element relative to the on element
       orientation = ef2e(7,iface,ielem)
@@ -4190,7 +4198,8 @@ contains
 
         enddo Off_Element_1                                                    ! End Off_Element
 
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On,FA,FB,IOff2On)  ! Extrapolate f^S_x
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On, &
+                               FA,FB,IOff2On, IOff2On)  ! Extrapolate f^S_x
 
         l =  map_face_orientation_k_On_2_k_Off(i,orientation,n_S_1d_On)        ! Correct for face orientation and shift back to 1:n_S_2d_On
 
@@ -4246,7 +4255,8 @@ contains
       enddo Off_Element_2
  
                                                                                       ! Restrict data plane from Mortar to on-face plane
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off ,n_S_1d_On ,x_S_1d_Off ,x_S_1d_On,Up_diss_Off,Up_diss_On, IOff2On )
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off ,n_S_1d_On ,x_S_1d_Off ,x_S_1d_On, &
+                             Up_diss_Off,Up_diss_On, IOff2On, IOff2On )
 
       !-- add dissipation to sat
 
@@ -4379,7 +4389,8 @@ contains
 
         enddo Off_Element_1                                                  ! End Off_Element
 
-        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort,FA,FB,Extrp_Off)  ! Extrapolate f^S_x
+        call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
+                               FA,FB,Extrp_Off, Extrp_Off)                   ! Extrapolate f^S_x
 
         On_Mortar_1:do j = 1, n_S_2d_Mort                                    ! Mortar loop over 2D Gauss points
   
@@ -4417,7 +4428,8 @@ if(.true.)then
       enddo On_Mortar_2                                                      ! End mortar loop
 
                                                                                  ! Restrict data plane from Mortar to on-face plane
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort ,n_S_1d_On ,x_S_1d_Mort ,x_S_1d_On,Up_diss_Mort,Up_diss_On, Intrp_On )
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort ,n_S_1d_On ,x_S_1d_Mort ,x_S_1d_On, &
+                             Up_diss_Mort,Up_diss_On, Intrp_On, Intrp_On )
 
       On_Elem_2: do i = 1, n_S_2d_On                                         ! On-element loop: Begin
         
@@ -4521,7 +4533,7 @@ endif
       enddo Off_Elem_3
 
       call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                             fV_2d_Off(:,:),fV_Mort_Off(:,:),Extrp_Off)
+                             fV_2d_Off(:,:),fV_Mort_Off(:,:),Extrp_Off, Extrp_Off)
       
       On_Mortar_3:do j = 1, n_S_2d_Mort
 
@@ -4534,7 +4546,7 @@ endif
       enddo On_Mortar_3
 
       call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                             fV_Mort_On(:,:),fV_2d_On(:,:),Intrp_On)
+                             fV_Mort_On(:,:),fV_2d_On(:,:),Intrp_On,Intrp_On)
 
       !  =======
       !  IP dissipation: formed on the common mortar between element interfaces
@@ -4559,7 +4571,7 @@ endif
       enddo On_Mortar_4
 
       call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                                IP_2d_Mort(:,:),IP_2d_On(:,:),Intrp_On)
+                                IP_2d_Mort(:,:),IP_2d_On(:,:),Intrp_On,Intrp_On)
 
       On_Elem_4:do i = 1, n_S_2d_On                              !  Onface sweep 
     
@@ -7278,7 +7290,7 @@ endif
                 nghst_volume = nghst_volume + n_S_2d_Off                !  Keep track of position in Ghost stack (n_S_2d_On=n_S_2d_Off)
 
                 call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                                       wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off)
+                                       wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off,Extrp_Off)
 
                 On_Mortar_0:do j = 1, n_S_2d_Mort
           
@@ -7309,7 +7321,7 @@ endif
 
 
                 call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                                       wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off)
+                                       wg_2d_Off(:,:),wg_2d_Mort_Off(:,:),Extrp_Off,Extrp_Off)
 
                 On_Mortar_1:do j = 1, n_S_2d_Mort
           
@@ -7324,7 +7336,7 @@ endif
               endif
 
               call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                                     wg_2d_Mort_On(:,:),wg_2d_On(:,:),Intrp_On)
+                                     wg_2d_Mort_On(:,:),wg_2d_On(:,:),Intrp_On,Intrp_On)
 
               On_Elem:do i = 1,n_S_2d_On                                  ! On-Element face loop
     

@@ -2764,7 +2764,7 @@ end function
     ! this subroutine calculates the outward facing normals
     ! of each facial node
     use referencevariables
-    use initcollocation,      only: element_properties, ExtrpXa2XB_2D_neq, Gauss_Legendre_points
+    use initcollocation,      only: element_properties, ExtrpXA2XB_2D_neq, Gauss_Legendre_points
     use collocationvariables, only: Restrct_Gau_2_LGL_1d, elem_props
     use variables, only: Jx_facenodenormal_Gau, Jx_facenodenormal_LGL, xg_Gau_Shell, ef2e
 
@@ -2835,7 +2835,8 @@ end function
 !        iend_On = iend_Mort
 
         call ExtrpXA2XB_2D_neq(3, n_S_1d_Mort, n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart_On:iend_On,ielem),Intrp)
+           Jx_facenodenormal_Gau(:,istart_Mort:iend_Mort,ielem),Jx_facenodenormal_LGL(:,istart_On:iend_On,ielem),&
+                          Intrp, Intrp)
         endif
       end do
 
