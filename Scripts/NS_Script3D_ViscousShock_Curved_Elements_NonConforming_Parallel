@@ -6,7 +6,7 @@ cp Scripts/Startup/SSDCstartup.Viscous_Shock.Convergence.Study.NonConforming.Par
 cp zerodat Viscous_Shock.Convergence.Study.NonConforming.Parallel.csv
  for var1 in 1 2 3 #4
    do
-   for var2 in 1 2 3 4 5 7
+   for var2 in 1 2 3 4 5 6
      do
      echo "Order: $var1 : mpirun -np: $var2  "
      cat SSDCstartup.ref  | sed 's/NPoly/'${var1}'/g'  > SSDCstartup
