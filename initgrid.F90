@@ -742,10 +742,11 @@ contains
     ! each element. Currently we assume that all elements are
     ! straight sided, but this can be remedied by incorporating
     ! CAD or analytical surface data. 
-    use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin
+    use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin, hrefine
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
+
     implicit none
     ! indices
     integer :: ielem, inode, idir, iface
@@ -900,612 +901,19 @@ contains
           xl(:,nE, 1, :) = curved_connector_parabola(nE,xl(:,nE, 1, 1),xl(:,nE, 1,nE),xi) ! xi_1 = 1, xi_2 = 0
         end if
       case('sphere')
-
-        face_do : do iface = 1,nfacesperelem
-          !-- determine the radius and ensure that all 4 points have the same radius 
-          !-- these are stored in a counter-clockwise fashion relatlve to the coordinate axis
-          ! for example
-          !-- face 1
-          !xi_2    ^
-          !        |
-          !        |
-          !        |
-          !        ------> xi_1  
-          !  
-          ! r(4)__________r(3)
-          !     |         |
-          !     |         |
-          !     |         |
-          !     |         |
-          ! r(1) ----------r(2)
- 
-          if(iface.EQ.1)then
-            points_surf(1,:) = vx(:,e2v(1,ielem))
-            points_surf(2,:) = vx(:,e2v(2,ielem))
-            points_surf(3,:) = vx(:,e2v(3,ielem))
-            points_surf(4,:) = vx(:,e2v(4,ielem))
-          elseif(iface.EQ.2)then
-            points_surf(1,:) = vx(:,e2v(1,ielem))
-            points_surf(2,:) = vx(:,e2v(2,ielem))
-            points_surf(3,:) = vx(:,e2v(6,ielem))
-            points_surf(4,:) = vx(:,e2v(5,ielem))
-          elseif(iface.EQ.3)then
-            points_surf(1,:) = vx(:,e2v(2,ielem))
-            points_surf(2,:) = vx(:,e2v(3,ielem))
-            points_surf(3,:) = vx(:,e2v(7,ielem))
-            points_surf(4,:) = vx(:,e2v(6,ielem))
-          elseif(iface.EQ.4)then
-            points_surf(1,:) = vx(:,e2v(4,ielem))
-            points_surf(2,:) = vx(:,e2v(3,ielem))
-            points_surf(3,:) = vx(:,e2v(7,ielem))
-            points_surf(4,:) = vx(:,e2v(8,ielem))
-          elseif(iface.EQ.5)then
-            points_surf(1,:) = vx(:,e2v(1,ielem))
-            points_surf(2,:) = vx(:,e2v(4,ielem))
-            points_surf(3,:) = vx(:,e2v(8,ielem))
-            points_surf(4,:) = vx(:,e2v(5,ielem))
-          elseif(iface.EQ.6)then
-            points_surf(1,:) = vx(:,e2v(5,ielem))
-            points_surf(2,:) = vx(:,e2v(6,ielem))
-            points_surf(3,:) = vx(:,e2v(7,ielem))
-            points_surf(4,:) = vx(:,e2v(8,ielem))
+        hrefine_if: if(hrefine)then
+          if((ef2e(8,9,ielem).GE.1))then
+          !-- refined element
+          !xl(:, :, :, :) = curved_sphere_hrefine(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                         !x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          else
+            !-- populate the srufaces of the block
+            call surface_nodes_sphere(nE,ielem,xl)
           endif
-          do j = 1,4
-            r(j) = magnitude(points_surf(j,:)-origin(:)) 
-          enddo
-
-!-- face 1
-          if(iface.EQ.1)then
-            do i1d = 1,nE                                 ! loop over nodes on edge
-              dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
-              dx = xl(:,nE, 1, 1)-xl(:, 1, 1, 1) ; xl(:, i1d, 1, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_2 = 0, xi_3 = 0
-              dx = xl(:,nE,nE, 1)-xl(:,nE, 1, 1) ; xl(:,nE, i1d, 1) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_3 = 0
-              dx = xl(:,nE,nE, 1)-xl(:, 1,nE, 1) ; xl(:, i1d,nE, 1) = xl(:, 1,nE, 1) + dr*dx ! xi_2 = 1, xi_3 = 0
-              dx = xl(:, 1,nE, 1)-xl(:, 1, 1, 1) ; xl(:, 1, i1d, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_3 = 0
-            enddo   
-            !-- check to see if the surface is on the sphere and if so move points onto sphere
-            if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
-                 .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-
-               call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1:nE,1))
-            else
-              !-- check the four connectors to see if they lay on the sphere
-              if( (abs(r(1)-r(2)).LE.tol) )then
-                !-- connector at xi_2 = 0, xi_3 = 0
-                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,1)
-                endif
-              
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, :, 1, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin) 
-              endif  
-              if( (abs(r(2)-r(3)).LE.tol) )then
-                !-- connector at xi_1 = 1, xi_3 = 0
-                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,2)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, nE, :, 1) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-              endif           
-              if( (abs(r(3)-r(4)).LE.tol) )then
-                !-- connector at xi_2 = 1, xi_3 = 0
-                if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,3)
-                endif
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-                xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
-              endif
-              if( (abs(r(4)-r(1)).LE.tol) )then
-                !-- connector at xi_1 = 0, xi_3 = 0
-                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                   nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,4)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-              endif 
-              ! xi_3 = 0
-              call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
-            endif
-!-- face 2   
-          elseif(iface.EQ.2)then
-            do i1d = 1,nE                                 ! loop over nodes on edge
-              dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
-              dx = xl(:,nE, 1, 1)-xl(:, 1, 1, 1) ; xl(:, i1d, 1, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_2 = 0, xi_3 = 0
-              dx = xl(:,nE, 1,nE)-xl(:,nE, 1, 1) ; xl(:,nE, 1, i1d) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_2 = 0
-              dx = xl(:,nE, 1,nE)-xl(:, 1, 1,nE) ; xl(:, i1d, 1,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_2 = 0, xi_3 = 1
-              dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
-            enddo
-            
-            !-- check to see if the surface is on the sphere and if so move points onto sphere
-            if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
-                 .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-              call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1,1:nE))
-            else
-              !-- check to see if the connectors lay on the sphere
-              if( (abs(r(1)-r(2)).LE.tol) )then
-                !-- connector at xi_2 = 0, xi_3 = 0
-                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,1)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, :, 1, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-              endif  
-              if( (abs(r(2)-r(3)).LE.tol) )then
-                !-- connector at xi_1 = 1, xi_2 = 0
-                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,2)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-              endif           
-              if( (abs(r(3)-r(4)).LE.tol) )then
-                !-- connector at xi_2 = 0, xi_3 = 1
-                if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,3)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, :, 1,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
-              endif
-              if( (abs(r(4)-r(1)).LE.tol) )then
-                !-- connector at xi_1 = 0, xi_2 = 0
-                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,4)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, 1, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-              endif     
-            
-              ! xi_2 = 0
-              call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
-            endif  
-
-!-- face 3
-          elseif(iface.EQ.3)then
-            do i1d = 1,nE                                 ! loop over nodes on edge
-              dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
-              dx = xl(:,nE,nE, 1)-xl(:,nE, 1, 1) ; xl(:,nE, i1d, 1) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_3 = 0
-              dx = xl(:,nE,nE,nE)-xl(:,nE,nE, 1) ; xl(:,nE,nE, i1d) = xl(:,nE,nE, 1) + dr*dx ! xi_1 = 1, xi_2 = 1
-              dx = xl(:,nE,nE,nE)-xl(:,nE, 1,nE) ; xl(:,nE, i1d,nE) = xl(:,nE, 1,nE) + dr*dx ! xi_1 = 1, xi_3 = 1
-              dx = xl(:,nE, 1,nE)-xl(:,nE, 1, 1) ; xl(:,nE, 1, i1d) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_2 = 0
-            enddo
- 
-            !-- check to see if the surface is on the sphere and if so move points onto sphere
-            if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
-                 .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-              call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,nE,1:nE,1:nE))
-            else
-              !-- check to see if the connectors lay on the sphere
-              if( (abs(r(1)-r(2)).LE.tol) )then
-                !-- connector at xi_1 = 1, xi_3 = 0
-                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then 
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,1)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:,nE, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-              endif  
-              if( (abs(r(2)-r(3)).LE.tol) )then
-                !-- connector at xi_1 = 1, xi_2 = 1
-                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,2)
-                endif
-  
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-            
-                xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-              endif           
-              if( (abs(r(3)-r(4)).LE.tol) )then
-                !-- connector at xi_1 = 1, xi_3 = 1
-                if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,3)
-                endif
-  
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:,nE, :,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
-              endif
-              if( (abs(r(4)-r(1)).LE.tol) )then
-                !-- connector at xi_1 = 1, xi_2 = 0
-                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,4)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-            
-                xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-               endif 
- 
-              ! xi_1 = 1
-              call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
-            endif  
-!-- face 4
-          elseif(iface.EQ.4)then
-            do i1d = 1,nE                                 ! loop over nodes on edge
-              dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
-              dx = xl(:,nE,nE, 1)-xl(:, 1,nE, 1) ; xl(:, i1d,nE, 1) = xl(:, 1,nE, 1) + dr*dx ! xi_2 = 1, xi_3 = 0
-              dx = xl(:,nE,nE,nE)-xl(:,nE,nE, 1) ; xl(:,nE,nE, i1d) = xl(:,nE,nE, 1) + dr*dx ! xi_1 = 1, xi_2 = 1
-              dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
-              dx = xl(:, 1,nE,nE)-xl(:, 1,nE, 1) ; xl(:, 1,nE, i1d) = xl(:, 1,nE, 1) + dr*dx ! xi_1 = 0, xi_2 = 1
-            enddo
-
-            !-- check to see if the surface is on the sphere and if so move points onto sphere
-            if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
-                 .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-              call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,nE,1:nE))
-            else
-              !-- check to see if the connectors lay on the sphere
-              if( (abs(r(1)-r(2)).LE.tol) )then
-                !-- connector at xi_2 = 1, xi_3 = 0
-                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,1)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-              endif  
-              if( (abs(r(2)-r(3)).LE.tol) )then
-                !-- connector at xi_1 = 1, xi_2 = 1
-                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
-                  !-- this connector is on the surface            
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,2)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-              endif           
-              if( (abs(r(3)-r(4)).LE.tol) )then
-                !-- connector at xi_2 = 1, xi_3 = 1
-                if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,3)
-                endif
-  
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, :,nE,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
-              endif
-              if( (abs(r(4)-r(1)).LE.tol) )then
-                !-- connector at xi_1 = 0, xi_2 = 1
-                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,4)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, 1,nE, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-              endif
-
-              ! xi_2 = 1
-              call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
-
-            endif  
-
-!-- face 5
-          elseif(iface.EQ.5)then
-            do i1d = 1,nE                                 ! loop over nodes on edge
-              dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
-              dx = xl(:, 1,nE, 1)-xl(:, 1, 1, 1) ; xl(:, 1, i1d, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_3 = 0
-              dx = xl(:, 1,nE,nE)-xl(:, 1,nE, 1) ; xl(:, 1,nE, i1d) = xl(:, 1,nE, 1) + dr*dx ! xi_1 = 0, xi_2 = 1   
-              dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
-              dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
-            enddo
-
-            !-- check to see if the surface is on the sphere and if so move points onto sphere
-            if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
-                 .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-              call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1,1:nE,1:nE))
-            else
-              !-- check to see if the connectors lay on the sphere
-              if( (abs(r(1)-r(2)).LE.tol) )then
-                !-- connector at xi_1 = 0, xi_3 = 0
-                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,1)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-              endif  
-              if( (abs(r(2)-r(3)).LE.tol) )then
-                !-- connector at xi_1 = 0, xi_2 = 1
-                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,2)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, 1,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin) 
-              endif           
-              if( (abs(r(3)-r(4)).LE.tol) )then
-                !-- connector at xi_1 = 0, xi_3 = 1
-                if((abs(r(3)-radius).LE.toL).AND.(abs(r(4)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,3)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, 1, :,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
-              endif
-              if( (abs(r(4)-r(1)).LE.tol) )then
-                !-- connector at xi_1 = 0, xi_2 = 0
-                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,4)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, 1, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-              endif
-
-              ! xi_1 = 0
-              call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
-            endif  
-
-!-- face 6
-          elseif(iface.EQ.6)then
-            do i1d = 1,nE                                 ! loop over nodes on edge
-              dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
-              dx = xl(:,nE, 1,nE)-xl(:, 1, 1,nE) ; xl(:, i1d, 1,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_2 = 0, xi_3 = 1
-              dx = xl(:,nE,nE,nE)-xl(:,nE, 1,nE) ; xl(:,nE, i1d,nE) = xl(:,nE, 1,nE) + dr*dx ! xi_1 = 1, xi_3 = 1
-              dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
-              dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
-            enddo
-
-            !-- check to see if the surface is on the sphere and if so move points onto sphere
-            if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
-                 .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
-              call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1:nE,nE))
-            else
-              !-- check to see if the connectors lay on the sphere
-              if( (abs(r(1)-r(2)).LE.tol) )then
-                !-- connector at xi_2 = 0, xi_3 = 1
-                if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,1)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, :, 1,nE) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-              endif  
-              if( (abs(r(2)-r(3)).LE.tol) )then
-                !-- connector at xi_1 = 1, xi_3 = 1
-                if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,2)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:,nE, :,nE) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(2),origin)
-              endif           
-              if( (abs(r(3)-r(4)).LE.tol) )then
-                !-- connector at xi_2 = 1, xi_3 = 1
-                if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,3)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, :,nE,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(3),origin)
-              endif
-              if( (abs(r(4)-r(1)).LE.tol) )then
-                !-- connector at xi_1 = 0, xi_3 = 1
-                if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
-                  !-- this connector is on the surface
-                  nmin = nE
-                else
-                  nmin = nmin_connector(ielem,iface,nE,4)
-                endif
-
-                if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
-                if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-
-                call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-          
-                xl(:, 1, :,nE) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
-                                                       x_LGL_1d,x_LGL_1d_min,r(1),origin)
-              endif
-
-              ! xi_3 = 1
-              call TFI2D(xl(:, :, :,nE),nE,x_LGL_1d)
-            endif  
-!-- for debug purposes to write various things to file
-!            if(ielem.EQ.2)then
-!              call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector2_6_1.tf')
-!              call write_matrix_to_file_matlab(xl(:,nE, :,nE),3,nE,'connector2_6_2.tf')
-!              call write_matrix_to_file_matlab(xl(:, :,nE,nE),3,nE,'connector2_6_3.tf')
-!              call write_matrix_to_file_matlab(xl(:, 1, :,nE),3,nE,'connector2_6_4.tf')
-!              call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector2_2_3_face6.tf')
-!            elseif(ielem.EQ.98)then
-!              call write_matrix_to_file_matlab(xl(:, :, 1,nE),3,nE,'connector98_6_1.tf')
-!              call write_matrix_to_file_matlab(xl(:,nE, :,nE),3,nE,'connector98_6_2.tf')
-!              call write_matrix_to_file_matlab(xl(:, :,nE,nE),3,nE,'connector98_6_3.tf!')
-!              call write_matrix_to_file_matlab(xl(:, 1, :,nE),3,nE,'connector98_6_4.tf')
-!            endif
-!            if(ielem.EQ.2)then
-!              call write_matrix_to_file_matlab(xl(1,1:nE,1:nE,nE),nE,nE,'x2_6.tf')
-!              call write_matrix_to_file_matlab(xl(2,1:nE,1:nE,nE),nE,nE,'y2_6.tf')
-!              call write_matrix_to_file_matlab(xl(3,1:nE,1:nE,nE),nE,nE,'z2_6.tf')
-!            elseif(ielem.EQ.98)then
-!              call write_matrix_to_file_matlab(xl(1,1:nE,1:nE,nE),nE,nE,'x98_6.tf')
-!              call write_matrix_to_file_matlab(xl(2,1:nE,1:nE,nE),nE,nE,'y98_6.tf')
-!              call write_matrix_to_file_matlab(xl(3,1:nE,1:nE,nE),nE,nE,'z98_6.tf')
-!            endif
-          endif
-      enddo face_do
+        else
+          !-- populate the srufaces of the block
+          call surface_nodes_sphere(nE,ielem,xl)
+        endif hrefine_if
     end select
 
       ! build faces
@@ -1530,8 +938,16 @@ contains
       endif
 
       ! build volumes
-      if (ndim > 2) then
-        call TFI3D(xl(:,:,:,:),nE,x_LGL_1d)
+      if ((ndim > 2)) then
+        if(hrefine)then
+          if((ef2e(8,ielem,9).GE.1))then
+            !-- do nothing the volume nodes have already been computed
+          else
+            call TFI3D(xl(:,:,:,:),nE,x_LGL_1d)
+          endif
+        else
+          call TFI3D(xl(:,:,:,:),nE,x_LGL_1d)
+        endif
       end if
 
       ! populate global coordinate matrix simply by packing
@@ -1554,6 +970,734 @@ contains
   end subroutine calcnodes_LGL
   !================================================================================================
   !
+  ! Purpose: This function populates the surface nodes of a hex for use on
+  ! sphereical meshes 
+  !
+  ! inputs:
+  !         nE = number of nodes in each direction
+  !         ielem = element that is being populated
+  !         xl = matrix that stores the nodal locations
+  !
+  ! Output:
+  !         xl = populated with the nodal distribution
+  !
+  ! Notes:
+  !================================================================================================
+  subroutine surface_nodes_sphere(nE, ielem,xl)
+!HERE
+    use referencevariables, only: ndim
+    use variables, only: vx, e2v
+    use controlvariables, only: radius, origin
+    use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
+
+    integer, intent(in) :: nE, ielem
+    real(wp), intent(inout) :: xl(1:3,1:nE,1:nE,1:nE)
+
+    integer :: iface, j, i1d, nmin, nE_temp   
+    real(wp) :: xl_parent(1:3,1:nE,1:nE,1:nE)
+    real(wp), dimension(4,3)                            :: points_surf
+    real(wp), dimension(4)                              :: r
+    real(wp), allocatable :: x_LGL_1d(:)
+    real(wp)                :: dr
+    real(wp), dimension(3)  :: dx
+    real(wp), allocatable                               :: x_LGL_1d_min(:), w_LGL_1d_min(:)
+
+    real(wp), parameter                                 :: tol = 1.0e-12_wp
+
+      call element_properties(ielem,       &                   !     ! nE is size of edge on element (varies with element)
+                              n_pts_1d=nE_temp, &
+                              x_pts_1d=x_LGL_1d)
+
+    !-- build the nodal distribution on the parent element
+    face_do : do iface = 1,2*ndim
+      !-- determine the radius and ensure that all 4 points have the same radius 
+      !-- these are stored in a counter-clockwise fashion relatlve to the coordinate axis
+      ! for example
+      !-- face 1
+      !xi_2    ^
+      !        |
+      !        |
+      !        |
+      !        ------> xi_1  
+      !  
+      ! r(4)__________r(3)
+      !     |         |
+      !     |         |
+      !     |         |
+      !     |         |
+      ! r(1) ----------r(2)
+  
+      if(iface.EQ.1)then
+        points_surf(1,:) = vx(:,e2v(1,ielem))
+        points_surf(2,:) = vx(:,e2v(2,ielem))
+        points_surf(3,:) = vx(:,e2v(3,ielem))
+        points_surf(4,:) = vx(:,e2v(4,ielem))
+      elseif(iface.EQ.2)then
+        points_surf(1,:) = vx(:,e2v(1,ielem))
+        points_surf(2,:) = vx(:,e2v(2,ielem))
+        points_surf(3,:) = vx(:,e2v(6,ielem))
+        points_surf(4,:) = vx(:,e2v(5,ielem))
+      elseif(iface.EQ.3)then
+        points_surf(1,:) = vx(:,e2v(2,ielem))
+        points_surf(2,:) = vx(:,e2v(3,ielem))
+        points_surf(3,:) = vx(:,e2v(7,ielem))
+        points_surf(4,:) = vx(:,e2v(6,ielem))
+      elseif(iface.EQ.4)then
+        points_surf(1,:) = vx(:,e2v(4,ielem))
+        points_surf(2,:) = vx(:,e2v(3,ielem))
+        points_surf(3,:) = vx(:,e2v(7,ielem))
+        points_surf(4,:) = vx(:,e2v(8,ielem))
+      elseif(iface.EQ.5)then
+        points_surf(1,:) = vx(:,e2v(1,ielem))
+        points_surf(2,:) = vx(:,e2v(4,ielem))
+        points_surf(3,:) = vx(:,e2v(8,ielem))
+        points_surf(4,:) = vx(:,e2v(5,ielem))
+      elseif(iface.EQ.6)then
+        points_surf(1,:) = vx(:,e2v(5,ielem))
+        points_surf(2,:) = vx(:,e2v(6,ielem))
+        points_surf(3,:) = vx(:,e2v(7,ielem))
+        points_surf(4,:) = vx(:,e2v(8,ielem))
+      endif
+      do j = 1,4
+        r(j) = magnitude(points_surf(j,:)-origin(:)) 
+      enddo
+  
+  !-- face 1
+      face_if: if(iface.EQ.1)then
+        do i1d = 1,nE                                 ! loop over nodes on edge
+          dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+          dx = xl(:,nE, 1, 1)-xl(:, 1, 1, 1) ; xl(:, i1d, 1, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_2 = 0, xi_3 = 0
+          dx = xl(:,nE,nE, 1)-xl(:,nE, 1, 1) ; xl(:,nE, i1d, 1) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_3 = 0
+          dx = xl(:,nE,nE, 1)-xl(:, 1,nE, 1) ; xl(:, i1d,nE, 1) = xl(:, 1,nE, 1) + dr*dx ! xi_2 = 1, xi_3 = 0
+          dx = xl(:, 1,nE, 1)-xl(:, 1, 1, 1) ; xl(:, 1, i1d, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_3 = 0
+        enddo   
+        !-- check to see if the surface is on the sphere and if so move points onto sphere
+        if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
+             .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
+  
+           call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1:nE,1))
+        else
+          !-- check the four connectors to see if they lay on the sphere
+          if( (abs(r(1)-r(2)).LE.tol) )then
+            !-- connector at xi_2 = 0, xi_3 = 0
+            if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,1)
+            endif
+          
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, :, 1, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin) 
+          endif  
+          if( (abs(r(2)-r(3)).LE.tol) )then
+            !-- connector at xi_1 = 1, xi_3 = 0
+            if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,2)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, nE, :, 1) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+          endif           
+          if( (abs(r(3)-r(4)).LE.tol) )then
+            !-- connector at xi_2 = 1, xi_3 = 0
+            if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,3)
+            endif
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+            xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(3),origin)
+          endif
+          if( (abs(r(4)-r(1)).LE.tol) )then
+            !-- connector at xi_1 = 0, xi_3 = 0
+            if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+              !-- this connector is on the surface
+               nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,4)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          endif 
+          ! xi_3 = 0
+          call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
+        endif
+  !-- face 2   
+      elseif(iface.EQ.2)then
+        do i1d = 1,nE                                 ! loop over nodes on edge
+          dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+          dx = xl(:,nE, 1, 1)-xl(:, 1, 1, 1) ; xl(:, i1d, 1, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_2 = 0, xi_3 = 0
+          dx = xl(:,nE, 1,nE)-xl(:,nE, 1, 1) ; xl(:,nE, 1, i1d) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_2 = 0
+          dx = xl(:,nE, 1,nE)-xl(:, 1, 1,nE) ; xl(:, i1d, 1,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_2 = 0, xi_3 = 1
+          dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
+        enddo
+        
+        !-- check to see if the surface is on the sphere and if so move points onto sphere
+        if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
+             .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
+          call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1,1:nE))
+        else
+          !-- check to see if the connectors lay on the sphere
+          if( (abs(r(1)-r(2)).LE.tol) )then
+            !-- connector at xi_2 = 0, xi_3 = 0
+            if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,1)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, :, 1, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          endif  
+          if( (abs(r(2)-r(3)).LE.tol) )then
+            !-- connector at xi_1 = 1, xi_2 = 0
+            if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,2)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+          endif           
+          if( (abs(r(3)-r(4)).LE.tol) )then
+            !-- connector at xi_2 = 0, xi_3 = 1
+            if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,3)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, :, 1,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(3),origin)
+          endif
+          if( (abs(r(4)-r(1)).LE.tol) )then
+            !-- connector at xi_1 = 0, xi_2 = 0
+            if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,4)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, 1, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          endif     
+        
+          ! xi_2 = 0
+          call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
+        endif  
+  
+  !-- face 3
+      elseif(iface.EQ.3)then
+        do i1d = 1,nE                                 ! loop over nodes on edge
+          dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+          dx = xl(:,nE,nE, 1)-xl(:,nE, 1, 1) ; xl(:,nE, i1d, 1) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_3 = 0
+          dx = xl(:,nE,nE,nE)-xl(:,nE,nE, 1) ; xl(:,nE,nE, i1d) = xl(:,nE,nE, 1) + dr*dx ! xi_1 = 1, xi_2 = 1
+          dx = xl(:,nE,nE,nE)-xl(:,nE, 1,nE) ; xl(:,nE, i1d,nE) = xl(:,nE, 1,nE) + dr*dx ! xi_1 = 1, xi_3 = 1
+          dx = xl(:,nE, 1,nE)-xl(:,nE, 1, 1) ; xl(:,nE, 1, i1d) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_2 = 0
+        enddo
+  
+        !-- check to see if the surface is on the sphere and if so move points onto sphere
+        if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
+             .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
+          call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,nE,1:nE,1:nE))
+        else
+          !-- check to see if the connectors lay on the sphere
+          if( (abs(r(1)-r(2)).LE.tol) )then
+            !-- connector at xi_1 = 1, xi_3 = 0
+            if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then 
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,1)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:,nE, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          endif  
+          if( (abs(r(2)-r(3)).LE.tol) )then
+            !-- connector at xi_1 = 1, xi_2 = 1
+            if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,2)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+        
+            xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+          endif           
+          if( (abs(r(3)-r(4)).LE.tol) )then
+            !-- connector at xi_1 = 1, xi_3 = 1
+            if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,3)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:,nE, :,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(3),origin)
+          endif
+          if( (abs(r(4)-r(1)).LE.tol) )then
+            !-- connector at xi_1 = 1, xi_2 = 0
+            if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,4)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+        
+            xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+           endif 
+  
+          ! xi_1 = 1
+          call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
+        endif  
+  !-- face 4
+      elseif(iface.EQ.4)then
+        do i1d = 1,nE                                 ! loop over nodes on edge
+          dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+          dx = xl(:,nE,nE, 1)-xl(:, 1,nE, 1) ; xl(:, i1d,nE, 1) = xl(:, 1,nE, 1) + dr*dx ! xi_2 = 1, xi_3 = 0
+          dx = xl(:,nE,nE,nE)-xl(:,nE,nE, 1) ; xl(:,nE,nE, i1d) = xl(:,nE,nE, 1) + dr*dx ! xi_1 = 1, xi_2 = 1
+          dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
+          dx = xl(:, 1,nE,nE)-xl(:, 1,nE, 1) ; xl(:, 1,nE, i1d) = xl(:, 1,nE, 1) + dr*dx ! xi_1 = 0, xi_2 = 1
+        enddo
+  
+        !-- check to see if the surface is on the sphere and if so move points onto sphere
+        if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
+             .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
+          call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,nE,1:nE))
+        else
+          !-- check to see if the connectors lay on the sphere
+          if( (abs(r(1)-r(2)).LE.tol) )then
+            !-- connector at xi_2 = 1, xi_3 = 0
+            if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,1)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, :,nE, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          endif  
+          if( (abs(r(2)-r(3)).LE.tol) )then
+            !-- connector at xi_1 = 1, xi_2 = 1
+            if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+              !-- this connector is on the surface            
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,2)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:,nE,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+          endif           
+          if( (abs(r(3)-r(4)).LE.tol) )then
+            !-- connector at xi_2 = 1, xi_3 = 1
+            if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,3)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, :,nE,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(3),origin)
+          endif
+          if( (abs(r(4)-r(1)).LE.tol) )then
+            !-- connector at xi_1 = 0, xi_2 = 1
+            if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,4)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, 1,nE, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          endif
+  
+          ! xi_2 = 1
+          call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
+  
+        endif  
+  
+  !-- face 5
+      elseif(iface.EQ.5)then
+        do i1d = 1,nE                                 ! loop over nodes on edge
+          dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+          dx = xl(:, 1,nE, 1)-xl(:, 1, 1, 1) ; xl(:, 1, i1d, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_3 = 0
+          dx = xl(:, 1,nE,nE)-xl(:, 1,nE, 1) ; xl(:, 1,nE, i1d) = xl(:, 1,nE, 1) + dr*dx ! xi_1 = 0, xi_2 = 1   
+          dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
+          dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
+        enddo
+  
+        !-- check to see if the surface is on the sphere and if so move points onto sphere
+        if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
+             .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
+          call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1,1:nE,1:nE))
+        else
+          !-- check to see if the connectors lay on the sphere
+          if( (abs(r(1)-r(2)).LE.tol) )then
+            !-- connector at xi_1 = 0, xi_3 = 0
+            if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,1)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, 1, :, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          endif  
+          if( (abs(r(2)-r(3)).LE.tol) )then
+            !-- connector at xi_1 = 0, xi_2 = 1
+            if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,2)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, 1,nE, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(2),origin) 
+          endif           
+          if( (abs(r(3)-r(4)).LE.tol) )then
+            !-- connector at xi_1 = 0, xi_3 = 1
+            if((abs(r(3)-radius).LE.toL).AND.(abs(r(4)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,3)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, 1, :,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(3),origin)
+          endif
+          if( (abs(r(4)-r(1)).LE.tol) )then
+            !-- connector at xi_1 = 0, xi_2 = 0
+            if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,4)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, 1, 1, :) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          endif
+  
+          ! xi_1 = 0
+          call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
+        endif  
+  
+  !-- face 6
+      elseif(iface.EQ.6)then
+        do i1d = 1,nE                                 ! loop over nodes on edge
+          dr = 0.5_wp*(x_LGL_1d(i1d)+1.0_wp)    ! distance in computational space
+          dx = xl(:,nE, 1,nE)-xl(:, 1, 1,nE) ; xl(:, i1d, 1,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_2 = 0, xi_3 = 1
+          dx = xl(:,nE,nE,nE)-xl(:,nE, 1,nE) ; xl(:,nE, i1d,nE) = xl(:,nE, 1,nE) + dr*dx ! xi_1 = 1, xi_3 = 1
+          dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
+          dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
+        enddo
+  
+        !-- check to see if the surface is on the sphere and if so move points onto sphere
+        if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
+             .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
+          call snap_surface_to_sphere(nE,x_LGL_1d,xl(1:3,1:nE,1:nE,nE))
+        else
+          !-- check to see if the connectors lay on the sphere
+          if( (abs(r(1)-r(2)).LE.tol) )then
+            !-- connector at xi_2 = 0, xi_3 = 1
+            if((abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,1)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, :, 1,nE) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          endif  
+          if( (abs(r(2)-r(3)).LE.tol) )then
+            !-- connector at xi_1 = 1, xi_3 = 1
+            if((abs(r(2)-radius).LE.tol).AND.(abs(r(3)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,2)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:,nE, :,nE) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(2),origin)
+          endif           
+          if( (abs(r(3)-r(4)).LE.tol) )then
+            !-- connector at xi_2 = 1, xi_3 = 1
+            if((abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,3)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, :,nE,nE) = curved_connector_sphere(nE,nmin,points_surf(4,:),points_surf(3,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(3),origin)
+          endif
+          if( (abs(r(4)-r(1)).LE.tol) )then
+            !-- connector at xi_1 = 0, xi_3 = 1
+            if((abs(r(4)-radius).LE.tol).AND.(abs(r(1)-radius).LE.tol))then
+              !-- this connector is on the surface
+              nmin = nE
+            else
+              nmin = nmin_connector(ielem,iface,nE,4)
+            endif
+  
+            if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
+            if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
+  
+            call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
+      
+            xl(:, 1, :,nE) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(4,:),&
+                                                   x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          endif
+  
+          ! xi_3 = 1
+          call TFI2D(xl(:, :, :,nE),nE,x_LGL_1d)
+        endif  
+  
+      endif face_if
+    enddo face_do
+ 
+  end subroutine surface_nodes_sphere
+  !================================================================================================
+  !
+  ! Purpose: This function constructs the nodal distribution for a refined
+  ! element based on the nodal distribution of the 
+  ! inputs:
+  !         nE = number of nodes in each direction
+  !         xl = matrix that stores the nodal locations
+  !
+  ! Output:
+  !         xl = populated with the nodal distribution
+  !
+  ! Notes:
+  !================================================================================================
+  subroutine curved_sphere_hrefine(nE,ielem,xl)
+
+    use variables, only: ef2e
+    use referencevariables, only: ndim
+    use controlvariables, only: hrefine
+    use initcollocation, only: element_properties, lagrange_basis_function_1d
+    use non_conforming, only: Lagrange_interpolant_basis_1D
+
+    integer, intent(in) :: nE, ielem
+    real(wp), intent(inout) :: xl(1:3,1:nE,1:nE,1:nE)
+
+    integer :: iface, i, j, k, i1d   
+    real(wp) :: xl_parent(1:3,1:nE,1:nE,1:nE)
+    real(wp), dimension(3) :: xi1d, eta1d, zeta1d
+    real(wp) :: xiL, xiR, etaL, etaR, zetaL, zetaR, lxi, leta, lzeta
+    real(wp), allocatable :: x_LGL_1d(:)
+
+    call element_properties(ielem,       &                   !     ! nE is size of edge on element (varies with element)
+                            x_pts_1d=x_LGL_1d)
+
+    !-- populate parent element
+    call surface_nodes_sphere(nE,ielem,xl_parent) 
+    ! build volumes
+    if ((ndim > 2).AND.(.NOT.hrefine)) then
+      call TFI3D(xl_parent(:,:,:,:),nE,x_LGL_1d)
+    end if
+
+    !-- populate the child block
+    if(ef2e(8,9,ielem).EQ.1)then
+      !-- domain [-1,0]X[-1,0]X[-1,0]
+      xiL = -1.0_wp; xiR = 0.0_wp
+      etaL = -1.0_wp; etaR = 0.0_wp
+      zetaL = -1.0_wp; zetaR = 0.0_wp
+    elseif(ef2e(8,9,ielem).EQ.2)then
+      !-- domain [0,1]X[0,-1]X[-1,0]
+      xiL = 0.0_wp; xiR = 1.0_wp
+      etaL = 0.0_wp; etaR = -1.0_wp
+      zetaL = -1.0_wp; zetaR = 0.0_wp
+    elseif(ef2e(8,9,ielem).EQ.3)then
+      !-- domain [0,1]X[0,1]X[-1,0]
+      xiL = 0.0_wp; xiR = 1.0_wp
+      etaL = 0.0_wp; etaR = 1.0_wp
+      zetaL = -1.0_wp; zetaR = 0.0_wp
+    elseif(ef2e(8,9,ielem).EQ.4)then
+      !-- domain [-1,0]X[0,1]X[-1,0]
+      xiL = -1.0_wp; xiR = 0.0_wp
+      etaL = 0.0_wp; etaR = 1.0_wp
+      zetaL = -1.0_wp; zetaR = 0.0_wp
+    elseif(ef2e(8,9,ielem).EQ.5)then
+      !-- domain [-1,0]X[-1,0]X[0,1]
+      xiL = -1.0_wp; xiR = 0.0_wp
+      etaL = -1.0_wp; etaR = 0.0_wp
+      zetaL = 0.0_wp; zetaR = 1.0_wp
+    elseif(ef2e(8,9,ielem).EQ.6)then
+      !-- domain [0,1]X[-1,0]X[0,1]
+      xiL = 0.0_wp; xiR = 1.0_wp
+      etaL = -1.0_wp; etaR = 0.0_wp
+      zetaL = 0.0_wp; zetaR = 1.0_wp
+    elseif(ef2e(8,9,ielem).EQ.7)then
+      !-- domain [0,1]X[0,1]X[0,1]
+      xiL = 0.0_wp; xiR = 1.0_wp
+      etaL = 0.0_wp; etaR = 1.0_wp
+      zetaL = 0.0_wp; zetaR = 1.0_wp
+    elseif(ef2e(8,9,ielem).EQ.8)then
+      !-- domain [-1,0]X[0,1]X[0,1]
+      xiL = -1.0_wp; xiR = 0.0_wp
+      etaL = 0.0_wp; etaR = 1.0_wp
+      zetaL = 0.0_wp; zetaR = 1.0_wp
+    endif
+    xi1d = (xiR-xiL)/2.0_wp*x_LGL_1d+(xiR+xiL)/2.0_wp
+    eta1d = (etaR-etaL)/2.0_wp*x_LGL_1d+(etaR+etaL)/2.0_wp
+    zeta1d = (zetaR-zetaL)/2.0_wp*x_LGL_1d+(zetaR+zetaL)/2.0_wp
+
+    !-- loop over the three computational coordiantes and construct the nodes
+    k_do: do k = 1,nE
+      j_do: do j = 1 ,nE
+        i_do: do i = 1, nE
+          lxi = lagrange_basis_function_1d(xi1d(i), i, x_LGL_1d, nE)
+          leta = lagrange_basis_function_1d(eta1d(j), j, x_LGL_1d, nE)
+          lzeta = lagrange_basis_function_1d(zeta1d(k),k, x_LGL_1d, nE)
+
+          xl(1,i,j,k) = xl_parent(1,i,j,k)*lxi*leta*lzeta
+          xl(2,i,j,k) = xl_parent(2,i,j,k)*lxi*leta*lzeta
+          xl(3,i,j,k) = xl_parent(3,i,j,k)*lxi*leta*lzeta
+        enddo i_do 
+      enddo j_do
+    enddo k_do
+  end subroutine curved_sphere_hrefine
+  !================================================================================================
+  !
   ! Purpose: This function determines the minimum polynomial degree and hence number of nodes  of a 
   !          connector based on information in e_edge2e which is an array that contains information 
   !           on which elements touch a particular connector and what their polynomial degree is
@@ -1567,7 +1711,7 @@ contains
   !================================================================================================
   function nmin_connector(ielem,iface,nE,connector)
     use variables, only: e_edge2e
-    use controlvariables, only: SAT_type
+    use controlvariables, only: SAT_type, hrefine
     use referencevariables, only: number_of_possible_partners
    
     implicit none
@@ -1581,7 +1725,7 @@ contains
      endif
    enddo
    
-   if(SAT_type.EQ."mod_SAT")then
+   if((SAT_type.EQ."mod_SAT").OR.(hrefine))then
         nmin_connector = maxval((/floor((nmin_connector-1.0_wp)/2.0_wp),1/))+1
    endif
   end function nmin_connector
