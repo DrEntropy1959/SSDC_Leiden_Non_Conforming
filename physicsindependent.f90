@@ -158,27 +158,7 @@ contains
 
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
-!-- DAVID DEBUG START
-!         write(*,*)'M = [...'
-!        do ielem = 1,nelems
-!          write(*,*)vx_master(1:3,ic2nh(1,ielem)),';'
-!          write(*,*)vx_master(1:3,ic2nh(2,ielem)),';'
-!          write(*,*)vx_master(1:3,ic2nh(3,ielem)),';'
-!          write(*,*)vx_master(1:3,ic2nh(4,ielem)),';'
-!          write(*,*)vx_master(1:3,ic2nh(5,ielem)),';'
-!          write(*,*)vx_master(1:3,ic2nh(6,ielem)),';'
-!          write(*,*)vx_master(1:3,ic2nh(7,ielem)),';'
-!          write(*,*)vx_master(1:3,ic2nh(8,ielem)),';'
-!          do iface = 1,nfacesperelem
-!          write(*,*)'iface = ',iface
-!          write(*,*)'ef2e(1,iface,ielem) = ',ef2e(1,iface,ielem)  
-!          write(*,*)'ef2e(2,iface,ielem) = ',ef2e(2,iface,ielem)
-!          write(*,*)'ef2e(7,iface,ielem) = ',ef2e(7,iface,ielem)
-!          enddo
-!        enddo
-!        write(*,*)'];'
-!        call PetscFinalize(i_err)
-!-- DAVID DEBUG END
+
       end if
 
       !-- pass number_of_possible_partners to all processes
@@ -302,9 +282,7 @@ contains
 
     ! Set binary sizes for writing the solution vtu files in raw binary vtu format
     call calculate_binary_sizes_vtu()
-!-- DAVID DEBUG START
-!        call PetscFinalize(i_err)
-!-- DAVID DEBUG END
+
   end subroutine physics_independent_setup
 
   !============================================================================

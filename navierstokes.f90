@@ -3977,8 +3977,8 @@ contains
         allocate(Intrp_On_2_Off_x2(n_S_1d_On,n_S_1d_On)) ; Intrp_On_2_Off_x2(:,:) = 0.0_wp  ! Intialize Interpolation matrices
         allocate(Intrp_Off_2_On_x2(n_S_1d_On,n_S_1d_On)) ; Intrp_Off_2_On_x2(:,:) = 0.0_wp  ! Intialize Interpolation matrices
 
-        if(ef2e(10,iface,ielem) == 0) then                                                  !  The Coarse Side
-              
+!        if(ef2e(10,iface,ielem) == 0) then                                                  !  The Coarse Side              
+        if(ef2e(9,iface,ielem) == 0) then                                                  !  The Coarse Side
            select case(iface)
              case( 1: 6)
                 Intrp_On_2_Off_x1(:,:) = matmul(eye,LGL_Coarse_2_LGL_Fine_1d(:,:))
@@ -4002,7 +4002,8 @@ contains
                 Intrp_Off_2_On_x2(:,:) = matmul(Jay,LGL_Coarse_2_LGL_Fine_1d(:,:))
            end select
 
-        elseif(ef2e(10,iface,ielem) == 1) then                                              !  The Fine side
+!        elseif(ef2e(10,iface,ielem) == 1) then                                              !  The Fine side
+        elseif(ef2e(9,iface,ielem) == 1) then                                              !  The Fine side
 
            select case(iface)
              case( 1: 6)
