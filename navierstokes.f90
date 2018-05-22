@@ -4679,6 +4679,153 @@ endif
                                                   cnt_Mort_Off, Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
+    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, mut, ef2e
+    use collocationvariables, only: l00, l01, ldg_flip_flop_sign, alpha_ldg_flip_flop
+    use initcollocation,      only: ExtrpXA2XB_2D_neq
+    use initgrid,             only: map_face_orientation_k_On_2_k_Off
+
+    implicit none
+
+    integer,                    intent(in) :: ielem, kelem, iface, kface
+    integer,                    intent(in) :: n_S_1d_On, n_S_1d_Off, n_S_1d_Mort
+    integer,                    intent(in) :: n_S_2d_On, n_S_2d_Off, n_S_2d_Mort, n_S_2d_max
+    real(wp),  dimension(:),    intent(in) :: x_S_1d_On, x_S_1d_Off, x_S_1d_Mort
+    integer,   dimension(:),    intent(in) :: ifacenodes_On, ifacenodes_Off
+    integer,   dimension(:),    intent(in) :: cnt_Mort_Off
+    real(wp),  dimension(:),    intent(in) :: pinv
+    real(wp),  dimension(:,:),  intent(in) :: vg_2d_On,   vg_2d_Off
+    real(wp),  dimension(:,:),  intent(in) ::             nx_2d_Off
+    real(wp),  dimension(:,:),  intent(in) :: wg_Mort_On, wg_Mort_Off
+    real(wp),  dimension(:,:,:),intent(in) :: phig_2d_On, phig_2d_Off
+    real(wp),  dimension(:),    intent(in) ::              mut_2d_Off
+    real(wp),  dimension(:),    intent(in) ::             Jx_r_2d_Mort
+    real(wp),  dimension(:,:),  intent(in) :: Intrp_On,   Extrp_Off
+    
+    real(wp),  dimension(ndim)             :: nx, nx_Off
+    real(wp),  dimension(nequations)       :: fV_Del, SAT_Pen
+    real(wp),  dimension(nequations)       ::   vg_On,   vg_Off
+    real(wp),  dimension(nequations,ndim)  :: phig_On, phig_Off
+
+    real(wp), dimension(nequations,nequations) :: matrix_ip
+
+    real(wp), allocatable, dimension(:,:) :: fV_2d_Mort, fV_Mort_On, fV_Mort_Off, fV_2d_On, fV_2d_Off
+    real(wp), allocatable, dimension(:,:) :: IP_2d_On, IP_2d_Mort
+    real(wp), allocatable, dimension(:,:) :: IOn2Off, IOff2On
+
+    integer                               :: i, j, k, l, orientation
+    integer                               :: inode, jnode
+
+    real(wp)                                   ::  mut_Off
+    real(wp)                                   :: l01_ldg_flip_flop
+
+    continue
+
+      allocate(fV_Mort_On (nequations,n_S_2d_Mort))
+      allocate(fV_Mort_Off(nequations,n_S_2d_Mort))
+      allocate(fV_2d_Mort (nequations,n_S_2d_Mort))
+
+      allocate(fV_2d_On   (nequations,n_S_2d_On  ))
+      allocate(fV_2d_Off  (nequations,n_S_2d_Off ))
+
+      allocate(IP_2d_Mort (nequations,n_S_2d_Mort))
+      allocate(IP_2d_On   (nequations,n_S_2d_On  ))
+
+      allocate(IOff2On(1:n_S_1d_On,1:n_S_1d_Off)) ; IOff2On = matmul(Intrp_On,Extrp_Off) ;
+
+      orientation = ef2e(7,iface,ielem)
+
+      !  =======
+      !  LDG viscous dissipation: Connects Off with On interfaces through mortar
+      !  =======
+
+      Off_Elem_3:do k = 1, n_S_2d_Off
+
+          nx_Off(:  ) =   nx_2d_Off(:,  k)         ! Outward facing normal of facial node 
+
+          vg_Off(:  ) =   vg_2d_Off(:,  k)         ! primitive variables of facial node
+
+        phig_Off(:,:) = phig_2d_Off(:,:,k)         ! viscous gradients of facial node
+
+         mut_Off      =  mut_2d_Off(    k)         ! Turbulent viscosity of facial node
+
+        fV_2d_Off(:,k) = normalviscousflux(vg_Off(:), phig_Off(:,:), nx_Off(:), nequations, mut_Off)
+
+      enddo Off_Elem_3
+
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On, & ! Extrapolate f^S_x
+                            fV_2d_Off,fV_2d_On, IOff2On, IOff2On )                   ! fV_2d_On still has wrong ordering and orientation
+
+      !  =======
+      !  IP dissipation: formed on the common mortar between element interfaces
+      !  =======
+
+      On_Mortar_4:do j = 1, n_S_2d_Mort
+
+        jnode =  n_S_2d_max*(iface-1) + j                        ! Index in facial ordering
+
+        nx(:) = Jx_facenodenormal_Gau(:,jnode,ielem)             ! Outward facing normal of facial node
+
+            l = cnt_Mort_Off(j)                                  ! Correct for face orientation and shift back to 1:n_S_2d_Mort
+
+        call entropy_to_primitive(wg_Mort_On (:,j),vg_On (:),nequations)
+        call entropy_to_primitive(wg_Mort_Off(:,l),vg_Off(:),nequations)
+
+        matrix_ip = 0.5_wp * pinv(1) * (matrix_hatc_node(vg_On (:),nx,nx,nequations) &
+                                     +  matrix_hatc_node(vg_Off(:),nx,nx,nequations)) / Jx_r_2d_Mort(j)
+
+        IP_2d_Mort(:,j) = - l00*matmul(matrix_ip,wg_Mort_On(:,j)-wg_Mort_Off(:,l))
+          
+      enddo On_Mortar_4
+
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
+                                IP_2d_Mort(:,:),IP_2d_On(:,:),Intrp_On,Intrp_On)
+
+      On_Elem_4:do i = 1, n_S_2d_On                              !  Onface sweep 
+    
+        jnode =  n_S_2d_On*(iface-1) + i                         ! Index in facial ordering
+          
+        inode = ifacenodes_On(jnode)                             ! Volumetric node index corresponding to facial node index
+
+          vg_On (:  ) =   vg_2d_On(:,  i)                        ! On-element primitive face data
+        phig_On (:,:) = phig_2d_On(:,:,i)                        ! On-element viscous derivatives (LDG)
+
+        nx(:) = Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)  ! Outward facing normal of facial node
+
+        l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
+
+        l =  map_face_orientation_k_On_2_k_Off(i,orientation,n_S_1d_On)        ! Correct for face orientation and shift back to 1:n_S_2d_On
+
+        fV_Del(:) = normalviscousflux(vg_On (:), phig_On (:,:), nx, nequations, mut(inode,ielem)) &
+                  - (-1 * fV_2d_On(:,l))                         ! -1 accounts for opposite direction of outward faceing normal
+
+        SAT_Pen(:) = + l01_ldg_flip_flop*fV_Del(:) + IP_2d_On(:,i)
+
+        gsat(:,inode,ielem) = gsat(:,inode,ielem) + pinv(1) * SAT_Pen(:)
+
+      enddo On_Elem_4
+
+      deallocate(fV_2d_Mort, fV_Mort_Off, fV_Mort_On, fV_2d_On, fV_2d_Off)
+      deallocate(IP_2d_On, IP_2d_Mort)
+
+  end subroutine Viscous_SAT_Non_Conforming_Interface
+
+  !============================================================================
+  !       NONCONFORMING VISCOUS interface SATs 
+  !============================================================================
+  
+  subroutine Viscous_SAT_Non_Conforming_Interface_Old(ielem, kelem, iface, kface,                 &
+                                                  ifacenodes_On, ifacenodes_Off, n_S_2d_max,      &
+                                                  n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
+                                                  n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
+                                                  n_S_1d_Mort,n_S_2d_Mort,x_S_1d_Mort,            &
+                                                  pinv,                                           &
+                                                    vg_2d_On,   vg_2d_Off,                        &
+                                                  phig_2d_On, phig_2d_Off,                        &
+                                                  wg_Mort_On, wg_Mort_Off,                        &
+                                                  nx_2d_Off, mut_2d_Off, Jx_r_2d_Mort,            &
+                                                  cnt_Mort_Off, Intrp_On, Extrp_Off)
+
+    use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, mut
     use collocationvariables, only: l00, l01, ldg_flip_flop_sign, alpha_ldg_flip_flop
     use initcollocation,      only: ExtrpXA2XB_2D_neq
@@ -4812,7 +4959,7 @@ endif
       deallocate(fV_2d_Mort, fV_Mort_Off, fV_Mort_On, fV_2d_On, fV_2d_Off)
       deallocate(IP_2d_On, IP_2d_Mort)
 
-  end subroutine Viscous_SAT_Non_Conforming_Interface
+  end subroutine Viscous_SAT_Non_Conforming_Interface_Old
 
   !============================================================================
   
