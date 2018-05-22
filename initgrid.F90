@@ -51,6 +51,7 @@ module initgrid
   public write_matrix_to_file_matlab
   public e_edge2e_connectivity
   public map_face_orientation_k_On_2_k_Off
+  public face_map
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections

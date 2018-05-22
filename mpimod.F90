@@ -251,6 +251,7 @@ contains
                        & n_wall_faces, wall_elem_face_ids
 
     use collocationvariables, only : ldg_flip_flop_sign
+    use controlvariables, only: hrefine
 
     ! Nothing is implicitly defined
     implicit none
@@ -1019,7 +1020,7 @@ contains
         vert_list_proc = max_n_vert_per_proc + 100
          
         ! construct a mapping from old vertex to new vertex
-        allocate(vert_old_2_new(max_n_vert_per_proc))
+        allocate(vert_old_2_new(size(vx_master(1,:))))
     
         ! Initialize number of vertices per process
         n_vert_per_proc = 0
@@ -1116,13 +1117,15 @@ contains
         !updated realtive to the onprocess numbering
         !======================================================================
         ! Loop over all elements on process
-        do i = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
-           do j = 1,8
-            if(ef2etmp1(8,9,i).GE.1)then
-              ef2etmp1(8,j,i) = vert_old_2_new(ef2etmp1(8,j,i))            
-            endif
-          enddo ! face loop
-        enddo ! loop over elements
+        if(hrefine)then
+          do i = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
+             do j = 1,8
+              if(ef2etmp1(8,9,i).GE.1)then
+                ef2etmp1(8,j,i) = vert_old_2_new(ef2etmp1(8,j,i))            
+              endif
+            enddo ! face loop
+          enddo ! loop over elements
+        endif
 
         ! Special treatment for the master node. There is no need to use mpi
         ! since the data are already available in memory.
@@ -1155,6 +1158,7 @@ contains
           deallocate(e2vtmp)
           deallocate(ef2etmp1)
           deallocate(vert_list_proc)
+          deallocate(vert_old_2_new)
           deallocate(ldg_flip_flop_sign_tmp1)
 
         else 
@@ -1256,6 +1260,7 @@ contains
           deallocate(e2vtmp)
           deallocate(ef2etmp1)
           deallocate(vert_list_proc)
+          deallocate(vert_old_2_new)
           deallocate(packed_vertices)
           deallocate(packed_e2v)
           deallocate(packed_ef2e)

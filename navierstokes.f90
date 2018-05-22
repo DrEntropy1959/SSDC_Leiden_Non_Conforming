@@ -4365,7 +4365,7 @@ contains
     use referencevariables,   only: nequations, ndim
     use variables,            only: facenodenormal, Jx_r, gsat, ef2e
     use initcollocation,      only: ExtrpXA2XB_2D_neq, element_properties
-    use initgrid,             only: map_face_orientation_k_On_2_k_Off
+    use initgrid,             only: map_face_orientation_k_On_2_k_Off, face_map
 
     implicit none
 
@@ -4442,7 +4442,8 @@ contains
         call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On, &
                                FA,FB, IOff2On_x1, IOff2On_x2)  ! Extrapolate f^S_x
 
-        l =  map_face_orientation_k_On_2_k_Off(i,orientation,n_S_1d_On)        ! Correct for face orientation and shift back to 1:n_S_2d_On
+!        l =  map_face_orientation_k_On_2_k_Off(i,orientation,n_S_1d_On)        ! Correct for face orientation and shift back to 1:n_S_2d_On
+        l = face_map(i,orientation,n_S_1d_On)
 
         fstar = FB(:,l)
 
@@ -4465,7 +4466,8 @@ contains
 
         nx = + Jx_r(inode,ielem)*facenodenormal(:,jnode,ielem)                 ! Outward facing normal of facial node (On-Element)
 
-        l = map_face_orientation_k_On_2_k_Off(j,orientation,n_S_1d_On)         ! Correct for face orientation and shift back to 1:n_S_2d_On
+ !       l = map_face_orientation_k_On_2_k_Off(j,orientation,n_S_1d_On)         ! Correct for face orientation and shift back to 1:n_S_2d_On
+        l = face_map(j,orientation,n_S_1d_On)
 
         call entropy_to_primitive(wg_2d_On (:,j),vg_On (:),nequations)         ! Entropy -> primitive variables:  On_element
         call entropy_to_primitive(wg_Off2On(:,l),vg_Off(:),nequations)         ! Entropy -> primitive variables: Off_element
@@ -4481,15 +4483,17 @@ contains
       !=========
       Off_Element_2: do j = 1, n_S_2d_Off
 
-        l = map_face_orientation_k_On_2_k_Off(j,orientation,n_S_1d_Off)        ! Correct for face orientation
+!        l = map_face_orientation_k_On_2_k_Off(j,orientation,n_S_1d_Off)        ! Correct for face orientation
+        l = face_map(j,orientation,n_S_1d_Off)
 
-        nx(:) = nx_Off_ghst(:,l)                                               ! Outward facing normal of facial node
+
+        nx(:) = nx_Off_ghst(:,j)                                               ! Outward facing normal of facial node
 
 
         call entropy_to_primitive(wg_On2Off(:,l),vg_On (:),nequations)         ! Entropy -> primitive variables:  On_element
-        call entropy_to_primitive(wg_2d_Off(:,l),vg_Off(:),nequations)         ! Entropy -> primitive variables: Off_element
+        call entropy_to_primitive(wg_2d_Off(:,j),vg_Off(:),nequations)         ! Entropy -> primitive variables: Off_element
 
-       Up_diss_Off(:,l) = SAT_Vis_Diss(nequations,vg_On(:),vg_Off(:),nx(:))    ! Viscous dissipation on Mortar based on L-R states
+       Up_diss_Off(:,j) = SAT_Vis_Diss(nequations,vg_On(:),vg_Off(:),nx(:))    ! Viscous dissipation on Mortar based on L-R states
 
       enddo Off_Element_2
  
@@ -4501,11 +4505,13 @@ contains
 
       On_Elem_2: do i = 1, n_S_2d_On                                           ! On-element loop: Begin
         
+        l = face_map(i,orientation,n_S_1d_On)
+
         jnode =  n_S_2d_On*(iface-1) + i                                       ! Index in facial ordering
               
         inode = ifacenodes_On(jnode)                                           ! Volumetric node index corresponding to facial node index
              
-        gsat(:,inode,ielem) = gsat(:,inode,ielem) + 0.50_wp*pinv(1) * Up_diss_On(:,i)! On-element Viscous penalty contribution
+        gsat(:,inode,ielem) = gsat(:,inode,ielem) + 0.50_wp*pinv(1) * Up_diss_On(:,l)! On-element Viscous penalty contribution
 
       end do On_Elem_2                                                         ! On-element loop: end
 
