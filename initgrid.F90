@@ -939,7 +939,7 @@ contains
 
       ! build volumes
       if ((ndim > 2)) then
-        if(hrefine)then
+        if(hrefine.AND.(Grid_Topology.EQ.'sphere'))then
           if((ef2e(8,9,ielem).GE.1))then
             !-- do nothing the volume nodes have already been computed
           else
@@ -1007,8 +1007,11 @@ contains
 
 !--debug vars
     integer :: i
+    logical :: curv
 
-      call element_properties(ielem,       &                   !     ! nE is size of edge on element (varies with element)
+    curv = .true.
+
+    call element_properties(ielem,       &                   !     ! nE is size of edge on element (varies with element)
                               n_pts_1d=nE_temp, &
                               x_pts_1d=x_LGL_1d)
 
@@ -1017,7 +1020,7 @@ contains
       !-- determine the radius and ensure that all 4 points have the same radius 
       !-- these are stored in a counter-clockwise fashion relatlve to the coordinate axis
       ! for example
-      !-- face 1
+      !-- face 
       !xi_2    ^
       !        |
       !        |
@@ -1099,7 +1102,7 @@ contains
       do j = 1,4
         r(j) = magnitude(points_surf(j,:)-origin(:)) 
       enddo
-  
+
   !-- face 1
       face_if: if(iface.EQ.1)then
         do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1108,7 +1111,9 @@ contains
           dx = xl(:,nE,nE, 1)-xl(:,nE, 1, 1) ; xl(:,nE, i1d, 1) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_3 = 0
           dx = xl(:,nE,nE, 1)-xl(:, 1,nE, 1) ; xl(:, i1d,nE, 1) = xl(:, 1,nE, 1) + dr*dx ! xi_2 = 1, xi_3 = 0
           dx = xl(:, 1,nE, 1)-xl(:, 1, 1, 1) ; xl(:, 1, i1d, 1) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_3 = 0
-        enddo   
+        enddo
+  
+if(curv)then 
         !-- check to see if the surface is on the sphere and if so move points onto sphere
         if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
              .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
@@ -1127,7 +1132,7 @@ contains
           
             if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
             if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-  
+ 
             call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
       
             xl(:, :, 1, 1) = curved_connector_sphere(nE,nmin,points_surf(1,:),points_surf(2,:),&
@@ -1184,6 +1189,10 @@ contains
           ! xi_3 = 0
           call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
         endif
+else
+          ! xi_3 = 0
+          call TFI2D(xl(:, :, :, 1),nE,x_LGL_1d)
+endif
   !-- face 2   
       elseif(iface.EQ.2)then
         do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1193,7 +1202,7 @@ contains
           dx = xl(:,nE, 1,nE)-xl(:, 1, 1,nE) ; xl(:, i1d, 1,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_2 = 0, xi_3 = 1
           dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
         enddo
-        
+if(curv)then        
         !-- check to see if the surface is on the sphere and if so move points onto sphere
         if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
              .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
@@ -1228,9 +1237,7 @@ contains
   
             if(allocated(x_LGL_1d_min)) deallocate(x_LGL_1d_min); allocate(x_LGL_1d_min(nmin)); x_LGL_1d_min = 0.0_wp;
             if(allocated(w_LGL_1d_min)) deallocate(w_LGL_1d_min); allocate(w_LGL_1d_min(nmin)); w_LGL_1d_min = 0.0_wp
-  
             call Gauss_Lobatto_Legendre_points(nmin,x_LGL_1d_min,w_LGL_1d_min)  
-      
             xl(:,nE, 1, :) = curved_connector_sphere(nE,nmin,points_surf(2,:),points_surf(3,:),&
                                                    x_LGL_1d,x_LGL_1d_min,r(2),origin) 
           endif           
@@ -1272,7 +1279,10 @@ contains
           ! xi_2 = 0
           call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
         endif  
-  
+else
+          ! xi_2 = 0
+          call TFI2D(xl(:, :, 1, :),nE,x_LGL_1d)
+endif  
   !-- face 3
       elseif(iface.EQ.3)then
         do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1282,7 +1292,7 @@ contains
           dx = xl(:,nE,nE,nE)-xl(:,nE, 1,nE) ; xl(:,nE, i1d,nE) = xl(:,nE, 1,nE) + dr*dx ! xi_1 = 1, xi_3 = 1
           dx = xl(:,nE, 1,nE)-xl(:,nE, 1, 1) ; xl(:,nE, 1, i1d) = xl(:,nE, 1, 1) + dr*dx ! xi_1 = 1, xi_2 = 0
         enddo
-  
+if(curv)then  
         !-- check to see if the surface is on the sphere and if so move points onto sphere
         if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
              .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
@@ -1361,6 +1371,10 @@ contains
           ! xi_1 = 1
           call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
         endif  
+else
+          ! xi_1 = 1
+          call TFI2D(xl(:,nE, :, :),nE,x_LGL_1d)
+endif
   !-- face 4
       elseif(iface.EQ.4)then
         do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1370,7 +1384,7 @@ contains
           dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
           dx = xl(:, 1,nE,nE)-xl(:, 1,nE, 1) ; xl(:, 1,nE, i1d) = xl(:, 1,nE, 1) + dr*dx ! xi_1 = 0, xi_2 = 1
         enddo
-  
+if(curv)then  
         !-- check to see if the surface is on the sphere and if so move points onto sphere
         if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
              .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
@@ -1450,7 +1464,10 @@ contains
           call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
   
         endif  
-  
+else
+          ! xi_2 = 1
+          call TFI2D(xl(:, :,nE, :),nE,x_LGL_1d)
+endif  
   !-- face 5
       elseif(iface.EQ.5)then
         do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1460,7 +1477,7 @@ contains
           dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
           dx = xl(:, 1, 1,nE)-xl(:, 1, 1, 1) ; xl(:, 1, 1, i1d) = xl(:, 1, 1, 1) + dr*dx ! xi_1 = 0, xi_2 = 0
         enddo
-  
+ if(curv)then  
         !-- check to see if the surface is on the sphere and if so move points onto sphere
         if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
              .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
@@ -1539,7 +1556,10 @@ contains
           ! xi_1 = 0
           call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
         endif  
-  
+else
+          ! xi_1 = 0
+          call TFI2D(xl(:, 1, :, :),nE,x_LGL_1d)
+endif  
   !-- face 6
       elseif(iface.EQ.6)then
         do i1d = 1,nE                                 ! loop over nodes on edge
@@ -1549,7 +1569,7 @@ contains
           dx = xl(:,nE,nE,nE)-xl(:, 1,nE,nE) ; xl(:, i1d,nE,nE) = xl(:, 1,nE,nE) + dr*dx ! xi_2 = 1, xi_3 = 1
           dx = xl(:, 1,nE,nE)-xl(:, 1, 1,nE) ; xl(:, 1, i1d,nE) = xl(:, 1, 1,nE) + dr*dx ! xi_1 = 0, xi_3 = 1
         enddo
-  
+if(curv)then  
         !-- check to see if the surface is on the sphere and if so move points onto sphere
         if ( (abs(r(1)-radius).LE.tol).AND.(abs(r(2)-radius).LE.tol)&
              .AND.(abs(r(3)-radius).LE.tol).AND.(abs(r(4)-radius).LE.tol) ) then
@@ -1627,11 +1647,13 @@ contains
   
           ! xi_3 = 1
           call TFI2D(xl(:, :, :,nE),nE,x_LGL_1d)
-        endif  
-  
+        endif
+else
+           ! xi_3 = 1
+          call TFI2D(xl(:, :, :,nE),nE,x_LGL_1d) 
+endif  
       endif face_if
     enddo face_do
- 
   end subroutine surface_nodes_sphere
   !================================================================================================
   !
@@ -1648,7 +1670,7 @@ contains
   !================================================================================================
   subroutine curved_sphere_hrefine(nE,ielem,xl)
 
-    use variables, only: ef2e
+    use variables, only: ef2e, vx
     use referencevariables, only: ndim
     use initcollocation, only: element_properties, lagrange_basis_function_1d
     use non_conforming, only: Lagrange_interpolant_basis_1D
@@ -1668,10 +1690,20 @@ contains
 
     !-- populate parent element
     xl_parent = 0.0_wp
+    ! set corner nodes
+    xl_parent(:, 1, 1, 1) = vx(:,ef2e(8,1,ielem))
+    xl_parent(:,nE, 1, 1) = vx(:,ef2e(8,2,ielem))
+    xl_parent(:,nE,nE, 1) = vx(:,ef2e(8,3,ielem))
+    xl_parent(:, 1,nE, 1) = vx(:,ef2e(8,4,ielem))
+    xl_parent(:, 1, 1,nE) = vx(:,ef2e(8,5,ielem))
+    xl_parent(:,nE, 1,nE) = vx(:,ef2e(8,6,ielem))
+    xl_parent(:,nE,nE,nE) = vx(:,ef2e(8,7,ielem))
+    xl_parent(:, 1,nE,nE) = vx(:,ef2e(8,8,ielem))
+
     call surface_nodes_sphere(nE,ielem,xl_parent,.true.) 
+
     ! build volumes
     call TFI3D(xl_parent(:,:,:,:),nE,x_LGL_1d)
-
     !-- populate the child block
     if(ef2e(8,9,ielem).EQ.1)then
       !-- domain [-1,0]X[-1,0]X[-1,0]
@@ -1679,9 +1711,9 @@ contains
       etaL = -1.0_wp; etaR = 0.0_wp
       zetaL = -1.0_wp; zetaR = 0.0_wp
     elseif(ef2e(8,9,ielem).EQ.2)then
-      !-- domain [0,1]X[0,-1]X[-1,0]
+      !-- domain [0,1]X[-1,0]X[-1,0]
       xiL = 0.0_wp; xiR = 1.0_wp
-      etaL = 0.0_wp; etaR = -1.0_wp
+      etaL = -1.0_wp; etaR = 0.0_wp
       zetaL = -1.0_wp; zetaR = 0.0_wp
     elseif(ef2e(8,9,ielem).EQ.3)then
       !-- domain [0,1]X[0,1]X[-1,0]
@@ -1763,12 +1795,17 @@ contains
     integer, intent(in)    :: ielem, iface, nE, connector
     integer                :: nmin_connector, ipartner
 
-   nmin_connector = nE
-   do ipartner = 1,number_of_possible_partners
-     if(e_edge2e(1,connector,ipartner,iface,ielem)>0)then
-       nmin_connector = minval((/nmin_connector,e_edge2e(1,connector,ipartner,iface,ielem)/))
-     endif
-   enddo
+   if(hrefine)then
+     !-- do nothing, not using e_edge2e for now
+     nmin_connector = nE
+   else
+     nmin_connector = nE
+     do ipartner = 1,number_of_possible_partners
+       if(e_edge2e(1,connector,ipartner,iface,ielem)>0)then
+         nmin_connector = minval((/nmin_connector,e_edge2e(1,connector,ipartner,iface,ielem)/))
+       endif
+     enddo
+   endif
    
    if((SAT_type.EQ."mod_SAT").OR.(hrefine))then
         nmin_connector = maxval((/floor((nmin_connector-1.0_wp)/2.0_wp),1/))+1
@@ -2684,14 +2721,13 @@ contains
                 write(*,*) myprocid, ielem, iface
                 write(*,*) 'ef2e'
                 write(*,*) ef2e(:,iface,ielem)
+                write(*,*)"ef2e(9,iface,ielem) = ",ef2e(9,iface,ielem)
                 write(*,*) 'Node coordinates'
                 write(*,*) x1
 write(*,*)'knode = ',knode
 write(*,*)'ifacenodes = ',ifacenodes
-knode = 12
-do  knode = 13,13+3
-  write(*,*)'xg = ',xg(:,ifacenodes(knode),ielem)                                     ! Save coordinates of the facial ndoes
-enddo
+write(*,*)"orientation = ",ef2e(7,iface,ielem)
+
                 write(*,*) 'Possible partner node coordinates'
                 
                 do jnode = 1, n_LGL_2d
@@ -4154,7 +4190,7 @@ end function
 
 
       ! Calculate element-to-element connectivity using shared nodes
-      allocate(ef2e(qdim,2*ndim,1:nelems))  ;   ef2e(:,:,:) = -1000000000
+      allocate(ef2e(qdim,nfacesperelem,1:nelems))  ;   ef2e(:,:,:) = -1000000000
 
       allocate(ivtmp1(nverticesperface*bigN),ivtmp2(nverticesperface*bigN))
       allocate(ivtmp3(nverticesperface),     ivtmp4(nverticesperface))

@@ -144,6 +144,7 @@ contains
         if(hrefine)then
           call construct_h_refine_list()
           call h_refine()
+
           write(*,*) 'h-refinement applied, number of hexahedron ',nelems
           write(*,*) '==============================================================='
 
@@ -163,7 +164,10 @@ contains
 
       !-- pass number_of_possible_partners to all processes
       call mpi_bcast(number_of_possible_partners,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)
-      
+
+      !-- pass maximum number of faces per element
+      call mpi_bcast(nfacesperelem,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)     
+
       if(hrefine)then
       else
         ! Push edge connectivity to all processes (has to be before distribute_elements_aflr3 
@@ -174,6 +178,14 @@ contains
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()
 !-- DAVID DEBUG START
+!do ielem = 1,nelems
+!write(*,*)"============================================="
+!  do iface = 1,6
+!  write(*,*)"ielem = ",ielem, "iface = ",iface,"ef2e(1,iface,ielem) =&
+!",ef2e(1,iface,ielem),"ef2e(2,iface,ielem) = ",ef2e(2,iface,ielem)
+!enddo
+!write(*,*)"============================================="
+!enddo
 !        call PetscFinalize(i_err)
 !-- DAVID DEBUG END
     end if

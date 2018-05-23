@@ -207,8 +207,7 @@ end subroutine construct_h_refine_list
                                 xyz25, xyz26, xyz27
      real(wp), allocatable, dimension(:,:) :: vx_master_temp                                         !-- (3,number of vertices)
 
-     integer :: qdim = 9
-
+     integer, parameter :: qdim = 9   !  dimension of first array in ef2e see initgrid.F90 
      !-- update the number of faces per element (this is a maximum for one level refinment)
      nfaces_old = nfacesperelem
      nfacesperelem = 4*6
@@ -390,44 +389,55 @@ end subroutine construct_h_refine_list
 
           !-- internal connections 
           !-- element 1
-          ef2e_temp(1,3,ielem_old) = 5; ef2e_temp(2,3,ielem_old) = ielem2; ef2e_temp(9,3,ielem_old) = 0
-          ef2e_temp(1,4,ielem_old) = 2; ef2e_temp(2,4,ielem_old) = ielem4; ef2e_temp(9,4,ielem_old) = 0
-          ef2e_temp(1,6,ielem_old) = 1; ef2e_temp(2,6,ielem_old) = ielem5; ef2e_temp(9,6,ielem_old) = 0
+          ef2e_temp(1,3,ielem_old) = 5; ef2e_temp(2,3,ielem_old) = ielem2; ef2e_temp(9,3,ielem_old) = 0 
+          ef2e_temp(7,3,ielem_old) = 0
+          ef2e_temp(1,4,ielem_old) = 2; ef2e_temp(2,4,ielem_old) = ielem4; ef2e_temp(9,4,ielem_old) = 0 
+          ef2e_temp(7,4,ielem_old) = 0
+          ef2e_temp(1,6,ielem_old) = 1; ef2e_temp(2,6,ielem_old) = ielem5; ef2e_temp(9,6,ielem_old) = 0 
+          ef2e_temp(7,6,ielem_old) = 0
+          elem_props_temp(2,ielem_old) = elem_props(2,ielem_old)
         
           !-- element 2
-          ef2e_temp(1,4,ielem2) = 2; ef2e_temp(2,4,ielem2) = ielem3; ef2e_temp(9,4,ielem2) = 0
-          ef2e_temp(1,5,ielem2) = 3; ef2e_temp(2,5,ielem2) = ielem_old; ef2e_temp(9,5,ielem2) = 0 
-          ef2e_temp(1,6,ielem2) = 1; ef2e_temp(2,6,ielem2) = ielem6; ef2e_temp(9,6,ielem2) = 0
+          ef2e_temp(1,4,ielem2) = 2; ef2e_temp(2,4,ielem2) = ielem3; ef2e_temp(9,4,ielem2) = 0; ef2e_temp(7,4,ielem2) = 0
+          ef2e_temp(1,5,ielem2) = 3; ef2e_temp(2,5,ielem2) = ielem_old; ef2e_temp(9,5,ielem2) = 0; ef2e_temp(7,5,ielem2) = 0 
+          ef2e_temp(1,6,ielem2) = 1; ef2e_temp(2,6,ielem2) = ielem6; ef2e_temp(9,6,ielem2) = 0; ef2e_temp(7,6,ielem2) = 0
+          elem_props_temp(2,ielem2) = elem_props(2,ielem_old)
 
           !-- element 3
-          ef2e_temp(1,2,ielem3) = 4; ef2e_temp(2,2,ielem3) = ielem2; ef2e_temp(9,2,ielem3) = 0 
-          ef2e_temp(1,5,ielem3) = 3; ef2e_temp(2,5,ielem3) = ielem4; ef2e_temp(9,5,ielem3) = 0
-          ef2e_temp(1,6,ielem3) = 1; ef2e_temp(2,6,ielem3) = ielem7; ef2e_temp(9,6,ielem3) = 0 
+          ef2e_temp(1,2,ielem3) = 4; ef2e_temp(2,2,ielem3) = ielem2; ef2e_temp(9,2,ielem3) = 0; ef2e_temp(7,2,ielem3) = 0
+          ef2e_temp(1,5,ielem3) = 3; ef2e_temp(2,5,ielem3) = ielem4; ef2e_temp(9,5,ielem3) = 0; ef2e_temp(7,5,ielem3) = 0
+          ef2e_temp(1,6,ielem3) = 1; ef2e_temp(2,6,ielem3) = ielem7; ef2e_temp(9,6,ielem3) = 0; ef2e_temp(7,6,ielem3) = 0  
+          elem_props_temp(2,ielem3) = elem_props(2,ielem_old)
 
           !-- element 4
-          ef2e_temp(1,2,ielem4) = 4; ef2e_temp(2,2,ielem4) = ielem_old; ef2e_temp(9,2,ielem4) = 0 
-          ef2e_temp(1,3,ielem4) = 5; ef2e_temp(2,3,ielem4) = ielem3; ef2e_temp(9,3,ielem4) = 0
-          ef2e_temp(1,6,ielem4) = 1; ef2e_temp(2,6,ielem4) = ielem8; ef2e_temp(9,6,ielem4) = 0
+          ef2e_temp(1,2,ielem4) = 4; ef2e_temp(2,2,ielem4) = ielem_old; ef2e_temp(9,2,ielem4) = 0; ef2e_temp(7,2,ielem4) = 0
+          ef2e_temp(1,3,ielem4) = 5; ef2e_temp(2,3,ielem4) = ielem3; ef2e_temp(9,3,ielem4) = 0; ef2e_temp(7,3,ielem4) = 0
+          ef2e_temp(1,6,ielem4) = 1; ef2e_temp(2,6,ielem4) = ielem8; ef2e_temp(9,6,ielem4) = 0; ef2e_temp(7,6,ielem4) = 0
+          elem_props_temp(2,ielem4) = elem_props(2,ielem_old)
 
           !-- element 5
-          ef2e_temp(1,1,ielem5) = 6; ef2e_temp(2,1,ielem5) = ielem_old; ef2e_temp(9,1,ielem5) = 0 
-          ef2e_temp(1,3,ielem5) = 5; ef2e_temp(2,3,ielem5) = ielem6; ef2e_temp(9,3,ielem5) = 0
-          ef2e_temp(1,4,ielem5) = 2; ef2e_temp(2,4,ielem5) = ielem8; ef2e_temp(9,4,ielem5) = 0
+          ef2e_temp(1,1,ielem5) = 6; ef2e_temp(2,1,ielem5) = ielem_old; ef2e_temp(9,1,ielem5) = 0; ef2e_temp(7,1,ielem5) = 0  
+          ef2e_temp(1,3,ielem5) = 5; ef2e_temp(2,3,ielem5) = ielem6; ef2e_temp(9,3,ielem5) = 0; ef2e_temp(7,3,ielem5) = 0
+          ef2e_temp(1,4,ielem5) = 2; ef2e_temp(2,4,ielem5) = ielem8; ef2e_temp(9,4,ielem5) = 0; ef2e_temp(7,4,ielem5) = 0
+          elem_props_temp(2,ielem5) = elem_props(2,ielem_old)
 
           !-- element 6
-          ef2e_temp(1,1,ielem6) = 6; ef2e_temp(2,1,ielem6) = ielem2; ef2e_temp(9,1,ielem6) = 0
-          ef2e_temp(1,4,ielem6) = 2; ef2e_temp(2,4,ielem6) = ielem7; ef2e_temp(9,4,ielem6) = 0
-          ef2e_temp(1,5,ielem6) = 3; ef2e_temp(2,5,ielem6) = ielem5; ef2e_temp(9,5,ielem6) = 0
+          ef2e_temp(1,1,ielem6) = 6; ef2e_temp(2,1,ielem6) = ielem2; ef2e_temp(9,1,ielem6) = 0; ef2e_temp(7,1,ielem6) = 0
+          ef2e_temp(1,4,ielem6) = 2; ef2e_temp(2,4,ielem6) = ielem7; ef2e_temp(9,4,ielem6) = 0; ef2e_temp(7,4,ielem6) = 0
+          ef2e_temp(1,5,ielem6) = 3; ef2e_temp(2,5,ielem6) = ielem5; ef2e_temp(9,5,ielem6) = 0; ef2e_temp(7,5,ielem6) = 0
+          elem_props_temp(2,ielem6) = elem_props(2,ielem_old)
 
           !-- element 7
-          ef2e_temp(1,1,ielem7) = 6; ef2e_temp(2,1,ielem7) = ielem3; ef2e_temp(9,1,ielem7) = 0 
-          ef2e_temp(1,2,ielem7) = 4; ef2e_temp(2,2,ielem7) = ielem6; ef2e_temp(9,2,ielem7) = 0 
-          ef2e_temp(1,5,ielem7) = 3; ef2e_temp(2,5,ielem7) = ielem8; ef2e_temp(9,5,ielem7) = 0
+          ef2e_temp(1,1,ielem7) = 6; ef2e_temp(2,1,ielem7) = ielem3; ef2e_temp(9,1,ielem7) = 0; ef2e_temp(7,1,ielem7) = 0 
+          ef2e_temp(1,2,ielem7) = 4; ef2e_temp(2,2,ielem7) = ielem6; ef2e_temp(9,2,ielem7) = 0; ef2e_temp(7,2,ielem7) = 0  
+          ef2e_temp(1,5,ielem7) = 3; ef2e_temp(2,5,ielem7) = ielem8; ef2e_temp(9,5,ielem7) = 0; ef2e_temp(7,5,ielem7) = 0
+          elem_props_temp(2,ielem7) = elem_props(2,ielem_old)
 
           !-- element 8
-          ef2e_temp(1,1,ielem8) = 6; ef2e_temp(2,1,ielem8) = ielem4; ef2e_temp(9,1,ielem8) = 0
-          ef2e_temp(1,2,ielem8) = 4; ef2e_temp(2,2,ielem8) = ielem5; ef2e_temp(9,2,ielem8) = 0
-          ef2e_temp(1,3,ielem8) = 5; ef2e_temp(2,3,ielem8) = ielem7; ef2e_temp(9,3,ielem8) = 0
+          ef2e_temp(1,1,ielem8) = 6; ef2e_temp(2,1,ielem8) = ielem4; ef2e_temp(9,1,ielem8) = 0; ef2e_temp(7,1,ielem8) = 0
+          ef2e_temp(1,2,ielem8) = 4; ef2e_temp(2,2,ielem8) = ielem5; ef2e_temp(9,2,ielem8) = 0; ef2e_temp(7,2,ielem8) = 0
+          ef2e_temp(1,3,ielem8) = 5; ef2e_temp(2,3,ielem8) = ielem7; ef2e_temp(9,3,ielem8) = 0; ef2e_temp(7,3,ielem8) = 0
+          elem_props_temp(2,ielem8) = elem_props(2,ielem_old)
 
           !-- populate pointers to original vertices of split elements
           ef2e_temp(8,1:9,ielem_old) = (/ic2nh(1:8,ielem_old),1/)
@@ -675,6 +685,8 @@ end subroutine construct_h_refine_list
      vx_master(:,:) = vx_master_temp(:,:)
      deallocate(ic2nh);allocate(ic2nh(8,nelems))
      ic2nh(:,:) = ic2nh_temp(:,:)
+     deallocate(elem_props);allocate(elem_props(2,nelems))
+     elem_props = elem_props_temp
 !do ielem = 1,nelems
 !write(*,*)'========================'
 !do iface = 1,nfacesperelem
@@ -690,6 +702,7 @@ end subroutine construct_h_refine_list
      deallocate(e_edge2e_temp)
      deallocate(vx_master_temp)
      deallocate(ic2nh_temp)
+     deallocate(elem_props_temp)
    end subroutine h_refine
 !==================================================================================================
 !
