@@ -51,6 +51,7 @@ module initgrid
   public write_matrix_to_file_matlab
   public e_edge2e_connectivity
   public map_face_orientation_k_On_2_k_Off
+  public face_map
 
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
@@ -904,15 +905,14 @@ contains
         hrefine_if: if(hrefine)then
           if((ef2e(8,9,ielem).GE.1))then
           !-- refined element
-          !xl(:, :, :, :) = curved_sphere_hrefine(nE,nmin,points_surf(1,:),points_surf(2,:),&
-                                                         !x_LGL_1d,x_LGL_1d_min,r(1),origin)
+          call curved_sphere_hrefine(nE,ielem,xl)
           else
             !-- populate the srufaces of the block
-            call surface_nodes_sphere(nE,ielem,xl)
+            call surface_nodes_sphere(nE,ielem,xl,.false.)
           endif
         else
           !-- populate the srufaces of the block
-          call surface_nodes_sphere(nE,ielem,xl)
+          call surface_nodes_sphere(nE,ielem,xl,.false.)
         endif hrefine_if
     end select
 
@@ -940,7 +940,7 @@ contains
       ! build volumes
       if ((ndim > 2)) then
         if(hrefine)then
-          if((ef2e(8,ielem,9).GE.1))then
+          if((ef2e(8,9,ielem).GE.1))then
             !-- do nothing the volume nodes have already been computed
           else
             call TFI3D(xl(:,:,:,:),nE,x_LGL_1d)
@@ -983,15 +983,16 @@ contains
   !
   ! Notes:
   !================================================================================================
-  subroutine surface_nodes_sphere(nE, ielem,xl)
-!HERE
+  subroutine surface_nodes_sphere(nE, ielem,xl,parent)
+
     use referencevariables, only: ndim
-    use variables, only: vx, e2v
+    use variables, only: vx, e2v, ef2e
     use controlvariables, only: radius, origin
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
 
     integer, intent(in) :: nE, ielem
     real(wp), intent(inout) :: xl(1:3,1:nE,1:nE,1:nE)
+    logical, intent(in) :: parent
 
     integer :: iface, j, i1d, nmin, nE_temp   
     real(wp) :: xl_parent(1:3,1:nE,1:nE,1:nE)
@@ -1003,6 +1004,9 @@ contains
     real(wp), allocatable                               :: x_LGL_1d_min(:), w_LGL_1d_min(:)
 
     real(wp), parameter                                 :: tol = 1.0e-12_wp
+
+!--debug vars
+    integer :: i
 
       call element_properties(ielem,       &                   !     ! nE is size of edge on element (varies with element)
                               n_pts_1d=nE_temp, &
@@ -1027,37 +1031,71 @@ contains
       !     |         |
       ! r(1) ----------r(2)
   
-      if(iface.EQ.1)then
-        points_surf(1,:) = vx(:,e2v(1,ielem))
-        points_surf(2,:) = vx(:,e2v(2,ielem))
-        points_surf(3,:) = vx(:,e2v(3,ielem))
-        points_surf(4,:) = vx(:,e2v(4,ielem))
-      elseif(iface.EQ.2)then
-        points_surf(1,:) = vx(:,e2v(1,ielem))
-        points_surf(2,:) = vx(:,e2v(2,ielem))
-        points_surf(3,:) = vx(:,e2v(6,ielem))
-        points_surf(4,:) = vx(:,e2v(5,ielem))
-      elseif(iface.EQ.3)then
-        points_surf(1,:) = vx(:,e2v(2,ielem))
-        points_surf(2,:) = vx(:,e2v(3,ielem))
-        points_surf(3,:) = vx(:,e2v(7,ielem))
-        points_surf(4,:) = vx(:,e2v(6,ielem))
-      elseif(iface.EQ.4)then
-        points_surf(1,:) = vx(:,e2v(4,ielem))
-        points_surf(2,:) = vx(:,e2v(3,ielem))
-        points_surf(3,:) = vx(:,e2v(7,ielem))
-        points_surf(4,:) = vx(:,e2v(8,ielem))
-      elseif(iface.EQ.5)then
-        points_surf(1,:) = vx(:,e2v(1,ielem))
-        points_surf(2,:) = vx(:,e2v(4,ielem))
-        points_surf(3,:) = vx(:,e2v(8,ielem))
-        points_surf(4,:) = vx(:,e2v(5,ielem))
-      elseif(iface.EQ.6)then
-        points_surf(1,:) = vx(:,e2v(5,ielem))
-        points_surf(2,:) = vx(:,e2v(6,ielem))
-        points_surf(3,:) = vx(:,e2v(7,ielem))
-        points_surf(4,:) = vx(:,e2v(8,ielem))
-      endif
+      parent_if: if(parent)then
+        if(iface.EQ.1)then
+          points_surf(1,:) = vx(:,ef2e(8,1,ielem))
+          points_surf(2,:) = vx(:,ef2e(8,2,ielem))
+          points_surf(3,:) = vx(:,ef2e(8,3,ielem))
+          points_surf(4,:) = vx(:,ef2e(8,4,ielem))
+        elseif(iface.EQ.2)then
+          points_surf(1,:) = vx(:,ef2e(8,1,ielem))
+          points_surf(2,:) = vx(:,ef2e(8,2,ielem))
+          points_surf(3,:) = vx(:,ef2e(8,6,ielem))
+          points_surf(4,:) = vx(:,ef2e(8,5,ielem))
+        elseif(iface.EQ.3)then
+          points_surf(1,:) = vx(:,ef2e(8,2,ielem))
+          points_surf(2,:) = vx(:,ef2e(8,3,ielem))
+          points_surf(3,:) = vx(:,ef2e(8,7,ielem))
+          points_surf(4,:) = vx(:,ef2e(8,6,ielem))
+        elseif(iface.EQ.4)then
+          points_surf(1,:) = vx(:,ef2e(8,4,ielem))
+          points_surf(2,:) = vx(:,ef2e(8,3,ielem))
+          points_surf(3,:) = vx(:,ef2e(8,7,ielem))
+          points_surf(4,:) = vx(:,ef2e(8,8,ielem))
+        elseif(iface.EQ.5)then
+          points_surf(1,:) = vx(:,ef2e(8,1,ielem))
+          points_surf(2,:) = vx(:,ef2e(8,4,ielem))
+          points_surf(3,:) = vx(:,ef2e(8,8,ielem))
+          points_surf(4,:) = vx(:,ef2e(8,5,ielem))
+        elseif(iface.EQ.6)then
+          points_surf(1,:) = vx(:,ef2e(8,5,ielem))
+          points_surf(2,:) = vx(:,ef2e(8,6,ielem))
+          points_surf(3,:) = vx(:,ef2e(8,7,ielem))
+          points_surf(4,:) = vx(:,ef2e(8,8,ielem))
+        endif
+      else
+        if(iface.EQ.1)then
+          points_surf(1,:) = vx(:,e2v(1,ielem))
+          points_surf(2,:) = vx(:,e2v(2,ielem))
+          points_surf(3,:) = vx(:,e2v(3,ielem))
+          points_surf(4,:) = vx(:,e2v(4,ielem))
+        elseif(iface.EQ.2)then
+          points_surf(1,:) = vx(:,e2v(1,ielem))
+          points_surf(2,:) = vx(:,e2v(2,ielem))
+          points_surf(3,:) = vx(:,e2v(6,ielem))
+          points_surf(4,:) = vx(:,e2v(5,ielem))
+        elseif(iface.EQ.3)then
+          points_surf(1,:) = vx(:,e2v(2,ielem))
+          points_surf(2,:) = vx(:,e2v(3,ielem))
+          points_surf(3,:) = vx(:,e2v(7,ielem))
+          points_surf(4,:) = vx(:,e2v(6,ielem))
+        elseif(iface.EQ.4)then
+          points_surf(1,:) = vx(:,e2v(4,ielem))
+          points_surf(2,:) = vx(:,e2v(3,ielem))
+          points_surf(3,:) = vx(:,e2v(7,ielem))
+          points_surf(4,:) = vx(:,e2v(8,ielem))
+        elseif(iface.EQ.5)then
+          points_surf(1,:) = vx(:,e2v(1,ielem))
+          points_surf(2,:) = vx(:,e2v(4,ielem))
+          points_surf(3,:) = vx(:,e2v(8,ielem))
+          points_surf(4,:) = vx(:,e2v(5,ielem))
+        elseif(iface.EQ.6)then
+          points_surf(1,:) = vx(:,e2v(5,ielem))
+          points_surf(2,:) = vx(:,e2v(6,ielem))
+          points_surf(3,:) = vx(:,e2v(7,ielem))
+          points_surf(4,:) = vx(:,e2v(8,ielem))
+        endif
+      endif parent_if
       do j = 1,4
         r(j) = magnitude(points_surf(j,:)-origin(:)) 
       enddo
@@ -1612,28 +1650,27 @@ contains
 
     use variables, only: ef2e
     use referencevariables, only: ndim
-    use controlvariables, only: hrefine
     use initcollocation, only: element_properties, lagrange_basis_function_1d
     use non_conforming, only: Lagrange_interpolant_basis_1D
 
     integer, intent(in) :: nE, ielem
     real(wp), intent(inout) :: xl(1:3,1:nE,1:nE,1:nE)
 
-    integer :: iface, i, j, k, i1d   
+    integer :: iface, i, j, k, ii, jj, kk, i1d,nE_temp   
     real(wp) :: xl_parent(1:3,1:nE,1:nE,1:nE)
-    real(wp), dimension(3) :: xi1d, eta1d, zeta1d
+    real(wp), dimension(nE) :: xi1d, eta1d, zeta1d
     real(wp) :: xiL, xiR, etaL, etaR, zetaL, zetaR, lxi, leta, lzeta
     real(wp), allocatable :: x_LGL_1d(:)
 
     call element_properties(ielem,       &                   !     ! nE is size of edge on element (varies with element)
+                            n_pts_1d=nE_temp, &
                             x_pts_1d=x_LGL_1d)
 
     !-- populate parent element
-    call surface_nodes_sphere(nE,ielem,xl_parent) 
+    xl_parent = 0.0_wp
+    call surface_nodes_sphere(nE,ielem,xl_parent,.true.) 
     ! build volumes
-    if ((ndim > 2).AND.(.NOT.hrefine)) then
-      call TFI3D(xl_parent(:,:,:,:),nE,x_LGL_1d)
-    end if
+    call TFI3D(xl_parent(:,:,:,:),nE,x_LGL_1d)
 
     !-- populate the child block
     if(ef2e(8,9,ielem).EQ.1)then
@@ -1677,22 +1714,30 @@ contains
       etaL = 0.0_wp; etaR = 1.0_wp
       zetaL = 0.0_wp; zetaR = 1.0_wp
     endif
+
     xi1d = (xiR-xiL)/2.0_wp*x_LGL_1d+(xiR+xiL)/2.0_wp
     eta1d = (etaR-etaL)/2.0_wp*x_LGL_1d+(etaR+etaL)/2.0_wp
     zeta1d = (zetaR-zetaL)/2.0_wp*x_LGL_1d+(zetaR+zetaL)/2.0_wp
 
     !-- loop over the three computational coordiantes and construct the nodes
+    xl = 0.0_wp
     k_do: do k = 1,nE
-      j_do: do j = 1 ,nE
-        i_do: do i = 1, nE
-          lxi = lagrange_basis_function_1d(xi1d(i), i, x_LGL_1d, nE)
-          leta = lagrange_basis_function_1d(eta1d(j), j, x_LGL_1d, nE)
-          lzeta = lagrange_basis_function_1d(zeta1d(k),k, x_LGL_1d, nE)
+      j_do: do j = 1,nE
+        i_do: do i = 1,nE
+          kk_do: do kk = 1,nE
+            jj_do: do jj = 1 ,nE
+              ii_do: do ii = 1, nE
+                lxi = lagrange_basis_function_1d(xi1d(i), ii, x_LGL_1d, nE)
+                leta = lagrange_basis_function_1d(eta1d(j), jj, x_LGL_1d, nE)
+                lzeta = lagrange_basis_function_1d(zeta1d(k),kk, x_LGL_1d, nE)
 
-          xl(1,i,j,k) = xl_parent(1,i,j,k)*lxi*leta*lzeta
-          xl(2,i,j,k) = xl_parent(2,i,j,k)*lxi*leta*lzeta
-          xl(3,i,j,k) = xl_parent(3,i,j,k)*lxi*leta*lzeta
-        enddo i_do 
+                xl(1,i,j,k) = xl(1,i,j,k)+xl_parent(1,ii,jj,kk)*lxi*leta*lzeta
+                xl(2,i,j,k) = xl(2,i,j,k)+xl_parent(2,ii,jj,kk)*lxi*leta*lzeta
+                xl(3,i,j,k) = xl(3,i,j,k)+xl_parent(3,ii,jj,kk)*lxi*leta*lzeta
+              enddo ii_do 
+            enddo jj_do
+          enddo kk_do
+        enddo i_do
       enddo j_do
     enddo k_do
   end subroutine curved_sphere_hrefine
@@ -2641,6 +2686,12 @@ contains
                 write(*,*) ef2e(:,iface,ielem)
                 write(*,*) 'Node coordinates'
                 write(*,*) x1
+write(*,*)'knode = ',knode
+write(*,*)'ifacenodes = ',ifacenodes
+knode = 12
+do  knode = 13,13+3
+  write(*,*)'xg = ',xg(:,ifacenodes(knode),ielem)                                     ! Save coordinates of the facial ndoes
+enddo
                 write(*,*) 'Possible partner node coordinates'
                 
                 do jnode = 1, n_LGL_2d

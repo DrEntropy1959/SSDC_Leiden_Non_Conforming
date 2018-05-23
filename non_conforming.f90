@@ -70,7 +70,7 @@ subroutine construct_h_refine_list
        enddo
        endif
        nelems_to_refine = 1
-       h_refine_list(3) = .true.
+       h_refine_list(1) = .true.
      case default
        write(*,*)'non_conforming: construct_h_refine_list: incorrect choice of refine_method = ',refine_method
        call PetscFinalize(i_err); stop

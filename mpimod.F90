@@ -251,6 +251,7 @@ contains
                        & n_wall_faces, wall_elem_face_ids
 
     use collocationvariables, only : ldg_flip_flop_sign
+    use controlvariables, only: hrefine
 
     ! Nothing is implicitly defined
     implicit none
@@ -274,7 +275,7 @@ contains
     integer :: max_n_vert_per_proc, n_vert_per_proc, j_vert_pos, j_vert_elem, &
              & k_vert_proc
 
-    integer, allocatable, dimension(:) :: vert_list_proc
+    integer, allocatable, dimension(:) :: vert_list_proc, vert_old_2_new
 
     integer :: i_p_face, p_elem, p_face, p_dir
     integer, allocatable, dimension(:) :: cnt_p_faces_x1, cnt_p_faces_x2, &
@@ -1017,6 +1018,9 @@ contains
         ! Construct the local e2v array (local for each process) 
         allocate(vert_list_proc(max_n_vert_per_proc))
         vert_list_proc = max_n_vert_per_proc + 100
+         
+        ! construct a mapping from old vertex to new vertex
+        allocate(vert_old_2_new(size(vx_master(1,:))))
     
         ! Initialize number of vertices per process
         n_vert_per_proc = 0
@@ -1098,6 +1102,9 @@ contains
             ! Add vertex to the list
             vert_list_proc(j_vert_pos) = m
             
+            ! update map from old vertex to new
+            vert_old_2_new(m) = j_vert_pos
+
             ! Update position and counter
             j_vert_pos = j_vert_pos + 1
             n_vert_per_proc = n_vert_per_proc + 1
@@ -1105,6 +1112,20 @@ contains
           end do v_loop_m
 
         end do ! En do loop over the element
+
+        !-- need to loop over ef2e(8,iface,ielem) so that the vertex number is
+        !updated realtive to the onprocess numbering
+        !======================================================================
+        ! Loop over all elements on process
+        if(hrefine)then
+          do i = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
+             do j = 1,8
+              if(ef2etmp1(8,9,i).GE.1)then
+                ef2etmp1(8,j,i) = vert_old_2_new(ef2etmp1(8,j,i))            
+              endif
+            enddo ! face loop
+          enddo ! loop over elements
+        endif
 
         ! Special treatment for the master node. There is no need to use mpi
         ! since the data are already available in memory.
@@ -1137,6 +1158,7 @@ contains
           deallocate(e2vtmp)
           deallocate(ef2etmp1)
           deallocate(vert_list_proc)
+          deallocate(vert_old_2_new)
           deallocate(ldg_flip_flop_sign_tmp1)
 
         else 
@@ -1238,6 +1260,7 @@ contains
           deallocate(e2vtmp)
           deallocate(ef2etmp1)
           deallocate(vert_list_proc)
+          deallocate(vert_old_2_new)
           deallocate(packed_vertices)
           deallocate(packed_e2v)
           deallocate(packed_ef2e)

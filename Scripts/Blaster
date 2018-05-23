@@ -26,8 +26,8 @@ echo "Euler Supersonic_Vortex_Curved_Elements_GoldenRoe_SSDC"
 ./Euler_Script3D_Supersonic_Vortex_Curved_Elements_GoldenRoe_SSDC
 echo "Euler Supersonic_Vortex_Curved_Elements_NonConforming_Parallel"
 ./Euler_Script3D_Supersonic_Vortex_Curved_Elements_NonConforming_Parallel
-echo "NS Triangle_Serial_NonConforming"
-./NS_Script3D_Convergence_Runner_NonConforming_Triangle_3
+echo "NS Triangle_3_Serial_Conforming and NS Triangle_12_Parallel_NonConforming"
+./NS_Script3D_Convergence_Runner_NonConforming_Triangle_3_12
 echo "NS shifted cylinder Serial NonConforming"
 ./NS_Script3D_Convergence_Runner_NonConforming_Cylinder_Grid
 echo "NS shifted cylinder Parallel NonConforming"
