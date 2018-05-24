@@ -1,20 +1,25 @@
  &PreProcParameters
  ndim = 3,
- npoly = NPoly,
- casefile = 'supersonic_vortex_04x02x01',
+ npoly = NPoly, 
+ npoly_DeltaF = 0,
+ casefile = '../Grids/GMSH/Supersonic_Vortex_Cylinder/supersonic_vortex_XPTxYPTx01',
  grid_format = 'aflr3',
  viscous = .true.,
  crossterms = .true.,
  discretization = 'SSDC',
  Riemann_Diss  = 'Roe',
+ entropy_flux    = 'Chandrashekar',
+ entropy_flux_BC = 'Chandrashekar',
  Entropy_Correction = .false.,
  p_non_conforming = .true.,
- Grid_Topology = 'cylinder',
- cylinder_x0(1:3) = -1.0,0.0,0.0,
- cylinder_x1(1:3) = -1.0,0.0,1.0,
+ p_refine_strategy = 17,
+ SAT_type = 'mod_SAT',
  l01 = -0.5,
  l10 = -0.5,
  variable_viscosity = .false.,
+ Grid_Topology = 'GRIDTOP',
+ cylinder_x0(1:3) = 0.0,0.0,0.0,
+ cylinder_x1(1:3) = 0.0,0.0,1.0,
  /
 
  &GeneralParameters
@@ -22,7 +27,8 @@
  solutionfile = 'ViscousShock',
  outputfile = 'VS2D.V.4x2.',
  new = .true.,
- write_restart = .false.,
+ write_solution = .false.,
+ write_restart  = .false.,
  write_restart_dir = 'test_test',
  write_restart_common_name = 'restart_p',
  write_restart_formatted = .true.,
@@ -37,9 +43,9 @@
  timestep    =   .00001000, 
  timemaximum =  0.20000000,
  verbose = .false., 
- Dt_by_CFL = .true.,
- CFL = 1.25,
  variabletimestep = .false., 
+ Dt_by_CFL = .true.,
+ CFL = 0.5,
  /
 
  &FlowParameters
@@ -69,4 +75,4 @@
  casefile = 'vs.uns.4x2',
  casefile = 'cylinder.49x17'
  casefile = 'OrthoCube1Blocks',
- casefile = 'Cube_2D_Extrude_NonUniform_032x032x2',
+ casefile = 'Cube_2D_Extrude_NonUniform_016x016x2',

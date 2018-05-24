@@ -8,7 +8,7 @@
  discretization = 'SSDC',
  Riemann_Diss  = 'Roe',
  Entropy_Correction = .false.,
- non_conforming = .true.,
+ p_non_conforming = .true.,
  p_refine_strategy = 17,
  SAT_type = 'mod_SAT', 
  l01 = -0.5,

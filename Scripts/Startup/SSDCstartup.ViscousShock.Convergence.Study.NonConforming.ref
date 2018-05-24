@@ -8,7 +8,7 @@
  discretization = 'SSDC',
  Riemann_Diss  = 'Roe',
  Entropy_Correction = .false.,
- non_conforming = .false.,
+ p_non_conforming = .false.,
  l01 = -0.5,
  l10 = -0.5,
  variable_viscosity = .false.,

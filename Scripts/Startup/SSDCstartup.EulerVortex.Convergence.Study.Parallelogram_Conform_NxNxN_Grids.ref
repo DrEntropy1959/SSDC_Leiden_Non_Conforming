@@ -2,7 +2,7 @@
  ndim = 3,
  npoly = NPoly, 
  npoly_DeltaF = 0,
- casefile = 'Scripts/Grids/Sphere_Uniform_Orthogonal_PTSxPTSxPTS',
+ casefile = '../Grids/GMSH/Cube_2D_Extrude_Uniform_Parallelogram/Cube_2D_Extrude_Smooth_1Domain_Parallelogram_PTSxPTSx01',
  grid_format = 'aflr3',
  viscous = .false.,
  crossterms = .true.,
@@ -11,14 +11,9 @@
  Entropy_Correction = .false.,
  entropy_flux    = 'Chandrashekar',
  entropy_flux_BC = 'Chandrashekar',
- p_non_conforming = .true.,
+ p_non_conforming = .false.,
  symmetric_metric = .true.,
- p_refine_strategy = 17,
-!SAT_type = 'mod_metric',
- SAT_type = 'mod_SAT',
- Grid_Topology = 'GRIDTOP',
- radius = 1.7320508075688770,
- origin(1:3) =  0.0,0.0,0.0,
+ Grid_Topology = 'linear',
  l01 = -0.5,
  l10 = -0.5,
  variable_viscosity = .false.,
@@ -43,10 +38,10 @@
 
  &RunParameters
  timestep    =  0.00050000, 
- timemaximum =  0.1000000,
+ timemaximum =  0.10000000,
  verbose = .false., 
  Dt_by_CFL = .true.,
- CFL = 5.8,
+ CFL = 5.0,
  variabletimestep = .false., 
  /
 
