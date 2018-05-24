@@ -66,6 +66,7 @@ contains
     ! specifies the connectivity of each element.
     use referencevariables
     use variables, only: e2v, elempart, jelems, iae2v, jae2v, ef2e, boundaryelems
+
     implicit none
     integer :: i, iproc, ierr
     integer :: j, ii, jj
@@ -79,7 +80,7 @@ contains
     integer :: irsreq(2)
     integer, allocatable :: irsstatus(:,:)
     integer :: msgsize
-
+    integer, parameter :: qdim = 9   !  dimension of first array in ef2e see initgrid.F90 
     allocate(irsstatus(MPI_STATUS_SIZE,2))
 
     allocate(melemsonproc(0:2*nprocs-1))
@@ -147,7 +148,8 @@ contains
       rtag, PETSC_COMM_WORLD, irsreq(1), ierr)
 
     ! ordered-element face-to-face connectivity array is allocated
-    allocate(ef2etmp2(3,2*ndim,ihelems(1):ihelems(2)))
+!    allocate(ef2etmp2(3,2*ndim,ihelems(1):ihelems(2)))
+    allocate(ef2etmp2(qdim,nfacesperelem,ihelems(1):ihelems(2)))!HACK
     ef2etmp2 = 0
 
     ! post non-blocking receives for each process to
@@ -220,7 +222,9 @@ contains
     ! wait for other processes
     call mpi_barrier(PETSC_COMM_WORLD,ierr)
 
-    allocate(ef2e(3,2*ndim,ihelems(1):ihelems(2)))
+!    allocate(ef2e(3,2*ndim,ihelems(1):ihelems(2)))
+     allocate(ef2e(qdim,nfacesperelem,ihelems(1):ihelems(2)))!HACK
+
     ! assign global ef2e
     ef2e = ef2etmp2
     deallocate(ef2etmp2)
@@ -1121,6 +1125,9 @@ contains
           do i = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
              do j = 1,8
               if(ef2etmp1(8,9,i).GE.1)then
+!                write(*,*)"myprocid = ",myprocid,"ielem = ",i,"vertex = ",j
+!                write(*,*)"old vertex number",ef2etmp1(8,j,i)
+!                write(*,*)"new vertex number",vert_old_2_new(ef2etmp1(8,j,i))
                 ef2etmp1(8,j,i) = vert_old_2_new(ef2etmp1(8,j,i))            
               endif
             enddo ! face loop
@@ -1147,7 +1154,8 @@ contains
           e2v = e2vtmp
 
           ! Element-face-to-element connectivity (ef2e)
-          allocate(ef2etmp2(qdim,2*ndim,ihelems(1):ihelems(2)))
+!          allocate(ef2etmp2(qdim,2*ndim,ihelems(1):ihelems(2)))
+          allocate(ef2etmp2(qdim,nfacesperelem,ihelems(1):ihelems(2)))!HACK
           ef2etmp2 = ef2etmp1
 
           ! Sign of the LDG flip-flop
@@ -1372,7 +1380,8 @@ contains
 
       ! All the processes receive ef2etmp2
       ! =======================================================================
-      allocate(tmp_ef2etmp2(qdim*2*ndim*(ihelems(2)-ihelems(1)+1)))
+!      allocate(tmp_ef2etmp2(qdim*2*ndim*(ihelems(2)-ihelems(1)+1)))
+      allocate(tmp_ef2etmp2(qdim*nfacesperelem*(ihelems(2)-ihelems(1)+1)))!HACK
       tmp_ef2etmp2 = 0
 
       ! Receive the ordered-element face-to-face connectivity
@@ -1387,7 +1396,8 @@ contains
         & r_status,i_err)
 
       ! Unpack 1D array into the e2v 2D array
-      allocate(ef2etmp2(qdim,2*ndim,ihelems(1):ihelems(2)))
+!      allocate(ef2etmp2(qdim,2*ndim,ihelems(1):ihelems(2)))
+      allocate(ef2etmp2(qdim,nfacesperelem,ihelems(1):ihelems(2)))!HACK
       cnt_unpack = 0
       do ii = ihelems(1),ihelems(2)
         !do jj = 1, 2*ndim
@@ -1439,7 +1449,7 @@ contains
     end if ! End if myprocid > 0
 
     ! Allocate memory for ef2e connectivity
-    allocate(ef2e(qdim,2*ndim,ihelems(1):ihelems(2)))
+    allocate(ef2e(qdim,nfacesperelem,ihelems(1):ihelems(2)))
     
     ! Assign ef2e to each processor
     ef2e = ef2etmp2
@@ -1540,7 +1550,7 @@ contains
 
     integer :: max_n_vert_per_proc, n_vert_per_proc, j_vert_pos, j_vert_elem, &
              & k_vert_proc
-
+    integer,  parameter  :: qdim = 9             !  dimension of ef2e array
     integer, allocatable :: vert_list_proc(:)
 
     continue
@@ -1799,7 +1809,8 @@ contains
       & i_err)
 
     ! Allocate memory for ordered-element face-to-face connectivity
-    allocate(ef2etmp2(3,2*ndim,ihelems(1):ihelems(2)))
+!    allocate(ef2etmp2(3,2*ndim,ihelems(1):ihelems(2)))
+    allocate(ef2etmp2(qdim,nfacesperelem,ihelems(1):ihelems(2)))! HACK
     ef2etmp2 = 0
 
     ! Receive the ordered-element face-to-face connectivity
@@ -1817,7 +1828,8 @@ contains
     call mpi_barrier(petsc_comm_world,i_err)
 
     ! Allocate memory for ef2e connectivity
-    allocate(ef2e(3,2*ndim,ihelems(1):ihelems(2)))
+!    allocate(ef2e(3,2*ndim,ihelems(1):ihelems(2)))
+    allocate(ef2e(qdim,nfacesperelem,ihelems(1):ihelems(2)))!HACK
     
     ! Assign global ef2e
     ef2e = ef2etmp2
