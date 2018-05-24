@@ -4881,9 +4881,10 @@ endif
                                                   cnt_Mort_Off, Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
-    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, mut
+    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, mut, ef2e
     use collocationvariables, only: l00, l01, ldg_flip_flop_sign, alpha_ldg_flip_flop
     use initcollocation,      only: ExtrpXA2XB_2D_neq
+    use initgrid,             only: map_face_orientation_k_On_2_k_Off
 
     implicit none
 
@@ -4911,8 +4912,9 @@ endif
 
     real(wp), allocatable, dimension(:,:) :: fV_2d_Mort, fV_Mort_On, fV_Mort_Off, fV_2d_On, fV_2d_Off
     real(wp), allocatable, dimension(:,:) :: IP_2d_On, IP_2d_Mort
+    real(wp), allocatable, dimension(:,:) :: IOn2Off, IOff2On
 
-    integer                               :: i, j, k, l
+    integer                               :: i, j, k, l, orientation
     integer                               :: inode, jnode
 
     real(wp)                                   ::  mut_Off
@@ -4929,6 +4931,10 @@ endif
 
       allocate(IP_2d_Mort (nequations,n_S_2d_Mort))
       allocate(IP_2d_On   (nequations,n_S_2d_On  ))
+
+      allocate(IOff2On(1:n_S_1d_On,1:n_S_1d_Off)) ; IOff2On = matmul(Intrp_On,Extrp_Off) ;
+
+      orientation = ef2e(7,iface,ielem)
 
       !  =======
       !  LDG viscous dissipation: Connects Off with On interfaces through mortar
@@ -4948,21 +4954,8 @@ endif
 
       enddo Off_Elem_3
 
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                             fV_2d_Off(:,:),fV_Mort_Off(:,:),Extrp_Off, Extrp_Off)
-
-      On_Mortar_3:do j = 1, n_S_2d_Mort
-
-        jnode =  n_S_2d_max*(iface-1) + j          ! Index in facial ordering
-
-            l = cnt_Mort_Off(j)                    ! Correct for face orientation and shift back to 1:n_S_2d_Mort
-
-       fV_Mort_On(:,j) = - fV_Mort_Off(:,l)        ! Account for different ordering and opposite outward normal
-
-      enddo On_Mortar_3
-
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                             fV_Mort_On(:,:),fV_2d_On(:,:),Intrp_On,Intrp_On)
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On, & ! Extrapolate f^S_x
+                            fV_2d_Off,fV_2d_On, IOff2On, IOff2On )                   ! fV_2d_On still has wrong ordering and orientation
 
       !  =======
       !  IP dissipation: formed on the common mortar between element interfaces
@@ -5002,8 +4995,10 @@ endif
 
         l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
 
+        l =  map_face_orientation_k_On_2_k_Off(i,orientation,n_S_1d_On)        ! Correct for face orientation and shift back to 1:n_S_2d_On
+
         fV_Del(:) = normalviscousflux(vg_On (:), phig_On (:,:), nx, nequations, mut(inode,ielem)) &
-                  - fV_2d_On(:,i)
+                  - (-1 * fV_2d_On(:,l))                         ! -1 accounts for opposite direction of outward faceing normal
 
         SAT_Pen(:) = + l01_ldg_flip_flop*fV_Del(:) + IP_2d_On(:,i)
 
@@ -5013,6 +5008,7 @@ endif
 
       deallocate(fV_2d_Mort, fV_Mort_Off, fV_Mort_On, fV_2d_On, fV_2d_Off)
       deallocate(IP_2d_On, IP_2d_Mort)
+      deallocate(IOff2On)
 
   end subroutine Viscous_SAT_Non_Conforming_Interface_Old
 
