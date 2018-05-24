@@ -131,6 +131,7 @@ SRCS = precision_vars.f90\
        SSWENO_routines.f90\
        restart_simulation.f90\
        eispack_module.f90\
+       non_conforming.f90\
        initgrid.F90\
        navierstokes.f90\
        time_integ_coeff.f90\
@@ -146,7 +147,6 @@ SRCS = precision_vars.f90\
        error_bc_no_slip_wall.f90\
        error_heat_entropy_flow_wall_bc.f90\
        timeinteg.f90\
-       non_conforming.f90\
        polyinit.f90\
        physicsindependent.f90\
        ssdcsolver.f90
@@ -181,6 +181,7 @@ OBJS = precision_vars.o\
        SSWENO_routines.o\
        restart_simulation.o\
        eispack_module.o\
+       non_conforming.o\
        initgrid.o\
        navierstokes.o\
        time_integ_coeff.o\
@@ -196,7 +197,6 @@ OBJS = precision_vars.o\
        error_bc_no_slip_wall.o\
        error_heat_entropy_flow_wall_bc.o\
        timeinteg.o\
-       non_conforming.o\
        polyinit.o\
        physicsindependent.o\
        ssdcsolver.o\
