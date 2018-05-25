@@ -39,6 +39,7 @@ contains
     use referencevariables,  only: ihelems, nfacesperelem, nelems
     use initcollocation,     only: element_properties
     use non_conforming,      only: h_refine, construct_h_refine_list
+    use variables, only : parent_geo, nelems_to_refine
 !-- DAVID DEBUG START
     use variables, only : ef2e, vx_master, ic2nh
 !-- DAVID DEBUG END
@@ -159,7 +160,11 @@ contains
 
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
-
+!-- DEBUG
+!do ielem = 1,nelems
+!write(*,*)"ielem = ",ielem,"ef2e(4,:,ielem) = ",ef2e(4,:,ielem)
+!enddo
+!-- DEBUG
       end if
 
       !-- pass number_of_possible_partners to all processes
@@ -169,6 +174,14 @@ contains
       call mpi_bcast(nfacesperelem,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)     
 
       if(hrefine)then
+        !-- pass the number of elements being refined
+        call mpi_bcast(nelems_to_refine,1,mpi_integer,0,PETSC_COMM_WORLD,i_err) 
+       
+        !-- brodcast the parent geometry information
+        if(myprocid.NE.0)then
+          allocate(parent_geo(3,8,nelems_to_refine))
+        endif
+        call mpi_bcast(parent_geo(:,:,:),3*8*nelems_to_refine,mpi_double,0,PETSC_COMM_WORLD,i_err)
       else
         ! Push edge connectivity to all processes (has to be before distribute_elements_aflr3 
         !  because in that routine nelems is changed to the local number of elements)
@@ -186,11 +199,13 @@ contains
 !enddo
 !write(*,*)"============================================="
 !enddo
-!        call PetscFinalize(i_err)
+!        call mpi_barrier(petsc_comm_world,i_err)
+!        call PetscFinalize(i_err); stop
 !-- DAVID DEBUG END
     end if
 
     call mpi_bcast(npoly_max,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)
+
 
     ! Initialize collocation approximation
     i_err = rmapInit(npoly,ndim)

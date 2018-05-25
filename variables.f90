@@ -139,6 +139,7 @@ module variables
 
 
   real(wp), allocatable, dimension(:,:) :: vx
+  real(wp), allocatable, dimension(:,:,:) :: parent_geo
   integer, allocatable, dimension(:,:) :: e2v
   integer, allocatable, dimension(:) :: bctypes
   integer, allocatable, dimension(:,:,:) :: ef2e
