@@ -747,6 +747,9 @@ contains
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
+!-- DEBUG
+    use collocationvariables, only : elem_props
+!-- DEBUG
 
     implicit none
     ! indices
@@ -788,7 +791,8 @@ contains
       call element_properties(ielem,       &                   !     ! nE is size of edge on element (varies with element)
                               n_pts_1d=nE, &
                               x_pts_1d=x_LGL_1d)
-!write(*,*)"at top of calcnodes myprocid = ",myprocid," ielem = ",ielem, "nE =",nE
+!write(*,*)"at top of calcnodes myprocid = ",myprocid," ielem = ",ielem, "nE&
+!=",nE, "elem_props(1,ielem) = ",elem_props(1,ielem)
       if(allocated(xi)) deallocate(xi) ; allocate(xi(1:nE)) ;  xi = 0.0_wp
 
       if(allocated(xl)) deallocate(xl) ; allocate(xl(3,1:nE,1:nE,1:nE)) ;  xl = 0.0_wp
@@ -990,6 +994,9 @@ contains
     use controlvariables, only: radius, origin
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
 
+!-- DEBUG
+    use collocationvariables, only: elem_props
+!-- DEBUG
     integer, intent(in) :: nE, ielem
     real(wp), intent(inout) :: xl(1:3,1:nE,1:nE,1:nE)
     logical, intent(in) :: parent
@@ -1014,7 +1021,8 @@ contains
     call element_properties(ielem,       &                   !     ! nE is size of edge on element (varies with element)
                               n_pts_1d=nE_temp, &
                               x_pts_1d=x_LGL_1d)
-
+!write(*,*)"top of surf ielem ",ielem,"myprocid = ",myprocid," nE = ",nE, "nE_temp = ",nE_temp,&
+!"elem_props(1,ielem) = ",elem_props(1,ielem)," elem_props(2,ielem) =",elem_props(2,ielem) 
     !-- build the nodal distribution on the parent element
     face_do : do iface = 1,2*ndim
       !-- determine the radius and ensure that all 4 points have the same radius 

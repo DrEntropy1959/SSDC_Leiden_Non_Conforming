@@ -3965,17 +3965,25 @@ contains
                      kfacenodes=kfacenodes_Off,&
                      ifacenodes=ifacenodes_Off)
 
-        allocate(  nx_2d_Off (ndim,n_S_2D_Off ))
-        allocate( mut_2d_Off (     n_S_2D_Off ))
+        !allocate(  nx_2d_Off (ndim,n_S_2D_Off ))!HACK
+        if(allocated(nx_2d_Off)) deallocate(nx_2d_Off); allocate(  nx_2d_Off (ndim,n_S_2D_Off ))
+        !allocate( mut_2d_Off (     n_S_2D_Off ))
+        if(allocated(mut_2d_Off)) deallocate(mut_2d_Off); allocate(  mut_2d_Off (n_S_2D_Off ))
 
-        allocate(vg_2d_On    (nequations,n_S_2d_On  ))
-        allocate(wg_2d_On    (nequations,n_S_2d_On  ))
+        !allocate(vg_2d_On    (nequations,n_S_2d_On  ))
+        if(allocated(vg_2d_On)) deallocate(vg_2d_On); allocate(vg_2d_On    (nequations,n_S_2d_On  ))
+        !allocate(wg_2d_On    (nequations,n_S_2d_On  ))
+        if(allocated(wg_2d_On)) deallocate(wg_2d_On); allocate(wg_2d_On    (nequations,n_S_2d_On  ))
 
-        allocate(vg_2d_Off   (nequations,n_S_2d_Off ))
-        allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
+!        allocate(vg_2d_Off   (nequations,n_S_2d_Off ))
+         if(allocated(vg_2d_Off)) deallocate(vg_2d_Off); allocate(vg_2d_Off   (nequations,n_S_2d_Off ))
+!        allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
+         if(allocated(wg_2d_Off)) deallocate(wg_2d_Off); allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
 
-        allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
-        allocate(phig_2d_Off (nequations,ndim,n_S_2d_Off))
+!        allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
+        if(allocated(phig_2d_On)) deallocate(phig_2d_On); allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
+!        allocate(phig_2d_Off (nequations,ndim,n_S_2d_Off))
+        if(allocated(phig_2d_Off)) deallocate(phig_2d_Off); allocate(phig_2d_Off (nequations,ndim,n_S_2d_Off))
 
 !         Sub-face ordering
 

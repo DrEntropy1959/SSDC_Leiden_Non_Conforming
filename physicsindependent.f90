@@ -160,11 +160,7 @@ contains
 
         write(*,*) 'Master node distributes elements'
         write(*,*) '==============================================================='
-!-- DEBUG
-!do ielem = 1,nelems
-!write(*,*)"ielem = ",ielem,"ef2e(4,:,ielem) = ",ef2e(4,:,ielem)
-!enddo
-!-- DEBUG
+
       end if
 
       !-- pass number_of_possible_partners to all processes
@@ -190,6 +186,16 @@ contains
 
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()
+
+!-- DEBUG
+!do ielem = 1,nelems
+!write(*,*)"myprocid = ",myprocid,"ielem = ",ielem,"ef2e(4,:,ielem) = ",ef2e(4,:,ielem)
+!write(*,*)"elem_props(1,ielem) = ",elem_props(1,ielem),"elem_props(2,ielem) =",elem_props(2,ielem)
+!enddo
+!        call mpi_barrier(petsc_comm_world,i_err)
+!        call PetscFinalize(i_err); stop
+!
+!-- DEBUG
 !-- DAVID DEBUG START
 !do ielem = 1,nelems
 !write(*,*)"============================================="

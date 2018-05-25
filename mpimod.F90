@@ -242,6 +242,9 @@ contains
   ! distribute_elements_aflr3 - Distributes elements and connectivity
   ! informations to each process.
   
+  !NOTES: some parts of this subroutine have been updated to accomodate more
+  !than 8 faces, however, others have not for example ldg_flip_flop_sign
+
   subroutine distribute_elements_aflr3()
     
     ! Load modules
@@ -1001,6 +1004,7 @@ contains
       allocate(s_request_ldg_flip_flop_sign(nprocs))
 
       do i_proc = 0, nprocs-1
+
         ! Allocate memory for temporary array for element-to-vertex connectivity on the process
         allocate(e2vtmp(2**ndim,melemsonproc(2*i_proc):melemsonproc(2*i_proc+1)))
         
@@ -1077,7 +1081,7 @@ contains
               ef2etmp1(3,j,i) = i_proc
             end if
           end do
-!write(*,*)"from within distribure ef2etemp1(4,:,i) = ",ef2etmp1(4,:,i)
+
           ! Loop over all faces
           do j = 1, 2*ndim
             ldg_flip_flop_sign_tmp1(j,i) = ldg_flip_flop_sign(j,ii)
@@ -1197,13 +1201,13 @@ contains
 
           call mpi_wait(s_request_e2v(i_proc),s_status,i_err)
 
-          ! Transfer ef2e data
+          ! Transfer ef2e data HERE
           ! ===================================================================
           ! Prepare 1D vector
-          allocate(packed_ef2e(qdim*npetmp*(2*ndim)))
+          allocate(packed_ef2e(qdim*npetmp*nfacesperelem))
           cnt_pack = 0
           do ii = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
-            do jj = 1, 2*ndim
+            do jj = 1, nfacesperelem
               do kk = 1, qdim
                 cnt_pack = cnt_pack + 1
                 packed_ef2e(cnt_pack) = ef2etmp1(kk,jj,ii)
@@ -1213,11 +1217,31 @@ contains
 
           ! Send 1D array
           s_tag = 200*nprocs + i_proc
-          m_size = npetmp*2*ndim*qdim
+          m_size = npetmp*nfacesperelem*qdim
           call mpi_send(packed_ef2e,m_size,mpi_integer,i_proc,s_tag, &                                                       !NOTE (David) should this be an isend?
             & petsc_comm_world,s_request_ef2e(i_proc),i_err)
 
           call mpi_wait(s_request_ef2e(i_proc),s_status,i_err)
+
+          !-- old code
+          !allocate(packed_ef2e(qdim*npetmp*(2*ndim)))
+          !cnt_pack = 0
+          !do ii = melemsonproc(2*i_proc), melemsonproc(2*i_proc+1)
+          !  do jj = 1, 2*ndim
+          !    do kk = 1, qdim
+          !      cnt_pack = cnt_pack + 1
+          !      packed_ef2e(cnt_pack) = ef2etmp1(kk,jj,ii)
+          !    end do
+          !  end do
+          !end do
+
+          ! Send 1D array
+          !s_tag = 200*nprocs + i_proc
+          !m_size = npetmp*2*ndim*qdim
+          !call mpi_send(packed_ef2e,m_size,mpi_integer,i_proc,s_tag, &                                                       !NOTE (David) should this be an isend?
+          !  & petsc_comm_world,s_request_ef2e(i_proc),i_err)
+          !
+          !call mpi_wait(s_request_ef2e(i_proc),s_status,i_err)
 
           ! Transfer ldg_flip_flop_sign
           ! ===================================================================
@@ -1352,16 +1376,14 @@ contains
       ! Deallocate memory for tmp_e2v
       deallocate(tmp_e2v)
 
-
       ! All the processes receive ef2etmp2
       ! =======================================================================
-!      allocate(tmp_ef2etmp2(qdim*2*ndim*(ihelems(2)-ihelems(1)+1)))
-      allocate(tmp_ef2etmp2(qdim*nfacesperelem*(ihelems(2)-ihelems(1)+1)))!HACK
+      allocate(tmp_ef2etmp2(qdim*nfacesperelem*(ihelems(2)-ihelems(1)+1)))
       tmp_ef2etmp2 = 0
 
       ! Receive the ordered-element face-to-face connectivity
       r_tag = 200*nprocs + myprocid
-      m_size = netmp*2*ndim*qdim
+      m_size = netmp*nfacesperelem*qdim
       call mpi_irecv(tmp_ef2etmp2,m_size,mpi_integer,0,r_tag,petsc_comm_world, &
         & r_request_ef2e,i_err)
 
@@ -1371,8 +1393,7 @@ contains
         & r_status,i_err)
 
       ! Unpack 1D array into the e2v 2D array
-!      allocate(ef2etmp2(qdim,2*ndim,ihelems(1):ihelems(2)))
-      allocate(ef2etmp2(qdim,nfacesperelem,ihelems(1):ihelems(2)))!HACK
+      allocate(ef2etmp2(qdim,nfacesperelem,ihelems(1):ihelems(2)))
       cnt_unpack = 0
       do ii = ihelems(1),ihelems(2)
         !do jj = 1, 2*ndim
@@ -1386,6 +1407,41 @@ contains
 
       ! Deallocate memory for tmp_ef2etmp2
       deallocate(tmp_ef2etmp2)
+
+!-- old code
+      ! All the processes receive ef2etmp2
+      ! =======================================================================
+!      allocate(tmp_ef2etmp2(qdim*2*ndim*(ihelems(2)-ihelems(1)+1)))
+!      allocate(tmp_ef2etmp2(qdim*nfacesperelem*(ihelems(2)-ihelems(1)+1)))!HACK
+!      tmp_ef2etmp2 = 0
+
+      ! Receive the ordered-element face-to-face connectivity
+!      r_tag = 200*nprocs + myprocid
+!      m_size = netmp*2*ndim*qdim
+!      call mpi_irecv(tmp_ef2etmp2,m_size,mpi_integer,0,r_tag,petsc_comm_world, &
+!        & r_request_ef2e,i_err)
+!
+!      call mpi_wait(r_request_ef2e,r_status,i_err)
+!      test_request_ef2e = .false.
+!      call mpi_test(r_request_ef2e,test_request_ef2e, &
+!        & r_status,i_err)
+!
+!      ! Unpack 1D array into the e2v 2D array
+!!      allocate(ef2etmp2(qdim,2*ndim,ihelems(1):ihelems(2)))
+!      allocate(ef2etmp2(qdim,nfacesperelem,ihelems(1):ihelems(2)))!HACK
+!      cnt_unpack = 0
+!      do ii = ihelems(1),ihelems(2)
+!        !do jj = 1, 2*ndim
+!         do jj = 1, nfacesperelem
+!          do kk = 1, qdim
+!            cnt_unpack = cnt_unpack + 1
+!            ef2etmp2(kk,jj,ii) = tmp_ef2etmp2(cnt_unpack)
+!          end do
+!        end do
+!      end do
+!
+!      ! Deallocate memory for tmp_ef2etmp2
+!      deallocate(tmp_ef2etmp2)
 
 
       ! All the processes receive ldg_flip_flop_sign_tmp2 
