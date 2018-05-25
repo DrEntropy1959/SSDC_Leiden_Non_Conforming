@@ -3269,7 +3269,7 @@ contains
     ! indices
     integer :: inode, jnode, knode, lnode, gnode
     integer :: kelem
-    integer :: iface, kface
+    integer :: iface, kface, iface_6, kface_6
     integer :: i,j,k
 
     real(wp), allocatable :: fstar(:), fstarV(:)               ! reconstructed fluxs
@@ -3957,6 +3957,9 @@ contains
 
         kface       = ef2e(1,iface,ielem)
         kelem       = ef2e(2,iface,ielem)
+        
+        iface_6 = mod((iface-1),6)+1
+        kface_6 = mod((kface-1),6)+1
 
         call element_properties(kelem,&
                        n_pts_1d=n_S_1d_Off,&
@@ -4068,7 +4071,7 @@ contains
                                                                              ! ============================================
         On_Elem_1:do i = 1, n_S_2d_On                                             ! On_Element Loop over 2D LGL points
         
-         jnode =  n_S_2d_On*(iface-1) + i                                         ! Index in facial ordering
+         jnode =  n_S_2d_On*(iface_6-1) + i                                         ! Index in facial ordering
          inode = ifacenodes_On(jnode)                                             ! Volumetric node index corresponding to facial node index
 
            vg_2d_On(:,  i) =   vg(:,  inode,ielem)                                ! On-element face data
@@ -4103,7 +4106,7 @@ contains
                                                                              ! ============================================
           Off_Elem_3:do k = 1, n_S_2d_Off                                         ! Off-element loop over data
  
-            lnode =  n_S_2d_Off*(kface-1) + k                                     ! Index in facial ordering
+            lnode =  n_S_2d_Off*(kface_6-1) + k                                     ! Index in facial ordering
             knode = ifacenodes_Off(lnode)                                         ! Volumetric node index corresponding to facial node index
 
               vg_2d_Off(:,  k) =   vg(:,  knode,kelem)                            ! volumetric node data from off element face
@@ -4129,7 +4132,7 @@ contains
 
           nx_Off_ghst = -nx_2d_Off
 
-          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface_6, ifacenodes_On ,n_S_2d_max, &
                                                       n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                       n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                       pinv, nx_Off_ghst,                              &
