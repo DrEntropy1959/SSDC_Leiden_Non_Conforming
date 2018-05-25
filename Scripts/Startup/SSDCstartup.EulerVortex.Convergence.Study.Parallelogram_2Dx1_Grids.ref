@@ -1,17 +1,16 @@
  &PreProcParameters
  ndim = 3,
- npoly = NPoly,
- casefile = 'supersonic_vortex_04x02x01',
+ npoly = NPoly, 
+ npoly_DeltaF = 0,
+ casefile = 'Cube_2D_Extrude_Smooth_1Domain_Parallelogram_PTSxPTSx1',
  grid_format = 'aflr3',
- viscous = .true.,
+ viscous = .false.,
  crossterms = .true.,
  discretization = 'SSDC',
  Riemann_Diss  = 'Roe',
  Entropy_Correction = .false.,
- p_non_conforming = .true.,
- Grid_Topology = 'cylinder',
- cylinder_x0(1:3) = -1.0,0.0,0.0,
- cylinder_x1(1:3) = -1.0,0.0,1.0,
+ entropy_flux    = 'Chandrashekar',
+ entropy_flux_BC = 'Chandrashekar',
  l01 = -0.5,
  l10 = -0.5,
  variable_viscosity = .false.,
@@ -34,27 +33,28 @@
  /
 
  &RunParameters
- timestep    =   .00001000, 
- timemaximum =  0.20000000,
+ timestep    =  0.00000100, 
+ timemaximum =  0.1000000,
  verbose = .false., 
  Dt_by_CFL = .true.,
- CFL = 1.25,
+ CFL = 0.80,
  variabletimestep = .false., 
  /
 
  &FlowParameters
- Re0 = 10,
+ Re0Inv = 0,
  Pr0 = 0.75,
- Mach0 = 2.5,
- uniformFreeStreamAOA =  0.0,
- membranelocation     =  0.0, 
+ Mach0 = 0.5,
+ uniformFreeStreamAOA =  45.0,
+ membranelocation     =  0.5, 
  referenceWaveSpeed   =  0.25,
- InitialCondition     = 'ExactSolutionViscousShock',
+ InitialCondition     = 'ExactSolutionIsentropicVortex',
  /
 
  &AerodynamicParameters
  /
 
+ InitialCondition     = 'ExactSolutionViscousShock',
  casefile = 'random_grid_009x009.symmetryPlane',
  casefile = 'SquareCylinder.65x33x1',
  casefile = 'SD7003AirfoilSharpTE.V18',
@@ -69,4 +69,4 @@
  casefile = 'vs.uns.4x2',
  casefile = 'cylinder.49x17'
  casefile = 'OrthoCube1Blocks',
- casefile = 'Cube_2D_Extrude_NonUniform_032x032x2',
+ casefile = 'Cube_2D_Extrude_NonUniform_PTSxPTSx2',

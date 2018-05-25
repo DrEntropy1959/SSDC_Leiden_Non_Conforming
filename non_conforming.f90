@@ -27,19 +27,21 @@ contains
 !
 !==================================================================================================
 subroutine construct_h_refine_list
+
      use referencevariables, only : nelems, nfacesperelem
      use variables, only : ef2e, h_refine_list, nelems_to_refine
+     use controlvariables, only : h_refine_strategy
 
      !-- local variables
-     integer :: ielem, iface, refine_method
+     integer :: ielem, iface
      integer :: i_err
 
      !-- allocate list of which elements to refine
      allocate(h_refine_list(nelems))
      h_refine_list(1:nelems) = .false.
 
-     refine_method = 3
-     select case(refine_method)
+     h_refine_strategy = 3
+     select case(h_refine_strategy)
      case(1)
        !-- loop over the elements identify which ones are boundary elements and
        !tag for refinment
@@ -72,7 +74,7 @@ subroutine construct_h_refine_list
        nelems_to_refine = 1
        h_refine_list(1) = .true.
      case default
-       write(*,*)'non_conforming: construct_h_refine_list: incorrect choice of refine_method = ',refine_method
+       write(*,*)'non_conforming: construct_h_refine_list: incorrect choice of h_refine_strategy = ',h_refine_strategy
        call PetscFinalize(i_err); stop
      end select
 

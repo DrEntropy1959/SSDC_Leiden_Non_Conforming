@@ -5758,7 +5758,7 @@ end function
     ! Load modules
     use variables
     use collocationvariables
-    use controlvariables,   only : non_conforming, p_refine_strategy
+    use controlvariables,   only : p_non_conforming, p_refine_strategy
     use referencevariables, only : npoly, npoly_max, nfacesperelem
     use precision_vars, only     : magnitude
     use mpimod
@@ -5792,7 +5792,7 @@ end function
     ef2e(9,:,:) = 0
 
     !  adjust the element polynomials as per directives
-    if(non_conforming .eqv. .true.) then
+    if(p_non_conforming .eqv. .true.) then
 
       select case(p_refine_strategy)
 
