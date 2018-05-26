@@ -202,7 +202,7 @@ contains
       call timestepcontroller(itimestep)
 
       ! Compute time-averaged quantities and write output if needed
-      !if(.not. non_conforming) call post_process_ts(itimestep,timeglobal)
+      !if(.not. p_non_conforming) call post_process_ts(itimestep,timeglobal)
       call post_process_ts(itimestep,timeglobal)
 
       ! Call Solution filter to clip highest mode
@@ -887,7 +887,7 @@ contains
         call compute_specific_entropy_elements()
 
         ! Write solution file 
-        if(non_conforming)then
+        if(p_non_conforming)then
           !-- non-conforming grid use point cloud description
 
         else
@@ -897,7 +897,7 @@ contains
       
         ! Master node writes the .pvtu file
         if (myprocid .eq. 0) then
-          if(non_conforming)then
+          if(p_non_conforming)then
             !-- non-conforming data use point cloud description
             !DAVID: do not know if I need anything here yet
           else

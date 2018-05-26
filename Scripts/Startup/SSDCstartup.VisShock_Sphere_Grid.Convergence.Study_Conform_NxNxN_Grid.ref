@@ -1,14 +1,20 @@
  &PreProcParameters
  ndim = 3,
  npoly = NPoly, 
- npoly_DeltaF = deltaf,
- casefile = 'Scripts/Grids/Pencil_Uniform_KAUST_PTSx1x1',
+ npoly_DeltaF = 0,
+ casefile = '../Grids/GMSH/Sphere_Uniform_Orthogonal/Sphere_Uniform_Orthogonal_XPTxXPTxXPT',
  grid_format = 'aflr3',
  viscous = .true.,
  crossterms = .true.,
  discretization = 'SSDC',
  Riemann_Diss  = 'Roe',
- Entropy_Correction = .true.,
+ entropy_flux    = 'Chandrashekar',
+ entropy_flux_BC = 'Chandrashekar',
+ Entropy_Correction = .false.,
+ p_non_conforming = .false.,
+ SAT_type = 'mod_SAT',
+ Grid_Topology = 'GRIDTOP',
+ radius = 1.7320508075688772935,
  l01 = -0.5,
  l10 = -0.5,
  variable_viscosity = .false.,
@@ -19,7 +25,8 @@
  solutionfile = 'ViscousShock',
  outputfile = 'VS2D.V.4x2.',
  new = .true.,
- write_restart = .false.,
+ write_solution = .false.,
+ write_restart  = .false.,
  write_restart_dir = 'test_test',
  write_restart_common_name = 'restart_p',
  write_restart_formatted = .true.,
@@ -32,11 +39,12 @@
 
  &RunParameters
  timestep    =   .00001000, 
- timemaximum =  0.20000000,
+ timemaximum =  0.10000000,
  verbose = .false., 
+ verbose_fac = 10, 
  variabletimestep = .false., 
- Dt_by_CFL = .true., 
- CFL = 1.0, 
+ Dt_by_CFL = .true.,
+ CFL = 0.9,
  /
 
  &FlowParameters
@@ -44,7 +52,7 @@
  Pr0 = 0.75,
  Mach0 = 2.5,
  uniformFreeStreamAOA =  0.0,
- membranelocation     =  0.5, 
+ membranelocation     =  3.0, 
  referenceWaveSpeed   =  0.25,
  InitialCondition     = 'ExactSolutionViscousShock',
  /
@@ -66,4 +74,4 @@
  casefile = 'vs.uns.4x2',
  casefile = 'cylinder.49x17'
  casefile = 'OrthoCube1Blocks',
- casefile = 'Cube_2D_Extrude_NonUniform_PTSxPTSx2',
+ casefile = 'Cube_2D_Extrude_NonUniform_016x016x2',

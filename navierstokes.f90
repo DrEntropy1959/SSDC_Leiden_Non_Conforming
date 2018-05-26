@@ -3269,7 +3269,7 @@ contains
     ! indices
     integer :: inode, jnode, knode, lnode, gnode
     integer :: kelem
-    integer :: iface, kface
+    integer :: iface, kface, iface_6, kface_6
     integer :: i,j,k
 
     real(wp), allocatable :: fstar(:), fstarV(:)               ! reconstructed fluxs
@@ -3957,6 +3957,9 @@ contains
 
         kface       = ef2e(1,iface,ielem)
         kelem       = ef2e(2,iface,ielem)
+        
+        iface_6 = mod((iface-1),6)+1
+        kface_6 = mod((kface-1),6)+1
 
         call element_properties(kelem,&
                        n_pts_1d=n_S_1d_Off,&
@@ -3965,17 +3968,25 @@ contains
                      kfacenodes=kfacenodes_Off,&
                      ifacenodes=ifacenodes_Off)
 
-        allocate(  nx_2d_Off (ndim,n_S_2D_Off ))
-        allocate( mut_2d_Off (     n_S_2D_Off ))
+        !allocate(  nx_2d_Off (ndim,n_S_2D_Off ))!HACK
+        if(allocated(nx_2d_Off)) deallocate(nx_2d_Off); allocate(  nx_2d_Off (ndim,n_S_2D_Off ))
+        !allocate( mut_2d_Off (     n_S_2D_Off ))
+        if(allocated(mut_2d_Off)) deallocate(mut_2d_Off); allocate(  mut_2d_Off (n_S_2D_Off ))
 
-        allocate(vg_2d_On    (nequations,n_S_2d_On  ))
-        allocate(wg_2d_On    (nequations,n_S_2d_On  ))
+        !allocate(vg_2d_On    (nequations,n_S_2d_On  ))
+        if(allocated(vg_2d_On)) deallocate(vg_2d_On); allocate(vg_2d_On    (nequations,n_S_2d_On  ))
+        !allocate(wg_2d_On    (nequations,n_S_2d_On  ))
+        if(allocated(wg_2d_On)) deallocate(wg_2d_On); allocate(wg_2d_On    (nequations,n_S_2d_On  ))
 
-        allocate(vg_2d_Off   (nequations,n_S_2d_Off ))
-        allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
+!        allocate(vg_2d_Off   (nequations,n_S_2d_Off ))
+         if(allocated(vg_2d_Off)) deallocate(vg_2d_Off); allocate(vg_2d_Off   (nequations,n_S_2d_Off ))
+!        allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
+         if(allocated(wg_2d_Off)) deallocate(wg_2d_Off); allocate(wg_2d_Off   (nequations,n_S_2d_Off ))
 
-        allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
-        allocate(phig_2d_Off (nequations,ndim,n_S_2d_Off))
+!        allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
+        if(allocated(phig_2d_On)) deallocate(phig_2d_On); allocate(phig_2d_On  (nequations,ndim,n_S_2d_On ))
+!        allocate(phig_2d_Off (nequations,ndim,n_S_2d_Off))
+        if(allocated(phig_2d_Off)) deallocate(phig_2d_Off); allocate(phig_2d_Off (nequations,ndim,n_S_2d_Off))
 
 !         Sub-face ordering
 
@@ -4060,7 +4071,7 @@ contains
                                                                              ! ============================================
         On_Elem_1:do i = 1, n_S_2d_On                                             ! On_Element Loop over 2D LGL points
         
-         jnode =  n_S_2d_On*(iface-1) + i                                         ! Index in facial ordering
+         jnode =  n_S_2d_On*(iface_6-1) + i                                         ! Index in facial ordering
          inode = ifacenodes_On(jnode)                                             ! Volumetric node index corresponding to facial node index
 
            vg_2d_On(:,  i) =   vg(:,  inode,ielem)                                ! On-element face data
@@ -4095,7 +4106,7 @@ contains
                                                                              ! ============================================
           Off_Elem_3:do k = 1, n_S_2d_Off                                         ! Off-element loop over data
  
-            lnode =  n_S_2d_Off*(kface-1) + k                                     ! Index in facial ordering
+            lnode =  n_S_2d_Off*(kface_6-1) + k                                     ! Index in facial ordering
             knode = ifacenodes_Off(lnode)                                         ! Volumetric node index corresponding to facial node index
 
               vg_2d_Off(:,  k) =   vg(:,  knode,kelem)                            ! volumetric node data from off element face
@@ -4121,7 +4132,7 @@ contains
 
           nx_Off_ghst = -nx_2d_Off
 
-          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface, ifacenodes_On ,n_S_2d_max, &
+          call Inviscid_SAT_Non_Conforming_Interface_Mod_SAT(ielem, iface_6, ifacenodes_On ,n_S_2d_max, &
                                                       n_S_1d_On  ,n_S_2d_On  ,x_S_1d_On  ,            &
                                                       n_S_1d_Off ,n_S_2d_Off ,x_S_1d_Off ,            &
                                                       pinv, nx_Off_ghst,                              &
@@ -4881,9 +4892,10 @@ endif
                                                   cnt_Mort_Off, Intrp_On, Extrp_Off)
 
     use referencevariables,   only: nequations, ndim
-    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, mut
+    use variables,            only: facenodenormal, Jx_r, Jx_facenodenormal_Gau, gsat, mut, ef2e
     use collocationvariables, only: l00, l01, ldg_flip_flop_sign, alpha_ldg_flip_flop
     use initcollocation,      only: ExtrpXA2XB_2D_neq
+    use initgrid,             only: map_face_orientation_k_On_2_k_Off
 
     implicit none
 
@@ -4911,8 +4923,9 @@ endif
 
     real(wp), allocatable, dimension(:,:) :: fV_2d_Mort, fV_Mort_On, fV_Mort_Off, fV_2d_On, fV_2d_Off
     real(wp), allocatable, dimension(:,:) :: IP_2d_On, IP_2d_Mort
+    real(wp), allocatable, dimension(:,:) :: IOn2Off, IOff2On
 
-    integer                               :: i, j, k, l
+    integer                               :: i, j, k, l, orientation
     integer                               :: inode, jnode
 
     real(wp)                                   ::  mut_Off
@@ -4929,6 +4942,10 @@ endif
 
       allocate(IP_2d_Mort (nequations,n_S_2d_Mort))
       allocate(IP_2d_On   (nequations,n_S_2d_On  ))
+
+      allocate(IOff2On(1:n_S_1d_On,1:n_S_1d_Off)) ; IOff2On = matmul(Intrp_On,Extrp_Off) ;
+
+      orientation = ef2e(7,iface,ielem)
 
       !  =======
       !  LDG viscous dissipation: Connects Off with On interfaces through mortar
@@ -4948,21 +4965,8 @@ endif
 
       enddo Off_Elem_3
 
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_Mort,x_S_1d_Off,x_S_1d_Mort, &
-                             fV_2d_Off(:,:),fV_Mort_Off(:,:),Extrp_Off, Extrp_Off)
-
-      On_Mortar_3:do j = 1, n_S_2d_Mort
-
-        jnode =  n_S_2d_max*(iface-1) + j          ! Index in facial ordering
-
-            l = cnt_Mort_Off(j)                    ! Correct for face orientation and shift back to 1:n_S_2d_Mort
-
-       fV_Mort_On(:,j) = - fV_Mort_Off(:,l)        ! Account for different ordering and opposite outward normal
-
-      enddo On_Mortar_3
-
-      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Mort,n_S_1d_On,x_S_1d_Mort,x_S_1d_On, &
-                             fV_Mort_On(:,:),fV_2d_On(:,:),Intrp_On,Intrp_On)
+      call ExtrpXA2XB_2D_neq(nequations,n_S_1d_Off,n_S_1d_On,x_S_1d_Off,x_S_1d_On, & ! Extrapolate f^S_x
+                            fV_2d_Off,fV_2d_On, IOff2On, IOff2On )                   ! fV_2d_On still has wrong ordering and orientation
 
       !  =======
       !  IP dissipation: formed on the common mortar between element interfaces
@@ -5002,8 +5006,10 @@ endif
 
         l01_ldg_flip_flop = l01*(1.0_wp - ldg_flip_flop_sign(iface,ielem)*alpha_ldg_flip_flop)
 
+        l =  map_face_orientation_k_On_2_k_Off(i,orientation,n_S_1d_On)        ! Correct for face orientation and shift back to 1:n_S_2d_On
+
         fV_Del(:) = normalviscousflux(vg_On (:), phig_On (:,:), nx, nequations, mut(inode,ielem)) &
-                  - fV_2d_On(:,i)
+                  - (-1 * fV_2d_On(:,l))                         ! -1 accounts for opposite direction of outward faceing normal
 
         SAT_Pen(:) = + l01_ldg_flip_flop*fV_Del(:) + IP_2d_On(:,i)
 
@@ -5013,6 +5019,7 @@ endif
 
       deallocate(fV_2d_Mort, fV_Mort_Off, fV_Mort_On, fV_2d_On, fV_2d_Off)
       deallocate(IP_2d_On, IP_2d_Mort)
+      deallocate(IOff2On)
 
   end subroutine Viscous_SAT_Non_Conforming_Interface_Old
 

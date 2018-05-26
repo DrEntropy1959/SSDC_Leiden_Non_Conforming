@@ -11,7 +11,7 @@
  Entropy_Correction = .false.,
  entropy_flux    = 'Chandrashekar',
  entropy_flux_BC = 'Chandrashekar',
- non_conforming = .true.,
+ p_non_conforming = .true.,
  symmetric_metric = .true.,
  p_refine_strategy = 17,
 !SAT_type = 'mod_metric',

@@ -39,6 +39,7 @@ contains
     use referencevariables,  only: ihelems, nfacesperelem, nelems
     use initcollocation,     only: element_properties
     use non_conforming,      only: h_refine, construct_h_refine_list
+    use variables, only : parent_geo, nelems_to_refine
 !-- DAVID DEBUG START
     use variables, only : ef2e, vx_master, ic2nh
 !-- DAVID DEBUG END
@@ -169,6 +170,14 @@ contains
       call mpi_bcast(nfacesperelem,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)     
 
       if(hrefine)then
+        !-- pass the number of elements being refined
+        call mpi_bcast(nelems_to_refine,1,mpi_integer,0,PETSC_COMM_WORLD,i_err) 
+       
+        !-- brodcast the parent geometry information
+        if(myprocid.NE.0)then
+          allocate(parent_geo(3,8,nelems_to_refine))
+        endif
+        call mpi_bcast(parent_geo(:,:,:),3*8*nelems_to_refine,mpi_double,0,PETSC_COMM_WORLD,i_err)
       else
         ! Push edge connectivity to all processes (has to be before distribute_elements_aflr3 
         !  because in that routine nelems is changed to the local number of elements)
@@ -177,6 +186,16 @@ contains
 
       ! Push element connectivity to all processes
       call distribute_elements_aflr3()
+
+!-- DEBUG
+!do ielem = 1,nelems
+!write(*,*)"myprocid = ",myprocid,"ielem = ",ielem,"ef2e(4,:,ielem) = ",ef2e(4,:,ielem)
+!write(*,*)"elem_props(1,ielem) = ",elem_props(1,ielem),"elem_props(2,ielem) =",elem_props(2,ielem)
+!enddo
+!        call mpi_barrier(petsc_comm_world,i_err)
+!        call PetscFinalize(i_err); stop
+!
+!-- DEBUG
 !-- DAVID DEBUG START
 !do ielem = 1,nelems
 !write(*,*)"============================================="
@@ -186,11 +205,13 @@ contains
 !enddo
 !write(*,*)"============================================="
 !enddo
-!        call PetscFinalize(i_err)
+!        call mpi_barrier(petsc_comm_world,i_err)
+!        call PetscFinalize(i_err); stop
 !-- DAVID DEBUG END
     end if
 
     call mpi_bcast(npoly_max,1,mpi_integer,0,PETSC_COMM_WORLD,i_err)
+
 
     ! Initialize collocation approximation
     i_err = rmapInit(npoly,ndim)
@@ -258,8 +279,8 @@ contains
     ! Communicate grid values
     call PetscGridLocations_LGL()
 
-!   if(non_conforming .eqv. .true.) call PetscGridLocations_Gau()
-    if(non_conforming .eqv. .true.) call Petsc_Gau_Mortar_Geometry_Data()
+!   if(p_non_conforming .eqv. .true.) call PetscGridLocations_Gau()
+    if(p_non_conforming .eqv. .true.) call Petsc_Gau_Mortar_Geometry_Data()
 
     if (myprocid == 0) then
       write(*,*) 'Each process constructs the face-node connectivity'
@@ -283,7 +304,7 @@ contains
 
     call calcfacenormals_Gau()
 
-    if((non_conforming .eqv. .true.).AND.(SAT_type.EQ."mod_metric")) call modify_metrics_nonconforming()
+    if((p_non_conforming .eqv. .true.).AND.(SAT_type.EQ."mod_metric")) call modify_metrics_nonconforming()
    
     call calcfacenormals_LGL(.true.)
 

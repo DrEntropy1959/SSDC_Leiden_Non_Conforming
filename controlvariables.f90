@@ -69,7 +69,7 @@ module controlvariables
   logical          :: Entropy_Correction             = .false.
   logical          :: variable_viscosity             = .false.
   logical          :: Dt_by_CFL                      = .false.
-  logical          :: non_conforming                 = .false.
+  logical          :: p_non_conforming               = .false.
   logical          :: hrefine                        = .false.
   logical          :: symmetric_metric               = .true.
 
@@ -101,6 +101,7 @@ module controlvariables
   logical          :: blprofileread                  = .false.
   integer          :: nblprofiles                    = 1
   integer          :: p_refine_strategy              = 2
+  integer          :: h_refine_strategy              = 3
   
   logical          :: perturb_internal_vertices      = .false.
 
