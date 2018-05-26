@@ -990,13 +990,7 @@ contains
     !               group of BC type = m)
     !
 
-!   integer :: nqface
-!   integer , allocatable, dimension(:,:) :: if2nq
-!   integer , allocatable, dimension(:)   :: ifacetag
-!   integer , allocatable, dimension(:,:) :: ic2nh
-
-    ! Nothing is implicitly defined
-    implicit none
+    implicit none                                         ! Nothing is implicitly defined
 
     character(120), intent(in) :: filein
 
@@ -1028,7 +1022,7 @@ contains
 !   open(unit=iunit,file=trim(filein)//'.ugrid',    &
       status='old',                                 &
       access='stream',                              &
-      !convert='big_endian',                         &
+     !convert='big_endian',                         &
       iostat=ierr)
     if(ierr /= 0)then
       write(*,*) "aflr3GridRead:", trim(filein)," doesn't exist."
@@ -1044,8 +1038,6 @@ contains
       iostat=ierr)
 
     read(iunit) nnodesg, ntface, nqface, ntet, npyr, nprz, nhex
-    !write(*,*) nnodesg, ntface, nqface, ntet, npyr, nprz, nhex
-
 
     ! Allocate vertices
     allocate(vx_master(1:3,1:nnodesg))
@@ -1070,15 +1062,6 @@ contains
       ((ic2np(j,i),j=1,5),i=1,npyr),                                        &
       ((ic2nz(j,i),j=1,6),i=1,nprz),                                        &
       ((ic2nh(j,i),j=1,8),i=1,nhex)
-
-!      write(88,*) ic2nh
-!
-!    do i = 1,nnodesg
-!      write(120,'(i6,1x,3(e15.8,1x))')i,vx(:,i)
-!    enddo
-!    do i = 1,nqface
-!      write(120,'(i6,1x,5(i5,1x))')i,if2nq(:,i),ifacetag(i)
-!    enddo
 
     ! Set number of nodes, vertices per element, and elements (serial)
     nvertices        = nnodesg
@@ -1128,40 +1111,40 @@ contains
     n_p_faces_x2_b = 0
     n_p_faces_x3_a = 0
     n_p_faces_x3_b = 0
-    n_p_faces_x1 = 0
-    n_p_faces_x2 = 0
-    n_p_faces_x3 = 0
+    n_p_faces_x1   = 0
+    n_p_faces_x2   = 0
+    n_p_faces_x3   = 0
     n_w_faces = 0
 
     do i_face = 1, size(ifacetag)
       ! Count number of "periodic" faces in the x1 direction
       if (ifacetag(i_face) == 8) then 
         n_p_faces_x1_a = n_p_faces_x1_a + 1
-        n_p_faces_x1 = n_p_faces_x1 + 1
+        n_p_faces_x1   = n_p_faces_x1   + 1
       end if
       if (ifacetag(i_face) == 9) then  
         n_p_faces_x1_b = n_p_faces_x1_b + 1
-        n_p_faces_x1 = n_p_faces_x1 + 1
+        n_p_faces_x1   = n_p_faces_x1   + 1
       end if
 
       ! Count number of "periodic" faces in the x2 direction
       if (ifacetag(i_face) == 10) then 
         n_p_faces_x2_a = n_p_faces_x2_a + 1
-        n_p_faces_x2 = n_p_faces_x2 + 1
+        n_p_faces_x2   = n_p_faces_x2   + 1
       end if
       if (ifacetag(i_face) == 11) then  
         n_p_faces_x2_b = n_p_faces_x2_b + 1
-        n_p_faces_x2 = n_p_faces_x2 + 1
+        n_p_faces_x2   = n_p_faces_x2   + 1
       end if
 
       ! Count number of "periodic" faces in the x3 direction
       if (ifacetag(i_face) == 12) then 
         n_p_faces_x3_a = n_p_faces_x3_a + 1
-        n_p_faces_x3 = n_p_faces_x3 + 1
+        n_p_faces_x3   = n_p_faces_x3   + 1
       end if
       if (ifacetag(i_face) == 13) then  
         n_p_faces_x3_b = n_p_faces_x3_b + 1
-        n_p_faces_x3 = n_p_faces_x3 + 1
+        n_p_faces_x3   = n_p_faces_x3   + 1
       end if
 
       ! Count number of "wall" faces
@@ -1180,12 +1163,6 @@ contains
       stop
     end if
     
-!    ! Print at screen the number of periodic faces in the x1 direction
-!    write(*,*) 
-!    write(*,*) 'Number of periodic faces in the x1 direction', n_p_faces_x1
-!    write(*,*) 
-
-
     ! Check if the number of "periodic" faces in the x2 direction is correct
     if (n_p_faces_x2_a .ne. n_p_faces_x2_b) then
       write(*,*) 'Number of "periodic" faces in the x2_a plane does not match', &
@@ -1194,12 +1171,6 @@ contains
       write(*,*) 'Exiting...'
       stop
     end if
-
-!    ! Print at screen the number of periodic faces in the x2 direction
-!    write(*,*) 
-!    write(*,*) 'Number of periodic faces in the x2 direction', n_p_faces_x2
-!    write(*,*) 
-
 
     ! Check if the number of "periodic" faces in the x3 direction is correct
     if (n_p_faces_x3_a .ne. n_p_faces_x3_b) then
@@ -1210,32 +1181,16 @@ contains
       stop
     end if
 
-!    ! Print at screen the number of periodic faces in the x3 direction
-!    write(*,*) 
-!    write(*,*) 'Number of periodic faces in the x3 direction', n_p_faces_x3
-!    write(*,*) 
-
-
     ! Allocate memory for periodic element face data
-    allocate(periodic_face_data_x1(4+nverticesperface,n_p_faces_x1))
-    periodic_face_data_x1 = 0
+    allocate(periodic_face_data_x1(4+nverticesperface,n_p_faces_x1)) ; periodic_face_data_x1 = 0 ;
 
-    allocate(periodic_face_data_x2(4+nverticesperface,n_p_faces_x2))
-    periodic_face_data_x2 = 0
+    allocate(periodic_face_data_x2(4+nverticesperface,n_p_faces_x2)) ; periodic_face_data_x2 = 0 ;
 
-    allocate(periodic_face_data_x3(4+nverticesperface,n_p_faces_x3))
-    periodic_face_data_x3 = 0
-
+    allocate(periodic_face_data_x3(4+nverticesperface,n_p_faces_x3)) ; periodic_face_data_x3 = 0 ;
 
     ! Allocate memory for wall element face data
-    allocate(wall_face_data(2,n_w_faces))
-    wall_face_data = 0
+    allocate(wall_face_data(2,n_w_faces)) ; wall_face_data = 0 ;
 
-!    write(*,*) 
-!    write(*,*) 'Number of wall faces', n_w_faces
-!    write(*,*)
-
-    return
   end subroutine aflr3ReadUnstructuredGrid
 
   !============================================================================
