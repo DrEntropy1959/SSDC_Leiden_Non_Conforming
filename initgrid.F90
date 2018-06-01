@@ -5898,6 +5898,40 @@ end function
           enddo
         enddo
 
+      case(21)
+
+        !  elevate two planar surfaces on the Taylor-Green Cube test cube
+        !             ______________
+        !            /+            /|
+        !          / |+          / +|
+        !         |-------------|  +|
+        !         |+ |+        +|  +|
+        !         |+ |+        +|  +|
+        !         |+ |+        +|  +|
+        !         |+ |+        +|  +|
+        !         |+ |+        +|  +|
+        !         |+ /+        +|  /
+        !         |/           +|/
+        !         |-------------|
+
+        elem_props(2,:) = npoly+1
+
+        nx = int((nhex + 1.0e-10_wp)**(1.0_wp/3.0_wp))
+
+        if(nx*nx*nx - nhex /= 0) then
+          write(*,*)'inappropriate mesh for elevating polynomial orders.  Not a cube mesh '
+          write(*,*)'stopping'
+          call PetscFinalize(ierr) ; stop
+        endif
+
+        icnt = 0
+        do i = 1,nx
+          do j = 1,nx
+            icnt = icnt + 1
+            elem_props(2,       icnt) = npoly+2
+            elem_props(2,nhex+1-icnt) = npoly+2
+          enddo
+        enddo
       end select
 
     endif
