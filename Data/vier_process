@@ -1,0 +1,12 @@
+1000@@
+:g/L2   error:/s//;;/g
+:g/Linf error:/s//;;/g
+:g/CPU time:/s//;;/g
+:g/P           1 L1   error:/s//002 ;/g
+:g/P           2 L1   error:/s//002 ;/g
+:g/P           3 L1   error:/s//002 ;/g
+:g/P           4 L1   error:/s//002 ;/g
+:g/P           5 L1   error:/s//002 ;/g
+:g/P           6 L1   error:/s//002 ;/g
+:g/;;;;;;/s//;;; ;;; ;;/g
+:%s/$/ ;/g
