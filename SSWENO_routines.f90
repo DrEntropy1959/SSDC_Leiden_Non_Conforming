@@ -5,7 +5,8 @@ module SSWENO_Routines
 
         private
         public  WENO_Coeffs
-        public Negative_Density_Removal
+        public  Negative_Density_Removal
+        public  Positivity_Preserving_Limiter_Shu
 
   contains
 
@@ -82,6 +83,112 @@ module SSWENO_Routines
 
         end subroutine WENO_Coeffs
 
+!=====================================================================================================
+
+    subroutine Positivity_Preserving_Limiter_Shu(nnodes,ielem,uin,Jac)
+
+      use unary_mod,             only: qsortd
+      use referencevariables,    only: nequations
+      use nsereferencevariables, only: gm1M2, gamma0, gamI
+      use collocationvariables,  only: pvol
+
+      implicit none
+
+      integer,                                intent(in   ) :: nnodes, ielem
+      real(wp), dimension(           nnodes), intent(in   ) :: Jac
+      real(wp), dimension(nequations,nnodes), intent(inout) :: uin
+  
+      real(wp), parameter                                   :: tol_r = 1.0e-4_wp
+      real(wp), parameter                                   :: tol_p = 1.0e-4_wp
+
+      integer                                               :: i
+
+      real(wp), dimension(nequations,nnodes)                :: vin
+      real(wp), dimension(nnodes)                           :: p
+      real(wp)                                              :: volume
+      real(wp)                                              :: rho_min, P_min, p_ave
+      real(wp)                                              :: theta_r,theta_p
+      real(wp), dimension(nequations)                       :: u_ave,v_ave
+  
+      continue
+
+      do i = 1,nnodes
+        vin(  1,i) =  uin(  1,i)                              !  conserved variables => primitive variables
+        vin(2:4,i) =  uin(2:4,i)/vin(1,i)
+        vin(  5,i) = (uin(  5,i)/vin(1,i) - gm1M2*0.5_wp*dot_product(vin(2:4,i),vin(2:4,i)) ) * gamma0
+              p(:) =  vin(  1,i)*vin(5,i)                     !  pressure
+      enddo
+
+      rho_min = minval(vin(1,:))                              !  minimum value of density
+        P_min = minval(  p(  :))                              !  minimum value of pressure
+
+      if((rho_min >= tol_r) .and. (P_min >= tol_p)) return    !  density and pressure positive => return
+
+      u_ave(:) = 0.0_wp ; v_ave(:) = 0.0_wp                   !  Initialize averages of conserved and primitive variableszero
+      volume   = 0.0_wp                                       !  Initialize volume
+      do i = 1,nnodes                                         !  Total volume and conserved variable in element
+        volume   = volume   + pvol(i)*Jac(i)
+        u_ave(:) = u_ave(:) + pvol(i)*Jac(i)*uin(:,i)
+      enddo
+      u_ave(:) = u_ave(:) / volume                            !  normalize by total volume
+
+      v_ave(  1) =  u_ave(  1)
+      v_ave(2:4) =  u_ave(2:4)/v_ave(1)
+      v_ave(  5) = (u_ave(  5)/v_ave(1) - gm1M2*0.5_wp*dot_product(v_ave(2:4),v_ave(2:4)) ) * gamma0
+
+      p_ave      =  v_ave(1)*v_ave(5)
+                                                              !  ==============================================
+      if(rho_min <= tol_r) then                               !  begin density correction  ====================
+                                                              !  ==============================================
+        theta_r = min(1.0_wp , minval( (u_ave(1) - tol_r) / (u_ave(1) - uin(1,:)) ) )
+
+        do i = 1,nnodes
+          vin(  1,i) =  u_ave(1) + theta_r*( uin(1,i) - u_ave(1) )!  conserved variables => primitive variables
+
+          vin(2:4,i) =  uin(2:4,i)/vin(1,i)
+          vin(  5,i) = (uin(  5,i)/vin(1,i) - gm1M2*0.5_wp*dot_product(vin(2:4,i),vin(2:4,i)) ) * gamma0
+
+            p(    i) =  vin(1,i)*vin(5,i)                       !  new pressure
+        enddo
+
+          P_min    = minval(p(:))                               !  minimum value of pressure based on new corrected density
+  
+        if(P_min >= tol_p) then                                 !  pressure >= tol  => decode conserved variables
+        
+          do i = 1,nnodes
+            uin(  1,i) = vin(1,i)                               ! density
+
+            uin(2:4,i) = vin(1,i)*vin(2:4,i)                    ! momentum
+
+            uin(  5,i) = vin(1,i)*( gamI * vin(5,i) + gm1M2*0.5_wp*dot_product(vin(2:4,i),vin(2:4,i)) ) ! energy
+          enddo
+
+          return                                                ! Everything positive => return
+
+        endif
+                                                                !  ==============================================
+      endif                                                     !  end density correction    ====================
+                                                                !  ==============================================
+
+                                                                !  ==============================================
+      theta_p = 1.0_wp                                          !  Begin pressure correction ====================
+      do i = 1,nnodes                                           !  ==============================================
+        if(p(i) <= tol_p) theta_p = min(theta_p, (p_ave - tol_p) / (p_ave - p(i)))
+      enddo
+
+      do i = 1,nnodes
+
+        uin(  1,i) = theta_p*(vin(  1,i) - v_ave(  1)) + v_ave(  1)
+
+        uin(2:5,i) = theta_p*(uin(2:5,i) - u_ave(2:5)) + u_ave(2:5)
+                                                                !  ==============================================
+      enddo                                                     !  End pressure correction ====================
+                                                                !  ==============================================
+
+    end subroutine Positivity_Preserving_Limiter_Shu
+    
+!=====================================================================================================
+
     subroutine Negative_Density_Removal(nnodes,ielem,uin)
 
       use unary_mod,             only: qsortd
@@ -101,30 +208,32 @@ module SSWENO_Routines
       integer                                               :: i
 
       real(wp), dimension(nequations,nnodes)                :: vin
-      real(wp), dimension(nnodes)                           :: d_rho
+      real(wp), dimension(nnodes)                           :: d_rho, p
       real(wp)                                              :: xnumer, xdenom, xlam, volume
-      real(wp)                                              :: rho_min, T_min
+      real(wp)                                              :: rho_min, P_min
   
 
-      vin(1,:) =  uin(1,:)
+      vin(1,:) =  uin(1,:)                                  !  conserved variables => primitive variables
       vin(2,:) =  uin(2,:)/vin(1,:)
       vin(3,:) =  uin(3,:)/vin(1,:)
       vin(4,:) =  uin(4,:)/vin(1,:)
       vin(5,:) = (uin(5,:)/vin(1,:)  &
                - gm1M2*0.5_wp*(vin(2,:)*vin(2,:)+vin(3,:)*vin(3,:)+vin(4,:)*vin(4,:)))/(1.0_wp-gm1og)
+      p(:)     = vin(1,:)*vin(5,:)      
 
-      rho_min = minval(vin(1,:))
-        T_min = minval(vin(5,:))
-      if((rho_min >= tol) .and. (T_min >= tol))  return
+      rho_min = minval(vin(1,:))                            !  minimum value of density
+        P_min = minval(  p(  :))                            !  minimum value of pressure
+      if((rho_min >= tol) .and. (P_min >= tol))  return     !  Nothing negative then return
 
-      volume = 0.0_wp
+      volume = 0.0_wp                                       !  Total volume of element
       do i = 1,nnodes
         volume = volume + pvol(i)*Jx_r(i,ielem)
       enddo
 
-      if(rho_min < tol) then
+      if(rho_min < tol) then                                !  First work on the negative density
 
-        call qsortd(uin(1,:),ind,nnodes)
+        call qsortd(uin(1,:),ind,nnodes)                    !  Sort the density into ascending order
+        d_rho(:) = 0.0_wp                                   !  Set perturbation to zero
 
         xnumer = 0.0_wp ; xdenom = volume ;
         do i = 1,nnodes-1
@@ -139,15 +248,14 @@ module SSWENO_Routines
         enddo
       
         uin(1,:) = uin(1,:) + d_rho(:)
+
       endif
 
-      if(T_min < tol) then
+      if(P_min < tol) then
         write(*,*)'not finished.  Stopping'
         stop
       endif
 
-
-      return
     end subroutine Negative_Density_Removal
 
 end module SSWENO_Routines

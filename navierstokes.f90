@@ -3025,7 +3025,7 @@ contains
   subroutine rhalf(xin,v,alpha,vf)
     !   solve equation by interval halving
     !
-    !       f = EXP(2*(1-VF)*X/ALPH)-(V-1)**2/ABS(VF-V)**(2*VF)
+    !       f = EXP(+2*(1-VF)*X/ALPH)-(V-1)**2/ABS(VF-V)**(2*VF)
     !       f = EXP(-2*(1-VF)*X/ALPH)-ABS(VF-V)**(2*VF)/(V-1)**2
     
     real(kind=dp),intent(in) :: xin,alpha,vf
@@ -5543,6 +5543,9 @@ endif
   !============================================================================
 
   pure subroutine Constant_rhoS(Vx,phi,fv,Jx,xin,tin,neqin,nd,mut)
+
+!   Doesn't work past first RK stage
+
     use nsereferencevariables
     integer, intent(in) :: neqin, nd
     real(wp), intent(inout) :: Vx(neqin)
@@ -5552,24 +5555,25 @@ endif
     real(wp), intent(in) :: xin(3)
     real(wp), intent(in) :: tin,mut
 
-    real(wp)             :: c1,rs,mag
+    real(wp)             :: mag, rhoS_0
 
     real(wp) :: alpha
 
-    alpha = uniformFreeStreamAOA*pi/180._wp
+
+    alpha = uniformFreeStreamAOA*pi/180.0_wp
     
-    c1 = 1.0_wp
-    rs = 1.0_wp
     mag = sqrt(dot_product(xin(:),xin(:)))
-    vx(1)   = 1.0_wp * ( 1.0_wp + 0.1_wp*sin(mag - 0.1_wp*tin))
+    rhoS_0 = 1.0_wp
+
+    vx(1)   = 1.0_wp + 0.1_wp*sin(2.0_wp*pi*(xin(1) - 0.1_wp*tin))
     Vx(2) = cos(alpha)
     Vx(3) = sin(alpha)
     vx(4)   = 0.0_wp 
-    vx(5)   = exp( (-c1 - gm1og*vx(1)*log(vx(1)))/((-1 + gm1og)*vx(1)*rs) )
+!   vx(5)   = exp( (-1.0_wp - gm1og*vx(1)*log(vx(1)))/((-1 + gm1og)*vx(1)) )
+    vx(5)   = vx(1)**(gm1) * exp(gamma0 * rhoS_0 / vx(1)) 
 
     fv = zero
 
-    return
   end subroutine Constant_rhoS
 
   !============================================================================

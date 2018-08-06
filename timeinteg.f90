@@ -122,7 +122,7 @@ contains
     use dkinetic_energy_dt_enstrophy
     use tools_IO
 
-    implicit none                            ! Nothing is implicitly defined
+    implicit none                                                            ! Nothing is implicitly defined
 
     integer :: irkstep
     integer :: i_err
@@ -133,42 +133,38 @@ contains
 
     continue
 
-    ! Set time step counter to zero
-    itimestep = 0
+    itimestep = 0                                                            ! Set time step counter to zero
 
-    ! Compute primitive variables, entropy variables and CNG gradients
-    call nse_reconcilestates()
-    ! Compute interesting quantities and write output if needed
-!   call post_process_ts_0(itimestep,timeglobal)
+    if(Dt_by_CFL .eqv. .true.) then                                          ! timestep determined by CFL_Like condition 
+      call compute_explicit_timestep(timestep)                               ! base initial timestep on intial data
+      timestep = timestep /2.0_wp                                            ! halve the timestep for safety
+    endif
 
-    ! Time-step loop
-    timeloop:do
-      ! Check whether the global time has hit maximum
-      if (timeglobal >= timemaximum) exit
+    call nse_reconcilestates()                                               ! Compute primitive variables, entropy variables and CNG gradients
 
-      ! Update time-step index counter
-      itimestep = itimestep + 1
+!   call post_process_ts_0(itimestep,timeglobal)                             ! Compute interesting quantities and write output if needed
 
-      ! Limit time-step such that we don't exceed max
-      timestep = min(timestep,timemaximum-timeglobal)
+    timeloop:do                                                              ! Time-step loop
 
-      ! Reset du (note that this is for LSRK)
-      du = 0.0_wp
+      if (timeglobal >= timemaximum) exit                                    ! Check whether the global time has hit maximum
 
-      ! Set uhat and uold to current solution
-      uhat = ug
+      itimestep = itimestep + 1                                              ! Update time-step index counter
+ 
+      timestep = min(timestep,timemaximum-timeglobal)                        ! Limit time-step such that we don't exceed max
+
+      du = 0.0_wp                                                            ! Reset du (note that this is for LSRK)
+
+      uhat = ug                                                              ! Set uhat and uold to current solution
       uold = ug 
 
-      ! Advance solution one timestep using a predetermined RK scheme
-      rkloop:do irkstep = 1,rksteps 
+      rkloop:do irkstep = 1,rksteps                                          ! Advance solution one timestep using a predetermined RK scheme
 
         ! check for negative temperatures 
 !       if (checkNegTemp(negTemp) < 0) then ! (mpimod)
 !         itimestep = itimestep - 1 ; timestep = 0.5_wp*timestep ; ug = uold ;
 !         cycle timeloop
 !       end if
-        ! update stage time
-        timelocal = timeglobal + crk(irkstep)*timestep
+        timelocal = timeglobal + crk(irkstep)*timestep                      ! update stage time
 
 !       call Calc_Entropy_Viscosity()   !  Decodes dudt_S into mut
 
@@ -468,11 +464,11 @@ contains
   subroutine LSRK(nstep)
 
     ! Load modules
-    use SSWENO_routines,    only: Negative_Density_Removal
+    use SSWENO_routines,    only: Positivity_Preserving_Limiter_Shu
     use time_integ_coeff,   only: alsrk, brk, brkh
-    use variables,          only: ug, uhat, du, dudt
+    use variables,          only: ug, uhat, du, dudt, Jx_r
     use referencevariables, only: ihelems, nodesperelem
-    use controlvariables,   only: timestep
+    use controlvariables,   only: timestep,check_negative_P_T
     use initcollocation,    only: element_properties
     
     ! Nothing is implicitly defined
@@ -482,19 +478,18 @@ contains
     
     integer              :: inode, ielem
 
-    
-    ! loop over all elements
-    do ielem = ihelems(1), ihelems(2)
+    do ielem = ihelems(1), ihelems(2)                     ! loop over all elements
 
       call element_properties(ielem, n_pts_3d=nodesperelem)
 
-       do inode = 1, nodesperelem
-          dU(:,inode,ielem) = alsrk(nstep)*dU(:,inode,ielem) + timestep   * dUdt(:,inode,ielem)
-          ug(:,inode,ielem) =              ug(:,inode,ielem) + brk (nstep)* dU  (:,inode,ielem)
-        uhat(:,inode,ielem) =            uhat(:,inode,ielem) + brkh(nstep)* dU  (:,inode,ielem)
-       enddo
+      do inode = 1, nodesperelem
+         dU(:,inode,ielem) = alsrk(nstep)*dU(:,inode,ielem) + timestep   * dUdt(:,inode,ielem)
+         ug(:,inode,ielem) =              ug(:,inode,ielem) + brk (nstep)* dU  (:,inode,ielem)
+       uhat(:,inode,ielem) =            uhat(:,inode,ielem) + brkh(nstep)* dU  (:,inode,ielem)
+      enddo
 
-!     call Negative_Density_Removal(nodesperelem,ielem,ug(:,:,ielem))
+      if(check_negative_P_T) &
+      call Positivity_Preserving_Limiter_Shu(nodesperelem,ielem,ug(:,:,ielem),Jx_r(:,ielem))
 
     end do
 
