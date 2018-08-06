@@ -40,17 +40,11 @@ contains
     use initcollocation,     only: element_properties
     use non_conforming,      only: h_refine, construct_h_refine_list
     use variables, only : parent_geo, nelems_to_refine
-!-- DAVID DEBUG START
-    use variables, only : ef2e, vx_master, ic2nh
-!-- DAVID DEBUG END
 
-    ! Nothing is implicitly defined
-    implicit none
+    implicit none                         ! Nothing is implicitly defined
 
     integer :: i_err
-!-- DAVID DEBUG START
-    integer :: ielem, iface
-!-- DAVID DEBUG END
+
     continue
 
     ! Initialize collocation approximation

@@ -64,27 +64,20 @@ contains
     use nsereferencevariables
     use initgrid
 
-    ! calculate initial condition
-    timeglobal = 0.0_wp
+    timeglobal = 0.0_wp                             ! initialize time to zero
 
-    ! If the flow is inviscid then set the penalty interfaces parameters l01, 
-    ! l10 and l00 to zero
-    if (.not. viscous) then
+    if (.not. viscous) then                         ! Inviscid:  set penalty interfaces parameters l01, l10, l00 to zero
       l01 = 0.0_wp
       l10 = 0.0_wp
       l00 = 0.0_wp
     end if
 
-    call nse_calcinitialcondition() ! (navierstokes)
-    ! allocate memory for semidiscretization
-    call nse_initializesemidiscretization() !(navierstokes)
-    ! set up parallel communication
-    call nse_communicationsetup()
+    call nse_calcinitialcondition()                 ! Initial conditions (in navierstokes)
+    call nse_initializesemidiscretization()         ! allocate memory for semidiscretization
+    call nse_communicationsetup()                   ! set up parallel communication
 
-    ! set up extrapolation points from adjoining elements to bridge the interfaces
-    if(discretization == 'SSWENO') call WENO_Intrp_Face_Nodes()
+    if(discretization == 'SSWENO') call WENO_Intrp_Face_Nodes()  ! extrapolation points from adjoining elements to bridge the interfaces
 
-    return
   end subroutine Navier_Stokes_init
 
   subroutine nse_calcinitialcondition()
@@ -140,29 +133,16 @@ contains
     call set_InitialCondition(InitialCondition)
 
     ! Allocate memory for flow state data
-    !
-    ! Conserved variables (denisty, momentum, total energy)
-    allocate(ug(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
-    ug = 0.0_wp
+     
+    allocate(ug(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))  ! (density, momentum, energy)
+    allocate(vg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))  ! (density, velocity, temperature)
+    allocate(wg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))  ! (Strange, velocity/T, -1/T)
+    ug = 0.0_wp ; vg = 0.0_wp ; wg = 0.0_wp ;
     
-    ! Primitive variables (density, velocity, temperature)
-    allocate(vg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
-    vg = 0.0_wp
-    
-    ! Entropy variables (see primitive_to_entropy subroutine)
-    allocate(wg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
-    wg = 0.0_wp
-    
-    ! Vorticity field (\nabla \times velocity)
-    allocate(omega(1:3,1:nodesperelem_max,ihelems(1):ihelems(2)))
-    omega = 0.0_wp
-
-    ! Entropy field
-    allocate(specific_entropy(1:nodesperelem_max,ihelems(1):ihelems(2)))
-    specific_entropy = 0.0_wp
-
-    allocate(mut(1:nodesperelem_max,ihelems(1):ihelems(2)))
-    mut = 0.0_wp
+    allocate(           omega(1:3,1:nodesperelem_max,ihelems(1):ihelems(2))) ! Vorticity field (\nabla \times velocity)
+    allocate(specific_entropy(    1:nodesperelem_max,ihelems(1):ihelems(2))) ! Entropy field
+    allocate(             mut(    1:nodesperelem_max,ihelems(1):ihelems(2))) ! turbulent viscosity
+    omega = 0.0_wp ; specific_entropy = 0.0_wp ; mut = 0.0_wp ;
 
     ! Allocate memory if time averaging is required
     if (time_averaging) then
@@ -234,8 +214,7 @@ contains
 
         call element_properties(ielem, n_pts_3d=nodesperelem)
 
-        ! Loop over nodes in each element
-        do inode = 1, nodesperelem
+        do inode = 1, nodesperelem                    ! node loop on in each element
           ! Calculate primitive variables from conservative variables
           call conserved_to_primitive( &
             uin = ug(:,inode,ielem), &
@@ -250,9 +229,8 @@ contains
       enddo
     endif
 
-    ! Deallocate temporary viscous flux array
-    deallocate(fvtmp,phitmp)
-    deallocate(iunit)
+    deallocate(fvtmp,phitmp)                    ! Deallocate temporary viscous flux array
+    deallocate(iunit)                           ! Temporary unit number
 
     ! Wait for other processes
     call mpi_barrier(PETSC_COMM_WORLD,i_err)
@@ -4923,7 +4901,7 @@ endif
 
     real(wp), allocatable, dimension(:,:) :: fV_2d_Mort, fV_Mort_On, fV_Mort_Off, fV_2d_On, fV_2d_Off
     real(wp), allocatable, dimension(:,:) :: IP_2d_On, IP_2d_Mort
-    real(wp), allocatable, dimension(:,:) :: IOn2Off, IOff2On
+    real(wp), allocatable, dimension(:,:) :: IOff2On
 
     integer                               :: i, j, k, l, orientation
     integer                               :: inode, jnode

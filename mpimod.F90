@@ -258,7 +258,6 @@ contains
                        & n_wall_faces, wall_elem_face_ids
 
     use collocationvariables, only : ldg_flip_flop_sign
-    use controlvariables, only: hrefine
 
     ! Nothing is implicitly defined
     implicit none
@@ -2129,7 +2128,7 @@ contains
 
     ! this routine allocates the ghost data for Navier Stokes computations
 
-    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems, ndim
+    use referencevariables,  only: ihelems, myprocid, nelems, ndim
     use variables,           only: ef2e, kfacenodes
     use initcollocation,     only: element_properties
     implicit none
@@ -2211,7 +2210,7 @@ contains
 
     ! this routine allocates the ghost data for Navier Stokes computations
 
-    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems, ndim
+    use referencevariables,  only: ihelems, myprocid, nelems, ndim
     use variables,           only: ef2e, kfacenodes
     use initcollocation,     only: element_properties
     implicit none
@@ -2381,7 +2380,7 @@ contains
 
     ! this routine allocates the ghost data for Navier Stokes computations
 
-    use referencevariables,  only: ihelems, nfacesperelem, myprocid, nelems, ndim
+    use referencevariables,  only: ihelems, myprocid, nelems, ndim
     use variables,           only: ef2e, kfacenodes
     use initcollocation,     only: element_properties
     implicit none
@@ -3134,7 +3133,7 @@ contains
 
     ! this subroutine communicates solution data across processes and updates the array ughst.
 
-    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems, ndim
+    use referencevariables,   only: ihelems, myprocid, nelems, ndim
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
 
@@ -3231,7 +3230,7 @@ contains
 
     ! this subroutine communicates solution data across processes and updates the array ughst.
 
-    use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems, ndim
+    use referencevariables,   only: ihelems, myprocid, nelems, ndim
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
 
