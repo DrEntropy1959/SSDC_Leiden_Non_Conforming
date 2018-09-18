@@ -53,6 +53,9 @@ module initgrid
   public map_face_orientation_k_On_2_k_Off
   public face_map
 
+  public elfacedirections
+  public face_orientation_hex
+
   integer, allocatable, dimension(:,:), target :: edge_2_faces
   integer, allocatable, dimension(:), target :: edge_2_facedirections
   integer, parameter :: edge_2_nfacesperelem = 2
@@ -70,11 +73,6 @@ module initgrid
   integer, pointer, dimension(:,:) :: eltypfaces_Lexo
   integer, pointer, dimension(:) :: elfacedirections
 
-  public elfacedirections
-
-!-- DAVID DEBUG START
-  public face_orientation_hex
-!-- DAVID DEBUG END
   interface
     integer(c_int) function calcMetisPartitions(ne, nv, nps, xadj, adj, ncommon, &
         epart, npart, nnz) &
@@ -743,13 +741,11 @@ contains
     ! each element. Currently we assume that all elements are
     ! straight sided, but this can be remedied by incorporating
     ! CAD or analytical surface data. 
-    use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, radius, origin, hrefine
+
+    use controlvariables, only: Grid_Topology, cylinder_x0, cylinder_x1, hrefine
     use referencevariables
     use variables, only: xg, vx, e2v, ef2e
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
-!-- DEBUG
-    use collocationvariables, only : elem_props
-!-- DEBUG
 
     implicit none
     ! indices
@@ -771,15 +767,7 @@ contains
 
     real(wp), dimension(:), allocatable  :: xi
 
-    integer                                             :: i1d
-    integer                                             :: nmin
-
     real(wp), parameter                                 :: tol = 1.0e-12_wp
-    real(wp), allocatable                               :: x_LGL_1d_min(:), w_LGL_1d_min(:)
-
-    real(wp), dimension(4,3)                            :: points_surf
-    real(wp), dimension(4)                              :: r
-
 
     nodesperelem_max = (npoly_max+1)**ndim                     ! number of nodes in each element
 
@@ -989,20 +977,16 @@ contains
   !================================================================================================
   subroutine surface_nodes_sphere(nE, ielem,xl,parent)
 
-    use referencevariables, only: ndim, myprocid
+    use referencevariables, only: ndim
     use variables, only: vx, e2v, ef2e, parent_geo
     use controlvariables, only: radius, origin
     use initcollocation, only: element_properties, Gauss_Lobatto_Legendre_points
 
-!-- DEBUG
-    use collocationvariables, only: elem_props
-!-- DEBUG
     integer, intent(in) :: nE, ielem
     real(wp), intent(inout) :: xl(1:3,1:nE,1:nE,1:nE)
     logical, intent(in) :: parent
 
     integer :: iface, j, i1d, nmin, nE_temp   
-    real(wp) :: xl_parent(1:3,1:nE,1:nE,1:nE)
     real(wp), dimension(4,3)                            :: points_surf
     real(wp), dimension(4)                              :: r
     real(wp), allocatable :: x_LGL_1d(:)
@@ -1013,7 +997,6 @@ contains
     real(wp), parameter                                 :: tol = 1.0e-12_wp
 
 !--debug vars
-    integer :: i
     logical :: curv
 
     curv = .true.
@@ -1711,15 +1694,14 @@ endif
   !================================================================================================
   subroutine curved_sphere_hrefine(nE,ielem,xl)
 
-    use variables, only: ef2e, vx, parent_geo
-    use referencevariables, only: ndim
+    use variables, only: ef2e, parent_geo
     use initcollocation, only: element_properties, lagrange_basis_function_1d
     use non_conforming, only: Lagrange_interpolant_basis_1D
 
     integer, intent(in) :: nE, ielem
     real(wp), intent(inout) :: xl(1:3,1:nE,1:nE,1:nE)
 
-    integer :: iface, i, j, k, ii, jj, kk, i1d,nE_temp   
+    integer  :: i, j, k, ii, jj, kk, nE_temp   
     real(wp) :: xl_parent(1:3,1:nE,1:nE,1:nE)
     real(wp), dimension(nE) :: xi1d, eta1d, zeta1d
     real(wp) :: xiL, xiR, etaL, etaR, zetaL, zetaR, lxi, leta, lzeta
@@ -5972,7 +5954,7 @@ end function
     ! Load modules
     use variables
     use collocationvariables
-    use referencevariables, only : ihelems, nfacesperelem, myprocid
+    use referencevariables, only : ihelems, nfacesperelem
     use controlvariables, only : hrefine
 
     ! Nothing is implicitly defined

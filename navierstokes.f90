@@ -64,27 +64,20 @@ contains
     use nsereferencevariables
     use initgrid
 
-    ! calculate initial condition
-    timeglobal = 0.0_wp
+    timeglobal = 0.0_wp                             ! initialize time to zero
 
-    ! If the flow is inviscid then set the penalty interfaces parameters l01, 
-    ! l10 and l00 to zero
-    if (.not. viscous) then
+    if (.not. viscous) then                         ! Inviscid:  set penalty interfaces parameters l01, l10, l00 to zero
       l01 = 0.0_wp
       l10 = 0.0_wp
       l00 = 0.0_wp
     end if
 
-    call nse_calcinitialcondition() ! (navierstokes)
-    ! allocate memory for semidiscretization
-    call nse_initializesemidiscretization() !(navierstokes)
-    ! set up parallel communication
-    call nse_communicationsetup()
+    call nse_calcinitialcondition()                 ! Initial conditions (in navierstokes)
+    call nse_initializesemidiscretization()         ! allocate memory for semidiscretization
+    call nse_communicationsetup()                   ! set up parallel communication
 
-    ! set up extrapolation points from adjoining elements to bridge the interfaces
-    if(discretization == 'SSWENO') call WENO_Intrp_Face_Nodes()
+    if(discretization == 'SSWENO') call WENO_Intrp_Face_Nodes()  ! extrapolation points from adjoining elements to bridge the interfaces
 
-    return
   end subroutine Navier_Stokes_init
 
   subroutine nse_calcinitialcondition()
@@ -127,57 +120,31 @@ contains
 
     nodesperelem_max = (npoly_max+1)**(ndim)
 
-    ! Arbitrary value for normals
-    ctmp = 0.0_wp
+    ctmp = 0.0_wp                                ! Arbitrary value for normals
 
-    ! We are limited to the calorically perfect Navier-Stokes equations
-    nequations = 5
+    nequations = 5                               ! We are limited to the calorically perfect Navier-Stokes equations
 
-    ! Set the flow parameters
-    call set_Flow_parameters()
+    call set_Flow_parameters()                   ! Set the flow parameters
 
-    ! Set initial and boundary condition procedure
-    call set_InitialCondition(InitialCondition)
+    call set_InitialCondition(InitialCondition)  ! Set initial and boundary condition procedure
 
     ! Allocate memory for flow state data
-    !
-    ! Conserved variables (denisty, momentum, total energy)
-    allocate(ug(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
-    ug = 0.0_wp
+    allocate(ug(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))  ! (density, momentum, energy)
+    allocate(vg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))  ! (density, velocity, temperature)
+    allocate(wg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))  ! (Strange, velocity/T, -1/T)
+    ug = 0.0_wp ; vg = 0.0_wp ; wg = 0.0_wp ;
     
-    ! Primitive variables (density, velocity, temperature)
-    allocate(vg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
-    vg = 0.0_wp
-    
-    ! Entropy variables (see primitive_to_entropy subroutine)
-    allocate(wg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
-    wg = 0.0_wp
-    
-    ! Vorticity field (\nabla \times velocity)
-    allocate(omega(1:3,1:nodesperelem_max,ihelems(1):ihelems(2)))
-    omega = 0.0_wp
+    allocate(           omega(1:3,1:nodesperelem_max,ihelems(1):ihelems(2))) ! Vorticity field (\nabla \times velocity)
+    allocate(specific_entropy(    1:nodesperelem_max,ihelems(1):ihelems(2))) ! Entropy field
+    allocate(             mut(    1:nodesperelem_max,ihelems(1):ihelems(2))) ! turbulent viscosity
+    omega = 0.0_wp ; specific_entropy = 0.0_wp ; mut = 0.0_wp ;
 
-    ! Entropy field
-    allocate(specific_entropy(1:nodesperelem_max,ihelems(1):ihelems(2)))
-    specific_entropy = 0.0_wp
+    if (time_averaging) then                                ! Allocate memory if time averaging is required
 
-    allocate(mut(1:nodesperelem_max,ihelems(1):ihelems(2)))
-    mut = 0.0_wp
-
-    ! Allocate memory if time averaging is required
-    if (time_averaging) then
-
-      ! Time-average of primitive variables
-      allocate(mean_vg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2)))
-      mean_vg = 0.0_wp
-
-      ! Time-average of the product of the velocity components
-      allocate(time_ave_prod_vel_comp(6,1:nodesperelem_max,ihelems(1):ihelems(2)))
-      time_ave_prod_vel_comp = 0.0_wp
-
-      ! Reynolds stresses
-      allocate(reynolds_stress(6,1:nodesperelem_max,ihelems(1):ihelems(2)))
-      reynolds_stress = 0.0_wp
+      allocate(               mean_vg(1:nequations,1:nodesperelem_max,ihelems(1):ihelems(2))) ! primitive variables
+      allocate(time_ave_prod_vel_comp(           6,1:nodesperelem_max,ihelems(1):ihelems(2))) ! product of the velocity components
+      allocate(       reynolds_stress(           6,1:nodesperelem_max,ihelems(1):ihelems(2))) ! Reynolds stresses
+      mean_vg = 0.0_wp ; time_ave_prod_vel_comp = 0.0_wp ; reynolds_stress = 0.0_wp ;
     
     endif
 
@@ -193,15 +160,13 @@ contains
 
     if (new .eqv. .true.) then
 
-      ! Loop over elements
-      do ielem = ihelems(1),ihelems(2)
+      do ielem = ihelems(1),ihelems(2)                        ! Loop over elements
 
-        call element_properties(ielem, n_pts_3d=nodesperelem)
+        call element_properties(ielem, n_pts_3d=nodesperelem) ! grab element properties
 
-        ! Loop over nodes in each element
-        do inode = 1, nodesperelem
-          ! Use exact solution routine to initialize data
-          call InitialSubroutine( &
+        do inode = 1, nodesperelem                            ! Loop over nodes in each element
+
+          call InitialSubroutine( &                           ! Use exact solution routine to initialize data
             Vx = vg(:,inode,ielem), &
             phi = phitmp, &
             fv = fvtmp, &
@@ -211,53 +176,35 @@ contains
             neqin = nequations, &
             nd = ndim, &
             mut = mut(inode,ielem)) ! (navierstokes)
-          ! Calculate conservative variables from primitive variables
-          call primitive_to_conserved( &
-            vin = vg(:,inode,ielem), &
-            uout = ug(:,inode,ielem), &
-            nq = nequations ) ! (navierstokes)
-          ! Calculate entropy variables from primitive variables
-          call primitive_to_entropy( &
-            vin = vg(:,inode,ielem), &
-            wout = wg(:,inode,ielem), &
-            nq = nequations ) ! (navierstokes)
+
+          call primitive_to_conserved(vg(:,inode,ielem),ug(:,inode,ielem),nequations ) ! primitive -> conserved
+          call primitive_to_entropy  (vg(:,inode,ielem),wg(:,inode,ielem),nequations ) ! primitive -> entropy
+
         end do
       end do
 
     else
 
-      ! Read solution from restart file
-      call read_restart_file()
+      call read_restart_file()                                ! Read solution from restart file
  
-      ! Loop over elements
-      do ielem = ihelems(1),ihelems(2)
+      do ielem = ihelems(1),ihelems(2)                        ! Loop over elements
 
-        call element_properties(ielem, n_pts_3d=nodesperelem)
+        call element_properties(ielem, n_pts_3d=nodesperelem) ! grab element properties
 
-        ! Loop over nodes in each element
-        do inode = 1, nodesperelem
-          ! Calculate primitive variables from conservative variables
-          call conserved_to_primitive( &
-            uin = ug(:,inode,ielem), &
-            vout = vg(:,inode,ielem), &
-            nq = nequations)
-          ! Calculate entropy variables from primitive variables
-          call primitive_to_entropy( &
-            vin = vg(:,inode,ielem), &
-            wout = wg(:,inode,ielem), &
-            nq = nequations )
+        do inode = 1, nodesperelem                            ! node loop on in each element
+
+          call conserved_to_primitive(ug(:,inode,ielem),vg(:,inode,ielem),nequations ) ! conserved -> primitive
+          call primitive_to_entropy  (vg(:,inode,ielem),wg(:,inode,ielem),nequations ) ! primitive -> entropy
+
         enddo
       enddo
     endif
 
-    ! Deallocate temporary viscous flux array
-    deallocate(fvtmp,phitmp)
-    deallocate(iunit)
+    deallocate(fvtmp,phitmp)                     ! Deallocate temporary viscous flux array
+    deallocate(iunit)                            ! Temporary unit number
 
-    ! Wait for other processes
-    call mpi_barrier(PETSC_COMM_WORLD,i_err)
+    call mpi_barrier(PETSC_COMM_WORLD,i_err)     ! Wait for other processes
 
-    return
   end subroutine nse_calcinitialcondition
 
   !============================================================================
@@ -2122,9 +2069,7 @@ contains
 
   !============================================================================
 
-  subroutine nse_calc_dudt_LSRK(tin)
-
-    ! Calculates the time derivative of the conserved variables at all nodes.
+  subroutine nse_calc_dudt_LSRK(tin)                                         ! Time derivative of conserved variables over all nodes.
 
     use variables
     use referencevariables
@@ -2134,15 +2079,13 @@ contains
                                      pinv, pmat, qmat, dmat, pvol, p_surf
     implicit none
 
-    ! local time of evaluation (for RK schemes, this is the stage time)
-    real(wp), intent(in) :: tin
+    real(wp), intent(in) :: tin                                              ! local time of evaluation (for RK schemes, this is the stage time)
 
     ! indices
     integer :: inode,ielem, jdir
     integer :: n_pts_1d, n_pts_2d, n_pts_3d
 
-    ! loop over all elements
-    do ielem = ihelems(1), ihelems(2)
+    do ielem = ihelems(1), ihelems(2)                                        ! loop over all elements
 
       call element_properties(ielem,           &
                            n_pts_1d=n_pts_1d,  &
@@ -2159,17 +2102,13 @@ contains
                                pvol=pvol,      &
                              p_surf=p_surf)
           
-      !  Calculate the elementwise Divergence  \/ * (F - Fv)
-
+                                                                             !  Calculate the elementwise Divergence  \/ * (F - Fv)
       call Flux_Divergence(tin, n_pts_1d, n_pts_2d, n_pts_3d,  &             !  result returned in divf(:,:,:,:)
                            pinv, qmat, dmat, iagrad, jagrad, dagrad, ielem)
 
-      !  Form the elementwise SAT_Penalties
+      call SAT_Penalty(tin, ielem, n_pts_1d, n_pts_2d, pinv )                !  Form the elementwise SAT_Penalties
 
-      call SAT_Penalty(tin, ielem, n_pts_1d, n_pts_2d, pinv )
-
-      ! compute time derivative
-        
+                                                                             ! compute time derivative
       do inode = 1, n_pts_3d                                                 ! loop over all nodes in the element
 
           dudt(:,inode,ielem) =  ( - divf(:,1,inode,ielem) &                 ! Thus this is the dudt of u and NOT J u*
@@ -2177,23 +2116,21 @@ contains
                                  & - divf(:,3,inode,ielem) &
                                  & + gsat(:  ,inode,ielem) ) / Jx_r(inode,ielem) 
 
-
       end do
 
-      ! Entropy equation
-      if( entropy_viscosity .eqv. .true.) then
+      if( entropy_viscosity .eqv. .true.) then                               ! Entropy error estimation equation
 
-        call Entropy_Flux_Divergence(tin,ielem)   !  result in divF_S
+        call Entropy_Flux_Divergence(tin,ielem)                              !  result in divF_S
 
-        do inode = 1, nodesperelem
-          ! reset the time derivative to zero
-          dudt_S(inode,ielem) = 0.0_wp
-          ! add the contribution from the flux divergence in each direction
-  
-          do jdir = 1,ndim
-            dudt_S(inode,ielem) = dudt_S(inode,ielem) - divf_S(jdir,inode,ielem)
+        do inode = 1, nodesperelem                                           ! node loop on element
+
+          dudt_S(inode,ielem) = 0.0_wp                                       ! reset the time derivative to zero
+                                                   
+          do jdir = 1,ndim                                                   ! sum contribution of flux divergence in each direction
+            dudt_S(inode,ielem) = dudt_S(inode,ielem) - divf_S(jdir,inode,ielem) 
           end do
 
+                                                                             ! 
           dudt_S(inode,ielem) = (dudt_S(inode,ielem))/Jx_r(inode,ielem) + dot_product(wg(:,inode,ielem),dudt(:,inode,ielem))
 
         end do
@@ -2204,8 +2141,9 @@ contains
 
     if( entropy_viscosity .eqv. .true.) write(*,*)'max entropy error',maxval(abs(dudt_S(:,:)))
          
-    return
   end subroutine nse_calc_dudt_LSRK
+
+  !============================================================================
 
   subroutine nse_calcembeddedspatialerror()
     ! this subroutine calculates the embedded error approximation
@@ -3025,7 +2963,7 @@ contains
   subroutine rhalf(xin,v,alpha,vf)
     !   solve equation by interval halving
     !
-    !       f = EXP(2*(1-VF)*X/ALPH)-(V-1)**2/ABS(VF-V)**(2*VF)
+    !       f = EXP(+2*(1-VF)*X/ALPH)-(V-1)**2/ABS(VF-V)**(2*VF)
     !       f = EXP(-2*(1-VF)*X/ALPH)-ABS(VF-V)**(2*VF)/(V-1)**2
     
     real(kind=dp),intent(in) :: xin,alpha,vf
@@ -3185,17 +3123,16 @@ contains
     real(wp), dimension(:,:,:), allocatable :: divfV_err
 
    
-    call Entropy_Inviscid_Flux_Div(ielem)   !   output in divf_S
+    call Entropy_Inviscid_Flux_Div(ielem)                      !   output in divf_S
 
     if (viscous) then
 
       allocate(fvg_err(nequations,ndim,nodesperelem))
       allocate(divfV_err(nequations,ndim,nodesperelem))
-      ! loop over all nodes in element
-      do inode = 1,nodesperelem
 
-        ! calculate viscous flux
-        fvg_err(:,:,inode) = 0.0_wp
+      do inode = 1,nodesperelem                                ! loop over all nodes in element
+
+        fvg_err(:,:,inode) = 0.0_wp                            ! calculate viscous flux
 
         fvg_err(:,1:ndim,inode) = Jx_r(inode,ielem) * &
             viscousflux3D( vg(:,inode,ielem), &
@@ -3208,13 +3145,11 @@ contains
       end do
 
       divfV_err(:,:,:) = 0.0_wp
-      ! loop over all nodes in the element
-      do inode = 1,nodesperelem
+      do inode = 1,nodesperelem                                 ! loop over all nodes in the element
 
-        ! loop over all nonzero columns in CSR corresponding to this row
-        do i = iagrad(inode), iagrad(inode+1)-1
-          ! loop over each direction
-          do jdir = 1,ndim
+        do i = iagrad(inode), iagrad(inode+1)-1                 ! loop over all nonzero columns in CSR corresponding to this row
+
+          do jdir = 1,ndim                                      ! loop over each direction
             ! column/node from gradient operator in CSR format in
             ! the jdir-direction corresponding to the coefficient dagrad(jdir,i)
             jnode = jagrad(jdir,i)
@@ -3233,9 +3168,7 @@ contains
 
     endif
 
-    return
   end subroutine Entropy_Flux_Divergence
-
 
   !===========================================================================================
   ! sat_penalty - Calculates both inviscid and viscous penalty according to the SAT procedure.
@@ -4923,7 +4856,7 @@ endif
 
     real(wp), allocatable, dimension(:,:) :: fV_2d_Mort, fV_Mort_On, fV_Mort_Off, fV_2d_On, fV_2d_Off
     real(wp), allocatable, dimension(:,:) :: IP_2d_On, IP_2d_Mort
-    real(wp), allocatable, dimension(:,:) :: IOn2Off, IOff2On
+    real(wp), allocatable, dimension(:,:) :: IOff2On
 
     integer                               :: i, j, k, l, orientation
     integer                               :: inode, jnode
@@ -5543,6 +5476,9 @@ endif
   !============================================================================
 
   pure subroutine Constant_rhoS(Vx,phi,fv,Jx,xin,tin,neqin,nd,mut)
+
+!   Doesn't work past first RK stage
+
     use nsereferencevariables
     integer, intent(in) :: neqin, nd
     real(wp), intent(inout) :: Vx(neqin)
@@ -5552,24 +5488,25 @@ endif
     real(wp), intent(in) :: xin(3)
     real(wp), intent(in) :: tin,mut
 
-    real(wp)             :: c1,rs,mag
+    real(wp)             :: mag, rhoS_0
 
     real(wp) :: alpha
 
-    alpha = uniformFreeStreamAOA*pi/180._wp
+
+    alpha = uniformFreeStreamAOA*pi/180.0_wp
     
-    c1 = 1.0_wp
-    rs = 1.0_wp
     mag = sqrt(dot_product(xin(:),xin(:)))
-    vx(1)   = 1.0_wp * ( 1.0_wp + 0.1_wp*sin(mag - 0.1_wp*tin))
+    rhoS_0 = 1.0_wp
+
+    vx(1)   = 1.0_wp + 0.1_wp*sin(2.0_wp*pi*(xin(1) - 0.1_wp*tin))
     Vx(2) = cos(alpha)
     Vx(3) = sin(alpha)
     vx(4)   = 0.0_wp 
-    vx(5)   = exp( (-c1 - gm1og*vx(1)*log(vx(1)))/((-1 + gm1og)*vx(1)*rs) )
+!   vx(5)   = exp( (-1.0_wp - gm1og*vx(1)*log(vx(1)))/((-1 + gm1og)*vx(1)) )
+    vx(5)   = vx(1)**(gm1) * exp(gamma0 * rhoS_0 / vx(1)) 
 
     fv = zero
 
-    return
   end subroutine Constant_rhoS
 
   !============================================================================

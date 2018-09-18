@@ -745,7 +745,7 @@ contains
       &Riemann_Diss, Riemann_Diss_BC, WENO_Bias, WENO_type, entropy_viscosity,  &
       &Grid_Topology, cylinder_x0, cylinder_x1, p_non_conforming, turbulent_viscosity, &
       &p_refine_strategy,entropy_flux,entropy_flux_BC,radius,origin,SAT_type,symmetric_metric,&
-      hrefine,h_refine_strategy
+      hrefine,h_refine_strategy,check_negative_P_T
 
     namelist /GeneralParameters/ runcasename, solutionfile, outputfile, new, &
       & time_averaging, &

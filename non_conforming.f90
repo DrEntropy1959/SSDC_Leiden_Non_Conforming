@@ -176,7 +176,7 @@ end subroutine construct_h_refine_list
      use variables, only : vx_master, ic2nh
 
      !-- local variables
-     integer :: ielem, iface, iedge, ipartner, max_partners, nvertex,&
+     integer :: ielem, iface, max_partners, nvertex,&
                 element_count, vertex_count, refine,ielem_old
      integer :: nelems_old, nvertex_old, nfaces_old
      integer, allocatable, dimension(:,:,:) :: ef2e_temp                                            !-- (7 ,nfaceperelem, nelements)
@@ -195,7 +195,7 @@ end subroutine construct_h_refine_list
      integer :: ielem1, ielem2, ielem3, ielem4, ielem5, ielem6, ielem7, ielem8,&
                 kface, kelem1, kelem2, kelem3, kelem4, kelem_old,&
                 kface1, kface2, kface3,kface4
-     integer :: element_number_adjoining, faceID_adjoining, split_count
+     integer :: split_count
      integer :: face2elem(6,4), kelemsv(4), ielemsv(4), kfacesv(4)
 
      integer :: i, j, cnt, pg_cnt
