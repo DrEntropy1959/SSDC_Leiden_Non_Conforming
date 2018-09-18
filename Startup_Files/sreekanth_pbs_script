@@ -1,0 +1,112 @@
+### PBS RUN SCRIPT BEGIN ###
+
+### Below is a sample PBS run script setup for the standard queue.
+
+### You will need to modify it for your username and job.
+
+### (one '#' followed by 'PBS' indicates a PBS command, three '#'s indicate
+
+### that the line is commented out.)
+
+### PBS RUN SCRIPT BEGIN ###
+
+#!/bin/tcsh
+
+### Set the job name (set this to your jobname)
+
+#PBS -N channel8
+
+### Declare myprogram non-rerunable
+
+#PBS -r n
+
+### Send email when the job is completed:
+
+### Please do not comment this out.
+
+#PBS -m ae
+
+#PBS -M sreekanth.ravindran@nasa.gov
+
+### Specifiy destinations for your program's output. Specify
+
+### localhost and an NFS filesystem to prevent file copy errors.
+
+### You should replace with your username and <jobname>.
+
+### with the name of your job.
+
+#PBS -e 127.0.0.1:/lustre2/hpnobackup1/sravind2/channel_flow/channel_anisotropic/channel_anisotropic.err
+
+#PBS -o 127.0.0.1:/lustre2/hpnobackup1/sravind2/channel_flow/channel_anisotropic/channel_anisotropic.out
+	
+### Specify the queue in which to run: standard, debug
+
+#PBS -q K2a-std-512
+
+### Specify the number of cpus for your job.
+
+### This will use 8 cores per node on 32 nodes with 2GB of memory per node.
+
+#PBS -l select=43:ncpus=12:mem=2000mb:mpiprocs=12
+
+### You can override the default 1 hour real-world time limit.
+
+### -l walltime=HH:MM:SS
+
+#PBS -l walltime=23:00:00
+
+### Switch to the working directory; by default PBS launches processes
+
+### from your home directory.
+
+### Jobs should only be run from /home, /project, or /work; PBS returns
+
+### results via NFS.
+
+setenv PBS_O_WORKDIR /lustre2/hpnobackup1/sravind2/channel_flow/channel_anisotropic
+
+echo Working directory is $PBS_O_WORKDIR
+
+cd $PBS_O_WORKDIR
+
+echo Running on host `hostname` echo Time is `date` echo Directory is `pwd` echo This job runs on the following processors:
+
+echo `cat $PBS_NODEFILE`
+
+### Define number of processors
+
+setenv NPROCS `wc -l < $PBS_NODEFILE`
+
+echo This job has allocated $NPROCS cpus
+
+### Setup the modules package. Add the mpi module you want to use.
+
+source /usr/local/pkgs/modules/init/tcsh
+
+### Use this option for running with mvapich
+
+### module add mvapich_intel
+module load mpt-2.16
+module load intel_2015.3.187
+
+
+### Use this option for running with mpt
+
+###module add mpt_default
+
+### Use the following syntax for running with mvapich
+
+### mpirun /u/<userid>/<your_mpirun_exec>
+
+###/opt/sgi/mpt/mpt-2.11/bin/mpirun -np 80 /misc/home1/sravind2/FUN3D_for_sreekanth/mpicode/bin/nodet_mpi 
+### Use the following syntax for running with mpt
+(mpiexec_mpt /u/sravind2/fun3d/mpicode/bin/nodet_mpi >   channel_anisotropic_run.out ) >& channel_anisotropic_run.err
+###(mpiexec_mpt /misc/home2/sravind2/fun3d_for_centos6/mpicode/bin/nodet_mpi >   channel_anisotropic_run.out ) >& channel_anisotropic_run.err
+
+
+
+
+###mpiexec /u/<userid>/<your_mpirun_exec>
+
+### PBS RUN SCRIPT END ###

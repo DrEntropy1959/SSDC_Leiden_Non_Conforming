@@ -1,0 +1,65 @@
+&PreProcparameters
+ ndim = 3,
+ npoly = 7,
+ casefile = '../Grids/GMSH/TG_Vortex/cube_taylor_green_vortex.9x9x9',
+ grid_format = 'aflr3',
+ viscous = .true.,
+ crossterms = .true.,
+ discretization = 'SSDC',
+ p_non_conforming = .false.,
+ symmetric_metric = .true.,
+ p_refine_strategy = 21,
+ SAT_type = 'mod_SAT',
+ l01 = -0.5,
+ l10 = -0.5,
+ variable_viscosity = .false.
+ /
+
+ &GeneralParameters
+ runcasename  = 'tg-vortex-p7-9x9x9'
+ solutionfile = 'SquareCylinder.2D'
+ outputfile = 'VS2D.V.4x2.',
+ new = .true.,
+ time_averaging = .false.,
+ write_restart = .true.,
+ write_restart_dir = 'restart-p7-9x9x9',
+ write_restart_common_name = 'restart',
+ write_restart_formatted = .true.,
+ write_restart_frequency = 5000000,
+ read_restart_dir = 'restart',
+ read_restart_common_name = 'restart',
+ read_restart_time = '6.2884187209260E+02',
+ read_restart_formatted = .true.,
+ read_restart_time_averaging = .true.,
+ write_solution = .true.,
+ write_solution_dir = 'solution-p7-9x9x9',
+ write_solution_common_name = 'solution',
+ write_solution_formatted = .true.,
+ write_solution_frequency = 1000000,
+ write_aero_coeffs = .false.,
+ write_dke_dt = .true.
+ /
+
+ &RunParameters
+ timestep    =  0.00008,
+ timemaximum =  15.000000,
+ verbose = .true.,
+ verbose_fac = 25,
+ variabletimestep = .false.,
+ Dt_by_CFL = .true.,
+ CFL = 3.0,
+ /
+
+ &FlowParameters
+ Re0 = 1600,
+ Pr0 = 0.71,
+ Mach0 = 0.10,
+ uniformFreeStreamAOA =  00.0,
+ membranelocation     =  0.0,
+ referenceWaveSpeed   =  0.25,
+ InitialCondition     =  'taylorGreenVortex',
+ /
+
+ &AerodynamicParameters
+ aero_coeffs_surface = 1.0
+ /
