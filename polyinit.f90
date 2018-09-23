@@ -30,18 +30,14 @@ contains
 
     rmapInit = 0
 
-    ! set polynomial order
-    npoly = polyorder
-    ! set dimension
-    ndim = ndimensions
-    ! set number of faces per element
-    nfacesperelem = 2 * ndim
-    ! each element direction has npoly+1 nodes
-    nodesperedge = (npoly+1)
-    ! number of nodes per element
-    nodesperelem = nodesperedge**ndim
-    ! number of nodes on each face
-    nodesperface = nodesperedge**(ndim-1)
+    ndim = ndimensions                    ! set dimension
+    nfacesperelem = 2 * ndim              ! set number of faces per element
+
+    npoly = polyorder                     ! set polynomial order
+
+    nodesperedge = (npoly+1)              ! each element direction has npoly+1 nodes
+    nodesperelem = nodesperedge**ndim     ! number of nodes per element
+    nodesperface = nodesperedge**(ndim-1) ! number of nodes on each face
 
     n_LGL_1d_p0 = npoly + 1 
     n_LGL_2d_p0 = n_LGL_1d_p0**2
@@ -73,6 +69,7 @@ contains
     allocate(x_LGL_1d_p0(n_LGL_1d_p0))
     allocate(x_LGL_1d_p1(n_LGL_1d_p1))
     allocate(x_LGL_1d_p2(n_LGL_1d_p2))
+
     allocate(w_LGL_1d_p0(n_LGL_1d_p0))
     allocate(w_LGL_1d_p1(n_LGL_1d_p1))
     allocate(w_LGL_1d_p2(n_LGL_1d_p2))

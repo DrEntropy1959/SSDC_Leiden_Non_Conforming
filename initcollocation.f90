@@ -279,16 +279,19 @@ contains
         if(present(n_pts_2d))then; n_pts_2d = n_LGL_2d_p0 ; endif
         if(present(n_pts_3d))then; n_pts_3d = n_LGL_3d_p0 ; endif
         if(present(nnzgrad ))then; nnzgrad  =  nnzgrad_p0 ; endif
+
       elseif(elem_props(2,ielem) == npoly+2) then
         if(present(n_pts_1d))then; n_pts_1d = n_LGL_1d_p1 ; endif
         if(present(n_pts_2d))then; n_pts_2d = n_LGL_2d_p1 ; endif
         if(present(n_pts_3d))then; n_pts_3d = n_LGL_3d_p1 ; endif
         if(present(nnzgrad ))then; nnzgrad  =  nnzgrad_p1 ; endif
+
       elseif(elem_props(2,ielem) == npoly+3) then
         if(present(n_pts_1d))then; n_pts_1d = n_LGL_1d_p2 ; endif
         if(present(n_pts_2d))then; n_pts_2d = n_LGL_2d_p2 ; endif
         if(present(n_pts_3d))then; n_pts_3d = n_LGL_3d_p2 ; endif
         if(present(nnzgrad ))then; nnzgrad  =  nnzgrad_p2 ; endif
+
       endif
     endif
 
