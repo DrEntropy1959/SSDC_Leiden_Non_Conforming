@@ -100,6 +100,20 @@ module variables
 
   integer,  allocatable, dimension(:,:)       :: nelem_ghst
 
+  ! Gauss points variables
+  real(wp), allocatable, dimension(:,:,:)   ::    x_Gau_pts_hex
+
+  real(wp), allocatable, dimension(:,:)     :: Jx_r_Gau_pts_hex
+  real(wp), allocatable, dimension(:,:,:,:) ::  r_x_Gau_pts_hex       ! (nd,nd,n_Gau_pts_3d,nelem)
+
+  real(wp), allocatable, dimension(:,:,:) ::     ug_Gau_pts_hex
+  real(wp), allocatable, dimension(:,:,:) ::  u_old_Gau_pts_hex
+  real(wp), allocatable, dimension(:,:,:) ::  u_hat_Gau_pts_hex
+
+  real(wp), allocatable, dimension(:,:)   ::     vg_Gau_pts_hex
+  real(wp), allocatable, dimension(:,:)   ::     wg_Gau_pts_hex
+  real(wp), allocatable, dimension(:,:)   ::     wg_Gau_pts_hex_local
+
   ! This variable are used with the low-storage-RK
   real(wp), allocatable, dimension(:,:,:)   :: du
   real(wp), allocatable, dimension(:,:,:)   :: dudt

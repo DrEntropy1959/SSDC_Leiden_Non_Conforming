@@ -213,25 +213,33 @@ contains
     return
   end subroutine ComputeSolutionToFluxExtrapolationMatrix
 
-    subroutine element_properties(ielem, n_pts_1d, n_pts_2d, n_pts_3d, &
-                      x_pts_1d, pinv, qmat, dmat, iagrad, jagrad, dagrad,  &
-                      pmat, nnzgrad, pvol, p_surf,                     &
-                      kfacenodes, ifacenodes)
+    subroutine element_properties(ielem,                                     &
+                                   n_pts_1d, n_pts_2d, n_pts_3d, x_pts_1d,   &
+                                   pinv, qmat, dmat, iagrad, jagrad, dagrad, &
+                                   pmat, nnzgrad, pvol, p_surf,              &
+                                   kfacenodes, ifacenodes)
 
-    use collocationvariables, only : n_LGL_1d_p0, n_LGL_2d_p0, n_LGL_3d_p0, &
+    use collocationvariables, only :                                        & 
+                                   & n_LGL_1d_p0, n_LGL_2d_p0, n_LGL_3d_p0, &
                                    & x_LGL_1d_p0,                           &
+                                   & n_Gau_1d_p0, n_Gau_2d_p0, n_Gau_3d_p0, &
+                                   & x_Gau_1d_p0,                           &
                                    & pinv_p0, pmat_p0, qmat_p0, dmat_p0, &
                                    & iagrad_p0, jagrad_p0, nnzgrad_p0, &
                                    & dagrad_p0, pvol_p0, p_surf_p0, &
                                    &&
                                    & n_LGL_1d_p1, n_LGL_2d_p1, n_LGL_3d_p1, &
                                    & x_LGL_1d_p1,                           &
+                                   & n_Gau_1d_p1, n_Gau_2d_p1, n_Gau_3d_p1, &
+                                   & x_Gau_1d_p1,                           &
                                    & pinv_p1, pmat_p1, qmat_p1, dmat_p1, &
                                    & iagrad_p1, jagrad_p1, nnzgrad_p1, &
                                    & dagrad_p1, pvol_p1, p_surf_p1, &
                                    &&
                                    & n_LGL_1d_p2, n_LGL_2d_p2, n_LGL_3d_p2, &
                                    & x_LGL_1d_p2,                           &
+                                   & n_Gau_1d_p2, n_Gau_2d_p2, n_Gau_3d_p2, &
+                                   & x_Gau_1d_p2,                           &
                                    & pinv_p2, pmat_p2, qmat_p2, dmat_p2, &
                                    & iagrad_p2, jagrad_p2, nnzgrad_p2, &
                                    & dagrad_p2, pvol_p2, p_surf_p2, &

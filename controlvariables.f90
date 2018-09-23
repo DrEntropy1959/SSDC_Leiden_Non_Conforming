@@ -23,6 +23,7 @@ module controlvariables
   character(120) :: Entropy_Flux_BC          = 'Ismail_Roe'
   character(120) :: SAT_type                 = 'mod_metric'
   character(120) :: Grid_Topology            = 'linear'  !  'cylinder' 'sphere'
+  character(120) :: collocation_layout       = 'fully_staggered'
 
   real(wp), dimension(3) :: cylinder_x0, cylinder_x1
   real(wp), dimension(3) :: origin
