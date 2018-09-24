@@ -7912,9 +7912,11 @@ end function
     implicit none
 
     !-- local variables
+    integer                                      :: s_status(mpi_status_size)
+    integer                                      :: r_status(mpi_status_size)
     integer                                      :: m_size, iproc,i_err
-    integer                                      :: s_tag, s_request_err, s_status
-    integer                                      :: r_tag, r_request_err, r_status
+    integer                                      :: s_tag, s_request_err
+    integer                                      :: r_tag, r_request_err
     integer                                      :: inode, ielem
     integer                                      :: n_pts_3d
     integer                                      :: iface, ishift, i_Gau, n_Gau_2d_max
@@ -8778,39 +8780,40 @@ end subroutine write_matrix_to_file_matlab
 
   end subroutine e_edge2e_connectivity
 
-!============================================================================
+  !============================================================================
+  !  Routine is not finished
+  !============================================================================
 
-! subroutine interpolate_metrics_from_LGL_to_Gau_pts_hex()
+  subroutine interpolate_metrics_from_LGL_to_Gau_pts_hex()
    
-!   ! Load modules
-!   use collocationvariables, only: n_Gau_1d, n_LGL_1d, &
-!                                   x_Gau_1d, x_LGL_1d, &
-!                                   n_Gau_3d, n_LGL_3d
-!   use initcollocation,      only: element_properties
+    ! Load modules
+    use initcollocation,     only: element_properties
+    use referencevariables,  only: ihelems, ndim, npoly_max
+    use variables,           only: Jx_r, Jx_r_Gau_pts_hex, r_x_Gau_pts_hex, r_x
 
-!   use referencevariables, only : ihelems, ndim
-!   use variables, only: Jx_r, Jx_r_Gau_pts_hex, r_x_Gau_pts_hex, r_x
+    implicit none                                              ! Nothing is implicitly defined
 
-!   implicit none                                              ! Nothing is implicitly defined
+    real(wp), dimension(:), allocatable :: fn_Gau_pts_hex
+    real(wp), dimension(:), allocatable :: fn_LGL_pts_hex
+    real(wp), dimension(:), allocatable :: x_LGL_pts_1d, x_Gau_pts_1d
 
-!   real(wp),dimension(:), allocatable :: fn_Gau_pts_hex
-!   real(wp),dimension(:), allocatable :: fn_LGL_pts_hex
+    integer :: ielem, inode
+    integer :: nodesperelem_max, n_Gau_pts_3d_max
+    integer :: n_LGL_pts_1d, n_LGL_pts_3d
+    integer :: n_Gau_pts_1d, n_Gau_pts_3d
 
-!   integer :: ielem, inode
-!   integer :: nodesperelem_max
+    integer :: idir,jdir
 
-!   integer :: idir,jdir
+    continue
 
-!   continue
+    n_Gau_pts_3d_max = (npoly_max+1)**ndim                     ! number of nodes in each element
 
-!   n_Gau_pts_3d_max = (npoly_max+1)**ndim                     ! number of nodes in each element
+    ! Allocate memory for Jacobian and metrics at the Gauss points
+    allocate(Jx_r_Gau_pts_hex(        1:n_Gau_pts_3d_max,ihelems(1):ihelems(2))) ; Jx_r_Gau_pts_hex = 0.0_wp
+ 
+    allocate( r_x_Gau_pts_hex(1:3,1:3,1:n_Gau_pts_3d_max,ihelems(1):ihelems(2))) ;  r_x_Gau_pts_hex = 0.0_wp
 
-!   ! Allocate memory for Jacobian and metrics at the Gauss points
-!   allocate(Jx_r_Gau_pts_hex(        1:n_Gau_pts_3d_max,ihelems(1):ihelems(2))) ; Jx_r_Gau_pts_hex = 0.0_wp
-!
-!   allocate( r_x_Gau_pts_hex(1:3,1:3,1:n_Gau_pts_3d_max,ihelems(1):ihelems(2))) ;  r_x_Gau_pts_hex = 0.0_wp
-
-!   do ielem = ihelems(1), ihelems(2)
+    do ielem = ihelems(1), ihelems(2)
 
 !     call element_properties(ielem,                       &
 !                                   n_pts_1d=n_LGL_pts_1d, &
@@ -8820,29 +8823,29 @@ end subroutine write_matrix_to_file_matlab
 !                                   x_Gau_1d=x_Gau_pts_1d, &
 !                                   n_Gau_3d=n_Gau_pts_3d)
 
-!     allocate(fn_LGL_pts_hex(1:n_LGL_pts_3d)) ; fn_LGL_pts_hex = 0.0_wp
-!     allocate(fn_Gau_pts_hex(1:n_Gau_pts_3d)) ; fn_Gau_pts_hex = 0.0_wp
+      allocate(fn_LGL_pts_hex(1:n_LGL_pts_3d)) ; fn_LGL_pts_hex = 0.0_wp
+      allocate(fn_Gau_pts_hex(1:n_Gau_pts_3d)) ; fn_Gau_pts_hex = 0.0_wp
 
 !     Interpolate Jacobian
 
-!     ! Jacobian at LGL in a 1D array      ;   Jacobian at Gauss points in 1D array
-!     fn_LGL_pts_hex(:) = Jx_r(:,ielem)   ;   fn_Gau_pts_hex(:) = 0.0_wp
-!     
+      ! Jacobian at LGL in a 1D array      ;   Jacobian at Gauss points in 1D array
+      fn_LGL_pts_hex(:) = Jx_r(:,ielem)   ;   fn_Gau_pts_hex(:) = 0.0_wp
+      
 !     call ExtrpXA2XB(ndim,n_LGL_pts_1d,n_Gau_pts_1d,        &  ! Intrp_3D_LGL_to_Gau_pts_hex
 !                    &     x_LGL_pts_1d,x_Gau_pts_1d,        &
 !                    &     fn_LGL_pts_hex, fn_Gau_pts_hex,   &
 !                    &     restrc_LGL_to_Gau_pts_1d)
 
-!     do inode = 1, n_Gau_pts_3d
-!       Jx_r_Gau_pts_hex(inode,ielem) = fn_Gau_pts_hex(inode)
-!     end do
+      do inode = 1, n_Gau_pts_3d
+        Jx_r_Gau_pts_hex(inode,ielem) = fn_Gau_pts_hex(inode)
+      end do
 
 !   Interpolate metrics
-!     do idir = 1,ndim
-!       do jdir = 1,ndim
+      do idir = 1,ndim
+        do jdir = 1,ndim
 
-!         ! metrics at LGL in a 1D array              ;   metrics at Gauss points in 1D array
-!         fn_LGL_pts_hex(:) = r_x(idir,jdir,:,ielem)  ;   fn_Gau_pts_hex(:) = 0.0_wp
+          ! metrics at LGL in a 1D array              ;   metrics at Gauss points in 1D array
+          fn_LGL_pts_hex(:) = r_x(idir,jdir,:,ielem)  ;   fn_Gau_pts_hex(:) = 0.0_wp
 
 !         call ExtrpXA2XB(ndim,n_LGL_pts_1d,n_Gau_pts_1d,        &  ! Intrp_3D_LGL_to_Gau_pts_hex
 !                        &     x_LGL_pts_1d,x_Gau_pts_1d,        &
@@ -8850,19 +8853,22 @@ end subroutine write_matrix_to_file_matlab
 !                        &     restrc_LGL_to_Gau_pts_1d)
 
 
-!         do inode = 1, n_Gau_pts_3d
-!           r_x_Gau_pts_hex(idir,jdir,inode,ielem) = fn_Gau_pts_hex(inode)
-!         end do
+          do inode = 1, n_Gau_pts_3d
+            r_x_Gau_pts_hex(idir,jdir,inode,ielem) = fn_Gau_pts_hex(inode)
+          end do
 
-!       enddo
-!     enddo
+        enddo
+      enddo
 
-!     deallocate(fn_LGL_pts_hex,fn_Gau_pts_hex)
+      deallocate(fn_LGL_pts_hex,fn_Gau_pts_hex)
+      deallocate(x_LGL_pts_1d,x_Gau_pts_1d)
 
-!   end do
+    end do
 
-! end subroutine interpolate_metrics_from_LGL_to_Gau_pts_hex
+  end subroutine interpolate_metrics_from_LGL_to_Gau_pts_hex
 
+  !============================================================================
+  !  Routine is not finished
   !============================================================================
 
 end module initgrid

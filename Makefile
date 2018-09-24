@@ -19,6 +19,23 @@ CC = gcc
 FC = mpif90
 LIBS = -lpetsc -lHYPRE -lumfpack -lsuperlu_dist_3.3 -lscalapack -lamd -lflapack -lfblas -lcgns -lmetis -lparmetis
 #=================================================================================================================
+#  Delft
+#=================================================================================================================
+else ifeq ($(HOSTPC),delft)
+$(info ${HOSTPC})
+INCLUDESDIR = -I/home/carpentr/OpenSourceLib_2018/Lib-Install/include\
+              -I/home/carpentr/OpenSourceLib_2018/Lib-Install/petsc-3.10.0/include
+#FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -O1 $(INCLUDESDIR)
+ FCFLAGS = -Wunused -Wmaybe-uninitialized -Wsurprising -march=corei7-avx -Ofast -ftree-loop-distribution $(INCLUDESDIR)
+#FCFLAGS = -Wmaybe-uninitialized -Wsurprising -fbacktrace -fbounds-check -O1 -ftree-vectorizer-verbose=2 $(INCLUDESDIR)
+#FCFLAGS = -g -Wall -Wmaybe-uninitialized -Wextra -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -ffpe-trap=zero,overflow,underflow -finit-real=nan $(INCLUDESDIR)
+CFLAGS = -Ofast  $(INCLUDESDIR)
+LFLAGS = -L/home/carpentr/OpenSourceLib_2018/Lib-Install/lib\
+         -L/home/carpentr/OpenSourceLib_2018/Lib-Install/petsc-3.10.0/lib
+CC = gcc
+FC = mpif90
+LIBS = -lpetsc -lHYPRE -lscalapack -lflapack -lfblas -lmetis -lparmetis
+#=================================================================================================================
 #  Leiden
 #=================================================================================================================
 else ifeq ($(HOSTPC),Leiden)
@@ -139,8 +156,7 @@ SRCS = precision_vars.f90\
        errorestimation.f90\
        dkinetic_energy_dt_enstrophy.f90\
        jacobian_matrix_implicit_ts.f90\
-       implicit_residual.f90\
-       petsc_snes_solver.F90\
+         implicit_residual.f90\
        binary_sizes.f90\
        write_solution_file.f90\
        aerodynamic_coefficients.f90\
@@ -150,6 +166,8 @@ SRCS = precision_vars.f90\
        polyinit.f90\
        physicsindependent.f90\
        ssdcsolver.f90
+
+#      petsc_snes_solver.F90\
 
 #OBJS1 = $(SRCS:.f90=.o)
 #OBJS2 = $(SRCS:.F90=.o)
@@ -189,8 +207,7 @@ OBJS = precision_vars.o\
        errorestimation.o\
        dkinetic_energy_dt_enstrophy.o\
        jacobian_matrix_implicit_ts.o\
-       implicit_residual.o\
-       petsc_snes_solver.o\
+         implicit_residual.o\
        binary_sizes.o\
        write_solution_file.o\
        aerodynamic_coefficients.o\
@@ -201,6 +218,8 @@ OBJS = precision_vars.o\
        physicsindependent.o\
        ssdcsolver.o\
        metiselementpartition.o
+
+#      petsc_snes_solver.o\
 
 #LINK = gfortran
 
