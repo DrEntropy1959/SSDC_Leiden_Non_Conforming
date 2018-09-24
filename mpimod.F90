@@ -446,7 +446,7 @@ contains
         ! ======================================================================
         s_tag = 1000*nprocs + i_proc
         m_size = 1
-        call mpi_send(cnt_w_faces(i_proc),m_size,mpi_integer,i_proc, &
+        call mpi_isend(cnt_w_faces(i_proc),m_size,mpi_integer,i_proc, &
           & s_tag,petsc_comm_world,s_request_wall(i_proc),i_err)
 
         call mpi_wait(s_request_wall(i_proc),s_status,i_err)
@@ -630,7 +630,7 @@ contains
         if (cnt_p_faces_x3(i_proc) /= 0) then
           s_tag = 403*nprocs + i_proc
           m_size = cnt_p_faces_x3(i_proc)*3
-          call mpi_send(p_data_x3(:,i_proc),m_size,mpi_integer,i_proc,s_tag, &
+          call mpi_isend(p_data_x3(:,i_proc),m_size,mpi_integer,i_proc,s_tag, &
             & petsc_comm_world,s_request_periodic_x3(i_proc),i_err)
         
           call mpi_wait(s_request_periodic_x3(i_proc),s_status,i_err)
@@ -641,7 +641,7 @@ contains
         if (cnt_w_faces(i_proc) /= 0) then
           s_tag = 1100*nprocs + i_proc
           m_size = 2*cnt_w_faces(i_proc)
-          call mpi_send(w_data(:,i_proc),m_size,mpi_integer,i_proc,s_tag, &
+          call mpi_isend(w_data(:,i_proc),m_size,mpi_integer,i_proc,s_tag, &
             & petsc_comm_world,s_request_wall(i_proc),i_err)
         
           call mpi_wait(s_request_wall(i_proc),s_status,i_err)
@@ -1041,7 +1041,7 @@ contains
           ! Send 1D array
           s_tag = 200*nprocs + i_proc
           m_size = npetmp*nfacesperelem*qdim
-          call mpi_send(packed_ef2e,m_size,mpi_integer,i_proc,s_tag, &                                                       !NOTE (David) should this be an isend?
+          call mpi_isend(packed_ef2e,m_size,mpi_integer,i_proc,s_tag, &                                                       !NOTE (David) should this be an isend?
             & petsc_comm_world,s_request_ef2e(i_proc),i_err)
 
           call mpi_wait(s_request_ef2e(i_proc),s_status,i_err)
@@ -1082,7 +1082,7 @@ contains
           ! Send 1D array
           s_tag = 327*nprocs + i_proc
           m_size = npetmp*2*ndim
-          call mpi_send(packed_ldg_flip_flop_sign,m_size,mpi_integer,i_proc,s_tag, &                                         !NOTE (David) should this be an isend?
+          call mpi_isend(packed_ldg_flip_flop_sign,m_size,mpi_integer,i_proc,s_tag, &                                         !NOTE (David) should this be an isend?
             & petsc_comm_world,s_request_ldg_flip_flop_sign(i_proc),i_err)
 
           call mpi_wait(s_request_ldg_flip_flop_sign(i_proc),s_status,i_err)
