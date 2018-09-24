@@ -56,9 +56,9 @@ contains
 !     stop
 !   end if
 
-    ! Here we specify the qualities of each element type according to the CGNS
-    ! standard. Such features are also used for all the other grid format
-    ! supported in this code.
+    ! Here we specify the qualities of each element type according to the CGNS standard. (CRAZY!)
+    ! Such features are also used for all the other grid format supported in this code.
+
     call init_edge_2() 
     call init_quad_4() 
     call init_hex_8()  
@@ -69,36 +69,8 @@ contains
 
     ! Read the grid and construct all the connectivity based on the input grid
     ! format
-    if (grid_format == 'cgns') then
-
-      ! Define boundary condition types
-!      call init_cgns_bc()
-
-      ! The master node compute the connectivity and calls metis to assign 
-      ! the elements to each process.
-      if (myprocid == 0) then
-        ! Read only the necessary information from the datafile
-!        call cgnsPrelimUnstructuredGrid(casefile)
-
-        ! Check the number of processors and the number of elements
-        call check_n_procs_n_elems(nprocs,nelems)
-
-        ! Create connectivity from the original grid
-        call E2EConnectivity_cgns() 
-     
-        ! Metis calculates the partitions
-        call calculatepartitions() 
-      
-      end if
-
-      ! Push element connectivity to all processes
-      call distributeelements_cgns()
     
-      ! Read vertices now from grid file using known connectivity information
-!      call cgnsParallelUnstructuredGrid(casefile)
-    
-    
-    else if (grid_format == 'aflr3') then
+    if (grid_format == 'aflr3') then
 
       ! The master node compute the connectivity and calls metis to assign 
       ! the elements to each process.

@@ -580,7 +580,7 @@ contains
     use navierstokes
     use time_integ_coeff 
     use mpimod
-    use petsc_snes_solver,  only : setup_petsc_solver, solve_implicit_petsc
+!   use petsc_snes_solver,  only : setup_petsc_solver, solve_implicit_petsc
 
     use variables, only: ug, uold, uexp, Fexp, Fimp
 
@@ -611,7 +611,7 @@ contains
     !call csr_testing()
 
     ! Set-up PETSc solver
-    call setup_petsc_solver()
+!   call setup_petsc_solver()
 
     ! Initialize to zero the number of time step execuyted
     itimestep = 0
@@ -668,7 +668,7 @@ contains
           call rk_imex_middle(irkstep,timestep) 
 
           ! Solve the nonlinear system of ODEs
-          call solve_implicit_petsc(converged) 
+!         call solve_implicit_petsc(converged) 
 
           ! Fault tolerance, recompute time-step
           if (.not.converged) then

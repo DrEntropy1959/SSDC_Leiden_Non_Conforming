@@ -14,7 +14,9 @@ module mpimod
 contains
 
   subroutine mpiInit()
+
     use referencevariables, only: nprocs, myprocid
+
     implicit none
     integer :: ierr
 
@@ -60,184 +62,6 @@ contains
 
   end function checkNegTemp
 
-  subroutine distributeelements_cgns()
-    ! this subroutine actually tells each process what elements
-    ! it owns, which will be read in from the data file, and it
-    ! specifies the connectivity of each element.
-    use referencevariables
-    use variables, only: e2v, elempart, jelems, iae2v, jae2v, ef2e, boundaryelems
-
-    implicit none
-    integer :: i, iproc, ierr
-    integer :: j, ii, jj
-    integer :: netmp, npetmp
-
-    integer, allocatable :: melemsonproc(:), ef2etmp1(:,:,:), ef2etmp2(:,:,:)
-    integer, allocatable :: i2jelems(:), j2ielems(:)
-    integer, allocatable :: icnt(:)
-    integer, allocatable :: e2vtmp(:,:)
-    integer :: rtag, stag
-    integer :: irsreq(2)
-    integer, allocatable :: irsstatus(:,:)
-    integer :: msgsize
-    integer, parameter :: qdim = 9   !  dimension of first array in ef2e see initgrid.F90 
-    allocate(irsstatus(MPI_STATUS_SIZE,2))
-
-    allocate(melemsonproc(0:2*nprocs-1))
-    allocate(icnt(0:nprocs-1))
-
-    ! process 0 (i.e. the master) orders elements for scattering
-    if (myprocid == 0) then
-      melemsonproc = 0
-      ! count number of elements on each process and put it in
-      ! a container as the upper index
-      do i = 1, nelems
-        melemsonproc(2*elempart(i)+1) = melemsonproc(2*elempart(i)+1)+1
-      end do
-      ! now make the upper index additive, such that all odd indices contain
-      ! the upper element bound of a given process
-      do i = 3,2*nprocs-1,2
-        melemsonproc(i) = melemsonproc(i-2)+melemsonproc(i)
-      end do
-      ! the first process starts with element 1
-      melemsonproc(0) = 1
-      ! now determine the first element on the other processes
-      do i = 2,2*(nprocs-1),2
-        melemsonproc(i) = melemsonproc(i-1)+1
-      end do
-
-      allocate(i2jelems(1:nelems))
-      allocate(j2ielems(1:nelems))
-      ! we now determine the mapping from the old
-      ! element indices to the new element indices
-      icnt = 0
-      do i = 1, nelems
-        iproc = elempart(i)
-        i2jelems(melemsonproc(2*iproc)+icnt(iproc)) = i
-        j2ielems(i) = melemsonproc(2*iproc)+icnt(iproc)
-        icnt(iproc) = icnt(iproc) + 1
-      end do
-    else
-      allocate(i2jelems(0))
-    end if
-
-    ! create a barrier synchronization in the group. Each task, when 
-    ! reaching the MPI_Barrier call, blocks until all tasks in the group 
-    ! reach the same MPI_Barrier call. 
-    call mpi_barrier(petsc_comm_world,ierr)
-
-    ! the lower and upper ordered-element bounds for each process is communicated
-    call mpi_scatter(melemsonproc, 2, mpi_integer, &
-      ihelems, 2, mpi_integer, 0, PETSC_COMM_WORLD, ierr)
-
-    ! the original-to-ordered-element mapping is communicated to each process
-    allocate(jelems(ihelems(1):ihelems(2)))
-    netmp = ihelems(2)-ihelems(1)+1
-    call mpi_scatterv(i2jelems, icnt, melemsonproc(0:2*(nprocs-1):2)-1, mpi_integer, &
-      jelems, netmp, mpi_integer, 0, PETSC_COMM_WORLD, ierr)
-
-    
-    ! the ordered-element to vertex connectivity is allocated
-    allocate(e2v(2**ndim,ihelems(1):ihelems(2)))
-
-    ! post non-blocking receives for each process
-    ! to receive the element to vertex connectivity
-    rtag = 100*nprocs+myprocid
-    msgsize = netmp*(2**ndim)
-    call mpi_irecv(e2v, msgsize, mpi_integer, 0, &
-      rtag, PETSC_COMM_WORLD, irsreq(1), ierr)
-
-    ! ordered-element face-to-face connectivity array is allocated
-!    allocate(ef2etmp2(3,2*ndim,ihelems(1):ihelems(2)))
-    allocate(ef2etmp2(qdim,nfacesperelem,ihelems(1):ihelems(2)))!HACK
-    ef2etmp2 = 0
-
-    ! post non-blocking receives for each process to
-    ! receive the ordered-element face-to-face connectivity
-    rtag = 200*nprocs+myprocid
-    msgsize = netmp*2*ndim*3
-    call mpi_irecv(ef2etmp2, msgsize, mpi_integer, 0, &
-      rtag, PETSC_COMM_WORLD, irsreq(2), ierr)
-
-    ! on process 0 (i.e. the master) use blocking sends
-    if (myprocid == 0) then
-      do iproc = 0, nprocs-1
-        ! create temporary array for element-to-vertex connectivity on process iproc
-        allocate( e2vtmp(2**ndim,melemsonproc(2*iproc):melemsonproc(2*iproc+1)) )
-        ! create temporary array for face-to-face connectivity on process iproc
-        allocate( ef2etmp1(3,2*ndim,melemsonproc(2*iproc):melemsonproc(2*iproc+1)) ) 
-        ! number of elements on process iproc
-        npetmp = melemsonproc(2*iproc+1)-melemsonproc(2*iproc)+1
-        ! loop over elements on process iproc
-        do i = melemsonproc(2*iproc), melemsonproc(2*iproc+1)
-          ! the original element index
-          ii = i2jelems(i)
-          ! fill the e2v connectivity
-          do j = 1,2**ndim
-            jj = iae2v(ii)+j-1
-            e2vtmp(j,i) = jae2v(jj)
-          end do
-          ! loop over faces
-          do j = 1,2*ndim
-            ! face of neighbor
-            ef2etmp1(1,j,i) = ef2e(1,j,ii)
-            ! original element index of neighbor
-            jj = ef2e(2,j,ii)
-            if (jj <= nelems) then
-              ! neighbor element (with new element index)
-              ef2etmp1(2,j,i) = j2ielems(jj)
-              ! process of neighbor
-              ef2etmp1(3,j,i) = elempart(jj)
-            else
-              ! self is neighbor (new element index)
-              ef2etmp1(2,j,i) = i
-              ! process of neighbor
-              ef2etmp1(3,j,i) = iproc
-            end if
-          end do
-        end do
-        ! use blocking send to transfer e2v data
-        stag = 100*nprocs+iproc
-        msgsize = npetmp*(2**ndim)
-        call mpi_send(e2vtmp(:,:), msgsize, mpi_integer, iproc, &
-          stag, petsc_comm_world, ierr)
-        ! use blocking send to transfer ef2e data
-        stag = 200*nprocs+iproc
-        msgsize = npetmp*2*ndim*3
-        call mpi_send(ef2etmp1, msgsize, mpi_integer, iproc, &
-          stag, petsc_comm_world, ierr)
-        deallocate(e2vtmp)
-        deallocate(ef2etmp1)
-      end do
-      deallocate(ef2e)
-      deallocate(boundaryelems)
-      deallocate(isectionvolume)
-      deallocate(j2ielems)
-    end if
-
-    ! wait for receives to finish
-    call MPI_Wait(irsreq(1), irsstatus(:,1), ierr)
-    call MPI_Wait(irsreq(2), irsstatus(:,2), ierr)
-
-    ! wait for other processes
-    call mpi_barrier(PETSC_COMM_WORLD,ierr)
-
-!    allocate(ef2e(3,2*ndim,ihelems(1):ihelems(2)))
-     allocate(ef2e(qdim,nfacesperelem,ihelems(1):ihelems(2)))!HACK
-
-    ! assign global ef2e
-    ef2e = ef2etmp2
-    deallocate(ef2etmp2)
-
-    deallocate(i2jelems)
-    deallocate(icnt)
-    deallocate(melemsonproc)
-    deallocate(irsstatus)
-
-  end subroutine distributeelements_cgns
-
-  !============================================================================
-  
   !============================================================================
   ! distribute_elements_aflr3 - Distributes elements and connectivity
   ! informations to each process.
@@ -2853,7 +2677,6 @@ contains
     real(wp), intent(in) :: Zin(nq,nk,ne)
     real(wp), intent(in) :: Zghstin(nq,ngh)
 
-
     Vec Zpetscin
     Vec Zlocin
 
@@ -2944,7 +2767,6 @@ contains
     integer,  intent(in) :: nk, ne, ngh
     real(wp), intent(in) :: Zin(nk,ne)
     real(wp), intent(in) :: Zghstin(ngh)
-
 
     Vec Zpetscin
     Vec Zlocin
@@ -3040,7 +2862,6 @@ contains
     integer,  intent(in) :: nq, nk, ne, ngh
     real(wp), intent(in) :: Zin(nq,nk,ne)
     real(wp), intent(in) :: Zghstin(nq,ngh)
-
 
     Vec Zpetscin
     Vec Zlocin
