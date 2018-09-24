@@ -1,6 +1,8 @@
 module mpimod
   
   use precision_vars
+! use petsc
+
   implicit none
 
 #include "finclude/petscsys.h"
@@ -1955,6 +1957,8 @@ contains
     use referencevariables,  only: ihelems, myprocid, nelems, ndim
     use variables,           only: ef2e, kfacenodes
     use initcollocation,     only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -2037,6 +2041,8 @@ contains
     use referencevariables,  only: ihelems, myprocid, nelems, ndim
     use variables,           only: ef2e, kfacenodes
     use initcollocation,     only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -2125,6 +2131,8 @@ contains
     use referencevariables
     use variables,       only: ef2e
     use initcollocation, only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -2207,6 +2215,8 @@ contains
     use referencevariables,  only: ihelems, myprocid, nelems, ndim
     use variables,           only: ef2e, kfacenodes
     use initcollocation,     only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -2296,6 +2306,8 @@ contains
     use referencevariables
     use variables, only: ef2e, kfacenodes
     use initcollocation,      only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -2385,6 +2397,8 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e, kfacenodes
     use initcollocation,      only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -2493,6 +2507,7 @@ contains
     use referencevariables
     use variables, only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
 
     implicit none
 
@@ -2585,6 +2600,8 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -2668,6 +2685,7 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
 
     implicit none
 
@@ -2760,6 +2778,8 @@ contains
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
     use collocationvariables, only: elem_props
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -2855,6 +2875,8 @@ contains
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
     use collocationvariables, only: elem_props
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -2957,6 +2979,7 @@ contains
     use referencevariables,   only: ihelems, myprocid, nelems, ndim
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
 
     implicit none
 
@@ -3054,6 +3077,7 @@ contains
     use referencevariables,   only: ihelems, myprocid, nelems, ndim
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
 
     implicit none
 
@@ -3159,6 +3183,8 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -3264,6 +3290,7 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
 
     implicit none
 
@@ -3372,6 +3399,8 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -3484,6 +3513,8 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -3590,6 +3621,8 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -3697,6 +3730,8 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -3803,6 +3838,7 @@ contains
     use referencevariables,   only: ihelems, nfacesperelem, myprocid, nelems
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
+    use petscvec
 
     implicit none
 
@@ -3927,6 +3963,8 @@ contains
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
     use collocationvariables, only: elem_props
+    use petscvec
+
     implicit none
 
     ! Arguments
@@ -4045,6 +4083,8 @@ contains
     use variables,            only: ef2e
     use initcollocation,      only: element_properties
     use collocationvariables, only: elem_props
+    use petscvec
+
     implicit none
 
     ! Arguments
