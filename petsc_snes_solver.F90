@@ -11,6 +11,11 @@ module petsc_snes_solver
 
   ! Load modules
   use precision_vars
+! use petsc                             !  Use statements for PETSc.3.10.0 
+! use petscsnes                         !  Use statements for PETSc.3.10.0 
+! use petscvec                          !  Use statements for PETSc.3.10.0 
+! use petscksp                          !  Use statements for PETSc.3.10.0 
+! use petscmat                          !  Use statements for PETSc.3.10.0 
 
   ! Nothing is implicitly defined
   implicit none
@@ -33,7 +38,6 @@ module petsc_snes_solver
 #include "finclude/petscmat.h"
 #include "finclude/petscsnes.h"
 #include "finclude/petscksp.h"
-#include "finclude/petscvec.h90"
 #include "finclude/petscviewer.h"
 
   ! PETSc variables

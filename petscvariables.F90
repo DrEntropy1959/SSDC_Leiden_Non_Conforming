@@ -5,8 +5,7 @@ module petscvariables
 #include "finclude/petscvec.h"
 #include "finclude/petscis.h"
 
-! petsc 3.10.0
-! use petscvec
+! use petscvec          !  Use statement for PETSc.3.10.0
 
   Vec xpetsc
   Vec xlocpetsc
