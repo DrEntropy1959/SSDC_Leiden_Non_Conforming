@@ -25,7 +25,8 @@ contains
     integer :: rmapInit
     integer :: n_LGL_1d, n_Gau_1d
     integer :: diff_poly
-    integer :: i
+    integer :: i,j
+    logical :: output = .false.
     real(wp), dimension(:), allocatable  :: x_LGL_1d, w_LGL_1d, x_Gau_1d, w_Gau_1d
 
     rmapInit = 0
@@ -83,6 +84,18 @@ contains
     allocate(qmat_p0(n_LGL_1d_p0,n_LGL_1d_p0))
     allocate(dmat_p0(n_LGL_1d_p0,n_LGL_1d_p0))
     call Amat(x_LGL_1d_p0,n_LGL_1d_p0,pmat_p0,pinv_p0,qmat_p0,dmat_p0) 
+
+    if(output) then
+      write(*,*)'pmat'
+      write(*,*)pmat_p0
+      write(*,*)'Dmat'
+      do i = 1,n_LGL_1d_p0
+         do j = i,n_LGL_1d_p0
+           write(*,*)'        q',i,j,' = ',qmat_p0(i,j)
+         enddo
+      enddo
+      stop
+    endif
 
     allocate(pmat_p1(n_LGL_1d_p1))
     allocate(pinv_p1(n_LGL_1d_p1))

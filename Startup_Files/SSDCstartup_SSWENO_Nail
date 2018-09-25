@@ -1,0 +1,72 @@
+ &PreProcParameters
+ ndim = 3,
+ npoly = 3, 
+ npoly_DeltaF = 0,
+ casefile = '../Grids/Cube_2D/Cube_2D_Testing_NonUniform_008x008x2',
+ grid_format = 'aflr3',
+ viscous = .true.,
+ crossterms = .true.,
+ discretization = 'SSWENO',
+ Riemann_Diss  = 'Roe',
+ Entropy_Correction = .true.,
+ WENO_type     = 'Neighbr_WENO',
+ l01 = -0.5,
+ l10 = -0.5,
+ variable_viscosity = .false.,
+ /
+
+ &GeneralParameters
+ runcasename  = 'ExactSolutionViscousShock',
+ solutionfile = 'ViscousShock',
+ outputfile = 'VS2D.V.6x6.',
+ new = .true.,
+ write_restart = .false.,
+ write_restart_dir = 'test_test',
+ write_restart_common_name = 'restart_p',
+ write_restart_formatted = .true.,
+ write_restart_frequency = 10000,
+ read_restart_dir = 'test_test',
+ read_restart_common_name = 'restart_p',
+ read_restart_time = '1.0000000000000E+02',
+ read_restart_formatted = .true.,
+ /
+
+ &RunParameters
+ timestep    =   .00001, 
+ timemaximum =  0.2000000,
+ verbose = .true., 
+ Dt_by_CFL = .true.,
+ CFL = 0.10,
+ variabletimestep = .false., 
+ /
+
+ &FlowParameters
+ Re0 = 10.,
+ Pr0 = 0.75,
+ Mach0 = 2.5,
+ uniformFreeStreamAOA =  45.0,
+ membranelocation     =  0.5, 
+ referenceWaveSpeed   =  0.25,
+ InitialCondition     = 'ExactSolutionViscousShock',
+ /
+
+ &AerodynamicParameters
+ aero_coeffs_surface = 1.0 
+/
+
+ casefile = 'Cube_2D_Testing_032x032x2',
+ solutionfile = 'ShockVortex',
+
+ casefile = 'Shock_Vortex_Coarse',
+ casefile = 'Shock_Vortex_Cartesian_Nonuniform_64x32',
+
+ casefile = 'Pencil_Uniform_008x2x2',
+
+ InitialCondition     = 'ShockVortex',
+ Mach0 = 1.1212238211627762,
+ timemaximum =  0.35000000,
+ casefile = 'Shock_Vortex_Cartesian_Nonuniform_64x32',
+
+ InitialCondition     = 'ExactSolutionViscousShock',
+ casefile = 'Cube_2D_Testing_NonUniform_032x032x2',
+ timemaximum =  0.35000000,

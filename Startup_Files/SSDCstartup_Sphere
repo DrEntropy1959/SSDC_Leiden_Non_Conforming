@@ -1,0 +1,79 @@
+ &PreProcParameters
+ ndim = 3,
+ npoly = 2, 
+ npoly_DeltaF = 0,
+ casefile = '../Grids/GMSH/Sphere_Uniform_Orthogonal/Sphere_Uniform_Orthogonal_003x003x003',
+ grid_format = 'aflr3',
+ viscous = .false.,
+ crossterms = .true.,
+ discretization = 'SSDC',
+ Riemann_Diss  = 'Roe',
+ Entropy_Correction = .false.,
+ entropy_flux    = 'Chandrashekar',
+ entropy_flux_BC = 'Chandrashekar',
+ Grid_Topology = 'sphere',
+ radius = 1.7320508075688770,
+ origin(1:3) =  0.0,0.0,0.0,
+ l01 = -0.5,
+ l10 = -0.5,
+ variable_viscosity = .false.,
+ /
+
+ &GeneralParameters
+ runcasename  = 'ExactSolutionViscousShock',
+ solutionfile = 'ViscousShock',
+ outputfile = 'VS2D.V.4x2.',
+ new = .true.,
+ write_restart = .false.,
+ write_restart_dir = 'test_test',
+ write_restart_common_name = 'restart_p',
+ write_restart_formatted = .true.,
+ write_restart_frequency = 10000,
+ write_solution = .false.,
+ read_restart_dir = 'test_test',
+ read_restart_common_name = 'restart_p',
+ read_restart_time = '1.0000000000000E+02',
+ read_restart_formatted = .true.,
+ /
+
+ &RunParameters
+ timestep    =  0.00050000, 
+ timemaximum =  0.1000000,
+ verbose = .false., 
+ Dt_by_CFL = .true.,
+ CFL = 5.8,
+ variabletimestep = .false., 
+ /
+
+ &FlowParameters
+ Re0Inv = 0,
+ Pr0 = 0.75,
+ Mach0 = 0.5,
+ uniformFreeStreamAOA =  0.0,
+ membranelocation     =  0.5, 
+ referenceWaveSpeed   =  0.25,
+ InitialCondition     = 'ExactSolutionIsentropicVortex',
+ /
+
+ &AerodynamicParameters
+ /
+
+ #non_conforming = .true.,
+ #p_refine_strategy = 17,
+ #SAT_type = 'mod_metric',
+ InitialCondition     = 'ExactSolutionViscousShock',
+ casefile = 'random_grid_009x009.symmetryPlane',
+ casefile = 'SquareCylinder.65x33x1',
+ casefile = 'SD7003AirfoilSharpTE.V18',
+ casefile = 'cylinder.65x33.new',
+ runcasename  = 'ExactSolutionIsentropicVortex',
+ InitialCondition     = 'ExactSolutionIsentropicVortex',
+ RK_Method = 'IMEX_RK_46',
+ IMEX_element = 'implicit',
+ IMEX_penalty = 'explicit',
+ casefile = 'cube.1x1x1',
+ casefile = 'vs.uns.8x4',
+ casefile = 'vs.uns.4x2',
+ casefile = 'cylinder.49x17'
+ casefile = 'OrthoCube1Blocks',
+ casefile = 'Cube_2D_Extrude_NonUniform_003x003x2',

@@ -1,0 +1,96 @@
+ &PreProcParameters
+ ndim = 3,
+ npoly = 6, 
+ npoly_DeltaF = 0,
+ non_conforming = .false.,
+ symmetric_metric = .true.,
+ hrefine = .true.,
+! p_refine_strategy = 14,!--semi_sphere_structured_extrude_2_element 
+!   p_refine_strategy = 15,!--semi_sphere_structured_extrude_3_element
+!   p_refine_strategy = 18,!--semi_sphere_structured_extrude_8_elements
+!   p_refine_strategy = 19,!--SnowFlake
+!  p_refine_strategy = 16,!-- sphere
+!  p_refine_strategy = 17,!-- othere sphere meshes
+! casefile = 'brick_structured1x1',
+! casefile = 'Triangle_3',
+! casefile = 'semi_sphere_structured_extrude_2_element',
+!  casefile = 'semi_sphere_structured_extrude_3_element',
+!  casefile = 'semi_sphere_structured_extrude_8_elements',
+!   casefile = 'Sphere',
+!  casefile = 'SnowFlake',
+  casefile = 'Sphere_Uniform_Orthogonal_002x002x002',
+!  casefile = 'one_block',
+! casefile = 'two_elements',
+! casefile = 'triangle',
+! casefile = 'one_block',
+! SAT_type = 'mod_metric',
+ SAT_type = 'mod_SAT',
+ grid_format = 'aflr3',
+ viscous = .false.,
+ crossterms = .true.,
+ discretization = 'SSDC',
+ Riemann_Diss  = 'Roe',
+ Riemann_Diss_BC = 'Roe',
+ entropy_flux_BC = 'Ismail_Roe',
+ Entropy_Correction = .false.,
+ l01 = -0.5,
+ l10 = -0.5,
+ variable_viscosity = .false.,
+ Grid_Topology = 'sphere',
+ radius = 1.7320508075688770, !-- for case Sphere
+! radius = 0.866025403784439, !-- for semi_sphere_structured_extrude case
+ origin(1:3) = 0.0,0.0,0.0,
+ /
+
+ &GeneralParameters
+! runcasename  = 'ExactSolutionViscousShock',
+ runcasename = 'UniformFreeStream',
+ solutionfile = 'ViscousShock',
+ outputfile = 'VS2D.V.4x2.',
+ new = .true.,
+ write_restart = .false.,
+ write_restart_dir = 'test_test',
+ write_restart_common_name = 'restart_p',
+ write_restart_formatted = .true.,
+ write_restart_frequency = 10000,
+ read_restart_dir = 'test_test',
+ read_restart_common_name = 'restart_p',
+ read_restart_time = '1.0000000000000E+02',
+ read_restart_formatted = .true.,
+ /
+
+ &RunParameters
+ timestep    =  0.00001000, 
+ timemaximum =  0.00005000,
+ verbose = .false., 
+ variabletimestep = .true., 
+ /
+
+ &FlowParameters
+ Re0inv = 0.0,
+ Pr0 = 0.75,
+ Mach0 = 2.5,
+ uniformFreeStreamAOA =  0.0,
+ membranelocation     =  0.5, 
+ referenceWaveSpeed   =  0.25,
+ InitialCondition     = 'PreserveFreeStream',
+ /
+
+ &AerodynamicParameters
+ /
+
+ casefile = 'random_grid_009x009.symmetryPlane',
+ casefile = 'SquareCylinder.65x33x1',
+ casefile = 'SD7003AirfoilSharpTE.V18',
+ casefile = 'cylinder.65x33.new',
+ runcasename  = 'ExactSolutionIsentropicVortex',
+ InitialCondition     = 'PreserveFreeStream',
+ RK_Method = 'IMEX_RK_46',
+ IMEX_element = 'implicit',
+ IMEX_penalty = 'explicit',
+ casefile = 'cube.1x1x1',
+ casefile = 'vs.uns.8x4',
+ casefile = 'vs.uns.4x2',
+ casefile = 'cylinder.49x17'
+ casefile = 'OrthoCube1Blocks',
+ casefile = 'Cube_2D_Extrude_NonUniform_008x008x2',

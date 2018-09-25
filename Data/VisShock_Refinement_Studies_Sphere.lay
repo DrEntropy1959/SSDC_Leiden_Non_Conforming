@@ -1,5 +1,5 @@
 #!MC 1410
-$!VarSet |LFDSFN1| = '"VisShock_Sphere_Grid.Convergence.Study_Conform_NxNxN_Grid.dat" "VisShock_Sphere_Grid.Convergence.Study_NonConform_NxNxN_Grid_Mod_SAT.dat"'
+$!VarSet |LFDSFN1| = '"VisShock_Sphere_Grid.Convergence.Study_Conform_NxNxN_Grid.dat" "VisShock_Sphere_Grid.Convergence.Study_NonConform_NxNxN_Grid_Mod_Metric.dat" "VisShock_Sphere_Grid.Convergence.Study_NonConform_NxNxN_Grid_Mod_SAT.dat"'
 $!VarSet |LFDSVL1| = '"Grid" "L1 error" "L2 error" "Linf error" "CPU_time"'
 $!SetStyleBase Factory
 $!GlobalPaper 
@@ -64,7 +64,7 @@ $!FrameName  = 'Frame 001'
 $!GlobalTime 
   SolutionTime = 0
 $!DeleteLineMaps 
-$!ActiveLineMaps  =  [1-12]
+$!ActiveLineMaps  =  [1-18]
 $!GlobalLinePlot 
   DataLabels
     {
@@ -83,8 +83,8 @@ $!GlobalLinePlot
       }
     XYPos
       {
-      X = 39.839
-      Y = 43.316
+      X = 32.328
+      Y = 47.157
       }
     }
 $!LineMap  [1]
@@ -93,7 +93,7 @@ $!LineMap  [1]
     {
     Zone = 1
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
@@ -122,7 +122,7 @@ $!LineMap  [2]
     {
     Zone = 2
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
@@ -151,7 +151,7 @@ $!LineMap  [3]
     {
     Zone = 3
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
@@ -180,7 +180,7 @@ $!LineMap  [4]
     {
     Zone = 4
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
@@ -209,7 +209,7 @@ $!LineMap  [5]
     {
     Zone = 5
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
@@ -238,7 +238,7 @@ $!LineMap  [6]
     {
     Zone = 6
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
@@ -262,26 +262,26 @@ $!LineMap  [6]
     Color = Purple
     }
 $!LineMap  [7]
-  Name = 'P1:Mod_SAT'
+  Name = 'P1: Mod_Metric'
   Assign
     {
     Zone = 7
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
-    Color = Black
-    LinePattern = DashDotDot
+    Color = Blue
+    LinePattern = Dashed
     LineThickness = 0.4
     }
   Symbols
     {
     SymbolShape
       {
-      GeomShape = Circle
+      GeomShape = Del
       }
-    Color = Black
+    Color = Blue
     FillColor = Red
     Size = 1
     LineThickness = 0.15
@@ -301,21 +301,21 @@ $!LineMap  [8]
     {
     Zone = 8
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
-    Color = Black
-    LinePattern = DashDotDot
+    Color = Blue
+    LinePattern = Dashed
     LineThickness = 0.4
     }
   Symbols
     {
     SymbolShape
       {
-      GeomShape = Circle
+      GeomShape = Del
       }
-    Color = Black
+    Color = Blue
     FillColor = Green
     Size = 1
     LineThickness = 0.15
@@ -335,21 +335,21 @@ $!LineMap  [9]
     {
     Zone = 9
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
-    Color = Black
-    LinePattern = DashDotDot
+    Color = Blue
+    LinePattern = Dashed
     LineThickness = 0.4
     }
   Symbols
     {
     SymbolShape
       {
-      GeomShape = Circle
+      GeomShape = Del
       }
-    Color = Black
+    Color = Blue
     FillColor = Blue
     Size = 1
     LineThickness = 0.15
@@ -369,21 +369,21 @@ $!LineMap  [10]
     {
     Zone = 10
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
-    Color = Black
-    LinePattern = DashDotDot
+    Color = Blue
+    LinePattern = Dashed
     LineThickness = 0.4
     }
   Symbols
     {
     SymbolShape
       {
-      GeomShape = Circle
+      GeomShape = Del
       }
-    Color = Black
+    Color = Blue
     FillColor = Custom1
     Size = 1
     LineThickness = 0.15
@@ -403,7 +403,211 @@ $!LineMap  [11]
     {
     Zone = 11
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
+    }
+  Lines
+    {
+    Color = Blue
+    LinePattern = Dashed
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Del
+      }
+    Color = Blue
+    FillColor = Custom3
+    Size = 1
+    LineThickness = 0.15
+    }
+  BarCharts
+    {
+    Color = Custom3
+    FillColor = Custom3
+    }
+  ErrorBars
+    {
+    Color = Custom3
+    }
+$!LineMap  [12]
+  Name = 'P6:Mod_Metric'
+  Assign
+    {
+    Zone = 12
+    XAxisVar = 1
+    YAxisVar = 4
+    }
+  Lines
+    {
+    Color = Blue
+    LinePattern = Dashed
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Del
+      }
+    Color = Blue
+    FillColor = Purple
+    Size = 1
+    LineThickness = 0.15
+    }
+  BarCharts
+    {
+    Color = Purple
+    FillColor = Purple
+    }
+  ErrorBars
+    {
+    Color = Purple
+    }
+$!LineMap  [13]
+  Name = 'P1:Mod_SAT'
+  Assign
+    {
+    Zone = 13
+    XAxisVar = 1
+    YAxisVar = 4
+    }
+  Lines
+    {
+    Color = Black
+    LinePattern = DashDotDot
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Black
+    FillColor = Red
+    Size = 1
+    LineThickness = 0.15
+    }
+  BarCharts
+    {
+    Color = Red
+    FillColor = Red
+    }
+  ErrorBars
+    {
+    Color = Red
+    }
+$!LineMap  [14]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 14
+    XAxisVar = 1
+    YAxisVar = 4
+    }
+  Lines
+    {
+    Color = Black
+    LinePattern = DashDotDot
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Black
+    FillColor = Green
+    Size = 1
+    LineThickness = 0.15
+    }
+  BarCharts
+    {
+    Color = Green
+    FillColor = Green
+    }
+  ErrorBars
+    {
+    Color = Green
+    }
+$!LineMap  [15]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 15
+    XAxisVar = 1
+    YAxisVar = 4
+    }
+  Lines
+    {
+    Color = Black
+    LinePattern = DashDotDot
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Black
+    FillColor = Blue
+    Size = 1
+    LineThickness = 0.15
+    }
+  BarCharts
+    {
+    Color = Blue
+    FillColor = Blue
+    }
+  ErrorBars
+    {
+    Color = Blue
+    }
+$!LineMap  [16]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 16
+    XAxisVar = 1
+    YAxisVar = 4
+    }
+  Lines
+    {
+    Color = Black
+    LinePattern = DashDotDot
+    LineThickness = 0.4
+    }
+  Symbols
+    {
+    SymbolShape
+      {
+      GeomShape = Circle
+      }
+    Color = Black
+    FillColor = Custom1
+    Size = 1
+    LineThickness = 0.15
+    }
+  BarCharts
+    {
+    Color = Custom1
+    FillColor = Custom1
+    }
+  ErrorBars
+    {
+    Color = Custom1
+    }
+$!LineMap  [17]
+  Name = '&ZN&'
+  Assign
+    {
+    Zone = 17
+    XAxisVar = 1
+    YAxisVar = 4
     }
   Lines
     {
@@ -431,13 +635,13 @@ $!LineMap  [11]
     {
     Color = Custom3
     }
-$!LineMap  [12]
+$!LineMap  [18]
   Name = 'P6:Mod_SAT'
   Assign
     {
-    Zone = 12
+    Zone = 18
     XAxisVar = 1
-    YAxisVar = 2
+    YAxisVar = 4
     }
   Lines
     {
@@ -512,7 +716,7 @@ $!XYLineAxis
     Title
       {
       TitleMode = UseText
-      Text = 'Error (L<sub>1</sub>)'
+      Text = 'Error (L<sub>inf</sub>)'
       TextShape
         {
         Height = 4.6
