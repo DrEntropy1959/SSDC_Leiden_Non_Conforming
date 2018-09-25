@@ -40,7 +40,7 @@ cp zerodat NS_Convergence.Data.VS.Pencil_Uniform_1x1_SSDC_GoldenWENO_Element.csv
        mpirun -np  2 nice -19 ./SSDCNSE > tmp88 ;
        elif [ $var2 -ge 016 ] 
        then
-       mpirun -np  4 nice -19 ./SSDCNSE > tmp88 ;
+       mpirun -np  3 nice -19 ./SSDCNSE > tmp88 ;
        fi
        cp NS_Convergence.Data.VS.Pencil_Uniform_1x1_SSDC_GoldenWENO_Element.csv tmp87
        cat tmp87 tmp88 > NS_Convergence.Data.VS.Pencil_Uniform_1x1_SSDC_GoldenWENO_Element.csv

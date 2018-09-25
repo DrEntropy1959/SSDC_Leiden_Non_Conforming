@@ -215,6 +215,7 @@ contains
 
     subroutine element_properties(ielem,                                     &
                                    n_pts_1d, n_pts_2d, n_pts_3d, x_pts_1d,   &
+!                                  n_Gau_1d, n_Gau_2d, n_Gau_3d, x_Gau_1d,   &
                                    pinv, qmat, dmat, iagrad, jagrad, dagrad, &
                                    pmat, nnzgrad, pvol, p_surf,              &
                                    kfacenodes, ifacenodes)
@@ -256,6 +257,7 @@ contains
     integer,                                            intent(in   ) :: ielem
 
     integer,                                  optional, intent(inout) :: n_pts_1d, n_pts_2d, n_pts_3d
+!   integer,                                  optional, intent(inout) :: n_Gau_1d, n_Gau_2d, n_Gau_3d
     real(wp), dimension(:,:),    allocatable, optional, intent(inout) :: dmat, qmat
 
     integer,  dimension(:),      allocatable, optional, intent(inout) :: iagrad
@@ -272,12 +274,18 @@ contains
     integer,  dimension(:),      allocatable, optional, intent(inout) :: ifacenodes
 
     real(wp), dimension(:),      allocatable, optional, intent(inout) :: x_pts_1d
+!   real(wp), dimension(:),      allocatable, optional, intent(inout) :: x_Gau_1d
     
     if(elem_props(1,ielem) == 1) then 
       if    (elem_props(2,ielem) == npoly+1) then
         if(present(n_pts_1d))then; n_pts_1d = n_LGL_1d_p0 ; endif
         if(present(n_pts_2d))then; n_pts_2d = n_LGL_2d_p0 ; endif
         if(present(n_pts_3d))then; n_pts_3d = n_LGL_3d_p0 ; endif
+
+!       if(present(n_Gau_1d))then; n_Gau_1d = n_Gau_1d_p0 ; endif
+!       if(present(n_Gau_2d))then; n_Gau_2d = n_Gau_2d_p0 ; endif
+!       if(present(n_Gau_3d))then; n_Gau_3d = n_Gau_3d_p0 ; endif
+
         if(present(nnzgrad ))then; nnzgrad  =  nnzgrad_p0 ; endif
 
       elseif(elem_props(2,ielem) == npoly+2) then

@@ -12,7 +12,8 @@ cp zerodat Euler_Convergence.Data.VS.Sphere_NxNxN_Grids_P_Poly_Mod_SAT_Non_Confo
        cat SSDCstartup.ref    | sed 's/NPoly/'${var1}'/g' | sed 's/PTS/'${var2}'/g' > SSDCstartup
        if   [ $var2 -le 3 ] 
        then
-           mpirun -np ${var2} nice -19 ./SSDCNSE > tmp88
+          #mpirun -np ${var2} nice -19 ./SSDCNSE > tmp88
+           mpirun -np 4 nice -19 ./SSDCNSE > tmp88
        elif [ $var2 -ge 4 ] 
        then
            mpirun -np 4 nice -19 ./SSDCNSE > tmp88
